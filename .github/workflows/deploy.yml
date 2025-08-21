@@ -1,0 +1,40 @@
+name: Deploy LMS
+
+on:
+  push:
+    branches:
+      - main   # faqat main branch'ga push bo'lsa deploy bo'ladi
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Deploy to server via SSH
+        uses: appleboy/ssh-action@v0.1.10
+        with:
+          host: 45.138.159.166
+          username: deploy
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            cd /var/www/lms
+
+            echo ">>> Backend update"
+            cd backend
+            git pull origin main
+            npm install --legacy-peer-deps
+            npm run build
+            npm run migration:run
+            sudo systemctl restart lms-backend
+
+            echo ">>> Frontend update"
+            cd ../frontend
+            git pull origin main
+            npm install --legacy-peer-deps
+            npm run build
+
+            echo ">>> Nginx reload"
+            sudo systemctl reload nginx
