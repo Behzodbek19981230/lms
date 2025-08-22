@@ -1,29 +1,27 @@
-import { Entity, Column, ManyToOne, JoinColumn } from "typeorm"
-import { BaseEntity } from "../../common/entities/base.entity"
-import { Question } from "./question.entity"
+import { Column, Entity, JoinColumn, ManyToOne } from 'typeorm';
+import { BaseEntity } from '../../common/entities/base.entity';
+import { Question } from './question.entity';
 
-@Entity("answers")
+@Entity('answers')
 export class Answer extends BaseEntity {
   @Column()
-  text: string
+  text: string;
 
   @Column({ default: false })
-  isCorrect: boolean
+  isCorrect: boolean;
 
   @Column({ default: 0 })
-  order: number
+  order: number;
 
   @Column({ default: false })
-  hasFormula: boolean
+  hasFormula: boolean;
 
   @Column({ nullable: true })
-  explanation: string
+  explanation: string;
 
-  @ManyToOne(
-    () => Question,
-    (question) => question.answers,
-    { onDelete: "CASCADE" },
-  )
-  @JoinColumn({ name: "questionId" })
-  question: Question
+  @ManyToOne(() => Question, (question) => question.answers, {
+    onDelete: 'CASCADE',
+  })
+  @JoinColumn({ name: 'questionId' })
+  question: Question;
 }
