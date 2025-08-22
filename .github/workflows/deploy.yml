@@ -10,10 +10,6 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
-        with:
-          host: 45.138.159.166
-          username: deploy
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
 
       - name: Backend update
         run: |
@@ -22,7 +18,7 @@ jobs:
           npm install --legacy-peer-deps
           npm run build
           npm run migration:run
-          echo "${{ secrets.SERVER_PASS }}" | sudo -S systemctl restart lms-backend
+          sudo systemctl restart lms-backend
 
       - name: Frontend update
         run: |
@@ -30,5 +26,4 @@ jobs:
           git pull origin main
           npm install --legacy-peer-deps
           npm run build
-          echo "${{ secrets.SERVER_PASS }}" | sudo -S systemctl reload nginx
-
+          sudo systemctl reload nginx
