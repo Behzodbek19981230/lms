@@ -6,10 +6,9 @@ on:
       - main
 
 jobs:
-  # ===== BACKEND CI =====
-  ci-backend:
+  # ===== BACKEND CI/CD =====
+  backend:
     runs-on: ubuntu-latest
-    if: contains(github.event.head_commit.message, 'backend') || contains(join(github.event.commits.*.modified, ','), 'backend/')
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -25,12 +24,6 @@ jobs:
           npm run build
           npm test
 
-  # ===== BACKEND CD =====
-  cd-backend:
-    runs-on: ubuntu-latest
-    needs: ci-backend
-    if: ${{ needs.ci-backend.result == 'success' }}
-    steps:
       - name: Deploy Backend via SSH
         uses: appleboy/ssh-action@v0.1.10
         with:
@@ -45,10 +38,10 @@ jobs:
             /usr/bin/npm run migration:run
             echo "${{ secrets.SERVER_PASS }}" | sudo -S systemctl restart lms-backend
 
-  # ===== FRONTEND CI =====
-  ci-frontend:
+  # ===== FRONTEND CI/CD =====
+  frontend:
     runs-on: ubuntu-latest
-    if: contains(github.event.head_commit.message, 'frontend') || contains(join(github.event.commits.*.modified, ','), 'frontend/')
+    needs: backend
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -63,12 +56,6 @@ jobs:
           cd frontend
           npm run build
 
-  # ===== FRONTEND CD =====
-  cd-frontend:
-    runs-on: ubuntu-latest
-    needs: ci-frontend
-    if: ${{ needs.ci-frontend.result == 'success' }}
-    steps:
       - name: Deploy Frontend via SSH
         uses: appleboy/ssh-action@v0.1.10
         with:
