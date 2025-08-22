@@ -32,9 +32,9 @@ jobs:
           script: |
             cd /var/www/lms/backend
             git pull origin main
-            /usr/bin/npm install --legacy-peer-deps
-            /usr/bin/npm run build
-            /usr/bin/npm run migration:run
+            npm install --legacy-peer-deps
+            npm run build
+            npm run migration:run
             echo "${{ secrets.SERVER_PASS }}" | sudo -S systemctl restart lms-backend
 
   # ===== FRONTEND CI/CD =====
@@ -64,6 +64,6 @@ jobs:
           script: |
             cd /var/www/lms/frontend
             git pull origin main
-            /usr/bin/npm install --legacy-peer-deps
-            /usr/bin/npm run build
+            npm install --legacy-peer-deps
+            npm run build
             echo "${{ secrets.SERVER_PASS }}" | sudo -S systemctl reload nginx
