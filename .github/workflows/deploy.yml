@@ -35,6 +35,8 @@ jobs:
             export PATH=$NVM_DIR/versions/node/v22.18.0/bin:$PATH
 
             cd /var/www/lms/backend
+            git reset --hard
+            git clean -fd
             git pull origin main
             npm install --legacy-peer-deps
             npm run build
