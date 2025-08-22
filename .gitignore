@@ -27,3 +27,4 @@ dist-ssr
 # Dependency directories
 backend/node_modules
 backend/dist
+backend/src/migrations
