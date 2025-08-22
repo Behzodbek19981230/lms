@@ -18,7 +18,7 @@ jobs:
           cd backend
           npm install --legacy-peer-deps
 
-      - name: Build & Test backend
+      - name: Build backend
         run: |
           cd backend
           npm run build
@@ -32,12 +32,18 @@ jobs:
           script: |
             export NVM_DIR="$HOME/.nvm"
             [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+            export PATH=$NVM_DIR/versions/node/v22.18.0/bin:$PATH
+
             cd /var/www/lms/backend
             git pull origin main
             npm install --legacy-peer-deps
             npm run build
             npm run migration:run
-            echo "${{ secrets.SERVER_PASS }}" | sudo -S systemctl restart lms-backend
+
+            # pm2 bilan ishga tushirish / restart
+            pm2 delete lms-backend || echo "Old process not found"
+            pm2 start npm --name "lms-backend" -- run start:prod || pm2 restart lms-backend
+            pm2 save
 
   # ===== FRONTEND CI/CD =====
   frontend:
@@ -66,6 +72,8 @@ jobs:
           script: |
             export NVM_DIR="$HOME/.nvm"
             [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+            export PATH=$NVM_DIR/versions/node/v22.18.0/bin:$PATH
+
             cd /var/www/lms/frontend
             git pull origin main
             npm install --legacy-peer-deps
