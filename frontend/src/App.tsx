@@ -15,6 +15,7 @@ import {ProtectedRoute} from "@/components/ProtectedRoute.tsx";
 import {DashboardLayout} from "@/components/dashboard/dashboard-layout.tsx";
 import {AuthProvider} from "@/contexts/AuthContext.tsx";
 import CreateTestPage from "@/pages/test/create.tsx";
+import Subjects from "@/pages/directory/Subjects.tsx";
 
 const queryClient = new QueryClient();
 
@@ -43,6 +44,7 @@ const App = () => (
                             <Route path="admin" element={<CenterAdminDashboard/>}/>
                             <Route path="teacher" element={<TeacherDashboard/>}/>
                             <Route path='test/create' element={<CreateTestPage/>}/>
+                            <Route path='subjects' element={<Subjects/>}/>
                             <Route path="student" element={<StudentDashboard/>}/>
                         </Route>
 

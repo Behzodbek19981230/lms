@@ -1,11 +1,11 @@
 import {Button} from "@/components/ui/button";
 import {BookOpen, Menu, X} from "lucide-react";
 import {useState} from "react";
-import {Link} from "react-router-dom";
+import {Link, useNavigate} from "react-router-dom";
 
 const Header = () => {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
-
+    const navigate = useNavigate();
     return (
         <header className="fixed top-0 w-full bg-white/95 backdrop-blur-sm border-b border-border z-50">
             <div className="container mx-auto px-4 py-4 flex items-center justify-between">
@@ -67,7 +67,9 @@ const Header = () => {
                                 Aloqa
                             </a>
                             <div className="flex flex-col space-y-2 pt-4">
-                                <Button variant="ghost">Kirish</Button>
+                                <Button variant="ghost" onClick={
+                                    () => navigate('/login')
+                                }>Kirish</Button>
                                 <Button variant="hero">Bepul sinab ko'ring</Button>
                             </div>
                         </nav>

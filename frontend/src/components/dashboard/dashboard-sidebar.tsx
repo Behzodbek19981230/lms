@@ -8,19 +8,14 @@ import {
     SidebarMenu,
     SidebarMenuButton,
     SidebarMenuItem,
+    SidebarMenuSub,
+    SidebarMenuSubButton,
+    SidebarMenuSubItem,
     useSidebar,
 } from "@/components/ui/sidebar";
-import {Award, LayoutDashboard, MessageSquare, Settings, Users} from "lucide-react";
+import {Award, FolderOpen, LayoutDashboard, MessageSquare, Settings, Users,} from "lucide-react";
 import {useAuth} from "@/contexts/AuthContext";
-
-
-// const mainItems = [
-//     { title: "Dashboard", url: "/account/superadmin", icon: LayoutDashboard },
-//     { title: "Courses", url: "/dashboard/courses", icon: BookOpen },
-//     { title: "Students", url: "/dashboard/students", icon: Users },
-//     { title: "Analytics", url: "/dashboard/analytics", icon: BarChart3 },
-//     { title: "Reports", url: "/dashboard/reports", icon: FileText },
-// ];
+import {useState} from "react";
 
 const adminItems = [
     {title: "User Management", url: "/dashboard/users", icon: Users},
@@ -36,6 +31,16 @@ const centerAdminMenuItems = [
 ];
 const teacherMenuItems = [
     {title: "Dashboard", url: "/account/teacher", icon: LayoutDashboard},
+    {
+        title: "Katalog",
+        icon: FolderOpen,
+        children: [
+            {
+                title: "Mening fanlarim",
+                url: "/account/subjects",
+            },
+        ],
+    },
 ];
 const studentMenuItems = [
     {title: "Dashboard", url: "/account/student", icon: LayoutDashboard},
@@ -48,9 +53,8 @@ export function DashboardSidebar() {
     const currentPath = location.pathname;
 
     const isActive = (path: string) => {
-        if (path === "/account") {
-            return currentPath === "/account";
-        }
+        if (!path) return false;
+        if (path === "/account") return currentPath === "/account";
         return currentPath.startsWith(path);
     };
 
@@ -61,14 +65,26 @@ export function DashboardSidebar() {
     };
 
     const isCollapsed = state === "collapsed";
-    const isSuperAdmin = user?.role === 'superadmin';
-    const isCenterAdmin = user?.role === 'admin';
-    const isTeacher = user?.role === 'teacher';
-    const isStudent = user?.role === 'student';
-    const mainItems = isSuperAdmin ? superAdminMenuItems :
-        isCenterAdmin ? centerAdminMenuItems :
-            isTeacher ? teacherMenuItems :
-                isStudent ? studentMenuItems : [];
+    const isSuperAdmin = user?.role === "superadmin";
+    const isCenterAdmin = user?.role === "admin";
+    const isTeacher = user?.role === "teacher";
+    const isStudent = user?.role === "student";
+
+    const mainItems = isSuperAdmin
+        ? superAdminMenuItems
+        : isCenterAdmin
+            ? centerAdminMenuItems
+            : isTeacher
+                ? teacherMenuItems
+                : isStudent
+                    ? studentMenuItems
+                    : [];
+
+    const [openMenus, setOpenMenus] = useState<Record<string, boolean>>({});
+
+    const toggleMenu = (title: string) => {
+        setOpenMenus((prev) => ({...prev, [title]: !prev[title]}));
+    };
 
     return (
         <Sidebar collapsible="icon">
@@ -77,45 +93,64 @@ export function DashboardSidebar() {
                     <SidebarGroupLabel>Main Menu</SidebarGroupLabel>
                     <SidebarGroupContent>
                         <SidebarMenu>
-                            {mainItems.map((item) => (
-                                <SidebarMenuItem key={item.title}>
-                                    <SidebarMenuButton asChild>
-                                        <NavLink
-                                            to={item.url}
-                                            className={getNavClass(item.url)}
+                            {mainItems.map((item) => {
+                                const isOpen = openMenus[item.title] || false;
+                                const hasChildren = !!item.children;
+
+                                return (
+                                    <SidebarMenuItem key={item.title}>
+                                        <SidebarMenuButton
+                                            onClick={() => hasChildren && toggleMenu(item.title)}
+                                            asChild={!hasChildren}
                                         >
-                                            <item.icon className="mr-2 h-4 w-4"/>
-                                            {!isCollapsed && <span>{item.title}</span>}
-                                        </NavLink>
-                                    </SidebarMenuButton>
-                                </SidebarMenuItem>
-                            ))}
+                                            {hasChildren ? (
+                                                <button
+                                                    className={`flex items-center w-full ${getNavClass(
+                                                        item.url || ""
+                                                    )}`}
+                                                >
+                                                    <item.icon className="mr-2 h-4 w-4"/>
+                                                    {!isCollapsed && <span>{item.title}</span>}
+                                                    {!isCollapsed && (
+                                                        <span className="ml-auto">
+                              {isOpen ? "▾" : "▸"}
+                            </span>
+                                                    )}
+                                                </button>
+                                            ) : (
+                                                <NavLink
+                                                    to={item.url}
+                                                    className={`flex items-center w-full ${getNavClass(
+                                                        item.url || ""
+                                                    )}`}
+                                                >
+                                                    <item.icon className="mr-2 h-4 w-4"/>
+                                                    {!isCollapsed && <span>{item.title}</span>}
+                                                </NavLink>
+                                            )}
+                                        </SidebarMenuButton>
+
+                                        {/* Child menu */}
+                                        {hasChildren && isOpen && (
+                                            <SidebarMenuSub>
+                                                {item.children.map((child) => (
+                                                    <SidebarMenuSubItem key={child.title}>
+                                                        <SidebarMenuSubButton
+                                                            asChild
+                                                            className={getNavClass(child.url)}
+                                                        >
+                                                            <NavLink to={child.url}>{child.title}</NavLink>
+                                                        </SidebarMenuSubButton>
+                                                    </SidebarMenuSubItem>
+                                                ))}
+                                            </SidebarMenuSub>
+                                        )}
+                                    </SidebarMenuItem>
+                                );
+                            })}
                         </SidebarMenu>
                     </SidebarGroupContent>
                 </SidebarGroup>
-
-                {user?.role === 'superadmin' && (
-                    <SidebarGroup>
-                        <SidebarGroupLabel>Administration</SidebarGroupLabel>
-                        <SidebarGroupContent>
-                            <SidebarMenu>
-                                {adminItems.map((item) => (
-                                    <SidebarMenuItem key={item.title}>
-                                        <SidebarMenuButton asChild>
-                                            <NavLink
-                                                to={item.url}
-                                                className={getNavClass(item.url)}
-                                            >
-                                                <item.icon className="mr-2 h-4 w-4"/>
-                                                {!isCollapsed && <span>{item.title}</span>}
-                                            </NavLink>
-                                        </SidebarMenuButton>
-                                    </SidebarMenuItem>
-                                ))}
-                            </SidebarMenu>
-                        </SidebarGroupContent>
-                    </SidebarGroup>
-                )}
             </SidebarContent>
         </Sidebar>
     );
