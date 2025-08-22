@@ -42,7 +42,7 @@ jobs:
 
             # pm2 bilan ishga tushirish / restart
             pm2 delete lms-backend || echo "Old process not found"
-            pm2 start npm --name "lms-backend" -- run start:prod || pm2 restart lms-backend
+            pm2 start npm --name "lms-backend" -- run start:prod -- --port 3003
             pm2 save
 
   # ===== FRONTEND CI/CD =====
