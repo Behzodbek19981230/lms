@@ -1,29 +1,83 @@
-name: Deploy LMS
+name: CI/CD LMS
 
 on:
   push:
-    branches: [ "main" ]
+    branches:
+      - main
 
 jobs:
-  deploy:
-    runs-on: self-hosted
+  # ===== BACKEND CI =====
+  ci-backend:
+    runs-on: ubuntu-latest
+    if: contains(github.event.head_commit.message, 'backend') || contains(join(github.event.commits.*.modified, ','), 'backend/')
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Backend update
+      - name: Install backend dependencies
         run: |
           cd backend
-          git pull origin main
           npm install --legacy-peer-deps
-          npm run build
-          npm run migration:run
-          sudo systemctl restart lms-backend
 
-      - name: Frontend update
+      - name: Build & Test backend
         run: |
-          cd ../frontend
-          git pull origin main
-          npm install --legacy-peer-deps
+          cd backend
           npm run build
-          sudo systemctl reload nginx
+          npm test
+
+  # ===== BACKEND CD =====
+  cd-backend:
+    runs-on: ubuntu-latest
+    needs: ci-backend
+    if: ${{ needs.ci-backend.result == 'success' }}
+    steps:
+      - name: Deploy Backend via SSH
+        uses: appleboy/ssh-action@v0.1.10
+        with:
+          host: 45.138.159.166
+          username: deploy
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            cd /var/www/lms/backend
+            git pull origin main
+            /usr/bin/npm install --legacy-peer-deps
+            /usr/bin/npm run build
+            /usr/bin/npm run migration:run
+            echo "${{ secrets.SERVER_PASS }}" | sudo -S systemctl restart lms-backend
+
+  # ===== FRONTEND CI =====
+  ci-frontend:
+    runs-on: ubuntu-latest
+    if: contains(github.event.head_commit.message, 'frontend') || contains(join(github.event.commits.*.modified, ','), 'frontend/')
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Install frontend dependencies
+        run: |
+          cd frontend
+          npm install --legacy-peer-deps
+
+      - name: Build frontend
+        run: |
+          cd frontend
+          npm run build
+
+  # ===== FRONTEND CD =====
+  cd-frontend:
+    runs-on: ubuntu-latest
+    needs: ci-frontend
+    if: ${{ needs.ci-frontend.result == 'success' }}
+    steps:
+      - name: Deploy Frontend via SSH
+        uses: appleboy/ssh-action@v0.1.10
+        with:
+          host: 45.138.159.166
+          username: deploy
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            cd /var/www/lms/frontend
+            git pull origin main
+            /usr/bin/npm install --legacy-peer-deps
+            /usr/bin/npm run build
+            echo "${{ secrets.SERVER_PASS }}" | sudo -S systemctl reload nginx
