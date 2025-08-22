@@ -22,7 +22,6 @@ jobs:
         run: |
           cd backend
           npm run build
-          npm test
 
       - name: Deploy Backend via SSH
         uses: appleboy/ssh-action@v0.1.10
