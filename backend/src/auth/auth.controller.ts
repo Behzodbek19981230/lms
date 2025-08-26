@@ -20,7 +20,6 @@ export class AuthController {
   @ApiResponse({ status: 409, description: 'Email allaqachon mavjud' })
   @ApiBody({ type: RegisterDto }) // 🔥 Majburiy qilamiz
   async register(@Body() registerDto: RegisterDto): Promise<AuthResponseDto> {
-    console.log('Registering user:', registerDto);
     return this.authService.register(registerDto);
   }
 
@@ -35,6 +34,7 @@ export class AuthController {
   @ApiResponse({ status: 401, description: "Email yoki parol noto'g'ri" })
   @ApiBody({ type: LoginDto }) // 🔥 Majburiy qilamiz
   async login(@Body() loginDto: LoginDto): Promise<AuthResponseDto> {
+    console.log('Logging in user:', loginDto);
     return this.authService.login(loginDto);
   }
 }
