@@ -25,7 +25,7 @@ async function bootstrap() {
   const config = new DocumentBuilder()
     .setTitle('EduNimbus Connect API')
     .setDescription(
-      'Backend API for EduNimbus Connect - Teacher Test Creation Platform',
+      'Backend API for EduNimbus  - Teacher Test Creation Platform',
     )
     .setVersion('1.0')
     .addBearerAuth()
