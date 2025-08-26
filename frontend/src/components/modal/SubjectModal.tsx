@@ -63,10 +63,7 @@ export const SubjectModal = ({ open, setOpen, defaultValues }: Props) => {
 					<DialogTitle>Yangi fan qo'shish</DialogTitle>
 				</DialogHeader>
 
-				<form
-					onSubmit={handleSubmit(onSubmit)}
-					className='space-y-6 max-w-md mx-auto p-6 bg-white rounded-2xl shadow'
-				>
+				<form onSubmit={handleSubmit(onSubmit)} className='grid gap-4 py-4'>
 					<div>
 						<Label htmlFor='name'>Nomi</Label>
 						<Controller

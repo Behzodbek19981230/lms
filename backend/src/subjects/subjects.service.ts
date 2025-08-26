@@ -4,12 +4,13 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import type { Repository } from 'typeorm';
-import { Subject } from './entities/subject.entity';
-import type { CreateSubjectDto } from './dto/create-subject.dto';
-import type { UpdateSubjectDto } from './dto/update-subject.dto';
-import type { SubjectResponseDto } from './dto/subject-response.dto';
 import { InjectRepository } from '@nestjs/typeorm';
-import { User } from '../users/entities/user.entity';
+import { Subject } from './entities/subject.entity';
+import { CreateSubjectDto } from './dto/create-subject.dto';
+import { UpdateSubjectDto } from './dto/update-subject.dto';
+import { SubjectResponseDto } from './dto/subject-response.dto';
+import { User, UserRole } from '../users/entities/user.entity';
+import { Center } from '../centers/entities/center.entity';
 
 @Injectable()
 export class SubjectsService {
@@ -19,175 +20,213 @@ export class SubjectsService {
 
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
+
+    @InjectRepository(Center)
+    private readonly centerRepository: Repository<Center>,
   ) {}
 
+  /** SUBJECT YARATISH */
   async create(
     createSubjectDto: CreateSubjectDto,
-    userid: number,
+    userId: number,
   ): Promise<SubjectResponseDto> {
     const user = await this.userRepository.findOne({
-      where: { id: userid },
-      relations: ['subjects'],
+      where: { id: userId },
+      relations: ['center', 'subjects'],
     });
+    if (!user) throw new NotFoundException('Foydalanuvchi topilmadi');
 
-    if (!user) {
-      throw new NotFoundException("O'qituvchi topilmadi");
+    if (
+      ![UserRole.TEACHER, UserRole.ADMIN, UserRole.SUPERADMIN].includes(
+        user.role,
+      )
+    ) {
+      throw new ForbiddenException(
+        'Siz subject yaratishga ruxsatga ega emassiz',
+      );
     }
 
-    // Create new subject
-    const subject = this.subjectRepository.create(createSubjectDto);
+    const center = await this.centerRepository.findOne({
+      where: { id: createSubjectDto.centerId || user.center?.id },
+    });
+    if (!center) throw new NotFoundException('Markaz topilmadi');
+
+    const subject = this.subjectRepository.create({
+      ...createSubjectDto,
+      center,
+    });
     const savedSubject = await this.subjectRepository.save(subject);
 
-    // Associate subject with user
-    user.subjects.push(savedSubject);
-    await this.userRepository.save(user);
+    // Agar teacher bo'lsa, subjectni unga bog'laymiz
+    if (user.role === UserRole.TEACHER) {
+      user.subjects.push(savedSubject);
+      await this.userRepository.save(user);
+    }
 
     return this.mapToResponseDto(savedSubject);
   }
 
-  async findAllByTeacher(userid: number): Promise<SubjectResponseDto[]> {
+  /** BARCHA SUBJECTLARNI KO'RISH (teacher uchun faqat o'ziniki, admin uchun markazdagilari) */
+  async findAll(userId: number): Promise<SubjectResponseDto[]> {
     const user = await this.userRepository.findOne({
-      where: { id: userid },
-      relations: ['subjects'],
+      where: { id: userId },
+      relations: ['center', 'subjects'],
     });
+    if (!user) throw new NotFoundException('Foydalanuvchi topilmadi');
 
-    if (!user) {
-      throw new NotFoundException("O'qituvchi topilmadi");
+    let subjects: Subject[] = [];
+    if (user.role === UserRole.TEACHER) {
+      subjects = await this.subjectRepository.find({
+        where: { teachers: { id: user.id } },
+        relations: ['center'],
+      });
+    } else {
+      subjects = await this.subjectRepository.find({
+        where: { center: { id: user.center?.id } },
+        relations: ['center', 'teachers'],
+      });
     }
 
-    return user.subjects.map((subject) => this.mapToResponseDto(subject));
+    // eslint-disable-next-line @typescript-eslint/unbound-method
+    return subjects.map(this.mapToResponseDto);
   }
-  async findAll(userid: number): Promise<SubjectResponseDto[]> {
+
+  /** BITTA SUBJECTNI KO'RISH */
+  async findOne(id: number, userId: number): Promise<SubjectResponseDto> {
     const user = await this.userRepository.findOne({
-      where: { id: userid },
-      relations: ['subjects'],
+      where: { id: userId },
+      relations: ['center'],
     });
+    if (!user) throw new NotFoundException('Foydalanuvchi topilmadi');
 
-    if (!user) {
-      throw new NotFoundException("O'qituvchi topilmadi");
-    }
-
-    return user.subjects.map((subject) => this.mapToResponseDto(subject));
-  }
-
-  async findOne(id: number, userid: number): Promise<SubjectResponseDto> {
     const subject = await this.subjectRepository.findOne({
       where: { id },
-      relations: ['teachers', 'tests'],
+      relations: ['teachers', 'tests', 'center'],
     });
+    if (!subject) throw new NotFoundException('Fan topilmadi');
 
-    if (!subject) {
-      throw new NotFoundException('Fan topilmadi');
-    }
-
-    // Check if teacher has access to this subject
-    const hasAccess = subject.teachers.some((teacher) => teacher.id === userid);
-    if (!hasAccess) {
-      throw new ForbiddenException("Bu fanga ruxsatingiz yo'q");
+    if (user.role === UserRole.TEACHER) {
+      const hasAccess = subject.teachers.some((t) => t.id === user.id);
+      if (!hasAccess) throw new ForbiddenException("Bu fanga ruxsatingiz yo'q");
+    } else if (
+      user.role !== UserRole.ADMIN &&
+      user.role !== UserRole.SUPERADMIN
+    ) {
+      throw new ForbiddenException('Siz subjectni ko‘ra olmaysiz');
     }
 
     return this.mapToResponseDto(subject);
   }
 
+  /** SUBJECTNI TAHRIRLASH */
   async update(
     id: number,
-    updateSubjectDto: UpdateSubjectDto,
-    userid: number,
+    dto: UpdateSubjectDto,
+    userId: number,
   ): Promise<SubjectResponseDto> {
     const subject = await this.subjectRepository.findOne({
       where: { id },
-      relations: ['teachers'],
+      relations: ['teachers', 'center'],
     });
+    if (!subject) throw new NotFoundException('Fan topilmadi');
 
-    if (!subject) {
-      throw new NotFoundException('Fan topilmadi');
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+      relations: ['center'],
+    });
+    if (!user) throw new NotFoundException('Foydalanuvchi topilmadi');
+
+    // Ruxsatlarni tekshirish
+    if (user.role === UserRole.TEACHER) {
+      const hasAccess = subject.teachers.some((t) => t.id === user.id);
+      if (!hasAccess) throw new ForbiddenException("Bu fanga ruxsatingiz yo'q");
+    } else if (
+      user.role !== UserRole.ADMIN &&
+      user.role !== UserRole.SUPERADMIN
+    ) {
+      throw new ForbiddenException(
+        'Siz subjectni tahrirlashga ruxsatga ega emassiz',
+      );
     }
 
-    // Check if teacher has access to this subject
-    const hasAccess = subject.teachers.some((teacher) => teacher.id === userid);
-    if (!hasAccess) {
-      throw new ForbiddenException("Bu fanga ruxsatingiz yo'q");
-    }
-
-    // Update subject
-    Object.assign(subject, updateSubjectDto);
+    Object.assign(subject, dto);
     const updatedSubject = await this.subjectRepository.save(subject);
-
     return this.mapToResponseDto(updatedSubject);
   }
 
-  async remove(id: number, userid: number): Promise<void> {
+  /** SUBJECTNI O'CHIRISH */
+  async remove(id: number, userId: number): Promise<void> {
     const subject = await this.subjectRepository.findOne({
       where: { id },
-      relations: ['teachers', 'tests'],
+      relations: ['teachers', 'tests', 'center'],
     });
+    if (!subject) throw new NotFoundException('Fan topilmadi');
 
-    if (!subject) {
-      throw new NotFoundException('Fan topilmadi');
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+      relations: ['center'],
+    });
+    if (!user) throw new NotFoundException('Foydalanuvchi topilmadi');
+
+    // Ruxsatlarni tekshirish
+    if (user.role === UserRole.TEACHER) {
+      const hasAccess = subject.teachers.some((t) => t.id === user.id);
+      if (!hasAccess) throw new ForbiddenException("Bu fanga ruxsatingiz yo'q");
+    } else if (
+      user.role !== UserRole.ADMIN &&
+      user.role !== UserRole.SUPERADMIN
+    ) {
+      throw new ForbiddenException('Siz subjectni o‘chira olmaysiz');
     }
 
-    // Check if teacher has access to this subject
-    const hasAccess = subject.teachers.some((teacher) => teacher.id === userid);
-    if (!hasAccess) {
-      throw new ForbiddenException("Bu fanga ruxsatingiz yo'q");
-    }
-
-    // Check if subject has tests
+    // Testlar mavjud bo'lsa, o'chirishga ruxsat yo'q
     if (subject.tests && subject.tests.length > 0) {
       throw new ForbiddenException(
         "Bu fanda testlar mavjud. Avval testlarni o'chiring",
       );
     }
 
-    // Remove teacher-subject association
-    const teacher = await this.userRepository.findOne({
-      where: { id: userid },
-      relations: ['subjects'],
-    });
-
-    if (teacher) {
-      teacher.subjects = teacher.subjects.filter((s) => s.id !== id);
-      await this.userRepository.save(teacher);
-    }
-
-    // If no other teachers are associated, delete the subject
-    const remainingTeachers = subject.teachers.filter((t) => t.id !== userid);
-    if (remainingTeachers.length === 0) {
-      await this.subjectRepository.remove(subject);
-    }
+    await this.subjectRepository.remove(subject);
   }
 
-  async getSubjectStats(userid: number): Promise<any> {
-    const teacher = await this.userRepository.findOne({
-      where: { id: userid },
-      relations: ['subjects', 'subjects.tests'],
+  /** SUBJECT STATISTIKASI (Teacher uchun faqat o'ziniki, Admin uchun markaz bo'yicha) */
+  async getSubjectStats(userId: number): Promise<any> {
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+      relations: ['center', 'subjects', 'subjects.tests'],
     });
+    if (!user) throw new NotFoundException('Foydalanuvchi topilmadi');
 
-    if (!teacher) {
-      throw new NotFoundException("O'qituvchi topilmadi");
+    let subjects: Subject[] = [];
+    if (user.role === UserRole.TEACHER) {
+      subjects = user.subjects;
+    } else if (
+      user.role === UserRole.ADMIN ||
+      user.role === UserRole.SUPERADMIN
+    ) {
+      subjects = await this.subjectRepository.find({
+        where: { center: { id: user.center?.id } },
+        relations: ['tests'],
+      });
     }
 
     const stats = {
-      totalSubjects: teacher.subjects.length,
-      activeSubjects: teacher.subjects.filter((s) => s.isActive).length,
-      subjectsWithFormulas: teacher.subjects.filter((s) => s.hasFormulas)
-        .length,
-      totalTests: teacher.subjects.reduce(
-        (sum, subject) => sum + (subject.tests?.length || 0),
-        0,
-      ),
+      totalSubjects: subjects.length,
+      activeSubjects: subjects.filter((s) => s.isActive).length,
+      subjectsWithFormulas: subjects.filter((s) => s.hasFormulas).length,
+      totalTests: subjects.reduce((sum, s) => sum + (s.tests?.length || 0), 0),
       subjectsByCategory: {} as Record<string, number>,
     };
 
-    // Count subjects by category
-    teacher.subjects.forEach((subject) => {
-      stats.subjectsByCategory[subject.category] =
-        (stats.subjectsByCategory[subject.category] || 0) + 1;
+    subjects.forEach((s) => {
+      stats.subjectsByCategory[s.category] =
+        (stats.subjectsByCategory[s.category] || 0) + 1;
     });
 
     return stats;
   }
 
+  /** DTO GA MAP QILISH */
   private mapToResponseDto(subject: Subject): SubjectResponseDto {
     return {
       id: subject.id,

@@ -1,13 +1,12 @@
+import { CenterType } from './center.type';
+
 export type UserType = {
 	id: number;
-	name: string;
 	email: string;
-	password: string;
-	image?: string;
-	createdAt: Date;
-	updatedAt: Date;
-	isActive: boolean;
-	lastLogin?: Date; // Optional field for last login time
+	firstName: string;
+	lastName: string;
+	fullName: string;
 	role: RolesType;
+	center: CenterType | null;
 };
 export type RolesType = 'superadmin' | 'admin' | 'teacher' | 'student';

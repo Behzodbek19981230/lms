@@ -15,7 +15,7 @@ import {
 } from '@/components/ui/sidebar';
 import { Award, FolderOpen, LayoutDashboard, MessageSquare, Settings, Users } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 const adminItems = [
 	{ title: 'User Management', url: '/dashboard/users', icon: Users },

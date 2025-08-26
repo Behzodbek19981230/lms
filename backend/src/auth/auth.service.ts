@@ -89,17 +89,17 @@ export class AuthService {
 
     const payload = { sub: user.id, email: user.email, role: user.role };
     const access_token = this.jwtService.sign(payload);
+    const userData = await this.userRepository.findOne({
+      where: { id: user.id },
+      relations: ['subjects', 'center'],
+    });
+    if (!userData) {
+      throw new UnauthorizedException('Foydalanuvchi topilmadi');
+    }
 
     return {
       access_token,
-      user: {
-        id: user.id,
-        email: user.email,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        fullName: user.firstName + ' ' + user.lastName,
-        role: user.role,
-      },
+      user: userData,
     };
   }
 

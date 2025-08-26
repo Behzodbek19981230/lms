@@ -26,4 +26,8 @@ export class CreateSubjectDto {
   @ApiProperty({ example: true, description: 'Fanda formulalar ishlatilishi' })
   @IsBoolean()
   hasFormulas: boolean;
+
+  @ApiProperty({ example: 1, description: 'Markaz IDsi' })
+  @IsNotEmpty()
+  centerId: number;
 }
