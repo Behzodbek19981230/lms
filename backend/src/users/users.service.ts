@@ -1,55 +1,57 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import type { Repository } from 'typeorm';
-import { User, UserRole } from './entities/user.entity';
+import { User } from './entities/user.entity';
 import { InjectRepository } from '@nestjs/typeorm';
+import { Center } from 'src/centers/entities/center.entity';
+import { CreateUserDto } from './dto/create-user.dto';
 
 @Injectable()
 export class UsersService {
   constructor(
     @InjectRepository(User)
     private userRepository: Repository<User>,
+    @InjectRepository(Center)
+    private centerRepository: Repository<Center>,
   ) {}
 
-  async findByEmail(email: string): Promise<User | null> {
-    return this.userRepository.findOne({
-      where: { email },
-      relations: ['subjects', 'tests'],
-    });
-  }
+  async create(dto: CreateUserDto): Promise<User> {
+    const center = dto.centerId
+      ? await this.centerRepository.findOne({ where: { id: dto.centerId } })
+      : undefined;
 
-  async findById(id: number): Promise<User> {
-    const user = await this.userRepository.findOne({
-      where: { id },
-      relations: ['subjects', 'tests'],
-    });
-
-    if (!user) {
-      throw new NotFoundException('User not found');
-    }
-
-    return user;
-  }
-
-  async create(userData: Partial<User>): Promise<User> {
-    const user = this.userRepository.create(userData);
+    const user = this.userRepository.create(
+      center ? { ...dto, center } : { ...dto },
+    );
     return this.userRepository.save(user);
   }
 
-  async update(id: number, userData: Partial<User>): Promise<User> {
-    await this.userRepository.update(id, userData);
-    return this.findById(id);
-  }
-
-  async findTeachers(): Promise<User[]> {
-    return this.userRepository.find({
-      where: { role: UserRole.TEACHER },
-      relations: ['subjects', 'tests'],
+  async findAll(centerId?: string): Promise<User[]> {
+    const where = centerId ? { center: { id: Number(centerId) } } : {};
+    return await this.userRepository.find({
+      where,
+      relations: ['center', 'subjects'],
     });
   }
 
-  async findStudents(): Promise<User[]> {
-    return this.userRepository.find({
-      where: { role: UserRole.STUDENT },
+  async findOne(id: number): Promise<User> {
+    const user = await this.userRepository.findOne({
+      where: { id },
+      relations: ['center', 'subjects'],
     });
+    if (!user) {
+      throw new NotFoundException('Foydalanuvchi topilmadi');
+    }
+    return user;
+  }
+
+  async update(id: number, dto: Partial<CreateUserDto>): Promise<User> {
+    const user = await this.findOne(id);
+    Object.assign(user, dto);
+    return this.userRepository.save(user);
+  }
+
+  async delete(id: number): Promise<void> {
+    const user = await this.findOne(id);
+    await this.userRepository.remove(user);
   }
 }
