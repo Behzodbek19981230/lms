@@ -5,7 +5,7 @@ export class CreateCenterDto {
   @ApiProperty({ example: 'Matematika' })
   @IsString()
   @IsNotEmpty()
-  name: string;
+  name?: string;
 
   @ApiProperty({ example: 'Oliy matematika kursi', required: false })
   @IsOptional()
