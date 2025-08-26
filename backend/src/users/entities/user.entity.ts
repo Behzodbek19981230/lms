@@ -1,7 +1,15 @@
-import { Column, Entity, JoinTable, ManyToMany, OneToMany } from 'typeorm';
+import {
+  Column,
+  Entity,
+  JoinTable,
+  ManyToMany,
+  OneToMany,
+  ManyToOne,
+} from 'typeorm';
 import { BaseEntity } from '../../common/entities/base.entity';
 import { Subject } from '../../subjects/entities/subject.entity';
 import { Test } from '../../tests/entities/test.entity';
+import { Center } from 'src/centers/entities/center.entity';
 
 export enum UserRole {
   TEACHER = 'teacher',
@@ -39,6 +47,12 @@ export class User extends BaseEntity {
 
   @Column({ type: 'timestamp', nullable: true })
   lastLoginAt: Date;
+
+  @ManyToOne(() => Center, (center) => center.users, {
+    nullable: true,
+    onDelete: 'CASCADE',
+  })
+  center: Center;
 
   // Only for teachers - subjects they teach
   @ManyToMany(() => Subject, (subject) => subject.teachers)

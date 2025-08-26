@@ -1,4 +1,5 @@
 import {
+  Body,
   Controller,
   Delete,
   Get,
@@ -12,13 +13,14 @@ import {
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
+  ApiBody,
   ApiOperation,
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
 import { SubjectsService } from './subjects.service';
-import type { CreateSubjectDto } from './dto/create-subject.dto';
-import type { UpdateSubjectDto } from './dto/update-subject.dto';
+import { CreateSubjectDto } from './dto/create-subject.dto';
+import { UpdateSubjectDto } from './dto/update-subject.dto';
 import { SubjectResponseDto } from './dto/subject-response.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
@@ -36,29 +38,31 @@ export class SubjectsController {
     description: 'Fan muvaffaqiyatli yaratildi',
     type: SubjectResponseDto,
   })
+  @ApiBody({ type: CreateSubjectDto })
   async create(
-    createSubjectDto: CreateSubjectDto,
+    @Body() createSubjectDto: CreateSubjectDto,
     @Request() req,
   ): Promise<SubjectResponseDto> {
-    return this.subjectsService.create(createSubjectDto, req.user.id);
+    return this.subjectsService.create(createSubjectDto, req.user?.id);
   }
 
   @Get()
-  @ApiOperation({ summary: "O'qituvchining barcha fanlarini olish" })
+  @ApiOperation({ summary: "Fanlar ro'yxatini olish" })
   @ApiResponse({
     status: 200,
     description: "Fanlar ro'yxati",
     type: [SubjectResponseDto],
   })
   async findAll(@Request() req): Promise<SubjectResponseDto[]> {
-    return this.subjectsService.findAllByTeacher(req.user.id);
+    console.log('User ID:', req.user);
+    return this.subjectsService.findAll(req.user.id);
   }
 
   @Get('stats')
   @ApiOperation({ summary: 'Fanlar statistikasi' })
   @ApiResponse({ status: 200, description: 'Fanlar statistikasi' })
   async getStats(@Request() req) {
-    return this.subjectsService.getSubjectStats(req.user.id);
+    return this.subjectsService.getSubjectStats(req.user?.id);
   }
 
   @Get(':id')
@@ -70,7 +74,7 @@ export class SubjectsController {
   })
   @ApiResponse({ status: 404, description: 'Fan topilmadi' })
   async findOne(
-    @Param('id') id: string,
+    @Param('id') id: number,
     @Request() req,
   ): Promise<SubjectResponseDto> {
     return this.subjectsService.findOne(id, req.user.id);
@@ -84,8 +88,8 @@ export class SubjectsController {
     type: SubjectResponseDto,
   })
   async update(
-    @Param('id') id: string,
-    updateSubjectDto: UpdateSubjectDto,
+    @Param('id') id: number,
+    @Body() updateSubjectDto: UpdateSubjectDto,
     @Request() req,
   ): Promise<SubjectResponseDto> {
     return this.subjectsService.update(id, updateSubjectDto, req.user.id);
@@ -95,7 +99,7 @@ export class SubjectsController {
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: "Fanni o'chirish" })
   @ApiResponse({ status: 204, description: "Fan muvaffaqiyatli o'chirildi" })
-  async remove(@Param('id') id: string, @Request() req): Promise<void> {
+  async remove(@Param('id') id: number, @Request() req): Promise<void> {
     return this.subjectsService.remove(id, req.user.id);
   }
 }

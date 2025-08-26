@@ -5,32 +5,32 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import type { Repository } from 'typeorm';
-import { Test, TestStatus } from './entities/test.entity';
-import { Teacher } from '../teachers/entities/teacher.entity';
+import { Test, TestStatus, TestType } from './entities/test.entity';
 import { Subject } from '../subjects/entities/subject.entity';
 import type { CreateTestDto } from './dto/create-test.dto';
 import type { UpdateTestDto } from './dto/update-test.dto';
 import type { TestResponseDto } from './dto/test-response.dto';
 import type { TestStatsDto } from './dto/test-stats.dto';
 import { InjectRepository } from '@nestjs/typeorm';
+import { User } from '../users/entities/user.entity';
 
 @Injectable()
 export class TestsService {
   constructor(
     @InjectRepository(Test)
     private testRepository: Repository<Test>,
-    @InjectRepository(Teacher)
-    private teacherRepository: Repository<Teacher>,
+    @InjectRepository(User)
+    private teacherRepository: Repository<User>,
     @InjectRepository(Subject)
     private subjectRepository: Repository<Subject>,
   ) {}
 
   async create(
     createTestDto: CreateTestDto,
-    teacherId: string,
+    teacherid: number,
   ): Promise<TestResponseDto> {
     const teacher = await this.teacherRepository.findOne({
-      where: { id: teacherId },
+      where: { id: teacherid },
       relations: ['subjects'],
     });
 
@@ -39,7 +39,7 @@ export class TestsService {
     }
 
     const subject = await this.subjectRepository.findOne({
-      where: { id: createTestDto.subjectId },
+      where: { id: createTestDto.subjectid },
       relations: ['teachers'],
     });
 
@@ -48,7 +48,7 @@ export class TestsService {
     }
 
     // Check if teacher has access to this subject
-    const hasAccess = subject.teachers.some((t) => t.id === teacherId);
+    const hasAccess = subject.teachers.some((t) => t.id === teacherid);
     if (!hasAccess) {
       throw new ForbiddenException("Bu fanga ruxsatingiz yo'q");
     }
@@ -69,9 +69,9 @@ export class TestsService {
     return this.mapToResponseDto(savedTest);
   }
 
-  async findAllByTeacher(teacherId: string): Promise<TestResponseDto[]> {
+  async findAllByTeacher(teacherid: number): Promise<TestResponseDto[]> {
     const tests = await this.testRepository.find({
-      where: { teacher: { id: teacherId } },
+      where: { teacher: { id: teacherid } },
       relations: ['subject', 'teacher', 'questions'],
       order: { updatedAt: 'DESC' },
     });
@@ -80,11 +80,11 @@ export class TestsService {
   }
 
   async findBySubject(
-    subjectId: string,
-    teacherId: string,
+    subjectid: number,
+    teacherid: number,
   ): Promise<TestResponseDto[]> {
     const subject = await this.subjectRepository.findOne({
-      where: { id: subjectId },
+      where: { id: subjectid },
       relations: ['teachers'],
     });
 
@@ -93,13 +93,13 @@ export class TestsService {
     }
 
     // Check if teacher has access to this subject
-    const hasAccess = subject.teachers.some((t) => t.id === teacherId);
+    const hasAccess = subject.teachers.some((t) => t.id === teacherid);
     if (!hasAccess) {
       throw new ForbiddenException("Bu fanga ruxsatingiz yo'q");
     }
 
     const tests = await this.testRepository.find({
-      where: { subject: { id: subjectId }, teacher: { id: teacherId } },
+      where: { subject: { id: subjectid }, teacher: { id: teacherid } },
       relations: ['subject', 'teacher', 'questions'],
       order: { updatedAt: 'DESC' },
     });
@@ -107,7 +107,7 @@ export class TestsService {
     return tests.map((test) => this.mapToResponseDto(test));
   }
 
-  async findOne(id: string, teacherId: string): Promise<TestResponseDto> {
+  async findOne(id: number, teacherid: number): Promise<TestResponseDto> {
     const test = await this.testRepository.findOne({
       where: { id },
       relations: ['subject', 'teacher', 'questions'],
@@ -118,7 +118,7 @@ export class TestsService {
     }
 
     // Check if teacher owns this test
-    if (test.teacher.id !== teacherId) {
+    if (test.teacher.id !== teacherid) {
       throw new ForbiddenException("Bu testga ruxsatingiz yo'q");
     }
 
@@ -126,9 +126,9 @@ export class TestsService {
   }
 
   async update(
-    id: string,
+    id: number,
     updateTestDto: UpdateTestDto,
-    teacherId: string,
+    teacherid: number,
   ): Promise<TestResponseDto> {
     const test = await this.testRepository.findOne({
       where: { id },
@@ -140,17 +140,17 @@ export class TestsService {
     }
 
     // Check if teacher owns this test
-    if (test.teacher.id !== teacherId) {
+    if (test.teacher.id !== teacherid) {
       throw new ForbiddenException("Bu testga ruxsatingiz yo'q");
     }
 
     // If changing subject, verify access
     if (
-      updateTestDto.subjectId &&
-      updateTestDto.subjectId !== test.subject.id
+      updateTestDto.subjectid &&
+      updateTestDto.subjectid !== test.subject.id
     ) {
       const newSubject = await this.subjectRepository.findOne({
-        where: { id: updateTestDto.subjectId },
+        where: { id: updateTestDto.subjectid },
         relations: ['teachers'],
       });
 
@@ -158,7 +158,7 @@ export class TestsService {
         throw new NotFoundException('Yangi fan topilmadi');
       }
 
-      const hasAccess = newSubject.teachers.some((t) => t.id === teacherId);
+      const hasAccess = newSubject.teachers.some((t) => t.id === teacherid);
       if (!hasAccess) {
         throw new ForbiddenException("Yangi fanga ruxsatingiz yo'q");
       }
@@ -180,7 +180,7 @@ export class TestsService {
     return this.mapToResponseDto(updatedTest);
   }
 
-  async remove(id: string, teacherId: string): Promise<void> {
+  async remove(id: number, teacherid: number): Promise<void> {
     const test = await this.testRepository.findOne({
       where: { id },
       relations: ['subject', 'teacher', 'questions'],
@@ -191,7 +191,7 @@ export class TestsService {
     }
 
     // Check if teacher owns this test
-    if (test.teacher.id !== teacherId) {
+    if (test.teacher.id !== teacherid) {
       throw new ForbiddenException("Bu testga ruxsatingiz yo'q");
     }
 
@@ -209,7 +209,7 @@ export class TestsService {
     await this.testRepository.remove(test);
   }
 
-  async duplicate(id: string, teacherId: string): Promise<TestResponseDto> {
+  async duplicate(id: number, teacherid: number): Promise<TestResponseDto> {
     const originalTest = await this.testRepository.findOne({
       where: { id },
       relations: ['subject', 'teacher', 'questions'],
@@ -220,7 +220,7 @@ export class TestsService {
     }
 
     // Check if teacher owns this test
-    if (originalTest.teacher.id !== teacherId) {
+    if (originalTest.teacher.id !== teacherid) {
       throw new ForbiddenException("Bu testga ruxsatingiz yo'q");
     }
 
@@ -247,9 +247,9 @@ export class TestsService {
     return this.mapToResponseDto(savedTest);
   }
 
-  async getTestStats(teacherId: string): Promise<TestStatsDto> {
+  async getTestStats(teacherid: number): Promise<TestStatsDto> {
     const tests = await this.testRepository.find({
-      where: { teacher: { id: teacherId } },
+      where: { teacher: { id: teacherid } },
       relations: ['subject', 'questions'],
     });
 
@@ -260,9 +260,9 @@ export class TestsService {
         .length,
       archivedTests: tests.filter((t) => t.status === TestStatus.ARCHIVED)
         .length,
-      openTests: tests.filter((t) => t.type === 'open').length,
-      closedTests: tests.filter((t) => t.type === 'closed').length,
-      mixedTests: tests.filter((t) => t.type === 'mixed').length,
+      openTests: tests.filter((t) => t.type === TestType.OPEN).length,
+      closedTests: tests.filter((t) => t.type === TestType.CLOSED).length,
+      mixedTests: tests.filter((t) => t.type === TestType.MIXED).length,
       totalQuestions: tests.reduce(
         (sum, test) => sum + (test.questions?.length || 0),
         0,

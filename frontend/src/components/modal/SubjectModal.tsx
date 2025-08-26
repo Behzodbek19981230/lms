@@ -1,140 +1,126 @@
-import {Dialog, DialogContent, DialogHeader, DialogTitle} from "@/components/ui/dialog";
-import {Button} from "@/components/ui/button";
-import {Input} from "@/components/ui/input";
-import {Label} from "@/components/ui/label";
-import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from "@/components/ui/select";
-import {Textarea} from "@/components/ui/textarea";
-
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
+import { Controller, useForm } from 'react-hook-form';
+import { Checkbox } from '../ui/checkbox';
+import { request } from '@/configs/request';
+import { useToast } from '@/hooks/use-toast';
 
 interface Props {
-    open: boolean
-    setOpen: (open: boolean) => void
-    // tool: ITool
-    // fetchApplication: () => void
+	open: boolean;
+	setOpen: (open: boolean) => void;
+	defaultValues?: {
+		id: number;
+		name: string;
+		description: string;
+		category: string;
+		hasFormulas: boolean;
+	};
 }
 
+export const SubjectModal = ({ open, setOpen, defaultValues }: Props) => {
+	const { toast } = useToast();
+	const { control, handleSubmit } = useForm({
+		defaultValues: {
+			name: defaultValues?.name || '',
+			description: defaultValues?.description || '',
+			category: defaultValues?.category || '',
+			hasFormulas: defaultValues?.hasFormulas || false,
+		},
+	});
 
-export const SubjectModal = ({open, setOpen,}: Props) => {
+	const onSubmit = async (data) => {
+		try {
+			if (defaultValues) {
+				await request.put(`/subjects/${defaultValues.id}`, { data });
+			} else {
+				await request.post('/subjects', { data });
+			}
+			toast({
+				title: defaultValues ? 'Fan tahrirlandi' : "Fan qo'shildi",
+				description: defaultValues ? 'Fan muvaffaqiyatli tahrirlandi.' : "Fan muvaffaqiyatli qo'shildi.",
+				variant: 'default',
+			});
+			onClose();
+		} catch (error) {
+			toast({
+				title: "Fan qo'shish muvaffaqiyatsiz",
+				description: "Fan qo'shishda xato yuz berdi.",
+				variant: 'destructive',
+			});
+		}
+	};
 
+	const onClose = () => setOpen(false);
 
-    const handleSubmit = (e: React.FormEvent) => {
-        e.preventDefault();
+	return (
+		<Dialog open={open} onOpenChange={onClose}>
+			<DialogContent className='max-w-2xl max-h-[90vh] overflow-y-auto'>
+				<DialogHeader>
+					<DialogTitle>Yangi fan qo'shish</DialogTitle>
+				</DialogHeader>
 
-    };
-    const onClose = () => setOpen(false);
+				<form
+					onSubmit={handleSubmit(onSubmit)}
+					className='space-y-6 max-w-md mx-auto p-6 bg-white rounded-2xl shadow'
+				>
+					<div>
+						<Label htmlFor='name'>Nomi</Label>
+						<Controller
+							name='name'
+							control={control}
+							render={({ field }) => <Input id='name' placeholder='Fan nomi' {...field} />}
+						/>
+					</div>
 
+					<div>
+						<Label htmlFor='description'>Tavsif</Label>
+						<Controller
+							name='description'
+							control={control}
+							render={({ field }) => <Textarea id='description' placeholder='Fan tavsifi' {...field} />}
+						/>
+					</div>
 
-    return (
-        <Dialog open={open} onOpenChange={onClose}>
-            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-                <DialogHeader>
-                    <DialogTitle>
-                        Yangi fan qo'shish
-                    </DialogTitle>
-                </DialogHeader>
+					<div>
+						<Label>Kategoriya</Label>
+						<Controller
+							name='category'
+							control={control}
+							render={({ field }) => (
+								<Select onValueChange={field.onChange} defaultValue={field.value}>
+									<SelectTrigger>
+										<SelectValue placeholder='Kategoriyani tanlang' />
+									</SelectTrigger>
+									<SelectContent>
+										<SelectItem value='exact_science'>Aniq fanlar</SelectItem>
+										<SelectItem value='social_science'>Ijtimoiy fanlar</SelectItem>
+										<SelectItem value='other'>Boshqa</SelectItem>
+									</SelectContent>
+								</Select>
+							)}
+						/>
+					</div>
 
-                <form onSubmit={handleSubmit} className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <Label htmlFor="name">Fan nomi *</Label>
-                            <Input
-                                id="name"
-                                placeholder="Web Development"
-                                required
-                            />
-                        </div>
-                        <div>
-                            <Label htmlFor="code">Fan kodi *</Label>
-                            <Input
-                                id="code"
-                                placeholder="WEB101"
-                                required
-                            />
-                        </div>
-                    </div>
+					<div className='flex items-center space-x-2'>
+						<Controller
+							name='hasFormulas'
+							control={control}
+							render={({ field }) => (
+								<Checkbox id='hasFormulas' checked={field.value} onCheckedChange={field.onChange} />
+							)}
+						/>
+						<Label htmlFor='hasFormulas'>Formulalar mavjudmi</Label>
+					</div>
 
-                    <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <Label htmlFor="instructor">O'qituvchi *</Label>
-                            <Input
-                                id="instructor"
-                                placeholder="John Smith"
-                                required
-                            />
-                        </div>
-                        <div>
-                            <Label htmlFor="category">Kategoriya *</Label>
-                            <Select>
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Kategoriyani tanlang"/>
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="Programming">Programming</SelectItem>
-                                    <SelectItem value="Computer Science">Computer Science</SelectItem>
-                                    <SelectItem value="Design">Design</SelectItem>
-                                    <SelectItem value="Database">Database</SelectItem>
-                                    <SelectItem value="Mathematics">Mathematics</SelectItem>
-                                    <SelectItem value="Physics">Physics</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
-                    </div>
-
-                    <div className="grid grid-cols-3 gap-4">
-                        <div>
-                            <Label htmlFor="credits">Kredit *</Label>
-                            <Input
-                                id="credits"
-                                type="number"
-                                min="1"
-                                max="10"
-                                required
-                            />
-                        </div>
-                        <div>
-                            <Label htmlFor="duration">Davomiyligi *</Label>
-                            <Input
-                                id="duration"
-                                placeholder="16 weeks"
-                                required
-                            />
-                        </div>
-                        <div>
-                            <Label htmlFor="students">Talabalar soni</Label>
-                            <Input
-                                id="students"
-                                type="number"
-                                min="0"
-
-                                placeholder="0"
-                            />
-                        </div>
-                    </div>
-
-                    <div>
-                        <Label htmlFor="status">Holati</Label>
-
-                    </div>
-
-                    <div>
-                        <Label htmlFor="description">Tavsif</Label>
-                        <Textarea
-                            id="description"
-                            placeholder="Fan haqida qisqacha ma'lumot..."
-                            rows={3}
-                        />
-                    </div>
-
-                    <div className="flex justify-end gap-2 pt-4">
-                        <Button type="button" variant="outline" onClick={onClose}>
-                            Bekor qilish
-                        </Button>
-                        <Button type="submit">
-                            Qo'shish
-                        </Button>
-                    </div>
-                </form>
-            </DialogContent>
-        </Dialog>
-    );
+					<Button type='submit' className='w-full'>
+						Saqlash
+					</Button>
+				</form>
+			</DialogContent>
+		</Dialog>
+	);
 };

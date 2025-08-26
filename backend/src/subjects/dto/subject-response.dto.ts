@@ -1,31 +1,31 @@
-import { ApiProperty } from "@nestjs/swagger"
-import { SubjectCategory } from "../entities/subject.entity"
+import { ApiProperty } from '@nestjs/swagger';
+import { SubjectCategory } from '../entities/subject.entity';
 
 export class SubjectResponseDto {
   @ApiProperty()
-  id: string
+  id: number;
 
   @ApiProperty()
-  name: string
+  name: string;
 
   @ApiProperty()
-  description: string
+  description: string;
 
   @ApiProperty({ enum: SubjectCategory })
-  category: SubjectCategory
+  category: SubjectCategory;
 
   @ApiProperty()
-  hasFormulas: boolean
+  hasFormulas: boolean;
 
   @ApiProperty()
-  isActive: boolean
+  isActive: boolean;
 
   @ApiProperty()
-  testsCount: number
+  testsCount: number;
 
   @ApiProperty()
-  createdAt: Date
+  createdAt: Date;
 
   @ApiProperty()
-  updatedAt: Date
+  updatedAt: Date;
 }

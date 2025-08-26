@@ -1,75 +1,66 @@
-import { Entity, Column, ManyToOne, OneToMany, JoinColumn } from "typeorm"
-import { BaseEntity } from "../../common/entities/base.entity"
-import { Teacher } from "../../teachers/entities/teacher.entity"
-import { Subject } from "../../subjects/entities/subject.entity"
-import { Question } from "../../questions/entities/question.entity"
+import { Column, Entity, JoinColumn, ManyToOne, OneToMany } from 'typeorm';
+import { BaseEntity } from '../../common/entities/base.entity';
+import { Subject } from '../../subjects/entities/subject.entity';
+import { Question } from '../../questions/entities/question.entity';
+import { User } from '../../users/entities/user.entity';
 
 export enum TestType {
-  OPEN = "open", // Multiple choice, true/false
-  CLOSED = "closed", // Essay, short answer
-  MIXED = "mixed", // Both types
+  OPEN = 'open', // Multiple choice, true/false
+  CLOSED = 'closed', // Essay, short answer
+  MIXED = 'mixed', // Both types
 }
 
 export enum TestStatus {
-  DRAFT = "draft",
-  PUBLISHED = "published",
-  ARCHIVED = "archived",
+  DRAFT = 'draft',
+  PUBLISHED = 'published',
+  ARCHIVED = 'archived',
 }
 
-@Entity("tests")
+@Entity('tests')
 export class Test extends BaseEntity {
   @Column()
-  title: string
+  title: string;
 
   @Column({ nullable: true })
-  description: string
+  description: string;
 
   @Column({
-    type: "enum",
+    type: 'enum',
     enum: TestType,
     default: TestType.OPEN,
   })
-  type: TestType
+  type: TestType;
 
   @Column({
-    type: "enum",
+    type: 'enum',
     enum: TestStatus,
     default: TestStatus.DRAFT,
   })
-  status: TestStatus
+  status: TestStatus;
 
   @Column({ default: 60 })
-  duration: number // in minutes
+  duration: number; // in minutes
 
   @Column({ default: 0 })
-  totalQuestions: number
+  totalQuestions: number;
 
   @Column({ default: 0 })
-  totalPoints: number
+  totalPoints: number;
 
   @Column({ default: true })
-  shuffleQuestions: boolean
+  shuffleQuestions: boolean;
 
   @Column({ default: true })
-  showResults: boolean
+  showResults: boolean;
 
-  @ManyToOne(
-    () => Teacher,
-    (teacher) => teacher.tests,
-  )
-  @JoinColumn({ name: "teacherId" })
-  teacher: Teacher
+  @ManyToOne(() => User, (teacher) => teacher.tests)
+  @JoinColumn({ name: 'teacherId' })
+  teacher: User;
 
-  @ManyToOne(
-    () => Subject,
-    (subject) => subject.tests,
-  )
-  @JoinColumn({ name: "subjectId" })
-  subject: Subject
+  @ManyToOne(() => Subject, (subject) => subject.tests)
+  @JoinColumn({ name: 'subjectId' })
+  subject: Subject;
 
-  @OneToMany(
-    () => Question,
-    (question) => question.test,
-  )
-  questions: Question[]
+  @OneToMany(() => Question, (question) => question.test)
+  questions: Question[];
 }

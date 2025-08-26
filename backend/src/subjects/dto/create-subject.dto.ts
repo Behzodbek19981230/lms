@@ -1,23 +1,29 @@
-import { ApiProperty } from "@nestjs/swagger"
-import { IsString, IsNotEmpty, IsOptional, IsEnum, IsBoolean } from "class-validator"
-import { SubjectCategory } from "../entities/subject.entity"
+import { ApiProperty } from '@nestjs/swagger';
+import {
+  IsBoolean,
+  IsEnum,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+} from 'class-validator';
+import { SubjectCategory } from '../entities/subject.entity';
 
 export class CreateSubjectDto {
-  @ApiProperty({ example: "Matematika" })
+  @ApiProperty({ example: 'Matematika' })
   @IsString()
   @IsNotEmpty()
-  name: string
+  name: string;
 
-  @ApiProperty({ example: "Oliy matematika kursi", required: false })
+  @ApiProperty({ example: 'Oliy matematika kursi', required: false })
   @IsOptional()
   @IsString()
-  description?: string
+  description?: string;
 
-  @ApiProperty({ enum: SubjectCategory, example: SubjectCategory.MATHEMATICS })
+  @ApiProperty({ enum: SubjectCategory, example: SubjectCategory.EXACT })
   @IsEnum(SubjectCategory)
-  category: SubjectCategory
+  category: SubjectCategory;
 
-  @ApiProperty({ example: true, description: "Fanda formulalar ishlatilishi" })
+  @ApiProperty({ example: true, description: 'Fanda formulalar ishlatilishi' })
   @IsBoolean()
-  hasFormulas: boolean
+  hasFormulas: boolean;
 }

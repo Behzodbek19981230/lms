@@ -1,60 +1,60 @@
-import { ApiProperty } from "@nestjs/swagger"
-import { QuestionType } from "../entities/question.entity"
+import { ApiProperty } from '@nestjs/swagger';
+import { QuestionType } from '../entities/question.entity';
 
 export class AnswerResponseDto {
   @ApiProperty()
-  id: string
+  id: number;
 
   @ApiProperty()
-  text: string
+  text: string;
 
   @ApiProperty()
-  isCorrect: boolean
+  isCorrect: boolean;
 
   @ApiProperty()
-  order: number
+  order: number;
 
   @ApiProperty()
-  hasFormula: boolean
+  hasFormula: boolean;
 
   @ApiProperty()
-  explanation: string
+  explanation: string;
 }
 
 export class QuestionResponseDto {
   @ApiProperty()
-  id: string
+  id: number;
 
   @ApiProperty()
-  text: string
+  text: string;
 
   @ApiProperty()
-  explanation: string
+  explanation: string;
 
   @ApiProperty({ enum: QuestionType })
-  type: QuestionType
+  type: QuestionType;
 
   @ApiProperty()
-  points: number
+  points: number;
 
   @ApiProperty()
-  order: number
+  order: number;
 
   @ApiProperty()
-  hasFormula: boolean
+  hasFormula: boolean;
 
   @ApiProperty()
-  imageUrl: string
+  imageUrl: string;
 
   @ApiProperty()
-  metadata: Record<string, any>
+  metadata: Record<string, any>;
 
   @ApiProperty({ type: [AnswerResponseDto] })
-  answers: AnswerResponseDto[]
+  answers: AnswerResponseDto[];
 
   @ApiProperty()
-  createdAt: Date
+  createdAt: Date;
 
   @ApiProperty()
-  updatedAt: Date
+  updatedAt: Date;
 }

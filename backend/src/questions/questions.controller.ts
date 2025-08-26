@@ -40,7 +40,7 @@ export class QuestionsController {
     createQuestionDto: CreateQuestionDto,
     req,
   ): Promise<QuestionResponseDto> {
-    return this.questionsService.create(createQuestionDto, req.user.id);
+    return this.questionsService.create(createQuestionDto, req?.user?.id);
   }
 
   @Get()
@@ -51,7 +51,7 @@ export class QuestionsController {
     type: [QuestionResponseDto],
   })
   async findAll(
-    @Query('testId') testId: string,
+    @Query('testId') testId: number,
     req,
   ): Promise<QuestionResponseDto[]> {
     return this.questionsService.findAllByTest(testId, req.user.id);
@@ -65,7 +65,7 @@ export class QuestionsController {
     type: QuestionResponseDto,
   })
   @ApiResponse({ status: 404, description: 'Savol topilmadi' })
-  async findOne(@Param('id') id: string, req): Promise<QuestionResponseDto> {
+  async findOne(@Param('id') id: number, req): Promise<QuestionResponseDto> {
     return this.questionsService.findOne(id, req.user.id);
   }
 
@@ -77,7 +77,7 @@ export class QuestionsController {
     type: QuestionResponseDto,
   })
   async update(
-    @Param('id') id: string,
+    @Param('id') id: number,
     updateQuestionDto: UpdateQuestionDto,
     req,
   ): Promise<QuestionResponseDto> {
@@ -88,7 +88,7 @@ export class QuestionsController {
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: "Savolni o'chirish" })
   @ApiResponse({ status: 204, description: "Savol muvaffaqiyatli o'chirildi" })
-  async remove(@Param('id') id: string, req): Promise<void> {
+  async remove(@Param('id') id: number, req): Promise<void> {
     return this.questionsService.remove(id, req.user.id);
   }
 
@@ -100,12 +100,12 @@ export class QuestionsController {
     type: [QuestionResponseDto],
   })
   async reorder(
-    @Param('testId') testId: string,
+    @Param('testId') testid: number,
     body: { questionIds: string[] },
     req,
   ): Promise<QuestionResponseDto[]> {
     return this.questionsService.reorderQuestions(
-      testId,
+      testid,
       body.questionIds,
       req.user.id,
     );

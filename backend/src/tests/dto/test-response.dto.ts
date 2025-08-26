@@ -1,54 +1,54 @@
-import { ApiProperty } from "@nestjs/swagger"
-import { TestType, TestStatus } from "../entities/test.entity"
+import { ApiProperty } from '@nestjs/swagger';
+import { TestType, TestStatus } from '../entities/test.entity';
 
 export class TestResponseDto {
   @ApiProperty()
-  id: string
+  id: number;
 
   @ApiProperty()
-  title: string
+  title: string;
 
   @ApiProperty()
-  description: string
+  description: string;
 
   @ApiProperty({ enum: TestType })
-  type: TestType
+  type: TestType;
 
   @ApiProperty({ enum: TestStatus })
-  status: TestStatus
+  status: TestStatus;
 
   @ApiProperty()
-  duration: number
+  duration: number;
 
   @ApiProperty()
-  totalQuestions: number
+  totalQuestions: number;
 
   @ApiProperty()
-  totalPoints: number
+  totalPoints: number;
 
   @ApiProperty()
-  shuffleQuestions: boolean
+  shuffleQuestions: boolean;
 
   @ApiProperty()
-  showResults: boolean
+  showResults: boolean;
 
   @ApiProperty()
   subject: {
-    id: string
-    name: string
-    category: string
-    hasFormulas: boolean
-  }
+    id: number;
+    name: string;
+    category: string;
+    hasFormulas: boolean;
+  };
 
   @ApiProperty()
   teacher: {
-    id: string
-    fullName: string
-  }
+    id: number;
+    fullName: string;
+  };
 
   @ApiProperty()
-  createdAt: Date
+  createdAt: Date;
 
   @ApiProperty()
-  updatedAt: Date
+  updatedAt: Date;
 }

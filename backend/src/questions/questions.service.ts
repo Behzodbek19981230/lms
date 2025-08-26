@@ -26,10 +26,10 @@ export class QuestionsService {
 
   async create(
     createQuestionDto: CreateQuestionDto,
-    teacherId: string,
+    teacherid: number,
   ): Promise<QuestionResponseDto> {
     const test = await this.testRepository.findOne({
-      where: { id: createQuestionDto.testId },
+      where: { id: createQuestionDto.testid },
       relations: ['teacher', 'questions'],
     });
 
@@ -38,7 +38,7 @@ export class QuestionsService {
     }
 
     // Check if teacher owns this test
-    if (test.teacher.id !== teacherId) {
+    if (test.teacher.id !== teacherid) {
       throw new ForbiddenException("Bu testga ruxsatingiz yo'q");
     }
 
@@ -78,11 +78,11 @@ export class QuestionsService {
   }
 
   async findAllByTest(
-    testId: string,
-    teacherId: string,
+    testid: number,
+    teacherid: number,
   ): Promise<QuestionResponseDto[]> {
     const test = await this.testRepository.findOne({
-      where: { id: testId },
+      where: { id: testid },
       relations: ['teacher'],
     });
 
@@ -91,12 +91,12 @@ export class QuestionsService {
     }
 
     // Check if teacher owns this test
-    if (test.teacher.id !== teacherId) {
+    if (test.teacher.id !== teacherid) {
       throw new ForbiddenException("Bu testga ruxsatingiz yo'q");
     }
 
     const questions = await this.questionRepository.find({
-      where: { test: { id: testId } },
+      where: { test: { id: testid } },
       relations: ['answers'],
       order: { order: 'ASC', createdAt: 'ASC' },
     });
@@ -104,7 +104,7 @@ export class QuestionsService {
     return questions.map((question) => this.mapToResponseDto(question));
   }
 
-  async findOne(id: string, teacherId: string): Promise<QuestionResponseDto> {
+  async findOne(id: number, teacherid: number): Promise<QuestionResponseDto> {
     const question = await this.questionRepository.findOne({
       where: { id },
       relations: ['test', 'test.teacher', 'answers'],
@@ -114,8 +114,8 @@ export class QuestionsService {
       throw new NotFoundException('Savol topilmadi');
     }
 
-    // Check if teacher owns this question's test
-    if (question.test.teacher.id !== teacherId) {
+    // Check if teacher owns this Question's test
+    if (question.test.teacher.id !== teacherid) {
       throw new ForbiddenException("Bu savolga ruxsatingiz yo'q");
     }
 
@@ -123,9 +123,9 @@ export class QuestionsService {
   }
 
   async update(
-    id: string,
+    id: number,
     updateQuestionDto: UpdateQuestionDto,
-    teacherId: string,
+    teacherid: number,
   ): Promise<QuestionResponseDto> {
     const question = await this.questionRepository.findOne({
       where: { id },
@@ -137,7 +137,7 @@ export class QuestionsService {
     }
 
     // Check if teacher owns this question's test
-    if (question.test.teacher.id !== teacherId) {
+    if (question.test.teacher.id !== teacherid) {
       throw new ForbiddenException("Bu savolga ruxsatingiz yo'q");
     }
 
@@ -173,7 +173,7 @@ export class QuestionsService {
     return this.mapToResponseDto(updatedQuestion);
   }
 
-  async remove(id: string, teacherId: string): Promise<void> {
+  async remove(id: number, teacherid: number): Promise<void> {
     const question = await this.questionRepository.findOne({
       where: { id },
       relations: ['test', 'test.teacher'],
@@ -184,7 +184,7 @@ export class QuestionsService {
     }
 
     // Check if teacher owns this question's test
-    if (question.test.teacher.id !== teacherId) {
+    if (question.test.teacher.id !== teacherid) {
       throw new ForbiddenException("Bu savolga ruxsatingiz yo'q");
     }
 
@@ -196,12 +196,12 @@ export class QuestionsService {
   }
 
   async reorderQuestions(
-    testId: string,
+    testid: number,
     questionIds: string[],
-    teacherId: string,
+    teacherid: number,
   ): Promise<QuestionResponseDto[]> {
     const test = await this.testRepository.findOne({
-      where: { id: testId },
+      where: { id: testid },
       relations: ['teacher'],
     });
 
@@ -210,7 +210,7 @@ export class QuestionsService {
     }
 
     // Check if teacher owns this test
-    if (test.teacher.id !== teacherId) {
+    if (test.teacher.id !== teacherid) {
       throw new ForbiddenException("Bu testga ruxsatingiz yo'q");
     }
 
@@ -219,7 +219,7 @@ export class QuestionsService {
       await this.questionRepository.update(questionIds[i], { order: i });
     }
 
-    return this.findAllByTest(testId, teacherId);
+    return this.findAllByTest(testid, teacherid);
   }
 
   private validateQuestionData(questionDto: CreateQuestionDto): void {
@@ -232,6 +232,7 @@ export class QuestionsService {
             "Ko'p variantli savol uchun kamida 2 ta javob kerak",
           );
         }
+        // eslint-disable-next-line no-case-declarations
         const correctAnswers = answers.filter((a) => a.isCorrect);
         if (correctAnswers.length === 0) {
           throw new BadRequestException("Kamida bitta to'g'ri javob belgilang");
@@ -244,6 +245,7 @@ export class QuestionsService {
             "To'g'ri/Noto'g'ri savol uchun aynan 2 ta javob kerak",
           );
         }
+        // eslint-disable-next-line no-case-declarations
         const trueAnswers = answers.filter((a) => a.isCorrect);
         if (trueAnswers.length !== 1) {
           throw new BadRequestException(
@@ -263,15 +265,15 @@ export class QuestionsService {
     }
   }
 
-  private async updateTestStatistics(testId: string): Promise<void> {
+  private async updateTestStatistics(testid: number): Promise<void> {
     const questions = await this.questionRepository.find({
-      where: { test: { id: testId } },
+      where: { test: { id: testid } },
     });
 
     const totalQuestions = questions.length;
     const totalPoints = questions.reduce((sum, q) => sum + q.points, 0);
 
-    await this.testRepository.update(testId, {
+    await this.testRepository.update(testid, {
       totalQuestions,
       totalPoints,
     });

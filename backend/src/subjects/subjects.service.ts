@@ -5,11 +5,11 @@ import {
 } from '@nestjs/common';
 import type { Repository } from 'typeorm';
 import { Subject } from './entities/subject.entity';
-import { Teacher } from '../teachers/entities/teacher.entity';
 import type { CreateSubjectDto } from './dto/create-subject.dto';
 import type { UpdateSubjectDto } from './dto/update-subject.dto';
 import type { SubjectResponseDto } from './dto/subject-response.dto';
 import { InjectRepository } from '@nestjs/typeorm';
+import { User } from '../users/entities/user.entity';
 
 @Injectable()
 export class SubjectsService {
@@ -17,20 +17,20 @@ export class SubjectsService {
     @InjectRepository(Subject)
     private readonly subjectRepository: Repository<Subject>,
 
-    @InjectRepository(Teacher)
-    private readonly teacherRepository: Repository<Teacher>,
+    @InjectRepository(User)
+    private readonly userRepository: Repository<User>,
   ) {}
 
   async create(
     createSubjectDto: CreateSubjectDto,
-    teacherId: string,
+    userid: number,
   ): Promise<SubjectResponseDto> {
-    const teacher = await this.teacherRepository.findOne({
-      where: { id: teacherId },
+    const user = await this.userRepository.findOne({
+      where: { id: userid },
       relations: ['subjects'],
     });
 
-    if (!teacher) {
+    if (!user) {
       throw new NotFoundException("O'qituvchi topilmadi");
     }
 
@@ -38,27 +38,39 @@ export class SubjectsService {
     const subject = this.subjectRepository.create(createSubjectDto);
     const savedSubject = await this.subjectRepository.save(subject);
 
-    // Associate subject with teacher
-    teacher.subjects.push(savedSubject);
-    await this.teacherRepository.save(teacher);
+    // Associate subject with user
+    user.subjects.push(savedSubject);
+    await this.userRepository.save(user);
 
     return this.mapToResponseDto(savedSubject);
   }
 
-  async findAllByTeacher(teacherId: string): Promise<SubjectResponseDto[]> {
-    const teacher = await this.teacherRepository.findOne({
-      where: { id: teacherId },
+  async findAllByTeacher(userid: number): Promise<SubjectResponseDto[]> {
+    const user = await this.userRepository.findOne({
+      where: { id: userid },
       relations: ['subjects'],
     });
 
-    if (!teacher) {
+    if (!user) {
       throw new NotFoundException("O'qituvchi topilmadi");
     }
 
-    return teacher.subjects.map((subject) => this.mapToResponseDto(subject));
+    return user.subjects.map((subject) => this.mapToResponseDto(subject));
+  }
+  async findAll(userid: number): Promise<SubjectResponseDto[]> {
+    const user = await this.userRepository.findOne({
+      where: { id: userid },
+      relations: ['subjects'],
+    });
+
+    if (!user) {
+      throw new NotFoundException("O'qituvchi topilmadi");
+    }
+
+    return user.subjects.map((subject) => this.mapToResponseDto(subject));
   }
 
-  async findOne(id: string, teacherId: string): Promise<SubjectResponseDto> {
+  async findOne(id: number, userid: number): Promise<SubjectResponseDto> {
     const subject = await this.subjectRepository.findOne({
       where: { id },
       relations: ['teachers', 'tests'],
@@ -69,9 +81,7 @@ export class SubjectsService {
     }
 
     // Check if teacher has access to this subject
-    const hasAccess = subject.teachers.some(
-      (teacher) => teacher.id === teacherId,
-    );
+    const hasAccess = subject.teachers.some((teacher) => teacher.id === userid);
     if (!hasAccess) {
       throw new ForbiddenException("Bu fanga ruxsatingiz yo'q");
     }
@@ -80,9 +90,9 @@ export class SubjectsService {
   }
 
   async update(
-    id: string,
+    id: number,
     updateSubjectDto: UpdateSubjectDto,
-    teacherId: string,
+    userid: number,
   ): Promise<SubjectResponseDto> {
     const subject = await this.subjectRepository.findOne({
       where: { id },
@@ -94,9 +104,7 @@ export class SubjectsService {
     }
 
     // Check if teacher has access to this subject
-    const hasAccess = subject.teachers.some(
-      (teacher) => teacher.id === teacherId,
-    );
+    const hasAccess = subject.teachers.some((teacher) => teacher.id === userid);
     if (!hasAccess) {
       throw new ForbiddenException("Bu fanga ruxsatingiz yo'q");
     }
@@ -108,7 +116,7 @@ export class SubjectsService {
     return this.mapToResponseDto(updatedSubject);
   }
 
-  async remove(id: string, teacherId: string): Promise<void> {
+  async remove(id: number, userid: number): Promise<void> {
     const subject = await this.subjectRepository.findOne({
       where: { id },
       relations: ['teachers', 'tests'],
@@ -119,9 +127,7 @@ export class SubjectsService {
     }
 
     // Check if teacher has access to this subject
-    const hasAccess = subject.teachers.some(
-      (teacher) => teacher.id === teacherId,
-    );
+    const hasAccess = subject.teachers.some((teacher) => teacher.id === userid);
     if (!hasAccess) {
       throw new ForbiddenException("Bu fanga ruxsatingiz yo'q");
     }
@@ -134,28 +140,26 @@ export class SubjectsService {
     }
 
     // Remove teacher-subject association
-    const teacher = await this.teacherRepository.findOne({
-      where: { id: teacherId },
+    const teacher = await this.userRepository.findOne({
+      where: { id: userid },
       relations: ['subjects'],
     });
 
     if (teacher) {
       teacher.subjects = teacher.subjects.filter((s) => s.id !== id);
-      await this.teacherRepository.save(teacher);
+      await this.userRepository.save(teacher);
     }
 
     // If no other teachers are associated, delete the subject
-    const remainingTeachers = subject.teachers.filter(
-      (t) => t.id !== teacherId,
-    );
+    const remainingTeachers = subject.teachers.filter((t) => t.id !== userid);
     if (remainingTeachers.length === 0) {
       await this.subjectRepository.remove(subject);
     }
   }
 
-  async getSubjectStats(teacherId: string): Promise<any> {
-    const teacher = await this.teacherRepository.findOne({
-      where: { id: teacherId },
+  async getSubjectStats(userid: number): Promise<any> {
+    const teacher = await this.userRepository.findOne({
+      where: { id: userid },
       relations: ['subjects', 'subjects.tests'],
     });
 

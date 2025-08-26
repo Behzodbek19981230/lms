@@ -54,16 +54,16 @@ export class TestsController {
     type: [TestResponseDto],
   })
   @ApiQuery({
-    name: 'subjectId',
+    name: 'subjectid',
     required: false,
     description: "Fan bo'yicha filtrlash",
   })
   async findAll(
-    @Query('subjectId') subjectId: string,
+    @Query('subjectid') subjectid: number,
     @Request() req,
   ): Promise<TestResponseDto[]> {
-    if (subjectId) {
-      return this.testsService.findBySubject(subjectId, req.user.id);
+    if (subjectid) {
+      return this.testsService.findBySubject(subjectid, req.user.id);
     }
     return this.testsService.findAllByTeacher(req.user.id);
   }
@@ -88,7 +88,7 @@ export class TestsController {
   })
   @ApiResponse({ status: 404, description: 'Test topilmadi' })
   async findOne(
-    @Param('id') id: string,
+    @Param('id') id: number,
     @Request() req,
   ): Promise<TestResponseDto> {
     return this.testsService.findOne(id, req.user.id);
@@ -102,7 +102,7 @@ export class TestsController {
     type: TestResponseDto,
   })
   async duplicate(
-    @Param('id') id: string,
+    @Param('id') id: number,
     @Request() req,
   ): Promise<TestResponseDto> {
     return this.testsService.duplicate(id, req.user.id);
@@ -116,7 +116,7 @@ export class TestsController {
     type: TestResponseDto,
   })
   async update(
-    @Param('id') id: string,
+    @Param('id') id: number,
     updateTestDto: UpdateTestDto,
     @Request() req,
   ): Promise<TestResponseDto> {
@@ -127,7 +127,7 @@ export class TestsController {
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: "Testni o'chirish" })
   @ApiResponse({ status: 204, description: "Test muvaffaqiyatli o'chirildi" })
-  async remove(@Param('id') id: string, @Request() req): Promise<void> {
+  async remove(@Param('id') id: number, @Request() req): Promise<void> {
     return this.testsService.remove(id, req.user.id);
   }
 }
