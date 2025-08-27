@@ -16,6 +16,7 @@ import Subjects from '@/pages/directory/Subjects.tsx';
 import SuperAdminDashboard from './pages/SuperAdminDashboard';
 import CenterAdminDashboard from './pages/CenterAdminDashboard';
 import GroupsPage from './pages/Groups';
+import ExamsPage from './pages/Exams';
 import TeacherDashboard from './pages/TeacherDashboard';
 
 const queryClient = new QueryClient();
@@ -45,6 +46,7 @@ const App = () => (
                             <Route path='admin' element={<CenterAdminDashboard />} />
                             <Route path='teacher' element={<TeacherDashboard />} />
                             <Route path='groups' element={<GroupsPage />} />
+                            <Route path='exams' element={<ExamsPage />} />
                             <Route path='test/create' element={<CreateTestPage />} />
                             <Route path='subjects' element={<Subjects />} />
                             <Route path='student' element={<StudentDashboard />} />

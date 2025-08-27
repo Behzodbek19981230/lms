@@ -33,6 +33,7 @@ const centerAdminMenuItems = [
 ];
 const teacherMenuItems = [
     { title: 'Dashboard', url: '/account/teacher', icon: LayoutDashboard },
+    { title: 'Imtihonlar', url: '/account/exams', icon: FolderOpen },
     { title: 'Mening guruhlarim', url: '/account/groups', icon: FolderOpen },
     { title: 'Mening fanlarim', url: '/account/subjects', icon: FolderOpen },
 ];
