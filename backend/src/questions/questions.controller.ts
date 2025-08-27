@@ -1,4 +1,5 @@
 import {
+  Body,
   Controller,
   Delete,
   Get,
@@ -8,6 +9,7 @@ import {
   Patch,
   Post,
   Query,
+  Request,
   UseGuards,
 } from '@nestjs/common';
 import {
@@ -17,8 +19,8 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { QuestionsService } from './questions.service';
-import type { CreateQuestionDto } from './dto/create-question.dto';
-import type { UpdateQuestionDto } from './dto/update-question.dto';
+import { CreateQuestionDto } from './dto/create-question.dto';
+import { UpdateQuestionDto } from './dto/update-question.dto';
 import { QuestionResponseDto } from './dto/question-response.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
@@ -37,8 +39,8 @@ export class QuestionsController {
     type: QuestionResponseDto,
   })
   async create(
-    createQuestionDto: CreateQuestionDto,
-    req,
+    @Body() createQuestionDto: CreateQuestionDto,
+    @Request() req,
   ): Promise<QuestionResponseDto> {
     return this.questionsService.create(createQuestionDto, req?.user?.id);
   }
@@ -52,7 +54,7 @@ export class QuestionsController {
   })
   async findAll(
     @Query('testId') testId: number,
-    req,
+    @Request() req,
   ): Promise<QuestionResponseDto[]> {
     return this.questionsService.findAllByTest(testId, req.user.id);
   }
@@ -65,7 +67,7 @@ export class QuestionsController {
     type: QuestionResponseDto,
   })
   @ApiResponse({ status: 404, description: 'Savol topilmadi' })
-  async findOne(@Param('id') id: number, req): Promise<QuestionResponseDto> {
+  async findOne(@Param('id') id: number, @Request() req): Promise<QuestionResponseDto> {
     return this.questionsService.findOne(id, req.user.id);
   }
 
@@ -78,8 +80,8 @@ export class QuestionsController {
   })
   async update(
     @Param('id') id: number,
-    updateQuestionDto: UpdateQuestionDto,
-    req,
+    @Body() updateQuestionDto: UpdateQuestionDto,
+    @Request() req,
   ): Promise<QuestionResponseDto> {
     return this.questionsService.update(id, updateQuestionDto, req.user.id);
   }
@@ -88,7 +90,7 @@ export class QuestionsController {
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: "Savolni o'chirish" })
   @ApiResponse({ status: 204, description: "Savol muvaffaqiyatli o'chirildi" })
-  async remove(@Param('id') id: number, req): Promise<void> {
+  async remove(@Param('id') id: number, @Request() req): Promise<void> {
     return this.questionsService.remove(id, req.user.id);
   }
 
@@ -101,8 +103,8 @@ export class QuestionsController {
   })
   async reorder(
     @Param('testId') testid: number,
-    body: { questionIds: string[] },
-    req,
+    @Body() body: { questionIds: string[] },
+    @Request() req,
   ): Promise<QuestionResponseDto[]> {
     return this.questionsService.reorderQuestions(
       testid,

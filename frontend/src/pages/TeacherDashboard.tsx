@@ -1,6 +1,6 @@
-import {Card, CardContent, CardHeader, CardTitle} from "@/components/ui/card";
-import {Button} from "@/components/ui/button";
-import {Badge} from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import {
     BarChart3,
     Bell,
@@ -14,56 +14,102 @@ import {
     Users,
     Video
 } from "lucide-react";
-import {useNavigate} from "react-router-dom";
-
-const TeacherDashboard = () => {
+import { useNavigate } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
+import { request } from "@/configs/request";
+import type { SubjectType } from "@/types/subject.type";
+import { useAuth } from "@/contexts/AuthContext";
+import moment from 'moment'
+export default function TeacherDashboard() {
 
     const navigate = useNavigate();
-    // Mock data - replace with API calls
-    const teacherStats = {
-        totalStudents: 85,
-        activeGroups: 4,
-        todayLessons: 3,
-        pendingTests: 2,
-        gradingQueue: 12
-    };
+    const { user } = useAuth();
 
-    const todaySchedule = [
-        {
-            id: 1,
-            time: "09:00",
-            subject: "Ingliz tili",
-            group: "Beginner A1",
-            students: 15,
-            room: "A-101",
-            type: "offline"
-        },
-        {
-            id: 2,
-            time: "14:00",
-            subject: "Ingliz tili",
-            group: "Intermediate B1",
-            students: 18,
-            room: "A-102",
-            type: "online"
-        },
-        {id: 3, time: "16:30", subject: "IELTS", group: "Advanced C1", students: 12, room: "A-103", type: "offline"}
-    ];
+    const [isLoading, setIsLoading] = useState<boolean>(true);
+    const [errorMessage, setErrorMessage] = useState<string>("");
+    const [subjects, setSubjects] = useState<SubjectType[]>([]);
+    const [subjectStats, setSubjectStats] = useState<any>(null);
+    const [testStats, setTestStats] = useState<any>(null);
+    const [groups, setGroups] = useState<any[]>([]);
 
-    const myGroups = [
-        {id: 1, name: "Beginner A1", students: 15, nextLesson: "2024-01-15 09:00", attendance: 85},
-        {id: 2, name: "Intermediate B1", students: 18, nextLesson: "2024-01-15 14:00", attendance: 92},
-        {id: 3, name: "Advanced C1", students: 12, nextLesson: "2024-01-15 16:30", attendance: 88},
-        {id: 4, name: "IELTS Preparation", students: 20, nextLesson: "2024-01-16 10:00", attendance: 90}
-    ];
+    useEffect(() => {
+        let isMounted = true;
+        (async () => {
+            setIsLoading(true);
+            setErrorMessage("");
+            try {
+                const [subjectsRes, statsRes, testsStatsRes, groupsRes] = await Promise.all([
+                    request.get('/subjects'),
+                    request.get('/subjects/stats'),
+                    request.get('/tests/stats'),
+                    request.get('/groups/me')
+                ]);
+                if (!isMounted) return;
+                setSubjects(subjectsRes.data || []);
+                setSubjectStats(statsRes.data || null);
+                setTestStats(testsStatsRes.data || null);
+                setGroups(groupsRes.data || []);
+            } catch (e: any) {
+                if (!isMounted) return;
+                setErrorMessage(e?.response?.data?.message || 'Ma\'lumotlarni yuklab bo\'lmadi');
+            } finally {
+                if (isMounted) setIsLoading(false);
+            }
+        })();
+        return () => {
+            isMounted = false;
+        };
+    }, []);
+
+    const todaySchedule = useMemo(() => {
+        const dayAliases: Record<string, string> = {
+            dushanba: 'monday',
+            seshanba: 'tuesday',
+            chorshanba: 'wednesday',
+            payshanba: 'thursday',
+            juma: 'friday',
+            shanba: 'saturday',
+            yakshanba: 'sunday',
+        };
+        const normalize = (d: string) => (dayAliases[d] ? dayAliases[d] : d).toLowerCase();
+        const todayEn = new Date().toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
+
+        return groups
+            .filter((g) => {
+                const days = (g.daysOfWeek || []).map((d: string) => normalize(String(d).toLowerCase()));
+                return days.includes(todayEn);
+            })
+            .map((g) => ({
+                id: g.id,
+                time: `${g.startTime}`,
+                subject: subjects.find((s) => s.id === g.subjectId)?.name || '—',
+                group: g.name,
+                students: g.studentIds?.length || 0,
+                room: '-',
+                type: 'offline',
+            }))
+            .sort((a, b) => (a.time < b.time ? -1 : a.time > b.time ? 1 : 0))
+            .slice(0, 5);
+    }, [groups, subjects]);
+
+    const myGroups = useMemo(() =>
+        groups.map((g: any) => ({
+            id: g.id,
+            name: g.name,
+            students: g.studentIds?.length || 0,
+            nextLesson: new Date().toISOString(),
+            attendance: 0,
+        })),
+        [groups]
+    );
 
     const recentActivities = [
-        {id: 1, action: "Yangi test yaratildi", group: "Intermediate B1", time: "30 daqiqa oldin"},
-        {id: 2, action: "Yo'qlama olindi", group: "Beginner A1", time: "2 soat oldin"},
-        {id: 3, action: "Vazifa baholandi", group: "Advanced C1", time: "4 soat oldin"},
-        {id: 4, action: "Video dars yuklandi", group: "IELTS Preparation", time: "Kecha"}
+        { id: 1, action: "Yangi test yaratildi", group: "Intermediate B1", time: "30 daqiqa oldin" },
+        { id: 2, action: "Yo'qlama olindi", group: "Beginner A1", time: "2 soat oldin" },
+        { id: 3, action: "Vazifa baholandi", group: "Advanced C1", time: "4 soat oldin" },
+        { id: 4, action: "Video dars yuklandi", group: "IELTS Preparation", time: "Kecha" }
     ];
-
+    console.log(user)
     return (
         <div className="min-h-screen bg-gradient-subtle">
             {/* Header */}
@@ -71,15 +117,15 @@ const TeacherDashboard = () => {
                 <div className="flex justify-between items-center">
                     <div>
                         <h1 className="text-3xl font-bold text-foreground">O'qituvchi paneli</h1>
-                        <p className="text-muted-foreground">Karimova Gulnora - Ingliz tili</p>
+                        <p className="text-muted-foreground">{`${user?.firstName}  ${user?.lastName}`} — {subjects[0]?.name || user?.center?.name || ''}</p>
                     </div>
                     <div className="flex items-center space-x-4">
                         <Button variant="outline" size="sm">
-                            <Bell className="h-4 w-4 mr-2"/>
+                            <Bell className="h-4 w-4 mr-2" />
                             Bildirishnomalar
                         </Button>
                         <Button variant="hero">
-                            <Plus className="h-4 w-4 mr-2"/>
+                            <Plus className="h-4 w-4 mr-2" />
                             Yangi dars
                         </Button>
                     </div>
@@ -87,44 +133,52 @@ const TeacherDashboard = () => {
             </header>
 
             <div className="p-6">
+                {/* Loading / Error */}
+                {isLoading && (
+                    <div className="mb-6 text-sm text-muted-foreground">Yuklanmoqda...</div>
+                )}
+                {!isLoading && errorMessage && (
+                    <div className="mb-6 text-sm text-destructive">{errorMessage}</div>
+                )}
+
                 {/* Stats Grid */}
                 <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8">
                     <Card className="border-border">
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                             <CardTitle className="text-sm font-medium text-muted-foreground">
-                                Mening studentlarim
+                                Fanlarim
                             </CardTitle>
-                            <Users className="h-4 w-4 text-primary"/>
+                            <Users className="h-4 w-4 text-primary" />
                         </CardHeader>
                         <CardContent>
-                            <div className="text-2xl font-bold text-foreground">{teacherStats.totalStudents}</div>
-                            <p className="text-xs text-muted-foreground">4 ta guruhda</p>
+                            <div className="text-2xl font-bold text-foreground">{subjects.length}</div>
+                            <p className="text-xs text-muted-foreground">Jami fanlar</p>
                         </CardContent>
                     </Card>
 
                     <Card className="border-border">
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                             <CardTitle className="text-sm font-medium text-muted-foreground">
-                                Faol guruhlar
+                                Faol fanlar
                             </CardTitle>
-                            <BookOpen className="h-4 w-4 text-accent"/>
+                            <BookOpen className="h-4 w-4 text-accent" />
                         </CardHeader>
                         <CardContent>
-                            <div className="text-2xl font-bold text-foreground">{teacherStats.activeGroups}</div>
-                            <p className="text-xs text-accent">Barcha faol</p>
+                            <div className="text-2xl font-bold text-foreground">{subjectStats?.activeSubjects ?? 0}</div>
+                            <p className="text-xs text-accent">Faol holatda</p>
                         </CardContent>
                     </Card>
 
                     <Card className="border-border">
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                             <CardTitle className="text-sm font-medium text-muted-foreground">
-                                Bugungi darslar
+                                Testlar
                             </CardTitle>
-                            <Calendar className="h-4 w-4 text-primary"/>
+                            <Calendar className="h-4 w-4 text-primary" />
                         </CardHeader>
                         <CardContent>
-                            <div className="text-2xl font-bold text-foreground">{teacherStats.todayLessons}</div>
-                            <p className="text-xs text-muted-foreground">Rejalashtirilgan</p>
+                            <div className="text-2xl font-bold text-foreground">{testStats?.totalTests ?? subjectStats?.totalTests ?? 0}</div>
+                            <p className="text-xs text-muted-foreground">Jami testlar</p>
                         </CardContent>
                     </Card>
 
@@ -133,24 +187,24 @@ const TeacherDashboard = () => {
                             <CardTitle className="text-sm font-medium text-muted-foreground">
                                 Kutilayotgan testlar
                             </CardTitle>
-                            <FileText className="h-4 w-4 text-accent"/>
+                            <FileText className="h-4 w-4 text-accent" />
                         </CardHeader>
                         <CardContent>
-                            <div className="text-2xl font-bold text-foreground">{teacherStats.pendingTests}</div>
-                            <p className="text-xs text-destructive">Yaratish kerak</p>
+                            <div className="text-2xl font-bold text-foreground">{testStats?.draftTests ?? 0}</div>
+                            <p className="text-xs text-accent">Qoralama testlar</p>
                         </CardContent>
                     </Card>
 
                     <Card className="border-border">
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                             <CardTitle className="text-sm font-medium text-muted-foreground">
-                                Baholash navbati
+                                Formulali fanlar
                             </CardTitle>
-                            <CheckCircle className="h-4 w-4 text-primary"/>
+                            <CheckCircle className="h-4 w-4 text-primary" />
                         </CardHeader>
                         <CardContent>
-                            <div className="text-2xl font-bold text-foreground">{teacherStats.gradingQueue}</div>
-                            <p className="text-xs text-destructive">Baholash kerak</p>
+                            <div className="text-2xl font-bold text-foreground">{groups?.length ?? 0}</div>
+                            <p className="text-xs text-muted-foreground">Mening guruhlarim</p>
                         </CardContent>
                     </Card>
                 </div>
@@ -160,7 +214,7 @@ const TeacherDashboard = () => {
                     <Card className="border-border">
                         <CardHeader>
                             <CardTitle className="text-card-foreground flex items-center">
-                                <Calendar className="h-5 w-5 mr-2"/>
+                                <Calendar className="h-5 w-5 mr-2" />
                                 Bugungi jadval
                             </CardTitle>
                         </CardHeader>
@@ -168,12 +222,12 @@ const TeacherDashboard = () => {
                             <div className="space-y-4">
                                 {todaySchedule.map((lesson) => (
                                     <div key={lesson.id}
-                                         className="flex items-center justify-between p-3 bg-muted rounded-lg">
+                                        className="flex items-center justify-between p-3 bg-muted rounded-lg">
                                         <div className="flex items-center space-x-3">
                                             <div className="text-center">
                                                 <div className="text-sm font-medium text-foreground">{lesson.time}</div>
                                                 <Badge variant={lesson.type === "online" ? "default" : "secondary"}
-                                                       className="text-xs">
+                                                    className="text-xs">
                                                     {lesson.type === "online" ? "Online" : "Offline"}
                                                 </Badge>
                                             </div>
@@ -186,7 +240,7 @@ const TeacherDashboard = () => {
                                         </div>
                                         {lesson.type === "online" && (
                                             <Button size="sm" variant="outline">
-                                                <Video className="h-4 w-4 mr-1"/>
+                                                <Video className="h-4 w-4 mr-1" />
                                                 Qo'shilish
                                             </Button>
                                         )}
@@ -200,7 +254,7 @@ const TeacherDashboard = () => {
                     <Card className="border-border">
                         <CardHeader>
                             <CardTitle className="text-card-foreground flex items-center">
-                                <BookOpen className="h-5 w-5 mr-2"/>
+                                <BookOpen className="h-5 w-5 mr-2" />
                                 Mening guruhlarim
                             </CardTitle>
                         </CardHeader>
@@ -216,8 +270,8 @@ const TeacherDashboard = () => {
                                         </div>
                                         <p className="text-sm text-muted-foreground mb-1">{group.students} student</p>
                                         <div className="flex items-center text-xs text-muted-foreground">
-                                            <Clock className="h-3 w-3 mr-1"/>
-                                            Keyingi dars: {new Date(group.nextLesson).toLocaleDateString("uz-UZ")}
+                                            <Clock className="h-3 w-3 mr-1" />
+                                            Keyingi dars: {moment(group.nextLesson).format('DD.MM.YYYY')}
                                         </div>
                                     </div>
                                 ))}
@@ -239,23 +293,23 @@ const TeacherDashboard = () => {
                                 <Button variant="hero" className="w-full justify-start" onClick={() => {
                                     navigate('/account/test/create');
                                 }}>
-                                    <Plus className="h-4 w-4 mr-2"/>
+                                    <Plus className="h-4 w-4 mr-2" />
                                     Yangi test yaratish
                                 </Button>
                                 <Button variant="outline" className="w-full justify-start">
-                                    <Upload className="h-4 w-4 mr-2"/>
+                                    <Upload className="h-4 w-4 mr-2" />
                                     Video dars yuklash
                                 </Button>
                                 <Button variant="outline" className="w-full justify-start">
-                                    <CheckCircle className="h-4 w-4 mr-2"/>
+                                    <CheckCircle className="h-4 w-4 mr-2" />
                                     Yo'qlama olish
                                 </Button>
                                 <Button variant="outline" className="w-full justify-start">
-                                    <FileText className="h-4 w-4 mr-2"/>
+                                    <FileText className="h-4 w-4 mr-2" />
                                     Vazifa berish
                                 </Button>
                                 <Button variant="outline" className="w-full justify-start">
-                                    <BarChart3 className="h-4 w-4 mr-2"/>
+                                    <BarChart3 className="h-4 w-4 mr-2" />
                                     Progress ko'rish
                                 </Button>
                             </CardContent>
@@ -283,5 +337,3 @@ const TeacherDashboard = () => {
         </div>
     );
 };
-
-export default TeacherDashboard;

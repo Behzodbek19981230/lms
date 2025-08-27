@@ -42,6 +42,12 @@ export class QuestionsService {
       throw new ForbiddenException("Bu testga ruxsatingiz yo'q");
     }
 
+    // Normalize numeric fields
+    createQuestionDto.points = Math.round(Number(createQuestionDto.points || 1));
+    if (createQuestionDto.order !== undefined) {
+      createQuestionDto.order = Math.round(Number(createQuestionDto.order));
+    }
+
     // Validate question type and answers
     this.validateQuestionData(createQuestionDto);
 
@@ -144,6 +150,14 @@ export class QuestionsService {
     // Validate question data if type is changing
     if (updateQuestionDto.type && updateQuestionDto.type !== question.type) {
       this.validateQuestionData(updateQuestionDto as CreateQuestionDto);
+    }
+
+    // Normalize numeric fields on update
+    if (updateQuestionDto.points !== undefined) {
+      updateQuestionDto.points = Math.round(Number(updateQuestionDto.points));
+    }
+    if (updateQuestionDto.order !== undefined) {
+      updateQuestionDto.order = Math.round(Number(updateQuestionDto.order));
     }
 
     // Update question

@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import type { Repository } from 'typeorm';
-import { User } from './entities/user.entity';
+import { User, UserRole } from './entities/user.entity';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Center } from 'src/centers/entities/center.entity';
 import { CreateUserDto } from './dto/create-user.dto';
@@ -19,14 +19,21 @@ export class UsersService {
       ? await this.centerRepository.findOne({ where: { id: dto.centerId } })
       : undefined;
 
+    // If role is ADMIN/TEACHER/STUDENT, ensure a center is attached
+    if ((!center || !center.id) && dto.role && dto.role !== UserRole.SUPERADMIN) {
+      throw new Error('Admin, teacher va student uchun centerId majburiy');
+    }
+
     const user = this.userRepository.create(
       center ? { ...dto, center } : { ...dto },
     );
     return this.userRepository.save(user);
   }
 
-  async findAll(centerId?: string): Promise<User[]> {
-    const where = centerId ? { center: { id: Number(centerId) } } : {};
+  async findAll(centerId?: string, role?: string): Promise<User[]> {
+    const where: any = {};
+    if (centerId) where.center = { id: Number(centerId) };
+    if (role) where.role = role as UserRole;
     return await this.userRepository.find({
       where,
       relations: ['center', 'subjects'],

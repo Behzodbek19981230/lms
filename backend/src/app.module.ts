@@ -7,6 +7,9 @@ import { TestsModule } from './tests/tests.module';
 import { QuestionsModule } from './questions/questions.module';
 import { UsersModule } from './users/users.module';
 import { CentersModule } from './centers/centers.module';
+import { NotificationsModule } from './notifications/notifications.module';
+import { GroupsModule } from './groups/groups.module';
+import { AssignedTestsModule } from './assigned-tests/assigned-tests.module';
 
 @Module({
   imports: [
@@ -35,6 +38,9 @@ import { CentersModule } from './centers/centers.module';
     TestsModule,
     QuestionsModule,
     CentersModule,
+    NotificationsModule,
+    GroupsModule,
+    AssignedTestsModule,
   ],
 })
 export class AppModule {}

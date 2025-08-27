@@ -18,18 +18,22 @@ import {
 } from '@nestjs/swagger';
 
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { UserRole } from '../users/entities/user.entity';
 import { CentersService } from './centers.service';
 import { CreateCenterDto } from './dto/create-center.dto';
 import { Center } from './entities/center.entity';
 
 @ApiTags('Centers')
 @Controller('centers')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
 @ApiBearerAuth()
 export class CentersController {
   constructor(private readonly centerService: CentersService) {}
 
   @Post()
+  @Roles(UserRole.SUPERADMIN)
   @ApiOperation({ summary: 'Yangi markaz yaratish' })
   @ApiResponse({
     status: 201,
@@ -44,6 +48,7 @@ export class CentersController {
   }
 
   @Get()
+  @Roles(UserRole.SUPERADMIN)
   @ApiOperation({ summary: 'Markazlar ro‘yxatini olish' })
   @ApiResponse({
     status: 200,
@@ -55,6 +60,7 @@ export class CentersController {
   }
 
   @Get(':id')
+  @Roles(UserRole.SUPERADMIN)
   @ApiOperation({ summary: 'Markaz ma‘lumotlarini olish' })
   @ApiResponse({
     status: 200,
@@ -66,6 +72,7 @@ export class CentersController {
   }
 
   @Patch(':id')
+  @Roles(UserRole.SUPERADMIN)
   @ApiOperation({ summary: 'Markaz ma‘lumotlarini yangilash' })
   @ApiResponse({
     status: 200,
@@ -81,6 +88,7 @@ export class CentersController {
   }
 
   @Delete(':id')
+  @Roles(UserRole.SUPERADMIN)
   @ApiOperation({ summary: 'Markaz ma‘lumotlarini o‘chirish' })
   @ApiResponse({
     status: 200,

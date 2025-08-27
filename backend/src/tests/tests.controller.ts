@@ -1,4 +1,5 @@
 import {
+  Body,
   Controller,
   Delete,
   Get,
@@ -19,8 +20,8 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { TestsService } from './tests.service';
-import type { CreateTestDto } from './dto/create-test.dto';
-import type { UpdateTestDto } from './dto/update-test.dto';
+import { CreateTestDto } from './dto/create-test.dto';
+import { UpdateTestDto } from './dto/update-test.dto';
 import { TestResponseDto } from './dto/test-response.dto';
 import { TestStatsDto } from './dto/test-stats.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -40,7 +41,7 @@ export class TestsController {
     type: TestResponseDto,
   })
   async create(
-    createTestDto: CreateTestDto,
+    @Body() createTestDto: CreateTestDto,
     @Request() req,
   ): Promise<TestResponseDto> {
     return this.testsService.create(createTestDto, req.user.id);
@@ -117,7 +118,7 @@ export class TestsController {
   })
   async update(
     @Param('id') id: number,
-    updateTestDto: UpdateTestDto,
+    @Body() updateTestDto: UpdateTestDto,
     @Request() req,
   ): Promise<TestResponseDto> {
     return this.testsService.update(id, updateTestDto, req.user.id);

@@ -31,7 +31,7 @@ export class TestsService {
   ): Promise<TestResponseDto> {
     const teacher = await this.teacherRepository.findOne({
       where: { id: teacherid },
-      relations: ['subjects'],
+      relations: ['center'],
     });
 
     if (!teacher) {
@@ -40,16 +40,15 @@ export class TestsService {
 
     const subject = await this.subjectRepository.findOne({
       where: { id: createTestDto.subjectid },
-      relations: ['teachers'],
+      relations: ['center'],
     });
 
     if (!subject) {
       throw new NotFoundException('Fan topilmadi');
     }
 
-    // Check if teacher has access to this subject
-    const hasAccess = subject.teachers.some((t) => t.id === teacherid);
-    if (!hasAccess) {
+    // Allow any subject within the teacher's center
+    if (!teacher.center || subject.center?.id !== teacher.center.id) {
       throw new ForbiddenException("Bu fanga ruxsatingiz yo'q");
     }
 
@@ -83,18 +82,17 @@ export class TestsService {
     subjectid: number,
     teacherid: number,
   ): Promise<TestResponseDto[]> {
-    const subject = await this.subjectRepository.findOne({
-      where: { id: subjectid },
-      relations: ['teachers'],
-    });
+    const [subject, teacher] = await Promise.all([
+      this.subjectRepository.findOne({ where: { id: subjectid }, relations: ['center'] }),
+      this.teacherRepository.findOne({ where: { id: teacherid }, relations: ['center'] }),
+    ]);
 
     if (!subject) {
       throw new NotFoundException('Fan topilmadi');
     }
 
-    // Check if teacher has access to this subject
-    const hasAccess = subject.teachers.some((t) => t.id === teacherid);
-    if (!hasAccess) {
+    // Allow if subject belongs to teacher's center
+    if (!teacher?.center || subject.center?.id !== teacher.center.id) {
       throw new ForbiddenException("Bu fanga ruxsatingiz yo'q");
     }
 

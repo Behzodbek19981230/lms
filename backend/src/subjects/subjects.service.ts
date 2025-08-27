@@ -66,7 +66,7 @@ export class SubjectsService {
     return this.mapToResponseDto(savedSubject);
   }
 
-  /** BARCHA SUBJECTLARNI KO'RISH (teacher uchun faqat o'ziniki, admin uchun markazdagilari) */
+  /** BARCHA SUBJECTLARNI KO'RISH (teacher va student uchun markazdagilari, admin/superadmin uchun ham markazdagilari) */
   async findAll(userId: number): Promise<SubjectResponseDto[]> {
     const user = await this.userRepository.findOne({
       where: { id: userId },
@@ -74,18 +74,10 @@ export class SubjectsService {
     });
     if (!user) throw new NotFoundException('Foydalanuvchi topilmadi');
 
-    let subjects: Subject[] = [];
-    if (user.role === UserRole.TEACHER) {
-      subjects = await this.subjectRepository.find({
-        where: { teachers: { id: user.id } },
-        relations: ['center'],
-      });
-    } else {
-      subjects = await this.subjectRepository.find({
-        where: { center: { id: user.center?.id } },
-        relations: ['center', 'teachers'],
-      });
-    }
+    const subjects: Subject[] = await this.subjectRepository.find({
+      where: { center: { id: user.center?.id } },
+      relations: ['center', 'teachers'],
+    });
 
     // eslint-disable-next-line @typescript-eslint/unbound-method
     return subjects.map(this.mapToResponseDto);
@@ -105,9 +97,10 @@ export class SubjectsService {
     });
     if (!subject) throw new NotFoundException('Fan topilmadi');
 
-    if (user.role === UserRole.TEACHER) {
-      const hasAccess = subject.teachers.some((t) => t.id === user.id);
-      if (!hasAccess) throw new ForbiddenException("Bu fanga ruxsatingiz yo'q");
+    if (user.role === UserRole.TEACHER || user.role === UserRole.STUDENT) {
+      const sameCenter = subject.center?.id === user.center?.id;
+      if (!sameCenter)
+        throw new ForbiddenException("Bu fanga ruxsatingiz yo'q");
     } else if (
       user.role !== UserRole.ADMIN &&
       user.role !== UserRole.SUPERADMIN
@@ -189,7 +182,7 @@ export class SubjectsService {
     await this.subjectRepository.remove(subject);
   }
 
-  /** SUBJECT STATISTIKASI (Teacher uchun faqat o'ziniki, Admin uchun markaz bo'yicha) */
+  /** SUBJECT STATISTIKASI (Teacher/Student uchun markaz bo'yicha, Admin/Superadmin uchun markaz bo'yicha) */
   async getSubjectStats(userId: number): Promise<any> {
     const user = await this.userRepository.findOne({
       where: { id: userId },
@@ -198,9 +191,9 @@ export class SubjectsService {
     if (!user) throw new NotFoundException('Foydalanuvchi topilmadi');
 
     let subjects: Subject[] = [];
-    if (user.role === UserRole.TEACHER) {
-      subjects = user.subjects;
-    } else if (
+    if (
+      user.role === UserRole.TEACHER ||
+      user.role === UserRole.STUDENT ||
       user.role === UserRole.ADMIN ||
       user.role === UserRole.SUPERADMIN
     ) {

@@ -6,6 +6,7 @@ import {
   HttpCode,
   HttpStatus,
   Param,
+  Put,
   Patch,
   Post,
   Request,
@@ -88,6 +89,21 @@ export class SubjectsController {
     type: SubjectResponseDto,
   })
   async update(
+    @Param('id') id: number,
+    @Body() updateSubjectDto: UpdateSubjectDto,
+    @Request() req,
+  ): Promise<SubjectResponseDto> {
+    return this.subjectsService.update(id, updateSubjectDto, req.user.id);
+  }
+
+  @Put(':id')
+  @ApiOperation({ summary: 'Fanni yangilash (PUT)' })
+  @ApiResponse({
+    status: 200,
+    description: 'Fan muvaffaqiyatli yangilandi',
+    type: SubjectResponseDto,
+  })
+  async replace(
     @Param('id') id: number,
     @Body() updateSubjectDto: UpdateSubjectDto,
     @Request() req,
