@@ -13,5 +13,5 @@ export const AppDataSource = new DataSource({
   database: process.env.DB_NAME || 'postgres',
   entities: ['dist/**/*.entity.js'],
   migrations: ['dist/migrations/*.js'],
-  synchronize: false, // faqat devda true qilasan, migratsiyada false bo‘lishi kerak
+  synchronize: false, // disabled after adding completedAt field
 });

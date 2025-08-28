@@ -44,6 +44,9 @@ export class AssignedTestVariant extends BaseEntity {
   @Column({ type: 'int' })
   variantNumber: number;
 
+  @Column({ type: 'timestamp', nullable: true })
+  completedAt: Date;
+
   // Stores per-question data with shuffled answers and correct index per variant
   @Column({ type: 'json' })
   payload: {

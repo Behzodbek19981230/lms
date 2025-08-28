@@ -6,6 +6,8 @@ import { Test } from '../tests/entities/test.entity';
 import { Group } from '../groups/entities/group.entity';
 import { User, UserRole } from '../users/entities/user.entity';
 import { Question } from '../questions/entities/question.entity';
+import { Answer } from '../questions/entities/answer.entity';
+import * as puppeteer from 'puppeteer';
 
 interface GenerateDto {
   baseTestId: number;
@@ -41,21 +43,29 @@ export class AssignedTestsService {
     const allQuestions = await this.questionRepo.find({ where: { test: { id: test.id } }, relations: ['answers'] });
     if (!allQuestions.length) throw new NotFoundException('Testda savollar yo\'q');
 
-    const pickNRandom = <T,>(arr: T[], n: number): T[] => {
-      const copy = [...arr];
-      for (let i = copy.length - 1; i > 0; i--) {
+    // Function to shuffle array randomly
+    const shuffleArray = <T>(array: T[]): T[] => {
+      const shuffled = [...array];
+      for (let i = shuffled.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
-        [copy[i], copy[j]] = [copy[j], copy[i]];
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
       }
-      return copy.slice(0, Math.min(n, copy.length));
+      return shuffled;
     };
-    const shuffleIndexes = (len: number): number[] => {
-      const idx = [...Array(len).keys()];
-      for (let i = idx.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [idx[i], idx[j]] = [idx[j], idx[i]];
+
+    // Function to generate unique question combinations for each student
+    const generateUniqueVariants = (questions: Question[], numQuestions: number, numStudents: number): Question[][] => {
+      const variants: Question[][] = [];
+      
+      for (let i = 0; i < numStudents; i++) {
+        // Shuffle the question pool for each student to get different order
+        const shuffledPool = shuffleArray([...questions]);
+        // Take first N questions for this variant
+        const variant = shuffledPool.slice(0, Math.min(numQuestions, shuffledPool.length));
+        variants.push(variant);
       }
-      return idx;
+      
+      return variants;
     };
 
     const assigned = this.assignedRepo.create({
@@ -68,24 +78,272 @@ export class AssignedTestsService {
     });
     const savedAssigned = await this.assignedRepo.save(assigned);
 
+    const students = group.students || [];
+    const uniqueVariants = generateUniqueVariants(allQuestions, assigned.numQuestions, students.length);
+
     let variantNumber = 1;
-    for (const student of group.students || []) {
-      const qs = pickNRandom(allQuestions, assigned.numQuestions);
+    for (let i = 0; i < students.length; i++) {
+      const student = students[i];
+      const studentQuestions = uniqueVariants[i];
+      
       const payload = { questions: [] as any[] };
-      for (const q of qs) {
+      for (const q of studentQuestions) {
         const entry: any = { questionId: q.id };
+        
         if (assigned.shuffleAnswers && q.answers && q.answers.length > 1) {
-          const order = shuffleIndexes(q.answers.length);
-          entry.answerOrder = order;
+          // Shuffle answers for this specific question and student
+          const shuffledAnswers = shuffleArray([...q.answers]);
+          const answerOrder = shuffledAnswers.map((a, newIndex) => {
+            const originalIndex = q.answers.findIndex(original => original.id === a.id);
+            return originalIndex;
+          });
+          
+          entry.answerOrder = answerOrder;
           const correctIndex = q.answers.findIndex((a) => a.isCorrect);
-          if (correctIndex >= 0) entry.correctIndex = order.indexOf(correctIndex);
+          if (correctIndex >= 0) {
+            entry.correctIndex = answerOrder.indexOf(correctIndex);
+          }
         }
+        
         payload.questions.push(entry);
       }
-      const variant = this.variantRepo.create({ assignedTest: savedAssigned, student, variantNumber: variantNumber++, payload });
+      
+      const variant = this.variantRepo.create({ 
+        assignedTest: savedAssigned, 
+        student, 
+        variantNumber: variantNumber++, 
+        payload 
+      });
       await this.variantRepo.save(variant);
     }
 
     return { id: savedAssigned.id };
+  }
+
+  async getMyAssignedTests(teacherId: number) {
+    const teacher = await this.userRepo.findOne({ where: { id: teacherId }, relations: ['center'] });
+    if (!teacher || teacher.role !== UserRole.TEACHER) throw new ForbiddenException('Faqat o\'qituvchi');
+
+    const assignedTests = await this.assignedRepo.find({
+      where: { teacher: { id: teacherId } },
+      relations: ['group', 'baseTest'],
+      order: { createdAt: 'DESC' },
+    });
+
+    const result: Array<{
+      id: number;
+      title: string;
+      group: { name: string };
+      createdAt: Date;
+      variants: Array<{
+        id: number;
+        student: { id: number; fullName: string };
+        assignedAt: Date;
+        completedAt?: Date;
+        status: 'completed' | 'pending';
+      }>;
+    }> = [];
+
+    for (const assigned of assignedTests) {
+      const variants = await this.variantRepo.find({
+        where: { assignedTest: { id: assigned.id } },
+        relations: ['student'],
+        order: { variantNumber: 'ASC' },
+      });
+
+      const variantsWithStatus = variants.map(v => ({
+        id: v.id,
+        student: {
+          id: v.student.id,
+          fullName: v.student.fullName,
+        },
+        assignedAt: v.createdAt,
+        completedAt: v.completedAt,
+        status: (v.completedAt ? 'completed' : 'pending') as 'completed' | 'pending',
+      }));
+
+      result.push({
+        id: assigned.id,
+        title: assigned.title,
+        group: { name: assigned.group.name },
+        createdAt: assigned.createdAt,
+        variants: variantsWithStatus,
+      });
+    }
+
+    return result;
+  }
+
+  async getTestAnswers(assignedTestId: number, teacherId: number) {
+    const teacher = await this.userRepo.findOne({ where: { id: teacherId }, relations: ['center'] });
+    if (!teacher || teacher.role !== UserRole.TEACHER) throw new ForbiddenException('Faqat o\'qituvchi');
+
+    const assignedTest = await this.assignedRepo.findOne({
+      where: { id: assignedTestId, teacher: { id: teacherId } },
+      relations: ['group', 'baseTest', 'variants'],
+    });
+    if (!assignedTest) throw new NotFoundException('Blok test topilmadi');
+
+    const variants = await this.variantRepo.find({
+      where: { assignedTest: { id: assignedTestId } },
+      relations: ['student'],
+      order: { variantNumber: 'ASC' },
+    });
+
+    const questions = await this.questionRepo.find({
+      where: { test: { id: assignedTest.baseTest.id } },
+      relations: ['answers'],
+      order: { order: 'ASC' },
+    });
+
+    const result = {
+      id: assignedTest.id,
+      title: assignedTest.title,
+      group: { name: assignedTest.group.name },
+      questions: questions.map(q => ({
+        id: q.id,
+        text: q.text,
+        type: q.type,
+        points: q.points,
+        answers: q.answers?.map(a => ({
+          id: a.id,
+          text: a.text,
+          isCorrect: a.isCorrect,
+        })) || [],
+      })),
+      variants: variants.map(v => ({
+        id: v.id,
+        student: {
+          id: v.student.id,
+          fullName: v.student.fullName,
+        },
+        variantNumber: v.variantNumber,
+        payload: v.payload,
+        completedAt: v.completedAt,
+        status: v.completedAt ? 'completed' : 'pending',
+      })),
+    };
+
+    return result;
+  }
+
+  async generatePdf(assignedTestId: number, teacherId: number): Promise<Buffer> {
+    const teacher = await this.userRepo.findOne({ where: { id: teacherId }, relations: ['center'] });
+    if (!teacher || teacher.role !== UserRole.TEACHER) throw new ForbiddenException('Faqat o\'qituvchi');
+
+    const assignedTest = await this.assignedRepo.findOne({
+      where: { id: assignedTestId, teacher: { id: teacherId } },
+      relations: ['group', 'baseTest', 'variants'],
+    });
+    if (!assignedTest) throw new NotFoundException('Blok test topilmadi');
+
+    const variants = await this.variantRepo.find({
+      where: { assignedTest: { id: assignedTestId } },
+      relations: ['student'],
+      order: { variantNumber: 'ASC' },
+    });
+
+    const questions = await this.questionRepo.find({
+      where: { test: { id: assignedTest.baseTest.id } },
+      relations: ['answers'],
+      order: { order: 'ASC' },
+    });
+
+    const browser = await puppeteer.launch({ headless: true });
+    const page = await browser.newPage();
+
+    const htmlContent = this.generateTestHtml(assignedTest, variants, questions);
+    await page.setContent(htmlContent);
+    
+    const pdfBuffer = await page.pdf({
+      format: 'A4',
+      margin: { top: '20mm', right: '20mm', bottom: '20mm', left: '20mm' },
+      printBackground: true,
+    });
+
+    await browser.close();
+    return Buffer.from(pdfBuffer);
+  }
+
+  private generateTestHtml(assignedTest: AssignedTest, variants: AssignedTestVariant[], questions: Question[]): string {
+    const variantHtml = variants.map(v => {
+      // Get the questions for this specific variant from the payload
+      const variantQuestionIds = v.payload.questions.map(q => q.questionId);
+      const variantQuestions = questions.filter(q => variantQuestionIds.includes(q.id));
+      
+      const studentQuestions = variantQuestions.map((q, index) => {
+        const variantData = v.payload.questions.find(vq => vq.questionId === q.id);
+        let answersHtml = '';
+        
+        if (q.type === 'multiple_choice' && variantData?.answerOrder) {
+          const shuffledAnswers = variantData.answerOrder.map(orderIndex => q.answers[orderIndex]);
+          answersHtml = shuffledAnswers.map((a, i) => 
+            `<div style="margin: 5px 0; padding: 5px; border: 1px solid #ddd; border-radius: 3px;">
+              ${String.fromCharCode(65 + i)}. ${a.text}
+            </div>`
+          ).join('');
+        } else if (q.type === 'true_false') {
+          answersHtml = `
+            <div style="margin: 5px 0; padding: 5px; border: 1px solid #ddd; border-radius: 3px;">A. To'g'ri</div>
+            <div style="margin: 5px 0; padding: 5px; border: 1px solid #ddd; border-radius: 3px;">B. Noto'g'ri</div>
+          `;
+        } else {
+          answersHtml = `<div style="margin: 5px 0; padding: 5px; border: 1px solid #ddd; border-radius: 3px;">Javob: _________________</div>`;
+        }
+
+        return `
+          <div style="margin: 20px 0; padding: 15px; border: 1px solid #ccc; border-radius: 8px;">
+            <h4 style="margin: 0 0 10px 0; color: #333;">${index + 1}. ${q.text}</h4>
+            <div style="margin: 10px 0;">
+              ${answersHtml}
+            </div>
+            <div style="font-size: 12px; color: #666; margin-top: 10px;">
+              Ball: ${q.points}
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      return `
+        <div style="page-break-before: always; padding: 20px;">
+          <div style="text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 20px;">
+            <h1 style="color: #333; margin: 0;">${assignedTest.title}</h1>
+            <h3 style="color: #666; margin: 10px 0;">Guruh: ${assignedTest.group.name}</h3>
+            <h3 style="color: #666; margin: 10px 0;">Variant: ${v.variantNumber}</h3>
+            <h3 style="color: #666; margin: 10px 0;">O'quvchi: ${v.student.fullName}</h3>
+            <p style="color: #999; margin: 5px 0;">Sana: ${new Date().toLocaleDateString('uz-UZ')}</p>
+            <p style="color: #999; margin: 5px 0;">Savollar soni: ${variantQuestions.length}</p>
+          </div>
+          
+          <div style="margin-top: 30px;">
+            ${studentQuestions}
+          </div>
+          
+          <div style="margin-top: 40px; text-align: center; border-top: 1px solid #ccc; padding-top: 20px;">
+            <p style="color: #666;">Jami ball: ___________</p>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    return `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        <title>${assignedTest.title}</title>
+        <style>
+          body { font-family: Arial, sans-serif; margin: 0; padding: 0; }
+          .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 20px; }
+          .question { margin: 20px 0; padding: 15px; border: 1px solid #ccc; border-radius: 8px; }
+          .answer { margin: 5px 0; padding: 5px; border: 1px solid #ddd; border-radius: 3px; }
+          .footer { margin-top: 40px; text-align: center; border-top: 1px solid #ccc; padding-top: 20px; }
+        </style>
+      </head>
+      <body>
+        ${variantHtml}
+      </body>
+      </html>
+    `;
   }
 }

@@ -13,7 +13,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { request } from '@/configs/request';
-import { DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger } from '@/components/ui/dropdown-menu';
 
 export const DashboardHeader = () => {
     const { user, logout } = useAuth();
