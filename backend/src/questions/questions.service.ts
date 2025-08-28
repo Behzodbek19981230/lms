@@ -82,6 +82,25 @@ export class QuestionsService {
 
     return this.mapToResponseDto(savedQuestion);
   }
+  async findAllBySubject(
+    subjectId: number,
+    teacherid: number,
+  ): Promise<QuestionResponseDto[]> {
+    const questions = await this.questionRepository
+      .createQueryBuilder('q')
+      .leftJoinAndSelect('q.test', 't')
+      .leftJoinAndSelect('q.answers', 'a')
+      .leftJoinAndSelect('t.teacher', 'teacher')
+      .leftJoinAndSelect('t.subject', 's')
+      .where('s.id = :subjectId', { subjectId })
+      .andWhere('teacher.id = :teacherid', { teacherid })
+      .orderBy('q.order', 'ASC')
+      .addOrderBy('q.createdAt', 'ASC')
+      .getMany();
+  
+    return questions.map((question) => this.mapToResponseDto(question));
+  }
+  
 
   async findAllByTest(
     testid: number,

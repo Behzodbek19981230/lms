@@ -285,6 +285,7 @@ export default function CreateTestPage() {
                         console.log(`Skipping row ${i + 1}: insufficient data`, row);
                         continue;
                     }
+
                     const questionType = String(row[0] || '').toLowerCase();
                     const questionText = String(row[1] || '');
                     const optionA = String(row[2] || '');
@@ -315,52 +316,62 @@ export default function CreateTestPage() {
                     }
 
                     let type: 'multiple-choice' | 'essay' | 'true-false';
-                    let options: string[] | undefined;
+                    let options: string[] = [];
                     let correctAnswerIndex: number | undefined;
 
                     if (questionType.includes('multiple') || questionType.includes('choice')) {
                         type = 'multiple-choice';
-                        // Faqat to'g'ri javobni ko'rsatish uchun
-                        const correctAnswerLetter = correctAnswer.toUpperCase();
-                        let correctAnswerIndex = -1;
 
-                        // To'g'ri javob indeksini aniqlash
-                        if (correctAnswerLetter === 'A') {
+                        // Barcha variantlarni to'plash
+                        if (optionA.trim()) options.push(optionA);
+                        if (optionB.trim()) options.push(optionB);
+                        if (optionC.trim()) options.push(optionC);
+                        if (optionD.trim()) options.push(optionD);
+
+                        // To'g'ri javobni indeksga aylantirish
+                        const correctAnswerLetter = correctAnswer.toUpperCase();
+
+                        if (correctAnswerLetter === 'A' && optionA.trim()) {
                             correctAnswerIndex = 0;
-                            options = [optionA].filter(opt => opt.trim());
-                        } else if (correctAnswerLetter === 'B') {
+                        } else if (correctAnswerLetter === 'B' && optionB.trim()) {
                             correctAnswerIndex = 1;
-                            options = [optionB].filter(opt => opt.trim());
-                        } else if (correctAnswerLetter === 'C') {
+                        } else if (correctAnswerLetter === 'C' && optionC.trim()) {
                             correctAnswerIndex = 2;
-                            options = [optionC].filter(opt => opt.trim());
-                        } else if (correctAnswerLetter === 'D') {
+                        } else if (correctAnswerLetter === 'D' && optionD.trim()) {
                             correctAnswerIndex = 3;
-                            options = [optionD].filter(opt => opt.trim());
                         } else {
-                            errors.push(`Qator ${i + 1}: To'g'ri javob A, B, C yoki D bo'lishi kerak`);
+                            errors.push(`Qator ${i + 1}: To'g'ri javob A, B, C yoki D bo'lishi kerak va variant mavjud bo'lishi kerak`);
                             continue;
                         }
 
-                        if (options.length === 0) {
-                            errors.push(`Qator ${i + 1}: To'g'ri javob variant bo'sh`);
+                        if (options.length < 2) {
+                            errors.push(`Qator ${i + 1}: Kamida 2 ta variant bo'lishi kerak`);
                             continue;
                         }
                     } else if (questionType.includes('true') || questionType.includes('false')) {
                         type = 'true-false';
                         options = ['To\'g\'ri', 'Noto\'g\'ri'];
-                        correctAnswerIndex = correctAnswer === 'A' || correctAnswer === 'a' ? 0 : 1;
+
+                        // To'g'ri javobni aniqlash
+                        const correctAnswerUpper = correctAnswer.toUpperCase();
+                        if (correctAnswerUpper === 'A' || correctAnswerUpper.includes('TRUE') || correctAnswerUpper.includes('TOGRI')) {
+                            correctAnswerIndex = 0;
+                        } else if (correctAnswerUpper === 'B' || correctAnswerUpper.includes('FALSE') || correctAnswerUpper.includes('NOTOGRI')) {
+                            correctAnswerIndex = 1;
+                        } else {
+                            errors.push(`Qator ${i + 1}: To'g'ri javob A/To'g'ri yoki B/Noto'g'ri bo'lishi kerak`);
+                            continue;
+                        }
                     } else {
                         type = 'essay';
-                        options = undefined;
-                        correctAnswerIndex = undefined;
+                        // Essay savollari uchun variantlar kerak emas
                     }
 
                     questions.push({
                         id: Date.now() + i,
                         type,
                         question: questionText,
-                        options,
+                        options: options.length > 0 ? options : undefined,
                         correctAnswer: correctAnswerIndex,
                         points,
                         explanation
