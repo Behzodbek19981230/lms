@@ -10,6 +10,7 @@ import {
   UseGuards,
   Request,
   Res,
+  BadRequestException,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -88,8 +89,7 @@ export class ExamsController {
     // Coerce and validate incoming status
     const allowed = Object.values(ExamStatus);
     if (!allowed.includes(status as ExamStatus)) {
-      // eslint-disable-next-line @typescript-eslint/no-throw-literal
-      throw new Error(
+      throw new BadRequestException(
         `Invalid status: ${status}. Allowed: ${allowed.join(', ')}`,
       );
     }

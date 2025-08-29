@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import type { Repository } from 'typeorm';
 import { User, UserRole } from './entities/user.entity';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -25,7 +25,7 @@ export class UsersService {
       dto.role &&
       dto.role !== UserRole.SUPERADMIN
     ) {
-      throw new Error('Admin, teacher va student uchun centerId majburiy');
+      throw new BadRequestException('Admin, teacher va student uchun centerId majburiy');
     }
 
     const user = this.userRepository.create(
