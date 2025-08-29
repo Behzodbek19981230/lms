@@ -233,7 +233,7 @@ export class AssignedTestsService {
 
     const assignedTest = await this.assignedRepo.findOne({
       where: { id: assignedTestId, teacher: { id: teacherId } },
-      relations: ['group', 'baseTest', 'variants'],
+      relations: ['group', 'baseTest', 'baseTest.subject', 'variants'],
     });
     if (!assignedTest) throw new NotFoundException('Blok test topilmadi');
 
@@ -266,6 +266,9 @@ export class AssignedTestsService {
   }
 
   private generateTestHtml(assignedTest: AssignedTest, variants: AssignedTestVariant[], questions: Question[]): string {
+    // Generate title page
+    const titlePageHtml = this.generateTitlePage(assignedTest, variants, questions);
+    
     const variantHtml = variants.map(v => {
       // Get the questions for this specific variant from the payload
       const variantQuestionIds = v.payload.questions.map(q => q.questionId);
@@ -334,6 +337,16 @@ export class AssignedTestsService {
         <title>${assignedTest.title}</title>
         <style>
           body { font-family: Arial, sans-serif; margin: 0; padding: 0; }
+          .title-page { page-break-after: always; padding: 20px; text-align: center; }
+          .title-page h1 { font-size: 24px; margin: 30px 0; color: #333; }
+          .title-page h2 { font-size: 18px; margin: 20px 0; color: #666; }
+          .title-page .info { margin: 15px 0; font-size: 14px; }
+          .title-page .instructions { text-align: left; margin: 40px auto; max-width: 500px; }
+          .title-page .instructions h3 { color: #333; margin-bottom: 15px; }
+          .title-page .instructions ul { padding-left: 20px; }
+          .title-page .instructions li { margin: 8px 0; }
+          .student-info { margin: 40px auto; max-width: 400px; text-align: left; }
+          .student-info .field { margin: 20px 0; border-bottom: 1px solid #333; padding-bottom: 5px; }
           .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 20px; }
           .question { margin: 20px 0; padding: 15px; border: 1px solid #ccc; border-radius: 8px; }
           .answer { margin: 5px 0; padding: 5px; border: 1px solid #ddd; border-radius: 3px; }
@@ -341,9 +354,60 @@ export class AssignedTestsService {
         </style>
       </head>
       <body>
+        ${titlePageHtml}
         ${variantHtml}
       </body>
       </html>
+    `;
+  }
+
+  private generateTitlePage(assignedTest: AssignedTest, variants: AssignedTestVariant[], questions: Question[]): string {
+    const subjectName = assignedTest.baseTest.subject?.name || 'Fan nomi ko\'rsatilmagan';
+    const totalStudents = variants.length;
+    const totalQuestions = questions.length;
+    const currentDate = new Date().toLocaleDateString('uz-UZ');
+    
+    return `
+      <div class="title-page">
+        <h1>${subjectName.toUpperCase()} FANIDAN BLOK TEST</h1>
+        <h2>${assignedTest.title}</h2>
+        
+        <div class="info">
+          <p><strong>Guruh:</strong> ${assignedTest.group.name}</p>
+          <p><strong>Savollar soni:</strong> ${totalQuestions} ta</p>
+          <p><strong>Variantlar soni:</strong> ${totalStudents} ta</p>
+          <p><strong>Sana:</strong> ${currentDate}</p>
+        </div>
+        
+        <div class="instructions">
+          <h3>KO'RSATMALAR:</h3>
+          <ul>
+            <li>Barcha savollarga javob bering</li>
+            <li>Har bir savol uchun faqat bitta to'g'ri javob mavjud</li>
+            <li>Javoblarni aniq va tushunarli yozing</li>
+            <li>Vaqtni to'g'ri taqsimlang</li>
+            <li>Ishingizni tekshirib chiqing</li>
+          </ul>
+        </div>
+        
+        <div class="student-info">
+          <div class="field">
+            <strong>Ism:</strong> ___________________________
+          </div>
+          <div class="field">
+            <strong>Familiya:</strong> ___________________________
+          </div>
+          <div class="field">
+            <strong>Guruh:</strong> ___________________________
+          </div>
+          <div class="field">
+            <strong>Variant raqami:</strong> ___________________________
+          </div>
+          <div class="field">
+            <strong>Sana:</strong> ___________________________
+          </div>
+        </div>
+      </div>
     `;
   }
 }

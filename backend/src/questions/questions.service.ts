@@ -43,7 +43,9 @@ export class QuestionsService {
     }
 
     // Normalize numeric fields
-    createQuestionDto.points = Math.round(Number(createQuestionDto.points || 1));
+    createQuestionDto.points = Math.round(
+      Number(createQuestionDto.points || 1),
+    );
     if (createQuestionDto.order !== undefined) {
       createQuestionDto.order = Math.round(Number(createQuestionDto.order));
     }
@@ -97,10 +99,9 @@ export class QuestionsService {
       .orderBy('q.order', 'ASC')
       .addOrderBy('q.createdAt', 'ASC')
       .getMany();
-  
+
     return questions.map((question) => this.mapToResponseDto(question));
   }
-  
 
   async findAllByTest(
     testid: number,
@@ -127,6 +128,22 @@ export class QuestionsService {
     });
 
     return questions.map((question) => this.mapToResponseDto(question));
+  }
+
+  async findByTest(testId: number): Promise<Question[]> {
+    return this.questionRepository.find({
+      where: { test: { id: testId } },
+      relations: ['answers'],
+      order: { order: 'ASC', createdAt: 'ASC' },
+    });
+  }
+
+  async getQuestionAnswers(questionId: number): Promise<any[]> {
+    const answers = await this.answerRepository.find({
+      where: { question: { id: questionId } },
+      order: { order: 'ASC' },
+    });
+    return answers;
   }
 
   async findOne(id: number, teacherid: number): Promise<QuestionResponseDto> {

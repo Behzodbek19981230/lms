@@ -148,7 +148,7 @@ export function TestGenerator({ subject }: TestGeneratorProps) {
         return 'bg-purple-500'
       case 'history':
       case 'tarix':
-        return 'bg-orange-500'
+        return 'bg-primary'
       default:
         return 'bg-gray-500'
     }
@@ -407,7 +407,7 @@ export function TestGenerator({ subject }: TestGeneratorProps) {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Shuffle className="h-5 w-5 text-orange-500" />
+            <Shuffle className="h-5 w-5 text-primary" />
             Test Generatori
           </CardTitle>
         </CardHeader>
@@ -427,7 +427,7 @@ export function TestGenerator({ subject }: TestGeneratorProps) {
                 }
               }}
             >
-              <SelectTrigger className="focus:ring-2 focus:ring-orange-500 focus:border-orange-500">
+              <SelectTrigger className="focus:ring-2 focus:ring-primary focus:border-primary">
                 <SelectValue placeholder="Fanni tanlang" />
               </SelectTrigger>
               <SelectContent>
@@ -466,7 +466,7 @@ export function TestGenerator({ subject }: TestGeneratorProps) {
                 placeholder="Test nomini kiriting"
                 value={testConfig.title}
                 onChange={(e) => setTestConfig((prev) => ({ ...prev, title: e.target.value }))}
-                className="focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                className="focus:ring-2 focus:ring-primary focus:border-primary"
               />
             </div>
 
@@ -478,7 +478,7 @@ export function TestGenerator({ subject }: TestGeneratorProps) {
                 value={testConfig.questionCount.toString()}
                 onValueChange={(value) => setTestConfig((prev) => ({ ...prev, questionCount: Number.parseInt(value) }))}
               >
-                <SelectTrigger className="focus:ring-2 focus:ring-orange-500 focus:border-orange-500">
+                <SelectTrigger className="focus:ring-2 focus:ring-primary focus:border-primary">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -499,7 +499,7 @@ export function TestGenerator({ subject }: TestGeneratorProps) {
                 value={testConfig.variantCount.toString()}
                 onValueChange={(value) => setTestConfig((prev) => ({ ...prev, variantCount: Number.parseInt(value) }))}
               >
-                <SelectTrigger className="focus:ring-2 focus:ring-orange-500 focus:border-orange-500">
+                <SelectTrigger className="focus:ring-2 focus:ring-primary focus:border-primary">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -525,7 +525,7 @@ export function TestGenerator({ subject }: TestGeneratorProps) {
                 onChange={(e) =>
                   setTestConfig((prev) => ({ ...prev, timeLimit: Number.parseInt(e.target.value) || 60 }))
                 }
-                className="focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                className="focus:ring-2 focus:ring-primary focus:border-primary"
               />
             </div>
 
@@ -537,7 +537,7 @@ export function TestGenerator({ subject }: TestGeneratorProps) {
                 value={testConfig.difficulty}
                 onValueChange={(value) => setTestConfig((prev) => ({ ...prev, difficulty: value }))}
               >
-                <SelectTrigger className="focus:ring-2 focus:ring-orange-500 focus:border-orange-500">
+                <SelectTrigger className="focus:ring-2 focus:ring-primary focus:border-primary">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -556,7 +556,7 @@ export function TestGenerator({ subject }: TestGeneratorProps) {
               id="includeAnswers"
               checked={testConfig.includeAnswers}
               onChange={(e) => setTestConfig((prev) => ({ ...prev, includeAnswers: e.target.checked }))}
-              className="w-4 h-4 text-orange-500 border-gray-300 rounded focus:ring-orange-500"
+              className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary"
             />
             <Label htmlFor="includeAnswers" className="text-sm font-medium text-gray-700 dark:text-gray-300">
               Javoblar kalitini qo'shish
@@ -569,7 +569,7 @@ export function TestGenerator({ subject }: TestGeneratorProps) {
               id="includeTitleSheet"
               checked={showTitleSheet}
               onChange={(e) => setShowTitleSheet(e.target.checked)}
-              className="w-4 h-4 text-orange-500 border-gray-300 rounded focus:ring-orange-500"
+              className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary"
             />
             <Label htmlFor="includeTitleSheet" className="text-sm font-medium text-gray-700 dark:text-gray-300">
               Sarlavha varag'ini qo'shish
@@ -580,7 +580,7 @@ export function TestGenerator({ subject }: TestGeneratorProps) {
             <Button
               onClick={generateRandomTest}
               disabled={isGenerating || !selectedSubject || availableQuestions.length === 0}
-              className="bg-orange-500 hover:bg-orange-600 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+              className="bg-primary hover:bg-primary/90 text-white disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isGenerating ? (
                 <>
@@ -600,7 +600,7 @@ export function TestGenerator({ subject }: TestGeneratorProps) {
                 <Button
                   onClick={exportToPDF}
                   variant="outline"
-                  className="border-orange-500 text-orange-500 hover:bg-orange-50 bg-transparent"
+                  className="border-primary text-primary hover:bg-primary/5"
                 >
                   <Download className="h-4 w-4 mr-2" />
                   PDF yuklab olish
@@ -609,7 +609,7 @@ export function TestGenerator({ subject }: TestGeneratorProps) {
                 <Button
                   onClick={() => window.print()}
                   variant="outline"
-                  className="border-green-500 text-green-500 hover:bg-green-50 bg-transparent"
+                  className="border-primary text-primary hover:bg-primary/5"
                 >
                   <Printer className="h-4 w-4 mr-2" />
                   Chop etish
@@ -625,7 +625,7 @@ export function TestGenerator({ subject }: TestGeneratorProps) {
           <CardHeader>
             <CardTitle className="flex items-center justify-between">
               <span className="flex items-center gap-2">
-                <FileText className="h-5 w-5 text-orange-500" />
+                <FileText className="h-5 w-5 text-primary" />
                 Yaratilgan Test
               </span>
               <div className="flex gap-2">
@@ -653,7 +653,7 @@ export function TestGenerator({ subject }: TestGeneratorProps) {
                           <div className="flex items-start justify-between">
                             <div className="flex-1">
                               <div className="flex items-center gap-2 mb-2">
-                                <span className="text-orange-500 font-medium">{index + 1}.</span>
+                                <span className="text-primary font-medium">{index + 1}.</span>
                                 {question.hasFormula ? (
                                   <LaTeXRenderer content={question.text} />
                                 ) : (
@@ -665,9 +665,13 @@ export function TestGenerator({ subject }: TestGeneratorProps) {
                               {question.imageBase64 && (
                                 <div className="mt-3 mb-3">
                                   <img 
-                                    src={`data:image/jpeg;base64,${question.imageBase64}`} 
+                                    src={question.imageBase64.startsWith('data:') ? question.imageBase64 : `data:image/png;base64,${question.imageBase64}`}
                                     alt="Savol rasmi"
                                     className="max-w-full h-auto max-h-48 rounded border"
+                                    onError={(e) => {
+                                      console.error('Image load error:', e);
+                                      e.currentTarget.style.display = 'none';
+                                    }}
                                   />
                                 </div>
                               )}

@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import type { Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
+import { In } from 'typeorm';
 import { Subject } from './entities/subject.entity';
 import { CreateSubjectDto } from './dto/create-subject.dto';
 import { UpdateSubjectDto } from './dto/update-subject.dto';
@@ -232,5 +233,13 @@ export class SubjectsService {
       createdAt: subject.createdAt,
       updatedAt: subject.updatedAt,
     };
+  }
+
+  /** ID LAR BO'YICHA SUBJECTLARNI OLISH */
+  async findByIds(ids: number[]): Promise<Subject[]> {
+    if (!ids || ids.length === 0) return [];
+    return this.subjectRepository.find({
+      where: { id: In(ids) },
+    });
   }
 }

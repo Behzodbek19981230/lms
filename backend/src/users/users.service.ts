@@ -20,7 +20,11 @@ export class UsersService {
       : undefined;
 
     // If role is ADMIN/TEACHER/STUDENT, ensure a center is attached
-    if ((!center || !center.id) && dto.role && dto.role !== UserRole.SUPERADMIN) {
+    if (
+      (!center || !center.id) &&
+      dto.role &&
+      dto.role !== UserRole.SUPERADMIN
+    ) {
       throw new Error('Admin, teacher va student uchun centerId majburiy');
     }
 
@@ -41,6 +45,17 @@ export class UsersService {
   }
 
   async findOne(id: number): Promise<User> {
+    const user = await this.userRepository.findOne({
+      where: { id },
+      relations: ['center', 'subjects'],
+    });
+    if (!user) {
+      throw new NotFoundException('Foydalanuvchi topilmadi');
+    }
+    return user;
+  }
+
+  async findById(id: number): Promise<User> {
     const user = await this.userRepository.findOne({
       where: { id },
       relations: ['center', 'subjects'],

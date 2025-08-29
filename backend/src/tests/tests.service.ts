@@ -83,8 +83,14 @@ export class TestsService {
     teacherid: number,
   ): Promise<TestResponseDto[]> {
     const [subject, teacher] = await Promise.all([
-      this.subjectRepository.findOne({ where: { id: subjectid }, relations: ['center'] }),
-      this.teacherRepository.findOne({ where: { id: teacherid }, relations: ['center'] }),
+      this.subjectRepository.findOne({
+        where: { id: subjectid },
+        relations: ['center'],
+      }),
+      this.teacherRepository.findOne({
+        where: { id: teacherid },
+        relations: ['center'],
+      }),
     ]);
 
     if (!subject) {
@@ -103,6 +109,14 @@ export class TestsService {
     });
 
     return tests.map((test) => this.mapToResponseDto(test));
+  }
+
+  async findBySubjectWithoutTeacher(subjectId: number): Promise<Test[]> {
+    return this.testRepository.find({
+      where: { subject: { id: subjectId } },
+      relations: ['subject', 'teacher', 'questions'],
+      order: { updatedAt: 'DESC' },
+    });
   }
 
   async findOne(id: number, teacherid: number): Promise<TestResponseDto> {

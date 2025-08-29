@@ -1,4 +1,14 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Request, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Request,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { GroupsService } from './groups.service';
@@ -13,8 +23,16 @@ export class GroupsController {
   constructor(private readonly groupsService: GroupsService) {}
 
   @Post()
-  async create(@Body() dto: CreateGroupDto, @Request() req): Promise<GroupResponseDto> {
+  async create(
+    @Body() dto: CreateGroupDto,
+    @Request() req,
+  ): Promise<GroupResponseDto> {
     return this.groupsService.create(dto, req.user.id);
+  }
+
+  @Get()
+  async findAll(@Request() req): Promise<GroupResponseDto[]> {
+    return this.groupsService.listMy(req.user.id);
   }
 
   @Get('me')
@@ -28,7 +46,11 @@ export class GroupsController {
     @Body('studentIds') studentIds: number[],
     @Request() req,
   ): Promise<GroupResponseDto> {
-    return this.groupsService.addStudents(Number(groupId), studentIds || [], req.user.id);
+    return this.groupsService.addStudents(
+      Number(groupId),
+      studentIds || [],
+      req.user.id,
+    );
   }
 
   @Patch(':groupId/students/:studentId/remove')
@@ -37,7 +59,11 @@ export class GroupsController {
     @Param('studentId') studentId: string,
     @Request() req,
   ): Promise<GroupResponseDto> {
-    return this.groupsService.removeStudent(Number(groupId), Number(studentId), req.user.id);
+    return this.groupsService.removeStudent(
+      Number(groupId),
+      Number(studentId),
+      req.user.id,
+    );
   }
 
   @Patch(':id')

@@ -11,5 +11,6 @@ import { Subject } from '../subjects/entities/subject.entity';
   imports: [TypeOrmModule.forFeature([Group, User, Center, Subject])],
   controllers: [GroupsController],
   providers: [GroupsService],
+  exports: [GroupsService],
 })
 export class GroupsModule {}

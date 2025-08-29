@@ -10,6 +10,7 @@ import { CentersModule } from './centers/centers.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { GroupsModule } from './groups/groups.module';
 import { AssignedTestsModule } from './assigned-tests/assigned-tests.module';
+import { ExamsModule } from './exams/exams.module';
 
 @Module({
   imports: [
@@ -41,6 +42,7 @@ import { AssignedTestsModule } from './assigned-tests/assigned-tests.module';
     NotificationsModule,
     GroupsModule,
     AssignedTestsModule,
+    ExamsModule,
   ],
 })
 export class AppModule {}
