@@ -37,7 +37,7 @@ interface Exam {
 interface ExamVariant {
 	id: number;
 	variantNumber: string;
-	status: 'pending' | 'in_progress' | 'completed' | 'submitted';
+	status: 'pending' | 'in_progress' | 'completed' | 'submitted' | 'generated' | 'started';
 	startedAt: string | null;
 	completedAt: string | null;
 	submittedAt: string | null;
@@ -49,9 +49,7 @@ interface ExamVariant {
 		id: number;
 		firstName: string;
 		lastName: string;
-		group: {
-			name: string;
-		};
+		fullName: string;
 	};
 }
 
@@ -233,6 +231,10 @@ const ExamDetail: React.FC = () => {
 
 	const getStatusColor = (status: string) => {
 		switch (status) {
+			case 'generated':
+				return 'bg-blue-500';
+			case 'started':
+				return 'bg-orange-500';
 			case 'draft':
 				return 'bg-gray-500';
 			case 'scheduled':
@@ -241,6 +243,8 @@ const ExamDetail: React.FC = () => {
 				return 'bg-yellow-500';
 			case 'completed':
 				return 'bg-green-500';
+			case 'submitted':
+				return 'bg-green-600';
 			default:
 				return 'bg-gray-500';
 		}
@@ -248,6 +252,10 @@ const ExamDetail: React.FC = () => {
 
 	const getStatusText = (status: string) => {
 		switch (status) {
+			case 'generated':
+				return 'Yaratilgan';
+			case 'started':
+				return 'Boshlangan';
 			case 'draft':
 				return 'Loyiha';
 			case 'scheduled':
@@ -402,15 +410,15 @@ const ExamDetail: React.FC = () => {
 						<>
 							<Dialog open={generateDialogOpen} onOpenChange={setGenerateDialogOpen}>
 								<DialogTrigger asChild>
-									<Button>Generate Variants</Button>
+									<Button>Variantlar yaratish</Button>
 								</DialogTrigger>
 								<DialogContent>
 									<DialogHeader>
-										<DialogTitle>Generate Exam Variants</DialogTitle>
+										<DialogTitle>Imtihon variantlarini yaratish</DialogTitle>
 									</DialogHeader>
 									<div className='space-y-4'>
 										<div>
-											<label className='text-sm font-medium'>Questions per subject</label>
+											<label className='text-sm font-medium'>Har bir fandagi savollar soni</label>
 											<input
 												type='number'
 												value={generateForm.questionsPerSubject}
@@ -437,7 +445,7 @@ const ExamDetail: React.FC = () => {
 													})
 												}
 											/>
-											<label htmlFor='shuffleQuestions'>Shuffle questions</label>
+											<label htmlFor='shuffleQuestions'>Savollarni aralashtirish</label>
 										</div>
 										<div className='flex items-center space-x-2'>
 											<input
@@ -451,24 +459,56 @@ const ExamDetail: React.FC = () => {
 													})
 												}
 											/>
-											<label htmlFor='shuffleAnswers'>Shuffle answers</label>
+											<label htmlFor='shuffleAnswers'>Javoblarni aralashtirish</label>
 										</div>
-										<Button onClick={generateVariants} className='w-full'>
-											Generate Variants
+										<Button onClick={generateVariants} className='w-full' disabled={isGenerating}>
+											{isGenerating ? (
+												<>
+													<Loader2 className='h-4 w-4 mr-2 animate-spin' />
+													Variantlar yaratilmoqda...
+												</>
+											) : (
+												'Variantlar yaratish'
+											)}
 										</Button>
 									</div>
 								</DialogContent>
 							</Dialog>
-							<Button variant='outline' onClick={() => updateExamStatus('scheduled')}>
-								Schedule Exam
+							<Button variant='outline' onClick={() => updateExamStatus('scheduled')} disabled={isUpdatingStatus}>
+								{isUpdatingStatus ? (
+									<>
+										<Loader2 className='h-4 w-4 mr-2 animate-spin' />
+										Rejalashtirilmoqda...
+									</>
+								) : (
+									'Imtihonni rejalashtirish'
+								)}
 							</Button>
 						</>
 					)}
 					{exam.status === 'scheduled' && (
-						<Button onClick={() => updateExamStatus('in_progress')}>Start Exam</Button>
+						<Button onClick={() => updateExamStatus('in_progress')} disabled={isUpdatingStatus}>
+							{isUpdatingStatus ? (
+								<>
+									<Loader2 className='h-4 w-4 mr-2 animate-spin' />
+									Boshlanmoqda...
+								</>
+							) : (
+								'Imtihonni boshlash'
+							)}
+						</Button>
 					)}
 					{exam.status === 'in_progress' && (
-						<Button onClick={() => updateExamStatus('completed')}>Complete Exam</Button>
+						<Button onClick={() => updateExamStatus('completed')} disabled={isUpdatingStatus}>
+							{isUpdatingStatus ? (
+								<>
+									<Loader2 className='h-4 w-4 mr-2 animate-spin' />
+									Tugallanmoqda...
+								</>
+							) : (
+								'Imtihonni tugatish'
+							)}
+						</Button>
 					)}
 				</CardContent>
 			</Card>
@@ -482,6 +522,12 @@ const ExamDetail: React.FC = () => {
 					<Tabs defaultValue='all' className='w-full'>
 						<TabsList>
 							<TabsTrigger value='all'>Barchasi ({exam.variants?.length ?? 0})</TabsTrigger>
+							<TabsTrigger value='generated'>
+								Yaratilgan ({(exam.variants ?? []).filter((v) => v.status === 'generated').length})
+							</TabsTrigger>
+							<TabsTrigger value='started'>
+								Boshlangan ({(exam.variants ?? []).filter((v) => v.status === 'started').length})
+							</TabsTrigger>
 							<TabsTrigger value='pending'>
 								Kutilmoqda ({(exam.variants ?? []).filter((v) => v.status === 'pending').length})
 							</TabsTrigger>
@@ -493,7 +539,7 @@ const ExamDetail: React.FC = () => {
 							</TabsTrigger>
 						</TabsList>
 
-						{['all', 'pending', 'in_progress', 'completed'].map((tab) => (
+						{['all', 'generated', 'started', 'pending', 'in_progress', 'completed'].map((tab) => (
 							<TabsContent key={tab} value={tab}>
 								<div className='space-y-2'>
 									{(exam.variants ?? [])
@@ -506,11 +552,10 @@ const ExamDetail: React.FC = () => {
 												<div className='flex items-center space-x-4'>
 													<div>
 														<p className='font-medium'>
-															{variant.student.firstName} {variant.student.lastName}
+															{variant.student.fullName || `${variant.student.firstName} ${variant.student.lastName}`}
 														</p>
 														<p className='text-sm text-gray-600'>
-															{variant.student.group?.name ?? "Guruh yo'q"} • Variant{' '}
-															{variant.variantNumber}
+															Variant {variant.variantNumber}
 														</p>
 													</div>
 												</div>

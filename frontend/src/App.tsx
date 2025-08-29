@@ -6,7 +6,6 @@ import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import Index from './pages/Index';
 import Login from './pages/Login';
 import Register from './pages/Register';
-import StudentDashboard from './pages/StudentDashboard';
 import NotFound from './pages/NotFound';
 import { ProtectedRoute } from '@/components/ProtectedRoute.tsx';
 import { DashboardLayout } from '@/components/dashboard/dashboard-layout.tsx';
@@ -23,6 +22,7 @@ import TeacherDashboard from './pages/TeacherDashboard';
 import ExamDetail from './pages/exams/ExamDetail';
 import ExamVariants from './pages/exams/ExamVariants';
 import TestGeneratorPage from './pages/TestGeneratorPage';
+import StudentDashboard from './pages/StudentDashboard';
 
 const queryClient = new QueryClient();
 

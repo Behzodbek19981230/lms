@@ -12,12 +12,14 @@ import * as puppeteer from 'puppeteer';
 import { Exam, ExamStatus, ExamType } from './entities/exam.entity';
 import { ExamVariant, ExamVariantStatus } from './entities/exam-variant.entity';
 import { ExamVariantQuestion } from './entities/exam-variant-question.entity';
+import { Group } from '../groups/entities/group.entity';
 import { UsersService } from '../users/users.service';
 import { GroupsService } from '../groups/groups.service';
 import { SubjectsService } from '../subjects/subjects.service';
 import { TestsService } from '../tests/tests.service';
 import { QuestionsService } from '../questions/questions.service';
 import { User, UserRole } from '../users/entities/user.entity';
+import { NotificationsService } from '../notifications/notifications.service';
 
 import { Question } from '../questions/entities/question.entity';
 
@@ -61,11 +63,14 @@ export class ExamsService {
     private examVariantRepository: Repository<ExamVariant>,
     @InjectRepository(ExamVariantQuestion)
     private examVariantQuestionRepository: Repository<ExamVariantQuestion>,
+    @InjectRepository(Group)
+    private groupRepository: Repository<Group>,
     private usersService: UsersService,
     private groupsService: GroupsService,
     private subjectsService: SubjectsService,
     private testsService: TestsService,
     private questionsService: QuestionsService,
+    private notificationsService: NotificationsService,
   ) {}
 
   /* -------------------------
@@ -113,7 +118,13 @@ export class ExamsService {
   async findById(id: number): Promise<Exam> {
     const exam = await this.examRepository.findOne({
       where: { id },
-      relations: ['groups', 'subjects', 'variants', 'variants.student'],
+      relations: [
+        'groups', 
+        'groups.students', 
+        'subjects', 
+        'variants', 
+        'variants.student'
+      ],
     });
     if (!exam) throw new NotFoundException('Exam not found');
     return exam;
@@ -194,6 +205,19 @@ export class ExamsService {
 
     // Update exam statistics
     await this.updateExamStatistics(exam.id);
+
+    // Create notifications for all students
+    const studentIds = uniqueStudents.map(student => student.id);
+    try {
+      await this.notificationsService.createExamNotification(
+        exam.id,
+        exam.title,
+        studentIds
+      );
+    } catch (error) {
+      console.log('Notification creation failed:', error);
+      // Don't fail the variant generation if notification fails
+    }
 
     return variants;
   }
@@ -848,8 +872,14 @@ export class ExamsService {
     });
     if (!variant) throw new NotFoundException('Variant not found');
 
+    // Get student's group information
+    const studentGroups = await this.groupRepository.find({
+      where: { students: { id: variant.student.id } },
+      relations: ['students'],
+    });
+
     // Generate title page
-    const titlePageHtml = this.generateExamTitlePage(variant);
+    const titlePageHtml = this.generateExamTitlePage(variant, false, studentGroups);
     
     const inner = this.buildVariantPage(
       { ...variant, exam: variant.exam } as any,
@@ -877,8 +907,14 @@ export class ExamsService {
     });
     if (!variant) throw new NotFoundException('Variant not found');
 
+    // Get student's group information
+    const studentGroups = await this.groupRepository.find({
+      where: { students: { id: variant.student.id } },
+      relations: ['students'],
+    });
+
     // Generate title page
-    const titlePageHtml = this.generateExamTitlePage(variant, true);
+    const titlePageHtml = this.generateExamTitlePage(variant, true, studentGroups);
     
     const inner = this.buildVariantPage(
       { ...variant, exam: variant.exam } as any,
@@ -944,7 +980,7 @@ export class ExamsService {
        PDF Title Page Generation
        ------------------------ */
 
-  private generateExamTitlePage(variant: any, isAnswerKey: boolean = false): string {
+  private generateExamTitlePage(variant: any, isAnswerKey: boolean = false, studentGroups: any[] = []): string {
     const exam = variant.exam;
     const student = variant.student;
     const subjects = exam.subjects || [];
@@ -985,19 +1021,19 @@ export class ExamsService {
           
           <div style="margin: 40px auto; max-width: 400px; text-align: left;">
             <div style="margin: 20px 0; border-bottom: 1px solid #333; padding-bottom: 5px;">
-              <strong>Ism:</strong> ___________________________
+              <strong>Ism:</strong> ${student ? student.firstName : '___________________________'}
             </div>
             <div style="margin: 20px 0; border-bottom: 1px solid #333; padding-bottom: 5px;">
-              <strong>Familiya:</strong> ___________________________
+              <strong>Familiya:</strong> ${student ? student.lastName : '___________________________'}
             </div>
             <div style="margin: 20px 0; border-bottom: 1px solid #333; padding-bottom: 5px;">
-              <strong>Guruh:</strong> ___________________________
+              <strong>Guruh:</strong> ${studentGroups && studentGroups.length > 0 ? studentGroups.map(g => g.name).join(', ') : '___________________________'}
             </div>
             <div style="margin: 20px 0; border-bottom: 1px solid #333; padding-bottom: 5px;">
-              <strong>Variant raqami:</strong> ___________________________
+              <strong>Variant raqami:</strong> ${variant.variantNumber}
             </div>
             <div style="margin: 20px 0; border-bottom: 1px solid #333; padding-bottom: 5px;">
-              <strong>Sana:</strong> ___________________________
+              <strong>Sana:</strong> ${currentDate}
             </div>
           </div>
           ` : ''}

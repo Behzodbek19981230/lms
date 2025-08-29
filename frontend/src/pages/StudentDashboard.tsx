@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -14,68 +14,165 @@ import {
   TrendingUp,
   Award,
   Bell,
-  Download
+  Download,
+  Loader2
 } from "lucide-react";
+import { request } from '@/configs/request';
+import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/components/ui/use-toast';
+import moment from 'moment';
 
 const StudentDashboard = () => {
-  // Mock data - replace with API calls
-  const studentStats = {
-    enrolledCourses: 3,
-    completedLessons: 45,
-    totalLessons: 60,
-    averageScore: 87,
-    upcomingTests: 2,
-    pendingPayments: 1
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const [loading, setLoading] = useState(true);
+  const [dashboardData, setDashboardData] = useState<any>(null);
+  const [examVariants, setExamVariants] = useState<any[]>([]);
+  const [assignedTests, setAssignedTests] = useState<any[]>([]);
+  const [grades, setGrades] = useState<any[]>([]);
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [subjects, setSubjects] = useState<any[]>([]);
+  const [downloadingExams, setDownloadingExams] = useState<Set<number>>(new Set());
+
+  useEffect(() => {
+    fetchDashboardData();
+  }, []);
+
+  const fetchDashboardData = async () => {
+    try {
+      setLoading(true);
+      
+      const [dashboardRes, examsRes, testsRes, gradesRes, notificationsRes, subjectsRes] = await Promise.all([
+        request.get('/students/dashboard'),
+        request.get('/students/exams'),
+        request.get('/students/assigned-tests'),
+        request.get('/students/grades'),
+        request.get('/students/notifications'),
+        request.get('/students/subjects'),
+      ]);
+
+      setDashboardData(dashboardRes.data);
+      setExamVariants(examsRes.data || []);
+      setAssignedTests(testsRes.data || []);
+      setGrades(gradesRes.data || []);
+      setNotifications(notificationsRes.data || []);
+      setSubjects(subjectsRes.data || []);
+    } catch (error) {
+      toast({
+        title: 'Xatolik',
+        description: 'Ma\'lumotlar yuklanmadi',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const enrolledCourses = [
-    { 
-      id: 1, 
-      name: "Ingliz tili - Intermediate B1", 
-      teacher: "Karimova Gulnora", 
-      progress: 75, 
-      nextLesson: "2024-01-15 14:00",
-      totalLessons: 24,
-      completedLessons: 18
-    },
-    { 
-      id: 2, 
-      name: "Matematika - Algebra", 
-      teacher: "Usmonov Bobur", 
-      progress: 60, 
-      nextLesson: "2024-01-16 16:00",
-      totalLessons: 20,
-      completedLessons: 12
-    },
-    { 
-      id: 3, 
-      name: "Fizika - Mexanika", 
-      teacher: "Rahimov Jamshid", 
-      progress: 40, 
-      nextLesson: "2024-01-17 10:00",
-      totalLessons: 16,
-      completedLessons: 6
+  const downloadExamVariant = async (variantId: number) => {
+    try {
+      setDownloadingExams(prev => new Set(prev).add(variantId));
+      const response = await request.get(`/students/exams/${variantId}/download`, { responseType: 'blob' });
+      const blob = response.data as Blob;
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `imtihon-variant-${variantId}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      
+      // Refresh exam data to get updated status
+      await fetchDashboardData();
+      
+      toast({
+        title: 'Muvaffaqiyat',
+        description: 'Imtihon variantingiz muvaffaqiyatli yuklandi va boshlangan deb belgilandi',
+      });
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : 'PDF yuklab olishda xatolik';
+      toast({
+        title: 'Xatolik',
+        description: errorMsg,
+        variant: 'destructive'
+      });
+    } finally {
+      setDownloadingExams(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(variantId);
+        return newSet;
+      });
     }
-  ];
+  };
 
-  const upcomingLessons = [
-    { id: 1, subject: "Ingliz tili", time: "14:00", date: "Bugun", teacher: "Karimova G.", type: "online" },
-    { id: 2, subject: "Matematika", time: "16:00", date: "Ertaga", teacher: "Usmonov B.", type: "offline" },
-    { id: 3, subject: "Fizika", time: "10:00", date: "Ertaga", teacher: "Rahimov J.", type: "offline" }
-  ];
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-subtle flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
+          <p className="text-muted-foreground">Ma'lumotlar yuklanmoqda...</p>
+        </div>
+      </div>
+    );
+  }
 
-  const recentGrades = [
-    { id: 1, subject: "Ingliz tili", type: "Test", score: 92, maxScore: 100, date: "2024-01-10" },
-    { id: 2, subject: "Matematika", type: "Vazifa", score: 85, maxScore: 100, date: "2024-01-08" },
-    { id: 3, subject: "Fizika", type: "Test", score: 78, maxScore: 100, date: "2024-01-05" },
-    { id: 4, subject: "Ingliz tili", type: "Vazifa", score: 95, maxScore: 100, date: "2024-01-03" }
-  ];
+  if (!dashboardData) {
+    return (
+      <div className="min-h-screen bg-gradient-subtle flex items-center justify-center">
+        <div className="text-center">
+          <AlertCircle className="h-8 w-8 text-destructive mx-auto mb-4" />
+          <p className="text-muted-foreground">Ma'lumotlar yuklanmadi</p>
+          <Button onClick={fetchDashboardData} className="mt-4">
+            Qayta urinish
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
-  const notifications = [
-    { id: 1, type: "test", message: "Matematika fanidan yangi test mavjud", time: "2 soat oldin" },
-    { id: 2, type: "payment", message: "Oylik to'lov muddati tugaydi", time: "Kecha" },
-    { id: 3, type: "grade", message: "Ingliz tili vazifasi baholandi", time: "2 kun oldin" }
-  ];
+  const studentStats = dashboardData.stats;
+  const studentInfo = dashboardData.student;
+
+  // Process exam variants for upcoming lessons
+  const upcomingLessons = examVariants
+    .filter(exam => exam.status === 'generated' || exam.status === 'scheduled')
+    .slice(0, 3)
+    .map(exam => ({
+      id: exam.id,
+      subject: exam.subjects,
+      time: moment(exam.examDate).format('HH:mm'),
+      date: moment(exam.examDate).calendar(),
+      teacher: exam.teacher,
+      type: 'exam',
+    }));
+
+  // Process subjects as enrolled courses
+  const enrolledCourses = subjects.slice(0, 3).map((subject, index) => {
+    const subjectExams = examVariants.filter(exam => exam.subjects.includes(subject.name));
+    const completedExams = subjectExams.filter(exam => exam.status === 'completed' || exam.status === 'submitted').length;
+    const totalExams = subjectExams.length;
+    const progress = totalExams > 0 ? Math.round((completedExams / totalExams) * 100) : 0;
+    
+    return {
+      id: subject.id,
+      name: subject.name,
+      teacher: 'O\'qituvchi', // This could be enhanced
+      progress,
+      nextLesson: moment().add(index + 1, 'days').format('YYYY-MM-DD HH:mm'),
+      totalLessons: totalExams,
+      completedLessons: completedExams,
+    };
+  });
+
+  // Process recent grades
+  const recentGrades = grades.slice(0, 4).map(grade => ({
+    id: grade.id,
+    subject: grade.subject,
+    type: grade.type === 'exam' ? 'Imtihon' : 'Test',
+    score: grade.score,
+    maxScore: grade.maxScore,
+    date: moment(grade.date).format('YYYY-MM-DD'),
+  }));
 
   return (
     <div className="min-h-screen bg-gradient-subtle">
@@ -84,16 +181,18 @@ const StudentDashboard = () => {
         <div className="flex justify-between items-center">
           <div>
             <h1 className="text-3xl font-bold text-foreground">Student paneli</h1>
-            <p className="text-muted-foreground">Ahmadjonov Ali Valijon o'g'li</p>
+            <p className="text-muted-foreground">{studentInfo?.fullName || user?.fullName}</p>
           </div>
           <div className="flex items-center space-x-4">
             <Button variant="outline" size="sm">
               <Bell className="h-4 w-4 mr-2" />
               Bildirishnomalar
-              <Badge className="ml-2 bg-destructive">3</Badge>
+              {notifications.length > 0 && (
+                <Badge className="ml-2 bg-destructive">{notifications.length}</Badge>
+              )}
             </Button>
             <Badge variant="outline" className="px-3 py-1">
-              ID: STU-2024-001
+              ID: {studentInfo?.id || user?.id}
             </Badge>
           </div>
         </div>
@@ -110,7 +209,7 @@ const StudentDashboard = () => {
               <BookOpen className="h-4 w-4 text-primary" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-foreground">{studentStats.enrolledCourses}</div>
+              <div className="text-2xl font-bold text-foreground">{studentStats.enrolledCourses || 0}</div>
               <p className="text-xs text-accent">Faol</p>
             </CardContent>
           </Card>
@@ -124,10 +223,12 @@ const StudentDashboard = () => {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-foreground">
-                {studentStats.completedLessons}/{studentStats.totalLessons}
+                {studentStats.completedExams || 0}/{studentStats.totalExams || 0}
               </div>
               <p className="text-xs text-accent">
-                {Math.round((studentStats.completedLessons / studentStats.totalLessons) * 100)}% tugallangan
+                {studentStats.totalExams > 0 
+                  ? Math.round(((studentStats.completedExams || 0) / studentStats.totalExams) * 100)
+                  : 0}% tugallangan
               </p>
             </CardContent>
           </Card>
@@ -140,7 +241,7 @@ const StudentDashboard = () => {
               <TrendingUp className="h-4 w-4 text-primary" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-foreground">{studentStats.averageScore}%</div>
+              <div className="text-2xl font-bold text-foreground">{studentStats.averageScore || 0}%</div>
               <p className="text-xs text-accent">Zo'r natija!</p>
             </CardContent>
           </Card>
@@ -153,7 +254,7 @@ const StudentDashboard = () => {
               <FileText className="h-4 w-4 text-accent" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-foreground">{studentStats.upcomingTests}</div>
+              <div className="text-2xl font-bold text-foreground">{studentStats.upcomingExams || 0}</div>
               <p className="text-xs text-muted-foreground">Bu hafta</p>
             </CardContent>
           </Card>
@@ -166,8 +267,8 @@ const StudentDashboard = () => {
               <AlertCircle className="h-4 w-4 text-destructive" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-foreground">{studentStats.pendingPayments}</div>
-              <p className="text-xs text-destructive">To'lanmagan</p>
+              <div className="text-2xl font-bold text-foreground">{assignedTests.filter(t => t.status === 'pending').length || 0}</div>
+              <p className="text-xs text-destructive">Kutilmoqda</p>
             </CardContent>
           </Card>
 
@@ -179,8 +280,8 @@ const StudentDashboard = () => {
               <Award className="h-4 w-4 text-primary" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-foreground">5</div>
-              <p className="text-xs text-accent">Sertifikat</p>
+              <div className="text-2xl font-bold text-foreground">{grades.filter(g => g.percentage >= 80).length || 0}</div>
+              <p className="text-xs text-accent">Yuqori baho</p>
             </CardContent>
           </Card>
         </div>
@@ -306,6 +407,66 @@ const StudentDashboard = () => {
           </div>
         </div>
 
+        {/* Available Exam Variants */}
+        <Card className="mt-6 border-border">
+          <CardHeader>
+            <CardTitle className="text-card-foreground flex items-center">
+              <FileText className="h-5 w-5 mr-2" />
+              Mavjud imtihon variantlari
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {examVariants.filter(variant => variant.status === 'generated' || variant.status === 'started').map((variant) => (
+                <div key={variant.id} className="flex items-center justify-between p-3 bg-muted rounded-lg">
+                  <div className="flex items-center space-x-3">
+                    <div className="p-2 bg-primary/10 rounded-full">
+                      <FileText className="h-4 w-4 text-primary" />
+                    </div>
+                    <div>
+                      <p className="text-sm text-foreground font-medium">Imtihon varianti #{variant.variantNumber}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {variant.exam?.title || 'Imtihon'} • 
+                        <span className={`ml-1 px-2 py-0.5 rounded text-xs ${
+                          variant.status === 'generated' ? 'bg-blue-100 text-blue-700' : 
+                          variant.status === 'started' ? 'bg-orange-100 text-orange-700' : 'bg-gray-100 text-gray-700'
+                        }`}>
+                          {variant.status === 'generated' ? 'Tayyor' : 
+                           variant.status === 'started' ? 'Boshlangan' : variant.status}
+                        </span>
+                      </p>
+                      {variant.startedAt && (
+                        <p className="text-xs text-muted-foreground">
+                          Boshlangan: {moment(variant.startedAt).format('DD.MM.YYYY HH:mm')}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  <Button 
+                    size="sm" 
+                    variant={variant.status === 'generated' ? 'default' : 'outline'}
+                    onClick={() => downloadExamVariant(variant.id)}
+                    disabled={downloadingExams.has(variant.id)}
+                  >
+                    {downloadingExams.has(variant.id) ? (
+                      <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                    ) : (
+                      <Download className="h-4 w-4 mr-1" />
+                    )}
+                    {variant.status === 'generated' ? 'Yuklab olish' : 'Qayta yuklab olish'}
+                  </Button>
+                </div>
+              ))}
+              {examVariants.filter(variant => variant.status === 'generated' || variant.status === 'started').length === 0 && (
+                <div className="text-center py-8 text-muted-foreground">
+                  <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p>Hozircha mavjud imtihon variantlari yo'q</p>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Notifications */}
         <Card className="mt-6 border-border">
           <CardHeader>
@@ -320,20 +481,45 @@ const StudentDashboard = () => {
                 <div key={notification.id} className="flex items-center justify-between p-3 bg-muted rounded-lg">
                   <div className="flex items-center space-x-3">
                     <div className="p-2 bg-primary/10 rounded-full">
+                      {notification.type === "exam" && <FileText className="h-4 w-4 text-primary" />}
                       {notification.type === "test" && <FileText className="h-4 w-4 text-primary" />}
                       {notification.type === "payment" && <AlertCircle className="h-4 w-4 text-destructive" />}
                       {notification.type === "grade" && <CheckCircle className="h-4 w-4 text-accent" />}
+                      {!['exam', 'test', 'payment', 'grade'].includes(notification.type) && <Bell className="h-4 w-4 text-muted-foreground" />}
                     </div>
                     <div>
-                      <p className="text-sm text-foreground">{notification.message}</p>
-                      <p className="text-xs text-muted-foreground">{notification.time}</p>
+                      <p className="text-sm text-foreground">{notification.message || notification.title}</p>
+                      <p className="text-xs text-muted-foreground">{notification.time || moment(notification.createdAt).fromNow()}</p>
                     </div>
                   </div>
-                  <Button size="sm" variant="ghost">
-                    Ko'rish
-                  </Button>
+                  <div className="flex items-center space-x-2">
+                    {notification.type === 'exam' && notification.examVariantId && (
+                      <Button 
+                        size="sm" 
+                        variant="outline"
+                        onClick={() => downloadExamVariant(notification.examVariantId)}
+                        disabled={downloadingExams.has(notification.examVariantId)}
+                      >
+                        {downloadingExams.has(notification.examVariantId) ? (
+                          <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                        ) : (
+                          <Download className="h-4 w-4 mr-1" />
+                        )}
+                        Yuklab olish
+                      </Button>
+                    )}
+                    <Button size="sm" variant="ghost">
+                      Ko'rish
+                    </Button>
+                  </div>
                 </div>
               ))}
+              {notifications.length === 0 && (
+                <div className="text-center py-8 text-muted-foreground">
+                  <Bell className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p>Hozircha bildirishnomalar yo'q</p>
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>

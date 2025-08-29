@@ -7,6 +7,7 @@ import { Group } from '../groups/entities/group.entity';
 import { User, UserRole } from '../users/entities/user.entity';
 import { Question } from '../questions/entities/question.entity';
 import { Answer } from '../questions/entities/answer.entity';
+import { NotificationsService } from '../notifications/notifications.service';
 import * as puppeteer from 'puppeteer';
 
 interface GenerateDto {
@@ -26,6 +27,7 @@ export class AssignedTestsService {
     @InjectRepository(Group) private groupRepo: Repository<Group>,
     @InjectRepository(User) private userRepo: Repository<User>,
     @InjectRepository(Question) private questionRepo: Repository<Question>,
+    private notificationsService: NotificationsService,
   ) {}
 
   async generate(dto: GenerateDto, teacherId: number) {
@@ -115,6 +117,19 @@ export class AssignedTestsService {
         payload 
       });
       await this.variantRepo.save(variant);
+    }
+
+    // Create notifications for all students in the group
+    const studentIds = students.map(student => student.id);
+    try {
+      await this.notificationsService.createTestNotification(
+        savedAssigned.id,
+        savedAssigned.title,
+        studentIds
+      );
+    } catch (error) {
+      console.log('Notification creation failed:', error);
+      // Don't fail the test creation if notification fails
     }
 
     return { id: savedAssigned.id };
