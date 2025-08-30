@@ -13,7 +13,7 @@ import {
     SidebarMenuSubItem,
     useSidebar,
 } from '@/components/ui/sidebar';
-import { Award, FolderOpen, LayoutDashboard, MessageSquare, Settings, Users } from 'lucide-react';
+import { Award, FolderOpen, LayoutDashboard, MessageSquare, Settings, Users, Send, Book, AlertCircle, Users2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useEffect, useState } from 'react';
 
@@ -25,21 +25,29 @@ const adminItems = [
 ];
 const superAdminMenuItems = [
     { title: 'Dashboard', url: '/account/superadmin', icon: LayoutDashboard },
-    { title: 'Mening fanlarim', url: '/account/subjects', icon: FolderOpen },
+    { title: 'Mening fanlarim', url: '/account/subjects', icon: Book
+     },
+    { title: 'Telegram Management', url: '/account/telegram', icon: Send },
 ];
 const centerAdminMenuItems = [
     { title: 'Dashboard', url: '/account/admin', icon: LayoutDashboard },
-    { title: 'Mening fanlarim', url: '/account/subjects', icon: FolderOpen },
+    { title: 'Mening fanlarim', url: '/account/subjects', icon: Book
+     },
+    { title: 'Telegram Management', url: '/account/telegram', icon: Send },
 ];
 const teacherMenuItems = [
     { title: 'Dashboard', url: '/account/teacher', icon: LayoutDashboard },
-    { title: 'Imtihonlar', url: '/account/exams', icon: FolderOpen },
-    { title: 'Mening guruhlarim', url: '/account/groups', icon: FolderOpen },
-    { title: 'Mening fanlarim', url: '/account/subjects', icon: FolderOpen },
+    { title: 'Imtihonlar', url: '/account/exams', icon: AlertCircle },
+    { title: 'Mening guruhlarim', url: '/account/groups', icon: Users2 },
+    { title: 'Mening fanlarim', url: '/account/subjects', icon: Book
+     },
+    { title: 'Telegram Management', url: '/account/telegram', icon: Send },
 ];
 const studentMenuItems = [
     { title: 'Dashboard', url: '/account/student', icon: LayoutDashboard },
-    { title: 'Mening fanlarim', url: '/account/subjects', icon: FolderOpen },
+    { title: 'Mening fanlarim', url: '/account/subjects', icon: Book
+     },
+    { title: 'Telegram', url: '/account/telegram-user', icon: Send },
 ];
 
 export function DashboardSidebar() {

@@ -21,6 +21,16 @@ interface TelegramChat {
   centerName?: string;
   subjectId?: number;
   subjectName?: string;
+  inviteLink?: string;
+}
+
+interface UnlinkedUser {
+  id: number;
+  telegramUserId: string;
+  telegramUsername?: string;
+  firstName?: string;
+  lastName?: string;
+  createdAt: string;
 }
 
 interface Test {
@@ -51,12 +61,18 @@ const TelegramManagement: React.FC = () => {
   const [tests, setTests] = useState<Test[]>([]);
   const [centers, setCenters] = useState<Center[]>([]);
   const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [users, setUsers] = useState<any[]>([]);
+  const [unlinkedUsers, setUnlinkedUsers] = useState<UnlinkedUser[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedTest, setSelectedTest] = useState<string>('');
   const [selectedChannel, setSelectedChannel] = useState<string>('');
   const [customMessage, setCustomMessage] = useState<string>('');
   const [filterCenter, setFilterCenter] = useState<string>('all');
   const [filterSubject, setFilterSubject] = useState<string>('all');
+  
+  // User linking
+  const [selectedUser, setSelectedUser] = useState<string>('');
+  const [selectedTelegramUser, setSelectedTelegramUser] = useState<string>('');
   
   // New chat registration
   const [newChat, setNewChat] = useState({
@@ -72,22 +88,26 @@ const TelegramManagement: React.FC = () => {
     try {
       setLoading(true);
       
-      // Fetch user's chats, available tests, centers, and subjects
-      const [chatsResponse, testsResponse, centersResponse, subjectsResponse] = await Promise.all([
+      // Fetch user's chats, available tests, centers, subjects, users, and unlinked users
+      const [chatsResponse, testsResponse, centersResponse, subjectsResponse, usersResponse, unlinkedResponse] = await Promise.all([
         request.get('/telegram/chats/user/me'), // Assuming endpoint for current user
         request.get('/tests/my'), // Teacher's tests
         request.get('/centers'), // All centers
         request.get('/subjects'), // All subjects
+        request.get('/users'), // All users for linking
+        request.get('/telegram/unlinked-users'), // Unlinked Telegram users
       ]);
 
       setChats(chatsResponse.data || []);
       setTests(testsResponse.data || []);
       setCenters(centersResponse.data || []);
       setSubjects(subjectsResponse.data || []);
+      setUsers(usersResponse.data || []);
+      setUnlinkedUsers(unlinkedResponse.data || []);
     } catch (error) {
       toast({
-        title: 'Error',
-        description: 'Failed to load Telegram data',
+        title: 'Xato',
+        description: 'Telegram ma\'lumotlarini yuklashda xatolik',
         variant: 'destructive',
       });
     } finally {
@@ -102,8 +122,8 @@ const TelegramManagement: React.FC = () => {
   const handleRegisterChat = async () => {
     if (!newChat.chatId) {
       toast({
-        title: 'Error',
-        description: 'Chat ID is required',
+        title: 'Xato',
+        description: 'Chat ID kiritish majburiy',
         variant: 'destructive',
       });
       return;
@@ -114,8 +134,8 @@ const TelegramManagement: React.FC = () => {
       await request.post('/telegram/chats', newChat);
       
       toast({
-        title: 'Success',
-        description: 'Telegram chat registered successfully',
+        title: 'Muvaffaqiyat',
+        description: 'Telegram chat muvaffaqiyatli ro\'yxatga olindi',
       });
       
       setNewChat({
@@ -130,8 +150,8 @@ const TelegramManagement: React.FC = () => {
       fetchData();
     } catch (error) {
       toast({
-        title: 'Error',
-        description: 'Failed to register Telegram chat',
+        title: 'Xato',
+        description: 'Telegram chatni ro\'yxatga olishda xatolik',
         variant: 'destructive',
       });
     } finally {
@@ -142,8 +162,8 @@ const TelegramManagement: React.FC = () => {
   const handleSendTest = async () => {
     if (!selectedTest || !selectedChannel) {
       toast({
-        title: 'Error',
-        description: 'Please select both test and channel',
+        title: 'Xato',
+        description: 'Iltimos test va kanalni tanlang',
         variant: 'destructive',
       });
       return;
@@ -158,8 +178,8 @@ const TelegramManagement: React.FC = () => {
       });
       
       toast({
-        title: 'Success',
-        description: 'Test sent to Telegram channel successfully',
+        title: 'Muvaffaqiyat',
+        description: 'Test Telegram kanaliga muvaffaqiyatli yuborildi',
       });
       
       setSelectedTest('');
@@ -167,8 +187,8 @@ const TelegramManagement: React.FC = () => {
       setCustomMessage('');
     } catch (error) {
       toast({
-        title: 'Error',
-        description: 'Failed to send test to Telegram channel',
+        title: 'Xato',
+        description: 'Testni Telegram kanaliga yuborishda xatolik',
         variant: 'destructive',
       });
     } finally {
@@ -182,13 +202,96 @@ const TelegramManagement: React.FC = () => {
       await request.post(`/telegram/publish-results/${testId}/${encodeURIComponent(channelId)}`);
       
       toast({
-        title: 'Success',
-        description: 'Results published to channel',
+        title: 'Muvaffaqiyat',
+        description: 'Natijalar kanalga e\'lon qilindi',
       });
     } catch (error) {
       toast({
-        title: 'Error',
-        description: 'Failed to publish results',
+        title: 'Xato',
+        description: 'Natijalarni e\'lon qilishda xatolik',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleLinkUser = async () => {
+    if (!selectedUser || !selectedTelegramUser) {
+      toast({
+        title: 'Xato',
+        description: 'Iltimos LMS va Telegram foydalanuvchisini tanlang',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const response = await request.post('/telegram/link-telegram-user', {
+        lmsUserId: parseInt(selectedUser),
+        telegramUserId: selectedTelegramUser,
+      });
+      
+      if (response.data.success) {
+        toast({
+          title: 'Muvaffaqiyat',
+          description: response.data.message,
+        });
+        
+        setSelectedUser('');
+        setSelectedTelegramUser('');
+        fetchData();
+      } else {
+        toast({
+          title: 'Error',
+          description: response.data.message,
+          variant: 'destructive',
+        });
+      }
+    } catch (error) {
+      toast({
+        title: 'Xato',
+        description: 'Foydalanuvchilarni bog\'lashda xatolik',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGenerateInviteLink = async (channelId: string) => {
+    try {
+      setLoading(true);
+      const response = await request.post(`/telegram/generate-invite/${encodeURIComponent(channelId)}`);
+      
+      if (response.data.success) {
+        toast({
+          title: 'Muvaffaqiyat',
+          description: 'Taklifnoma havolasi muvaffaqiyatli yaratildi',
+        });
+        
+        // Copy to clipboard if available
+        if (navigator.clipboard && response.data.inviteLink) {
+          await navigator.clipboard.writeText(response.data.inviteLink);
+          toast({
+            title: 'Nusxalandi',
+            description: 'Taklifnoma havolasi buferga nusxalandi',
+          });
+        }
+        
+        fetchData();
+      } else {
+        toast({
+          title: 'Error',
+          description: response.data.message,
+          variant: 'destructive',
+        });
+      }
+    } catch (error) {
+      toast({
+        title: 'Xato',
+        description: 'Taklifnoma havolasini yaratishda xatolik',
         variant: 'destructive',
       });
     } finally {
@@ -205,12 +308,30 @@ const TelegramManagement: React.FC = () => {
     }
   };
 
+  const getChatTypeText = (type: string) => {
+    switch (type) {
+      case 'channel': return 'Kanal';
+      case 'group': return 'Guruh';
+      case 'private': return 'Shaxsiy';
+      default: return type;
+    }
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'active': return 'bg-green-100 text-green-800';
       case 'inactive': return 'bg-yellow-100 text-yellow-800';
       case 'blocked': return 'bg-red-100 text-red-800';
       default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const getStatusText = (status: string) => {
+    switch (status) {
+      case 'active': return 'Faol';
+      case 'inactive': return 'Nofaol';
+      case 'blocked': return 'Bloklangan';
+      default: return status;
     }
   };
 
@@ -242,16 +363,16 @@ const TelegramManagement: React.FC = () => {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold">Telegram Integration</h1>
+        <h1 className="text-3xl font-bold">Telegram Integratsiyasi</h1>
         <Button onClick={fetchData} disabled={loading}>
-          {loading ? 'Loading...' : 'Refresh'}
+          {loading ? 'Yuklanmoqda...' : 'Yangilash'}
         </Button>
       </div>
 
       {/* Register New Chat */}
       <Card>
         <CardHeader>
-          <CardTitle>Register New Telegram Chat/Channel</CardTitle>
+          <CardTitle>Yangi Telegram Chat/Kanal ro'yxatga olish</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -265,7 +386,7 @@ const TelegramManagement: React.FC = () => {
               />
             </div>
             <div>
-              <Label htmlFor="type">Type</Label>
+              <Label htmlFor="type">Turi</Label>
               <Select
                 value={newChat.type}
                 onValueChange={(value: 'channel' | 'group' | 'private') => 
@@ -276,23 +397,23 @@ const TelegramManagement: React.FC = () => {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="channel">Channel</SelectItem>
-                  <SelectItem value="group">Group</SelectItem>
-                  <SelectItem value="private">Private</SelectItem>
+                  <SelectItem value="channel">Kanal</SelectItem>
+                  <SelectItem value="group">Guruh</SelectItem>
+                  <SelectItem value="private">Shaxsiy</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div>
-              <Label htmlFor="title">Title</Label>
+              <Label htmlFor="title">Sarlavha</Label>
               <Input
                 id="title"
-                placeholder="Channel/Group title"
+                placeholder="Kanal/Guruh nomi"
                 value={newChat.title}
                 onChange={(e) => setNewChat({ ...newChat, title: e.target.value })}
               />
             </div>
             <div>
-              <Label htmlFor="username">Username</Label>
+              <Label htmlFor="username">Foydalanuvchi nomi</Label>
               <Input
                 id="username"
                 placeholder="@username"
@@ -302,43 +423,100 @@ const TelegramManagement: React.FC = () => {
             </div>
           </div>
           <Button onClick={handleRegisterChat} disabled={loading}>
-            Register Chat
+            Chatni ro'yxatga olish
           </Button>
+        </CardContent>
+      </Card>
+
+      {/* User Linking */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Telegram foydalanuvchilarini LMS hisoblariga bog'lash</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {unlinkedUsers.length === 0 ? (
+            <p className="text-gray-500 text-center py-4">
+              Bog'lanmagan Telegram foydalanuvchilari yo'q. Foydalanuvchilar avval botni ishga tushirishlari kerak.
+            </p>
+          ) : (
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="lmsUser">LMS foydalanuvchisini tanlang</Label>
+                  <Select value={selectedUser} onValueChange={setSelectedUser}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="LMS foydalanuvchisini tanlang" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {users.map((user) => (
+                        <SelectItem key={user.id} value={user.id.toString()}>
+                          {user.firstName} {user.lastName} ({user.email})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <div>
+                  <Label htmlFor="telegramUser">Telegram foydalanuvchisini tanlang</Label>
+                  <Select value={selectedTelegramUser} onValueChange={setSelectedTelegramUser}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Telegram foydalanuvchisini tanlang" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {unlinkedUsers.map((user) => (
+                        <SelectItem key={user.id} value={user.telegramUserId}>
+                          {user.firstName} {user.lastName} (@{user.telegramUsername || 'no_username'})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              
+              <Button 
+                onClick={handleLinkUser} 
+                disabled={loading || !selectedUser || !selectedTelegramUser}
+              >
+                Foydalanuvchilarni bog'lash
+              </Button>
+            </>
+          )}
         </CardContent>
       </Card>
 
       {/* Send Test to Channel */}
       <Card>
         <CardHeader>
-          <CardTitle>Send Test to Telegram Channel</CardTitle>
+          <CardTitle>Testni Telegram kanaliga yuborish</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <Label htmlFor="test">Select Test</Label>
+              <Label htmlFor="test">Testni tanlang</Label>
               <Select value={selectedTest} onValueChange={setSelectedTest}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Choose a test" />
+                  <SelectValue placeholder="Testni tanlang" />
                 </SelectTrigger>
                 <SelectContent>
                   {tests.map((test) => (
                     <SelectItem key={test.id} value={test.id.toString()}>
-                      {test.title} ({test.subject.name}) - {test.totalQuestions} questions
+                      {test.title} ({test.subject.name}) - {test.totalQuestions} savollar
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
             <div>
-              <Label htmlFor="channel">Select Channel</Label>
+              <Label htmlFor="channel">Kanalni tanlang</Label>
               <Select value={selectedChannel} onValueChange={setSelectedChannel}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Choose a channel" />
+                  <SelectValue placeholder="Kanalni tanlang" />
                 </SelectTrigger>
                 <SelectContent>
                   {chats.filter(chat => chat.type === 'channel').map((chat) => (
                     <SelectItem key={chat.id} value={chat.chatId}>
-                      {chat.title || chat.chatId} ({chat.username || 'No username'})
+                      {chat.title || chat.chatId} ({chat.username || 'Foydalanuvchi nomi yo\'q'})
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -346,17 +524,17 @@ const TelegramManagement: React.FC = () => {
             </div>
           </div>
           <div>
-            <Label htmlFor="message">Custom Message (Optional)</Label>
+            <Label htmlFor="message">Maxsus xabar (Ixtiyoriy)</Label>
             <Textarea
               id="message"
-              placeholder="Add a custom message to be sent with the test..."
+              placeholder="Test bilan birga yuboriladigan maxsus xabar qo'shing..."
               value={customMessage}
               onChange={(e) => setCustomMessage(e.target.value)}
               rows={3}
             />
           </div>
           <Button onClick={handleSendTest} disabled={loading || !selectedTest || !selectedChannel}>
-            Send Test to Channel
+            Testni kanalga yuborish
           </Button>
         </CardContent>
       </Card>
@@ -364,11 +542,11 @@ const TelegramManagement: React.FC = () => {
       {/* Registered Chats */}
       <Card>
         <CardHeader>
-          <CardTitle>Registered Telegram Chats</CardTitle>
+          <CardTitle>Ro'yxatga olingan Telegram chatlar</CardTitle>
         </CardHeader>
         <CardContent>
           {chats.length === 0 ? (
-            <p className="text-gray-500 text-center py-4">No Telegram chats registered yet.</p>
+            <p className="text-gray-500 text-center py-4">Hech qanday Telegram chat hali ro'yxatga olinmagan.</p>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {chats.map((chat) => (
@@ -376,12 +554,12 @@ const TelegramManagement: React.FC = () => {
                   <div className="flex items-center justify-between">
                     <h3 className="font-semibold truncate">{chat.title || chat.chatId}</h3>
                     <Badge className={getStatusColor(chat.status)}>
-                      {chat.status}
+                      {getStatusText(chat.status)}
                     </Badge>
                   </div>
                   <div className="flex items-center gap-2">
                     <Badge className={getChatTypeColor(chat.type)}>
-                      {chat.type}
+                      {getChatTypeText(chat.type)}
                     </Badge>
                     {chat.username && (
                       <span className="text-sm text-gray-500">{chat.username}</span>
@@ -392,14 +570,46 @@ const TelegramManagement: React.FC = () => {
                   </p>
                   {chat.lastActivity && (
                     <p className="text-xs text-gray-500">
-                      Last active: {new Date(chat.lastActivity).toLocaleDateString()}
+                      Oxirgi faollik: {new Date(chat.lastActivity).toLocaleDateString()}
                     </p>
+                  )}
+                  
+                  {chat.type === 'channel' && (
+                    <div className="pt-2 space-y-2">
+                      <hr />
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleGenerateInviteLink(chat.chatId)}
+                          disabled={loading}
+                        >
+                          Taklifnoma havolasini yaratish
+                        </Button>
+                        
+                        {chat.inviteLink && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => navigator.clipboard?.writeText(chat.inviteLink!)}
+                          >
+                            Havolani nusxalash
+                          </Button>
+                        )}
+                      </div>
+                      
+                      {chat.inviteLink && (
+                        <p className="text-xs text-gray-500 truncate">
+                          {chat.inviteLink}
+                        </p>
+                      )}
+                    </div>
                   )}
                   
                   {chat.type === 'channel' && tests.length > 0 && (
                     <div className="pt-2 space-y-2">
                       <hr />
-                      <p className="text-xs font-medium">Quick Actions:</p>
+                      <p className="text-xs font-medium">Tezkor amallar:</p>
                       {tests.slice(0, 2).map((test) => (
                         <Button
                           key={test.id}
@@ -409,7 +619,7 @@ const TelegramManagement: React.FC = () => {
                           onClick={() => handlePublishResults(test.id, chat.chatId)}
                           disabled={loading}
                         >
-                          Publish Results: {test.title}
+                          Natijalarni e'lon qilish: {test.title}
                         </Button>
                       ))}
                     </div>
@@ -424,35 +634,35 @@ const TelegramManagement: React.FC = () => {
       {/* Instructions */}
       <Card>
         <CardHeader>
-          <CardTitle>How to Use Telegram Integration</CardTitle>
+          <CardTitle>Telegram integratsiyasidan qanday foydalanish</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-3">
             <div>
-              <h4 className="font-semibold">📤 For Teachers:</h4>
+              <h4 className="font-semibold">📤 O'qituvchilar uchun:</h4>
               <ul className="list-disc list-inside text-sm text-gray-600 space-y-1">
-                <li>Register your Telegram channels using the form above</li>
-                <li>Send tests to channels where students can see them</li>
-                <li>Monitor answers and publish results automatically</li>
+                <li>Yuqoridagi forma yordamida Telegram kanallaringizni ro'yxatga oling</li>
+                <li>Testlarni talabalar ko'radigan kanallarga yuboring</li>
+                <li>Javoblarni kuzating va natijalarni avtomatik e'lon qiling</li>
               </ul>
             </div>
             
             <div>
-              <h4 className="font-semibold">📝 For Students:</h4>
+              <h4 className="font-semibold">📝 Talabalar uchun:</h4>
               <ul className="list-disc list-inside text-sm text-gray-600 space-y-1">
-                <li>Join the class Telegram channel to see tests</li>
-                <li>Answer questions using format: <code className="bg-gray-100 px-1 rounded">#T123Q1 A</code></li>
-                <li>Get immediate feedback on your answers</li>
-                <li>See final results when published</li>
+                <li>Testlarni ko'rish uchun sinf Telegram kanaliga qo'shiling</li>
+                <li>Savollarga quyidagi formatda javob bering: <code className="bg-gray-100 px-1 rounded">#T123Q1 A</code></li>
+                <li>Javoblaringizga darhol fikr-mulohaza oling</li>
+                <li>E'lon qilinganida yakuniy natijalarni ko'ring</li>
               </ul>
             </div>
 
             <div>
-              <h4 className="font-semibold">👨‍👩‍👧‍👦 For Parents:</h4>
+              <h4 className="font-semibold">👨‍👩‍👧‍👦 Ota-onalar uchun:</h4>
               <ul className="list-disc list-inside text-sm text-gray-600 space-y-1">
-                <li>Join class channels to monitor your child's tests</li>
-                <li>View test results and progress updates</li>
-                <li>Stay informed about new assignments</li>
+                <li>Farzandingizning testlarini kuzatish uchun sinf kanallariga qo'shiling</li>
+                <li>Test natijalarini va taraqqiyot yangiliklarini ko'ring</li>
+                <li>Yangi topshiriqlar haqida xabardor bo'ling</li>
               </ul>
             </div>
           </div>

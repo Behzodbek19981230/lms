@@ -20,6 +20,7 @@ import {
 import { request } from '@/configs/request';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/ui/use-toast';
+import TelegramConnectCard from '@/components/TelegramConnectCard';
 import moment from 'moment';
 
 const StudentDashboard = () => {
@@ -338,6 +339,9 @@ const StudentDashboard = () => {
 
           {/* Upcoming Lessons & Quick Actions */}
           <div className="space-y-6">
+            {/* Telegram Connection */}
+            <TelegramConnectCard />
+            
             {/* Upcoming Lessons */}
             <Card className="border-border">
               <CardHeader>

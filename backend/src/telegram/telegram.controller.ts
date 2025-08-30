@@ -78,6 +78,15 @@ export class TelegramController {
     return this.telegramService.linkUserToChat(+userId, chatId);
   }
 
+  @Get('chats/user/me')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get all chats for current user' })
+  @ApiResponse({ status: 200, description: 'Current user chats retrieved' })
+  async getCurrentUserChats(@Request() req) {
+    return this.telegramService.getUserChats(req.user.id);
+  }
+
   @Get('chats/user/:userId')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.TEACHER, UserRole.ADMIN, UserRole.SUPERADMIN)
@@ -88,7 +97,59 @@ export class TelegramController {
     return this.telegramService.getUserChats(+userId);
   }
 
-  // ==================== Test Distribution ====================
+  // ==================== User Registration & Linking ====================
+
+  @Get('user-status')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get current user Telegram status and available channels' })
+  @ApiResponse({ status: 200, description: 'User Telegram status retrieved' })
+  async getCurrentUserStatus(@Request() req) {
+    return this.telegramService.getUserTelegramStatus(req.user.id);
+  }
+  @Post('register-user')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Register current user to Telegram bot and get channel invitations' })
+  @ApiResponse({ status: 200, description: 'User registered and invitations sent' })
+  async registerCurrentUser(@Request() req) {
+    return this.telegramService.sendUserInvitations(req.user.id);
+  }
+
+  @Post('link-telegram-user')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.TEACHER, UserRole.ADMIN, UserRole.SUPERADMIN)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Link a Telegram user to an LMS user' })
+  @ApiResponse({ status: 200, description: 'User linked successfully' })
+  async linkTelegramUser(
+    @Body() dto: { telegramUserId: string; lmsUserId: number }
+  ) {
+    return this.telegramService.linkTelegramUserToLmsUser(
+      dto.telegramUserId,
+      dto.lmsUserId
+    );
+  }
+
+  @Get('unlinked-users')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.TEACHER, UserRole.ADMIN, UserRole.SUPERADMIN)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get list of unlinked Telegram users' })
+  @ApiResponse({ status: 200, description: 'Unlinked users retrieved' })
+  async getUnlinkedUsers() {
+    return this.telegramService.getUnlinkedTelegramUsers();
+  }
+
+  @Post('generate-invite/:channelId')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.TEACHER, UserRole.ADMIN, UserRole.SUPERADMIN)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Generate invite link for a channel' })
+  @ApiResponse({ status: 200, description: 'Invite link generated' })
+  async generateInviteLink(@Param('channelId') channelId: string) {
+    return this.telegramService.generateChannelInviteLink(channelId);
+  }
 
   @Post('send-test')
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -196,13 +257,59 @@ export class TelegramController {
   }
 
   private async handleRegistration(message: any) {
-    // This would help users link their Telegram account
-    // Implementation would depend on your user linking strategy
-    this.logger.log(`Registration request from ${message.from.username}`);
+    const telegramUserId = message.from.id.toString();
+    const username = message.from.username;
+    const firstName = message.from.first_name;
+    const lastName = message.from.last_name;
+
+    try {
+      const result = await this.telegramService.registerUserToBot(
+        telegramUserId,
+        username,
+        firstName,
+        lastName
+      );
+
+      if (this.telegramService['bot']) {
+        await this.telegramService['bot'].sendMessage(
+          message.chat.id,
+          result.message + '\n\n' + this.getRegistrationInstructions(),
+          { parse_mode: 'HTML' }
+        );
+      }
+
+      this.logger.log(`Registration handled for ${username}: ${result.success}`);
+    } catch (error) {
+      this.logger.error('Error handling registration:', error);
+      
+      if (this.telegramService['bot']) {
+        await this.telegramService['bot'].sendMessage(
+          message.chat.id,
+          'Sorry, registration failed. Please try again later or contact support.',
+        );
+      }
+    }
   }
 
   private async handleHelp(message: any) {
-    // Send help message to user
+    const helpMessage = this.getHelpMessage();
+    
+    if (this.telegramService['bot']) {
+      await this.telegramService['bot'].sendMessage(
+        message.chat.id,
+        helpMessage,
+        { parse_mode: 'HTML' }
+      );
+    }
+    
     this.logger.log(`Help request from ${message.from.username}`);
+  }
+
+  private getRegistrationInstructions(): string {
+    return `📋 <b>Next Steps:</b>\n\n1. Contact your teacher with this information:\n   • Your Telegram username: @${this.telegramService['username'] || 'your_username'}\n   • Your name from LMS\n\n2. Once linked, you'll receive channel invitations\n\n3. Join your class channels to receive tests\n\n❓ Questions? Send /help`;
+  }
+
+  private getHelpMessage(): string {
+    return `🤖 <b>Universal LMS Bot Help</b>\n\n📋 <b>Commands:</b>\n/start - Register with the bot\n/help - Show this help message\n\n📚 <b>How to Answer Tests:</b>\nUse format: #T123Q1 A\n• T123 = Test ID\n• Q1 = Question number\n• A = Your answer\n\n🔗 <b>Need Account Linking?</b>\nContact your teacher with:\n• Your Telegram username\n• Your full name from LMS\n\n📞 <b>Support:</b>\nContact your teacher or school admin for help.`;
   }
 }

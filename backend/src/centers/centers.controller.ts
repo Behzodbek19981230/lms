@@ -48,7 +48,7 @@ export class CentersController {
   }
 
   @Get()
-  @Roles(UserRole.SUPERADMIN)
+  @Roles(UserRole.TEACHER, UserRole.ADMIN, UserRole.SUPERADMIN)
   @ApiOperation({ summary: 'Markazlar ro‘yxatini olish' })
   @ApiResponse({
     status: 200,

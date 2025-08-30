@@ -69,6 +69,17 @@ export class TestsController {
     return this.testsService.findAllByTeacher(req.user.id);
   }
 
+  @Get('my')
+  @ApiOperation({ summary: "O'qituvchining barcha testlarini olish" })
+  @ApiResponse({
+    status: 200,
+    description: "Testlar ro'yxati",
+    type: [TestResponseDto],
+  })
+  async findMyTests(@Request() req): Promise<TestResponseDto[]> {
+    return this.testsService.findAllByTeacher(req.user.id);
+  }
+
   @Get('stats')
   @ApiOperation({ summary: 'Testlar statistikasi' })
   @ApiResponse({

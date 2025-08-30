@@ -16,12 +16,22 @@ export class CentersService {
   ) {}
 
   async findAll(user: User): Promise<Center[]> {
-    if (user.role !== UserRole.SUPERADMIN) {
+    if (user.role === UserRole.SUPERADMIN) {
+      // Superadmins can see all centers
+      return this.centerRepo.find({ relations: ['users', 'subjects'] });
+    } else if (user.role === UserRole.ADMIN || user.role === UserRole.TEACHER) {
+      // Teachers and admins can only see their own center
+      if (!user.center) {
+        console.warn(`User ${user.id} (${user.role}) does not have a center assigned`);
+        // Return empty array instead of throwing error to allow Telegram management to work
+        return [];
+      }
+      return [user.center];
+    } else {
       throw new ForbiddenException(
-        'Faqat superadmin barcha markazlarni ko‘rishi mumkin',
+        'Markazlarni ko\'rish uchun ruxsatingiz yo\'q',
       );
     }
-    return this.centerRepo.find({ relations: ['users', 'subjects'] });
   }
 
   async findOne(id: number, user: User): Promise<Center> {

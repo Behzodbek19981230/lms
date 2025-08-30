@@ -23,6 +23,8 @@ import ExamDetail from './pages/exams/ExamDetail';
 import ExamVariants from './pages/exams/ExamVariants';
 import TestGeneratorPage from './pages/TestGeneratorPage';
 import StudentDashboard from './pages/StudentDashboard';
+import TelegramManagement from './pages/TelegramManagement';
+import TelegramUserDashboard from './pages/TelegramUserDashboard';
 
 const queryClient = new QueryClient();
 
@@ -60,6 +62,8 @@ const App = () => (
 							<Route path='test/:testId/questions' element={<TestQuestions />} />
 							<Route path='subjects' element={<Subjects />} />
 							<Route path='student' element={<StudentDashboard />} />
+							<Route path='telegram' element={<TelegramManagement />} />
+							<Route path='telegram-user' element={<TelegramUserDashboard />} />
 						</Route>
 
 						<Route path='*' element={<NotFound />} />
