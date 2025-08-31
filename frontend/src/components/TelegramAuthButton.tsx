@@ -143,21 +143,24 @@ export default function TelegramAuthButton({
       {/* Debug info in development */}
       {import.meta.env.DEV && (
         <div className="text-xs text-gray-500 p-2 bg-gray-50 rounded">
-          <strong>Debug:</strong> Bot username: {currentBotUsername}
+          <strong>Debug:</strong> Bot username: {currentBotUsername}<br/>
+          <strong>Current domain:</strong> {window.location.hostname}:{window.location.port}<br/>
+          <strong>Full URL:</strong> {window.location.origin}
         </div>
       )}
       
-      <LoginButton
-        botUsername={currentBotUsername}
-        buttonSize={size === 'sm' ? 'small' : size === 'lg' ? 'large' : 'medium'}
-        cornerRadius={8}
-        showAvatar={true}
-        lang="en"
-        onAuthCallback={(user) => {
-          handleTelegramAuth(user as TelegramUser);
-        }}
-        className={className}
-      />
+      <div className={className}>
+        <LoginButton
+          botUsername={currentBotUsername}
+          buttonSize={size === 'sm' ? 'small' : size === 'lg' ? 'large' : 'medium'}
+          cornerRadius={8}
+          showAvatar={true}
+          lang="en"
+          onAuthCallback={(user) => {
+            handleTelegramAuth(user as TelegramUser);
+          }}
+        />
+      </div>
       
       {/* Alternative bot username button */}
       <div className="flex gap-2">
@@ -186,6 +189,19 @@ export default function TelegramAuthButton({
             Telegram orqali kirish uchun yuqoridagi tugmani bosing va
             Telegram hisobingiz bilan tasdiqlang.
           </p>
+          
+          {import.meta.env.DEV && (
+            <div className="mt-3 p-2 bg-yellow-50 border border-yellow-200 rounded">
+              <p className="text-yellow-800 font-semibold">⚠️ "Bot domain invalid" xatosi ko'rsatilsa:</p>
+              <ol className="text-yellow-700 text-xs mt-1 ml-4 list-decimal">
+                <li>@BotFather botiga o'ting</li>
+                <li>/mybots buyrug'ini yuboring</li>
+                <li>Botingizni tanlang ({currentBotUsername})</li>
+                <li>Bot Settings → Domain sozlamalariga o'ting</li>
+                <li>Quyidagi domenni qo'shing: <code className="bg-white px-1 rounded">{window.location.hostname}</code></li>
+              </ol>
+            </div>
+          )}
         </div>
       )}
     </div>
