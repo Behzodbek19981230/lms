@@ -56,15 +56,28 @@ export default function TelegramAuthButton({
 
   // Check if Telegram scripts loaded after component mount
   useEffect(() => {
-    const timer = setTimeout(() => {
-      // If LoginButton didn't render properly, show manual option
-      if (!document.querySelector('iframe[src*="oauth.telegram.org"]')) {
-        setShowManualButton(true);
-        console.warn('⚠️ Telegram widget yuklanmadi, manual button ko\'rsatilmoqda');
-      }
-    }, 3000);
+    // Try to fix iframe multiple times
+    const intervals = [1000, 2000, 3000, 5000];
+    const timeouts: NodeJS.Timeout[] = [];
+    
+    intervals.forEach(delay => {
+      const timeout = setTimeout(() => {
+        const fixed = fixTelegramIframe();
+        if (fixed) {
+          console.log(`✅ Iframe ${delay}ms da to\'g\'irlandi`);
+        } else {
+          console.log(`⚠️ ${delay}ms da iframe topilmadi`);
+          if (delay === 5000) {
+            setShowManualButton(true);
+          }
+        }
+      }, delay);
+      timeouts.push(timeout);
+    });
 
-    return () => clearTimeout(timer);
+    return () => {
+      timeouts.forEach(timeout => clearTimeout(timeout));
+    };
   }, [currentBotUsername]);
 
   const openTelegramBot = () => {
@@ -74,6 +87,42 @@ export default function TelegramAuthButton({
       title: 'Telegram bot ochildi',
       description: `${currentBotUsername} boti yangi tabda ochildi. /start buyrug\'ini yuboring.`,
     });
+  };
+
+  const fixTelegramIframe = () => {
+    const iframe = document.querySelector('iframe[src*="oauth.telegram.org"]') as HTMLIFrameElement;
+    if (iframe) {
+      console.log('🔧 Telegram iframe o\'lchamlarini to\'g\'irlash');
+      
+      // Force iframe styling
+      iframe.style.cssText = `
+        min-height: 40px !important;
+        height: 40px !important;
+        width: 200px !important;
+        max-width: 300px !important;
+        display: block !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+        border: 1px solid #007acc !important;
+        border-radius: 8px !important;
+        background: #ffffff !important;
+        overflow: visible !important;
+      `;
+      
+      // Also try to fix the parent container
+      const parent = iframe.parentElement;
+      if (parent) {
+        parent.style.cssText = `
+          min-height: 50px !important;
+          width: 100% !important;
+          overflow: visible !important;
+          display: block !important;
+        `;
+      }
+      
+      return true;
+    }
+    return false;
   };
 
   const handleTelegramAuth = async (telegramUser: TelegramUser) => {
@@ -197,21 +246,45 @@ export default function TelegramAuthButton({
           </p>
           
           <div className="bg-white p-2 rounded border">
-            <LoginButton
-              botUsername={currentBotUsername}
-              buttonSize={size === 'sm' ? 'small' : size === 'lg' ? 'large' : 'medium'}
-              cornerRadius={8}
-              showAvatar={true}
-              lang="en"
-              onAuthCallback={(user) => {
-                console.log('✅ Telegram auth callback ishlamoqda:', user);
-                toast({
-                  title: 'Callback ishlamoqda',
-                  description: `Telegram user: ${user.first_name}`,
-                });
-                handleTelegramAuth(user as TelegramUser);
-              }}
-            />
+            <div style={{minHeight: '50px', width: '100%', overflow: 'visible'}}>
+              <LoginButton
+                botUsername={currentBotUsername}
+                buttonSize={size === 'sm' ? 'small' : size === 'lg' ? 'large' : 'medium'}
+                cornerRadius={8}
+                showAvatar={true}
+                lang="en"
+                onAuthCallback={(user) => {
+                  console.log('✅ Telegram auth callback ishlamoqda:', user);
+                  toast({
+                    title: 'Callback ishlamoqda',
+                    description: `Telegram user: ${user.first_name}`,
+                  });
+                  handleTelegramAuth(user as TelegramUser);
+                }}
+              />
+            </div>
+            
+            {/* Manual iframe styling fix */}
+            <style>{`
+              #telegram-login-${currentBotUsername} {
+                min-height: 40px !important;
+                height: auto !important;
+                width: 100% !important;
+                max-width: 300px !important;
+                overflow: visible !important;
+                border: 1px solid #ddd !important;
+                border-radius: 8px !important;
+              }
+              
+              iframe[src*="oauth.telegram.org"] {
+                min-height: 40px !important;
+                height: auto !important;
+                width: 100% !important;
+                display: block !important;
+                visibility: visible !important;
+                opacity: 1 !important;
+              }
+            `}</style>
           </div>
           
           {/* Manual fallback button */}
@@ -248,6 +321,23 @@ export default function TelegramAuthButton({
           className="text-xs"
         >
           Boshqa bot username sinab ko'rish
+        </Button>
+        
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => {
+            const fixed = fixTelegramIframe();
+            toast({
+              title: fixed ? 'Iframe to\'g\'irlandi' : 'Iframe topilmadi',
+              description: fixed ? 'Telegram button endi ko\'rinishi kerak' : 'Sahifani yangilab ko\'ring',
+              variant: fixed ? 'default' : 'destructive'
+            });
+          }}
+          className="text-xs"
+        >
+          🔧 Iframe to'g'irlash
         </Button>
       </div>
       
