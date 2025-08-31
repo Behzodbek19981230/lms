@@ -82,11 +82,33 @@ export default function TelegramAuthButton({
 
   const openTelegramBot = () => {
     const botUrl = `https://t.me/${currentBotUsername}`;
-    window.open(botUrl, '_blank');
-    toast({
-      title: 'Telegram bot ochildi',
-      description: `${currentBotUsername} boti yangi tabda ochildi. /start buyrug\'ini yuboring.`,
-    });
+    console.log(`🚀 Telegram botni ochish: ${botUrl}`);
+    
+    // Open bot in new tab
+    const newWindow = window.open(botUrl, '_blank');
+    
+    if (newWindow) {
+      toast({
+        title: '🚀 Telegram bot ochildi!',
+        description: `${currentBotUsername} boti yangi tabda ochildi. /start buyrug'ini yuboring va hisobingizni ulang.`,
+        duration: 5000,
+      });
+    } else {
+      // Fallback if popup blocked
+      navigator.clipboard.writeText(botUrl).then(() => {
+        toast({
+          title: '📋 Havola nusxalandi',
+          description: `Bot havolasi nusxalandi: ${botUrl}. Telegram da ochib /start yuboring.`,
+          duration: 5000,
+        });
+      }).catch(() => {
+        toast({
+          title: '🔗 Bot havolasi',
+          description: `Qo'lda oching: ${botUrl}`,
+          duration: 7000,
+        });
+      });
+    }
   };
 
   const fixTelegramIframe = () => {
@@ -304,6 +326,25 @@ export default function TelegramAuthButton({
               </Button>
             </div>
           )}
+          
+          {/* Direct bot connection button - always visible */}
+          <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded">
+            <p className="text-sm text-blue-700 mb-2 font-medium">
+              📱 To'g'ridan-to'g'ri bot bilan ulanish:
+            </p>
+            <Button 
+              onClick={openTelegramBot}
+              variant="default"
+              size="default"
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+            >
+              <Send className="h-4 w-4 mr-2" />
+              Botga ulanish
+            </Button>
+            <p className="text-xs text-blue-600 mt-2">
+              Botni ochib /start buyrug'ini yuboring
+            </p>
+          </div>
           
           <p className="text-xs text-blue-600 mt-2">
             Agar button ko'rinmasa, browser consoleni tekshiring
