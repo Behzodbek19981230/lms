@@ -83,14 +83,10 @@ export default function TelegramAuthButton({
       }
 
       const authResponse = await request.post('/telegram/authenticate', {
-        telegramUserId: telegramUser.id,
+        telegramUserId: telegramUser.id.toString(),
         username: telegramUser.username,
         firstName: telegramUser.first_name,
-        lastName: telegramUser.last_name,
-        photoUrl: telegramUser.photo_url,
-        authDate: telegramUser.auth_date,
-        hash: telegramUser.hash,
-        userId: user.id
+        lastName: telegramUser.last_name
       });
 
       if (authResponse.data.success) {
