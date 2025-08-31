@@ -96,7 +96,7 @@ export class UsersController {
   }
 
   @Get()
-  @Roles(UserRole.ADMIN, UserRole.SUPERADMIN)
+  @Roles(UserRole.TEACHER, UserRole.ADMIN, UserRole.SUPERADMIN)
   @ApiOperation({ summary: 'Get users list with optional filters' })
   @ApiResponse({ status: 200, description: 'Users list' })
   async getUsers(
@@ -106,9 +106,9 @@ export class UsersController {
     @Query('includeSubjects') includeSubjects?: string,
     @Request() req?,
   ) {
-    // For center admins, automatically filter by their center
+    // For center admins and teachers, automatically filter by their center
     let effectiveCenterId = centerId;
-    if (req.user.role === UserRole.ADMIN && req.user.center?.id) {
+    if ((req.user.role === UserRole.ADMIN || req.user.role === UserRole.TEACHER) && req.user.center?.id) {
       effectiveCenterId = req.user.center.id.toString();
     }
     
@@ -121,7 +121,7 @@ export class UsersController {
   }
 
   @Patch(':id')
-  @Roles(UserRole.ADMIN, UserRole.SUPERADMIN)
+  @Roles(UserRole.TEACHER, UserRole.ADMIN, UserRole.SUPERADMIN)
   @ApiOperation({ summary: 'Update user data' })
   @ApiResponse({ status: 200, description: 'User updated successfully' })
   async updateUser(
@@ -129,8 +129,8 @@ export class UsersController {
     @Body() updateData: Partial<CreateUserDto>,
     @Request() req,
   ): Promise<User> {
-    // For center admins, ensure they can only update users in their center
-    if (req.user.role === UserRole.ADMIN) {
+    // For center admins and teachers, ensure they can only update users in their center
+    if (req.user.role === UserRole.ADMIN || req.user.role === UserRole.TEACHER) {
       const user = await this.usersService.findOne(Number(id));
       if (user.center?.id !== req.user.center?.id) {
         throw new BadRequestException('Siz faqat o\'z markazingizdagi foydalanuvchilarni tahrirlashingiz mumkin');
