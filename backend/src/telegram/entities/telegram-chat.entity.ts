@@ -1,6 +1,8 @@
 import { Column, Entity, ManyToOne, Index } from 'typeorm';
 import { BaseEntity } from '../../common/entities/base.entity';
 import { User } from '../../users/entities/user.entity';
+import { Center } from '../../centers/entities/center.entity';
+import { Subject } from '../../subjects/entities/subject.entity';
 
 export enum ChatType {
   CHANNEL = 'channel', // For sending tests and results
@@ -62,6 +64,14 @@ export class TelegramChat extends BaseEntity {
   @ManyToOne(() => User, { nullable: true, onDelete: 'CASCADE' })
   user: User;
 
+  // Link to center (for channels/groups associated with specific centers)
+  @ManyToOne(() => Center, { nullable: true, onDelete: 'CASCADE' })
+  center: Center;
+
+  // Link to subject (for channels associated with specific subjects)
+  @ManyToOne(() => Subject, { nullable: true, onDelete: 'CASCADE' })
+  subject: Subject;
+
   // For channels/groups - store invitation link
   @Column({ nullable: true })
   inviteLink: string;
@@ -69,4 +79,24 @@ export class TelegramChat extends BaseEntity {
   // Last activity timestamp
   @Column({ type: 'timestamp', nullable: true })
   lastActivity: Date;
+
+  // Virtual properties for API responses
+  get centerName(): string | undefined {
+    return this.center?.name;
+  }
+
+  get subjectName(): string | undefined {
+    return this.subject?.name;
+  }
+
+  // Transform for JSON serialization
+  toJSON() {
+    return {
+      ...this,
+      centerName: this.centerName,
+      subjectName: this.subjectName,
+      centerId: this.center?.id,
+      subjectId: this.subject?.id,
+    };
+  }
 }

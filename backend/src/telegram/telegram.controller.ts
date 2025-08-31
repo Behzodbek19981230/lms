@@ -20,7 +20,7 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { UserRole } from '../users/entities/user.entity';
 import { TelegramService } from './telegram.service';
-import { CreateTelegramChatDto, SendTestToChannelDto, SubmitAnswerDto } from './dto/telegram.dto';
+import { CreateTelegramChatDto, SendTestToChannelDto, SubmitAnswerDto, AuthenticateUserDto } from './dto/telegram.dto';
 
 @ApiTags('Telegram')
 @Controller('telegram')
@@ -61,8 +61,8 @@ export class TelegramController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Register a new Telegram chat/channel' })
   @ApiResponse({ status: 201, description: 'Chat registered successfully' })
-  async createChat(@Body() dto: CreateTelegramChatDto) {
-    return this.telegramService.createOrUpdateChat(dto);
+  async createChat(@Body() dto: CreateTelegramChatDto, @Request() req) {
+    return this.telegramService.createOrUpdateChat(dto, req.user);
   }
 
   @Post('chats/:chatId/link/:userId')
@@ -87,6 +87,16 @@ export class TelegramController {
     return this.telegramService.getUserChats(req.user.id);
   }
 
+  @Get('chats')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.TEACHER, UserRole.ADMIN, UserRole.SUPERADMIN)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get all chats for management' })
+  @ApiResponse({ status: 200, description: 'All chats retrieved' })
+  async getAllChats() {
+    return this.telegramService.getAllChats();
+  }
+
   @Get('chats/user/:userId')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.TEACHER, UserRole.ADMIN, UserRole.SUPERADMIN)
@@ -107,6 +117,18 @@ export class TelegramController {
   async getCurrentUserStatus(@Request() req) {
     return this.telegramService.getUserTelegramStatus(req.user.id);
   }
+  @Post('authenticate')
+  @ApiOperation({ summary: 'Authenticate and auto-connect user to Telegram' })
+  @ApiResponse({ status: 200, description: 'User authenticated and connected' })
+  async authenticateUser(@Body() dto: AuthenticateUserDto) {
+    return this.telegramService.authenticateAndConnectUser(
+      dto.telegramUserId,
+      dto.username,
+      dto.firstName,
+      dto.lastName
+    );
+  }
+
   @Post('register-user')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
@@ -263,7 +285,8 @@ export class TelegramController {
     const lastName = message.from.last_name;
 
     try {
-      const result = await this.telegramService.registerUserToBot(
+      // Use new authentication method that auto-connects users
+      const result = await this.telegramService.authenticateAndConnectUser(
         telegramUserId,
         username,
         firstName,
@@ -273,19 +296,19 @@ export class TelegramController {
       if (this.telegramService['bot']) {
         await this.telegramService['bot'].sendMessage(
           message.chat.id,
-          result.message + '\n\n' + this.getRegistrationInstructions(),
+          result.message + (result.autoConnected ? '' : '\n\n' + this.getRegistrationInstructions()),
           { parse_mode: 'HTML' }
         );
       }
 
-      this.logger.log(`Registration handled for ${username}: ${result.success}`);
+      this.logger.log(`Authentication handled for ${username}: ${result.success}, auto-connected: ${result.autoConnected}`);
     } catch (error) {
-      this.logger.error('Error handling registration:', error);
+      this.logger.error('Error handling authentication:', error);
       
       if (this.telegramService['bot']) {
         await this.telegramService['bot'].sendMessage(
           message.chat.id,
-          'Sorry, registration failed. Please try again later or contact support.',
+          'Kechirasiz, autentifikatsiyada xatolik. Keyinroq qayta urinib ko\'ring yoki qo\'llab-quvvatlash xizmatiga murojaat qiling.',
         );
       }
     }

@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { request } from '@/configs/request';
+import TelegramAuthButton from '@/components/TelegramAuthButton';
 
 interface TelegramChat {
   id: number;
@@ -28,6 +29,7 @@ const TelegramUserDashboard: React.FC = () => {
   const [status, setStatus] = useState<UserTelegramStatus | null>(null);
   const [loading, setLoading] = useState(false);
   const [registering, setRegistering] = useState(false);
+  const [connectingToChannel, setConnectingToChannel] = useState<string | null>(null);
 
   const fetchTelegramStatus = async () => {
     try {
@@ -45,7 +47,60 @@ const TelegramUserDashboard: React.FC = () => {
     }
   };
 
-  const handleRegisterToTelegram = async () => {
+  const handleAuthSuccess = () => {
+    toast({
+      title: 'Muvaffaqiyat!',
+      description: 'Telegram hisobingiz avtomatik ulandi va tegishli kanallarga taklifnomalar yuborildi!',
+    });
+    fetchTelegramStatus();
+  };
+
+  const handleAuthError = (error: string) => {
+    toast({
+      title: 'Xato',
+      description: error,
+      variant: 'destructive',
+    });
+  };
+
+  const handleJoinChannel = async (channel: TelegramChat) => {
+    if (!channel.inviteLink && !channel.username) {
+      toast({
+        title: 'Xato',
+        description: 'Bu kanal uchun havola mavjud emas',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setConnectingToChannel(channel.chatId);
+    
+    try {
+      // Try to generate fresh invite link
+      if (channel.chatId) {
+        const response = await request.post(`/telegram/generate-invite/${encodeURIComponent(channel.chatId)}`);
+        if (response.data.success && response.data.inviteLink) {
+          window.open(response.data.inviteLink, '_blank');
+          toast({
+            title: 'Havola ochildi',
+            description: `${channel.title || channel.username} kanaliga qo'shilish havolas ochildi`,
+          });
+        } else {
+          // Fallback to existing link
+          const link = channel.inviteLink || `https://t.me/${channel.username?.replace('@', '')}`;
+          window.open(link, '_blank');
+        }
+      }
+    } catch (error) {
+      // Fallback to existing link
+      const link = channel.inviteLink || `https://t.me/${channel.username?.replace('@', '')}`;
+      window.open(link, '_blank');
+    } finally {
+      setConnectingToChannel(null);
+    }
+  };
+
+  const handleRegister = async () => {
     try {
       setRegistering(true);
       const response = await request.post('/telegram/register-user');
@@ -169,13 +224,21 @@ const TelegramUserDashboard: React.FC = () => {
               <p className="text-gray-600">
                 Test xabarnomalari olish va Telegramda to'g'ridan-to'g'ri javob berish uchun Telegram hisobingizni ulang.
               </p>
-              <Button
-                onClick={handleRegisterToTelegram}
-                disabled={registering}
+              
+              {/* Enhanced authentication with auto-connect */}
+              <TelegramAuthButton
+                onSuccess={handleAuthSuccess}
+                onError={handleAuthError}
                 className="w-full sm:w-auto"
-              >
-                {registering ? 'Ulanmoqda...' : 'Telegramga ulash'}
-              </Button>
+              />
+              
+              <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <h4 className="font-semibold text-blue-800 mb-2">🚀 Avtomatik ulanish</h4>
+                <p className="text-sm text-blue-700">
+                  Tizim sizning ismingiz asosida avtomatik ulanishga harakat qiladi. 
+                  Agar avtomatik ulanish ishlamasa, o'qituvchingiz bilan bog'lanib qo'lda ulanishni so'rang.
+                </p>
+              </div>
             </div>
           )}
         </CardContent>
@@ -217,36 +280,30 @@ const TelegramUserDashboard: React.FC = () => {
                     </div>
 
                     <div className="flex gap-2">
-                      {channel.inviteLink && (
-                        <>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => copyToClipboard(channel.inviteLink!)}
-                          >
-                            Havolani nusxalash
-                          </Button>
-                          <Button
-                            size="sm"
-                            onClick={() => openTelegramLink(channel.inviteLink!)}
-                          >
-                            Kanalga qo'shilish
-                          </Button>
-                        </>
-                      )}
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleJoinChannel(channel)}
+                        disabled={connectingToChannel === channel.chatId}
+                      >
+                        {connectingToChannel === channel.chatId ? 'Ochilmoqda...' : 'Havolani olish'}
+                      </Button>
                       
-                      {channel.username && !channel.inviteLink && (
+                      {channel.inviteLink && (
                         <Button
                           size="sm"
-                          onClick={() => openTelegramLink(`https://t.me/${channel.username.replace('@', '')}`)}
+                          onClick={() => window.open(channel.inviteLink!, '_blank')}
                         >
                           Kanalga qo'shilish
                         </Button>
                       )}
                       
-                      {!channel.inviteLink && !channel.username && (
-                        <Button size="sm" variant="outline" disabled>
-                          O'qituvchi bilan bog'lanish
+                      {channel.username && (
+                        <Button
+                          size="sm"
+                          onClick={() => window.open(`https://t.me/${channel.username!.replace('@', '')}`, '_blank')}
+                        >
+                          {channel.inviteLink ? 'Alternativ' : 'Kanalga qo\'shilish'}
                         </Button>
                       )}
                     </div>

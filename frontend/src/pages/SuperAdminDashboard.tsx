@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -24,6 +25,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/components/ui/use-toast";
 
 const SuperAdminDashboard = () => {
+    const navigate = useNavigate();
     const [timeRange, setTimeRange] = useState("30d");
     const [centers, setCenters] = useState<any[]>([]);
     const [users, setUsers] = useState<any[]>([]);
@@ -303,8 +305,12 @@ const SuperAdminDashboard = () => {
                                 ))}
                             </div>
                             <div className="mt-4">
-                                <Button variant="ghost" className="w-full">
-                                    Barcha markazlarni ko'rish
+                                <Button 
+                                    variant="ghost" 
+                                    className="w-full"
+                                    onClick={() => navigate('/account/center-users')}
+                                >
+                                    Barcha markazlar va foydalanuvchilarni ko'rish
                                 </Button>
                             </div>
                         </CardContent>
@@ -332,9 +338,13 @@ const SuperAdminDashboard = () => {
                                 <Calendar className="h-4 w-4 mr-2" />
                                 To'lov jadvali
                             </Button>
-                            <Button variant="outline" className="w-full justify-start">
+                            <Button 
+                                variant="outline" 
+                                className="w-full justify-start"
+                                onClick={() => navigate('/account/center-users')}
+                            >
                                 <Users className="h-4 w-4 mr-2" />
-                                Foydalanuvchilar
+                                Markazlar va foydalanuvchilar
                             </Button>
                         </CardContent>
                     </Card>

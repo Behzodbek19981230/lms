@@ -45,6 +45,37 @@ export class CreateTelegramChatDto {
   @IsOptional()
   @IsNumber()
   userId?: number;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsNumber()
+  centerId?: number;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsNumber()
+  subjectId?: number;
+}
+
+export class AuthenticateUserDto {
+  @ApiProperty()
+  @IsString()
+  telegramUserId: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  username?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  firstName?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  lastName?: string;
 }
 
 export class SendTestToChannelDto {

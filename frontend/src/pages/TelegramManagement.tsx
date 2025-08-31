@@ -64,6 +64,7 @@ const TelegramManagement: React.FC = () => {
   const [users, setUsers] = useState<any[]>([]);
   const [unlinkedUsers, setUnlinkedUsers] = useState<UnlinkedUser[]>([]);
   const [loading, setLoading] = useState(false);
+  const [currentUser, setCurrentUser] = useState<any>(null);
   const [selectedTest, setSelectedTest] = useState<string>('');
   const [selectedChannel, setSelectedChannel] = useState<string>('');
   const [customMessage, setCustomMessage] = useState<string>('');
@@ -88,9 +89,14 @@ const TelegramManagement: React.FC = () => {
     try {
       setLoading(true);
       
-      // Fetch user's chats, available tests, centers, subjects, users, and unlinked users
+      // Get current user from localStorage
+      const userData = localStorage.getItem('edunimbus_user');
+      const user = userData ? JSON.parse(userData) : null;
+      setCurrentUser(user);
+      
+      // Fetch all chats, available tests, centers, subjects, users, and unlinked users
       const [chatsResponse, testsResponse, centersResponse, subjectsResponse, usersResponse, unlinkedResponse] = await Promise.all([
-        request.get('/telegram/chats/user/me'), // Assuming endpoint for current user
+        request.get('/telegram/chats'), // All chats for management
         request.get('/tests/my'), // Teacher's tests
         request.get('/centers'), // All centers
         request.get('/subjects'), // All subjects
@@ -104,6 +110,19 @@ const TelegramManagement: React.FC = () => {
       setSubjects(subjectsResponse.data || []);
       setUsers(usersResponse.data || []);
       setUnlinkedUsers(unlinkedResponse.data || []);
+      
+      // Auto-select center if user has only one center OR use user's assigned center
+      if (user?.center) {
+        setNewChat(prev => ({
+          ...prev,
+          centerId: user.center.id.toString()
+        }));
+      } else if (centersResponse.data && centersResponse.data.length === 1) {
+        setNewChat(prev => ({
+          ...prev,
+          centerId: centersResponse.data[0].id.toString()
+        }));
+      }
     } catch (error) {
       toast({
         title: 'Xato',
@@ -129,9 +148,27 @@ const TelegramManagement: React.FC = () => {
       return;
     }
 
+    // Check if user has access to centers
+    if (!currentUser?.center && centers.length === 0) {
+      toast({
+        title: 'Xato',
+        description: 'Sizga markaz tayinlanmagan. Administratorga murojaat qiling.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     try {
       setLoading(true);
-      await request.post('/telegram/chats', newChat);
+      
+      // Convert string IDs to numbers, set to undefined if empty
+      const chatData = {
+        ...newChat,
+        centerId: newChat.centerId ? parseInt(newChat.centerId) : undefined,
+        subjectId: newChat.subjectId ? parseInt(newChat.subjectId) : undefined,
+      };
+      
+      await request.post('/telegram/chats', chatData);
       
       toast({
         title: 'Muvaffaqiyat',
@@ -421,7 +458,67 @@ const TelegramManagement: React.FC = () => {
                 onChange={(e) => setNewChat({ ...newChat, username: e.target.value })}
               />
             </div>
+            <div>
+              <Label htmlFor="centerId">Markaz</Label>
+              <Select
+                value={newChat.centerId || undefined}
+                onValueChange={(value) => setNewChat({ ...newChat, centerId: value || '' })}
+                disabled={centers.length <= 1 || !!currentUser?.center} // Disable if user has assigned center or only one center
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder={
+                    currentUser?.center ? currentUser.center.name :
+                    centers.length === 1 ? centers[0].name : "Markazni tanlang"
+                  } />
+                </SelectTrigger>
+                <SelectContent>
+                  {centers.map((center) => (
+                    <SelectItem key={center.id} value={center.id.toString()}>
+                      {center.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {!currentUser?.center && centers.length === 0 && (
+                <p className="text-sm text-muted-foreground mt-1">
+                  Sizga markaz tayinlanmagan. Administratorga murojaat qiling.
+                </p>
+              )}
+              {(currentUser?.center || centers.length === 1) && (
+                <p className="text-sm text-muted-foreground mt-1">
+                  Sizning markazingiz: {currentUser?.center?.name || centers[0]?.name}
+                </p>
+              )}
+            </div>
+            <div>
+              <Label htmlFor="subjectId">Fan</Label>
+              <Select
+                value={newChat.subjectId || undefined}
+                onValueChange={(value) => setNewChat({ ...newChat, subjectId: value || '' })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Fanni tanlang" />
+                </SelectTrigger>
+                <SelectContent>
+                  {subjects.map((subject) => (
+                    <SelectItem key={subject.id} value={subject.id.toString()}>
+                      {subject.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
+          
+          {/* Auto-generated suggestion */}
+          {newChat.centerId && newChat.subjectId && (
+            <div className="p-3 bg-blue-50 border border-blue-200 rounded-md">
+              <p className="text-sm text-blue-700">
+                <strong>Tavsiya etilgan kanal nomi:</strong> {generateChannelName()}
+              </p>
+            </div>
+          )}
+          
           <Button onClick={handleRegisterChat} disabled={loading}>
             Chatni ro'yxatga olish
           </Button>
@@ -543,13 +640,50 @@ const TelegramManagement: React.FC = () => {
       <Card>
         <CardHeader>
           <CardTitle>Ro'yxatga olingan Telegram chatlar</CardTitle>
+          {/* Filter Controls */}
+          <div className="flex gap-4 mt-4">
+            {(centers.length > 1 && !currentUser?.center) && (
+              <div className="w-48">
+                <Label>Markaz bo'yicha filtrlash</Label>
+                <Select value={filterCenter} onValueChange={setFilterCenter}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Markazni tanlang" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Barcha markazlar</SelectItem>
+                    {centers.map((center) => (
+                      <SelectItem key={center.id} value={center.id.toString()}>
+                        {center.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            <div className="w-48">
+              <Label>Fan bo'yicha filtrlash</Label>
+              <Select value={filterSubject} onValueChange={setFilterSubject}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Fanni tanlang" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Barcha fanlar</SelectItem>
+                  {subjects.map((subject) => (
+                    <SelectItem key={subject.id} value={subject.id.toString()}>
+                      {subject.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
-          {chats.length === 0 ? (
+          {filteredChats.length === 0 ? (
             <p className="text-gray-500 text-center py-4">Hech qanday Telegram chat hali ro'yxatga olinmagan.</p>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {chats.map((chat) => (
+              {filteredChats.map((chat) => (
                 <div key={chat.id} className="border rounded-lg p-4 space-y-2">
                   <div className="flex items-center justify-between">
                     <h3 className="font-semibold truncate">{chat.title || chat.chatId}</h3>
@@ -568,6 +702,16 @@ const TelegramManagement: React.FC = () => {
                   <p className="text-xs text-gray-500">
                     ID: {chat.chatId}
                   </p>
+                  {chat.centerName && (
+                    <p className="text-xs text-gray-600">
+                      Markaz: {chat.centerName}
+                    </p>
+                  )}
+                  {chat.subjectName && (
+                    <p className="text-xs text-gray-600">
+                      Fan: {chat.subjectName}
+                    </p>
+                  )}
                   {chat.lastActivity && (
                     <p className="text-xs text-gray-500">
                       Oxirgi faollik: {new Date(chat.lastActivity).toLocaleDateString()}

@@ -4,8 +4,9 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { request } from '@/configs/request';
-import { Send, CheckCircle, AlertCircle, ExternalLink } from 'lucide-react';
+import { Send, CheckCircle, AlertCircle, ExternalLink, Users, Loader2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import TelegramAuthButton from './TelegramAuthButton';
 
 interface TelegramStatus {
   isLinked: boolean;
@@ -25,6 +26,7 @@ const TelegramConnectCard: React.FC = () => {
   const navigate = useNavigate();
   const [status, setStatus] = useState<TelegramStatus | null>(null);
   const [loading, setLoading] = useState(false);
+  const [connecting, setConnecting] = useState(false);
 
   const fetchStatus = async () => {
     try {
@@ -48,6 +50,22 @@ const TelegramConnectCard: React.FC = () => {
 
   const handleConnect = () => {
     navigate('/account/telegram-user');
+  };
+
+  const handleAuthSuccess = () => {
+    toast({
+      title: 'Muvaffaqiyat!',
+      description: 'Telegram hisobingiz muvaffaqiyatli ulandi!',
+    });
+    fetchStatus(); // Refresh status
+  };
+
+  const handleAuthError = (error: string) => {
+    toast({
+      title: 'Xato',
+      description: error,
+      variant: 'destructive',
+    });
   };
 
   if (loading) {
@@ -134,22 +152,40 @@ const TelegramConnectCard: React.FC = () => {
             </Button>
           </div>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-4">
             <div className="flex items-center gap-2">
               <AlertCircle className="h-4 w-4 text-orange-500" />
-              <Badge className="bg-orange-100 text-orange-800">Not Connected</Badge>
+              <Badge className="bg-orange-100 text-orange-800">Ulanmagan</Badge>
             </div>
             <p className="text-sm text-gray-600">
-              Connect your Telegram account to receive test notifications and submit answers directly in Telegram.
+              Telegram hisobingizni ulang va test xabarnomalarini to'g'ridan-to'g'ri Telegram orqali oling.
             </p>
-            <Button
-              onClick={handleConnect}
-              className="w-full"
-              size="sm"
-            >
-              <Send className="h-4 w-4 mr-2" />
-              Connect Telegram
-            </Button>
+            
+            {/* Enhanced connection with auto-auth */}
+            <div className="space-y-3">
+              <TelegramAuthButton
+                onSuccess={handleAuthSuccess}
+                onError={handleAuthError}
+                className="w-full"
+                size="sm"
+              />
+              
+              <div className="flex items-center gap-2">
+                <div className="flex-1 border-t border-gray-200"></div>
+                <span className="text-xs text-gray-500 px-2">yoki</span>
+                <div className="flex-1 border-t border-gray-200"></div>
+              </div>
+              
+              <Button
+                onClick={handleConnect}
+                variant="outline"
+                size="sm"
+                className="w-full"
+              >
+                <Users className="h-4 w-4 mr-2" />
+                Telegram boshqaruvi
+              </Button>
+            </div>
           </div>
         )}
       </CardContent>

@@ -6,6 +6,8 @@ import { ConfigService } from '@nestjs/config';
 import { TelegramChat, ChatType, ChatStatus } from './entities/telegram-chat.entity';
 import { TelegramAnswer, AnswerStatus } from './entities/telegram-answer.entity';
 import { User } from '../users/entities/user.entity';
+import { Center } from '../centers/entities/center.entity';
+import { Subject } from '../subjects/entities/subject.entity';
 import { Test } from '../tests/entities/test.entity';
 import { Question } from '../questions/entities/question.entity';
 import { Answer } from '../questions/entities/answer.entity';
@@ -23,6 +25,10 @@ export class TelegramService {
     private telegramAnswerRepo: Repository<TelegramAnswer>,
     @InjectRepository(User)
     private userRepo: Repository<User>,
+    @InjectRepository(Center)
+    private centerRepo: Repository<Center>,
+    @InjectRepository(Subject)
+    private subjectRepo: Repository<Subject>,
     @InjectRepository(Test)
     private testRepo: Repository<Test>,
     @InjectRepository(Question)
@@ -42,21 +48,62 @@ export class TelegramService {
 
   // ==================== Chat Management ====================
 
-  async createOrUpdateChat(dto: CreateTelegramChatDto): Promise<TelegramChat> {
+  async createOrUpdateChat(dto: CreateTelegramChatDto, authenticatedUser: User): Promise<TelegramChat> {
     const existingChat = await this.telegramChatRepo.findOne({
       where: { chatId: dto.chatId },
-      relations: ['user'],
+      relations: ['user', 'center', 'subject'],
     });
 
+    // Get the full user with center and subjects relationships
+    const fullUser = await this.userRepo.findOne({
+      where: { id: authenticatedUser.id },
+      relations: ['center', 'subjects'],
+    });
+
+    if (!fullUser) {
+      throw new BadRequestException('Foydalanuvchi topilmadi');
+    }
+
+    // Determine center and subject
+    let center: Center | null = null;
+    let subject: Subject | null = null;
+
+    // For channels and groups, try to get center and subject from the user or DTO
+    if (dto.type === ChatType.CHANNEL || dto.type === ChatType.GROUP) {
+      // Use center from user if not provided in DTO
+      if (dto.centerId) {
+        center = await this.centerRepo.findOne({ where: { id: dto.centerId } });
+      } else if (fullUser.center) {
+        center = fullUser.center;
+      }
+
+      // Use subject from DTO if provided
+      if (dto.subjectId) {
+        subject = await this.subjectRepo.findOne({ where: { id: dto.subjectId } });
+      }
+    }
+
     if (existingChat) {
-      Object.assign(existingChat, dto);
-      existingChat.lastActivity = new Date();
+      // Update existing chat
+      Object.assign(existingChat, {
+        type: dto.type,
+        title: dto.title,
+        username: dto.username,
+        telegramUserId: dto.telegramUserId,
+        firstName: dto.firstName,
+        lastName: dto.lastName,
+        telegramUsername: dto.telegramUsername,
+        lastActivity: new Date(),
+      });
+      
+      if (center) existingChat.center = center;
+      if (subject) existingChat.subject = subject;
+      
       return this.telegramChatRepo.save(existingChat);
     }
 
-    const user = dto.userId ? await this.userRepo.findOne({ where: { id: dto.userId } }) : null;
-    
-    const newChat = this.telegramChatRepo.create({
+    // Create new chat
+    const newChatData = {
       chatId: dto.chatId,
       type: dto.type,
       status: ChatStatus.ACTIVE,
@@ -67,24 +114,31 @@ export class TelegramService {
       lastName: dto.lastName,
       telegramUsername: dto.telegramUsername,
       lastActivity: new Date(),
-    });
-
-    if (user) {
-      newChat.user = user;
+      center: center || undefined,
+      subject: subject || undefined,
+    };
+    
+    // For private chats, link to the user who sent the message
+    if (dto.type === ChatType.PRIVATE && dto.userId) {
+      const chatUser = await this.userRepo.findOne({ where: { id: dto.userId } });
+      if (chatUser) {
+        (newChatData as any).user = chatUser;
+      }
     }
 
+    const newChat = this.telegramChatRepo.create(newChatData);
     return this.telegramChatRepo.save(newChat);
   }
 
   async linkUserToChat(userId: number, chatId: string): Promise<TelegramChat> {
     const user = await this.userRepo.findOne({ where: { id: userId } });
     if (!user) {
-      throw new BadRequestException('User not found');
+      throw new BadRequestException('Foydalanuvchi topilmadi');
     }
 
     const chat = await this.telegramChatRepo.findOne({ where: { chatId } });
     if (!chat) {
-      throw new BadRequestException('Telegram chat not found');
+      throw new BadRequestException('Telegram chat topilmadi');
     }
 
     chat.user = user;
@@ -94,31 +148,80 @@ export class TelegramService {
   async getUserChats(userId: number): Promise<TelegramChat[]> {
     return this.telegramChatRepo.find({
       where: { user: { id: userId } },
+      relations: ['center', 'subject', 'user'],
       order: { lastActivity: 'DESC' },
     });
   }
 
-  // ==================== User Registration & Linking ====================
+  async getAllChats(): Promise<TelegramChat[]> {
+    return this.telegramChatRepo.find({
+      relations: ['center', 'subject', 'user'],
+      order: { lastActivity: 'DESC' },
+    });
+  }
 
-  async registerUserToBot(telegramUserId: string, username?: string, firstName?: string, lastName?: string): Promise<{ success: boolean; message: string; userId?: number }> {
+  // ==================== Enhanced User Authentication & Auto-Connection ====================
+
+  async authenticateAndConnectUser(telegramUserId: string, username?: string, firstName?: string, lastName?: string): Promise<{ success: boolean; message: string; userId?: number; autoConnected?: boolean }> {
     try {
       // Check if this Telegram user is already registered
       const existingChat = await this.telegramChatRepo.findOne({
         where: { telegramUserId },
-        relations: ['user'],
+        relations: ['user', 'user.center', 'user.subjects'],
       });
 
       if (existingChat && existingChat.user) {
+        // User already connected, send updated channel list
+        await this.sendUserChannelsAndInvitation(existingChat.user.id);
         return {
           success: true,
-          message: `Welcome back ${existingChat.user.firstName}! You are already registered.`,
+          message: `Qaytib kelganingiz bilan, ${existingChat.user.firstName}! Sizning hisobingiz allaqachon ulangan.`,
           userId: existingChat.user.id,
+          autoConnected: true,
         };
       }
 
-      // Create or update chat record for this user
+      // Try to find matching LMS user by name or email
+      const potentialUsers = await this.userRepo.find({
+        where: [
+          { firstName: firstName, lastName: lastName },
+          { firstName: lastName, lastName: firstName }, // Try reversed names
+        ],
+        relations: ['center', 'subjects'],
+      });
+
+      let linkedUser: User | null = null;
+
+      if (potentialUsers.length === 1) {
+        // Exact match found - auto-link
+        linkedUser = potentialUsers[0];
+        const chat = existingChat || this.telegramChatRepo.create({
+          chatId: telegramUserId,
+          type: ChatType.PRIVATE,
+          telegramUserId,
+          telegramUsername: username,
+          firstName,
+          lastName,
+          status: ChatStatus.ACTIVE,
+        });
+
+        chat.user = linkedUser;
+        await this.telegramChatRepo.save(chat);
+
+        // Automatically send invitations to relevant channels
+        await this.sendUserChannelsAndInvitation(linkedUser.id);
+
+        return {
+          success: true,
+          message: `🎉 Salom ${linkedUser.firstName}! Hisobingiz avtomatik ulandi. Tegishli kanallarga qo'shilish uchun quyidagi havolalardan foydalaning.`,
+          userId: linkedUser.id,
+          autoConnected: true,
+        };
+      }
+
+      // No exact match or multiple matches - manual linking required
       const chatData = {
-        chatId: telegramUserId, // For private chats, use user ID as chat ID
+        chatId: telegramUserId,
         type: ChatType.PRIVATE,
         telegramUserId,
         telegramUsername: username,
@@ -137,14 +240,125 @@ export class TelegramService {
 
       return {
         success: true,
-        message: 'Registration successful! Please contact your teacher to link your account to the LMS system.',
+        message: potentialUsers.length > 1 
+          ? `Bir nechta mos hisoblar topildi. O'qituvchingiz bilan bog'lanib, hisobingizni qo'lda ulashni so'rang.`
+          : `Ro'yxatdan o'tish muvaffaqiyatli! Hisobingizni LMS tizimiga ulash uchun o'qituvchingiz bilan bog'laning.`,
         userId: undefined,
+        autoConnected: false,
       };
     } catch (error) {
-      this.logger.error('Failed to register user to bot:', error);
+      this.logger.error('Failed to authenticate and connect user:', error);
       return {
         success: false,
-        message: 'Registration failed. Please try again later.',
+        message: 'Autentifikatsiyada xatolik. Keyinroq qayta urinib ko\'ring.',
+        autoConnected: false,
+      };
+    }
+  }
+
+  async sendUserChannelsAndInvitation(userId: number): Promise<{ success: boolean; message: string; channels: string[] }> {
+    try {
+      const user = await this.userRepo.findOne({
+        where: { id: userId },
+        relations: ['center', 'subjects'],
+      });
+
+      if (!user) {
+        return { success: false, message: 'Foydalanuvchi topilmadi', channels: [] };
+      }
+
+      // Find user's Telegram chat
+      const userChat = await this.telegramChatRepo.findOne({
+        where: { user: { id: userId }, type: ChatType.PRIVATE },
+      });
+
+      if (!userChat || !userChat.telegramUserId) {
+        return {
+          success: false,
+          message: 'Foydalanuvchining Telegram hisobi ulanmagan',
+          channels: [],
+        };
+      }
+
+      // Find relevant channels based on user's center and subjects
+      const relevantChannels = await this.telegramChatRepo.find({
+        where: {
+          type: ChatType.CHANNEL,
+          status: ChatStatus.ACTIVE,
+          center: { id: user.center?.id },
+        },
+        relations: ['center', 'subject'],
+        order: { title: 'ASC' },
+      });
+
+      if (relevantChannels.length === 0) {
+        const defaultMessage = `🎓 Salom ${user.firstName}! Telegram hisobingiz muvaffaqiyatli ulandi.\n\n📚 Hozircha sizning markazingiz uchun faol kanallar yo'q. O'qituvchingiz kanallar yaratganida, sizga avtomatik xabar yuboriladi.\n\n❓ Yordam kerakmi? /help buyrug'ini yuboring.`;
+        
+        if (this.bot) {
+          await this.bot.sendMessage(userChat.telegramUserId, defaultMessage, {
+            parse_mode: 'HTML',
+            disable_web_page_preview: true,
+          });
+        }
+
+        return {
+          success: true,
+          message: 'Foydalanuvchi xabardor qilindi (kanallar yo\'q)',
+          channels: [],
+        };
+      }
+
+      // Create invitation message with channel links
+      const channelList = relevantChannels
+        .map(channel => {
+          const channelName = channel.title || channel.username || channel.chatId;
+          const subjectInfo = channel.subject ? ` (${channel.subject.name})` : '';
+          const joinLink = channel.inviteLink || channel.username || 'O\'qituvchingiz bilan bog\'laning';
+          
+          return `📚 ${channelName}${subjectInfo}\n   👉 Qo'shilish: ${joinLink}`;
+        })
+        .join('\n\n');
+
+      const invitationMessage = `🎓 Salom ${user.firstName}! Telegram hisobingiz muvaffaqiyatli ulandi.\n\n📢 Quyidagi kanallarga qo'shilib, darslaringizni kuzatib boring:\n\n${channelList}\n\n📋 Ko'rsatmalar:\n• Yuqoridagi kanallarga qo'shiling\n• Testlar va e'lonlarni kuzatib boring\n• Savollarga quyidagi formatda javob bering: #T123Q1 A\n• Javoblaringizga darhol fikr-mulohaza oling\n\n👨‍👩‍👧‍👦 Ota-onalar ham qo'shilishgan \n❓ Yordam kerakmi? /help buyrug'ini yuboring`;
+
+      if (this.bot) {
+        await this.bot.sendMessage(userChat.telegramUserId, invitationMessage, {
+          parse_mode: 'HTML',
+          disable_web_page_preview: true,
+        });
+
+        // Also try to automatically add user to public channels
+        for (const channel of relevantChannels) {
+          if (channel.username && channel.username.startsWith('@')) {
+            try {
+              // Generate a fresh invite link for the channel
+              const inviteResult = await this.generateChannelInviteLink(channel.chatId);
+              if (inviteResult.success && inviteResult.inviteLink) {
+                // Send individual invitation
+                await this.bot.sendMessage(
+                  userChat.telegramUserId,
+                  `🔗 ${channel.title || channel.username} kanaliga avtomatik qo'shilish:\n${inviteResult.inviteLink}`,
+                  { disable_web_page_preview: true }
+                );
+              }
+            } catch (error) {
+              this.logger.warn(`Failed to generate invite for channel ${channel.chatId}:`, error);
+            }
+          }
+        }
+      }
+
+      return {
+        success: true,
+        message: 'Kanallar ro\'yxati muvaffaqiyatli yuborildi',
+        channels: relevantChannels.map(c => c.title || c.username || c.chatId),
+      };
+    } catch (error) {
+      this.logger.error('Failed to send user channels and invitation:', error);
+      return {
+        success: false,
+        message: 'Taklifnomalarni yuborishda xatolik',
+        channels: [],
       };
     }
   }
@@ -153,7 +367,7 @@ export class TelegramService {
     try {
       const user = await this.userRepo.findOne({ where: { id: lmsUserId } });
       if (!user) {
-        return { success: false, message: 'LMS user not found' };
+        return { success: false, message: 'LMS foydalanuvchisi topilmadi' };
       }
 
       const chat = await this.telegramChatRepo.findOne({
@@ -161,7 +375,7 @@ export class TelegramService {
       });
 
       if (!chat) {
-        return { success: false, message: 'Telegram user not found. Please start the bot first.' };
+        return { success: false, message: 'Telegram foydalanuvchisi topilmadi. Iltimos avval botni ishga tushiring.' };
       }
 
       chat.user = user;
@@ -169,11 +383,11 @@ export class TelegramService {
 
       return {
         success: true,
-        message: `Successfully linked ${user.firstName} ${user.lastName} to Telegram account`,
+        message: `${user.firstName} ${user.lastName} muvaffaqiyatli Telegram hisobiga ulandi`,
       };
     } catch (error) {
       this.logger.error('Failed to link Telegram user to LMS user:', error);
-      return { success: false, message: 'Linking failed. Please try again.' };
+      return { success: false, message: 'Ulanishda xatolik. Qayta urinib ko\'ring.' };
     }
   }
 

@@ -20,6 +20,7 @@ import { request } from '@/configs/request';
 import type { SubjectType } from '@/types/subject.type';
 import { useAuth } from '@/contexts/AuthContext';
 import TelegramManagementCard from '@/components/TelegramManagementCard';
+import TelegramConnectCard from '@/components/TelegramConnectCard';
 import moment from 'moment';
 export default function TeacherDashboard() {
 	const navigate = useNavigate();
@@ -286,6 +287,9 @@ export default function TeacherDashboard() {
 
 					{/* Quick Actions & Recent Activity */}
 					<div className='space-y-6'>
+						{/* Telegram Personal Connection */}
+						<TelegramConnectCard />
+
 						{/* Telegram Management */}
 						<TelegramManagementCard />
 

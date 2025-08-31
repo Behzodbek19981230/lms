@@ -25,6 +25,7 @@ import TestGeneratorPage from './pages/TestGeneratorPage';
 import StudentDashboard from './pages/StudentDashboard';
 import TelegramManagement from './pages/TelegramManagement';
 import TelegramUserDashboard from './pages/TelegramUserDashboard';
+import CenterUsersManagement from './pages/CenterUsersManagement';
 
 const queryClient = new QueryClient();
 
@@ -64,6 +65,7 @@ const App = () => (
 							<Route path='student' element={<StudentDashboard />} />
 							<Route path='telegram' element={<TelegramManagement />} />
 							<Route path='telegram-user' element={<TelegramUserDashboard />} />
+							<Route path='center-users' element={<CenterUsersManagement />} />
 						</Route>
 
 						<Route path='*' element={<NotFound />} />
