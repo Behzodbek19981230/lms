@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { request } from '@/configs/request';
-import { Send, CheckCircle, Loader2 } from 'lucide-react';
+import { Send, CheckCircle, Loader2, AlertTriangle } from 'lucide-react';
 import { LoginButton } from '@telegram-auth/react';
 
 interface TelegramUser {
@@ -36,6 +36,7 @@ export default function TelegramAuthButton({
   const [loading, setLoading] = useState(false);
   const [connected, setConnected] = useState(false);
   const [currentBotUsername, setCurrentBotUsername] = useState(botUsername);
+  const [showManualButton, setShowManualButton] = useState(false);
   
   // Fallback bot usernames to try
   const fallbackBotUsernames = [
@@ -44,6 +45,28 @@ export default function TelegramAuthButton({
     'universallmsbot',
     'universal_edu_bot'
   ];
+
+  // Check if Telegram scripts loaded after component mount
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      // If LoginButton didn't render properly, show manual option
+      if (!document.querySelector('iframe[src*="oauth.telegram.org"]')) {
+        setShowManualButton(true);
+        console.warn('⚠️ Telegram widget yuklanmadi, manual button ko\'rsatilmoqda');
+      }
+    }, 3000);
+
+    return () => clearTimeout(timer);
+  }, [currentBotUsername]);
+
+  const openTelegramBot = () => {
+    const botUrl = `https://t.me/${currentBotUsername}`;
+    window.open(botUrl, '_blank');
+    toast({
+      title: 'Telegram bot ochildi',
+      description: `${currentBotUsername} boti yangi tabda ochildi. /start buyrug\'ini yuboring.`,
+    });
+  };
 
   const handleTelegramAuth = async (telegramUser: TelegramUser) => {
     try {
@@ -142,24 +165,64 @@ export default function TelegramAuthButton({
     <div className="space-y-3">
       {/* Debug info in development */}
       {import.meta.env.DEV && (
-        <div className="text-xs text-gray-500 p-2 bg-gray-50 rounded">
-          <strong>Debug:</strong> Bot username: {currentBotUsername}<br/>
+        <div className="text-xs text-gray-500 p-2 bg-gray-50 rounded border">
+          <strong>🔍 Debug Ma'lumotlari:</strong><br/>
+          <strong>Bot username:</strong> {currentBotUsername}<br/>
           <strong>Current domain:</strong> {window.location.hostname}:{window.location.port}<br/>
-          <strong>Full URL:</strong> {window.location.origin}
+          <strong>Full URL:</strong> {window.location.origin}<br/>
+          <strong>Environment:</strong> {import.meta.env.MODE}<br/>
+          <strong>VITE_BOT_USERNAME:</strong> {import.meta.env.VITE_BOT_USERNAME || 'MAVJUD EMAS'}<br/>
+          <strong>Component ishlamoqda:</strong> ✅
         </div>
       )}
       
+      {/* LoginButton wrapper with error boundary */}
       <div className={className}>
-        <LoginButton
-          botUsername={currentBotUsername}
-          buttonSize={size === 'sm' ? 'small' : size === 'lg' ? 'large' : 'medium'}
-          cornerRadius={8}
-          showAvatar={true}
-          lang="en"
-          onAuthCallback={(user) => {
-            handleTelegramAuth(user as TelegramUser);
-          }}
-        />
+        <div className="min-h-[50px] p-3 border-2 border-blue-300 rounded-lg bg-blue-50">
+          <p className="text-sm text-blue-800 mb-3 font-semibold">
+            📍 Telegram Login Button joylashuvi:
+          </p>
+          
+          <div className="bg-white p-2 rounded border">
+            <LoginButton
+              botUsername={currentBotUsername}
+              buttonSize={size === 'sm' ? 'small' : size === 'lg' ? 'large' : 'medium'}
+              cornerRadius={8}
+              showAvatar={true}
+              lang="en"
+              onAuthCallback={(user) => {
+                console.log('✅ Telegram auth callback ishlamoqda:', user);
+                toast({
+                  title: 'Callback ishlamoqda',
+                  description: `Telegram user: ${user.first_name}`,
+                });
+                handleTelegramAuth(user as TelegramUser);
+              }}
+            />
+          </div>
+          
+          {/* Manual fallback button */}
+          {showManualButton && (
+            <div className="mt-3 p-2 bg-yellow-50 border border-yellow-200 rounded">
+              <p className="text-xs text-yellow-700 mb-2">
+                ⚠️ Widget yuklanmadi. Manual ulanishni sinab ko'ring:
+              </p>
+              <Button 
+                onClick={openTelegramBot}
+                variant="outline"
+                size="sm"
+                className="w-full"
+              >
+                <Send className="h-4 w-4 mr-2" />
+                {currentBotUsername} botini ochish
+              </Button>
+            </div>
+          )}
+          
+          <p className="text-xs text-blue-600 mt-2">
+            Agar button ko'rinmasa, browser consoleni tekshiring
+          </p>
+        </div>
       </div>
       
       {/* Alternative bot username button */}
