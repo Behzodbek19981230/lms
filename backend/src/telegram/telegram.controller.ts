@@ -185,6 +185,16 @@ export class TelegramController {
     return this.telegramService.generateChannelInviteLink(channelId);
   }
 
+  @Get('check-bot-status/:channelId')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.TEACHER, UserRole.ADMIN, UserRole.SUPERADMIN)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Check bot status in a channel' })
+  @ApiResponse({ status: 200, description: 'Bot status checked' })
+  async checkBotStatus(@Param('channelId') channelId: string) {
+    return this.telegramService.checkBotChannelStatus(channelId);
+  }
+
   @Post('send-test')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.TEACHER, UserRole.ADMIN, UserRole.SUPERADMIN)

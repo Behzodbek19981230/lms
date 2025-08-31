@@ -417,12 +417,39 @@ export class TelegramService {
     });
   }
 
-  async generateChannelInviteLink(channelId: string): Promise<{ success: boolean; inviteLink?: string; message: string }> {
+  async generateChannelInviteLink(channelId: string): Promise<{ success: boolean; inviteLink?: string; message: string; errorDetails?: any }> {
     if (!this.bot) {
       return { success: false, message: 'Telegram bot not configured' };
     }
 
     try {
+      // First, try to get bot information to check if it's in the channel
+      let botInfo;
+      try {
+        botInfo = await this.bot.getMe();
+        const chatMember = await this.bot.getChatMember(channelId, botInfo.id);
+        
+        if (!['administrator', 'creator'].includes(chatMember.status)) {
+          return {
+            success: false,
+            message: `Bot is not an admin in the channel. Bot status: ${chatMember.status}. Please add @${botInfo.username} as an admin with "can_invite_users" permission.`,
+            errorDetails: { botStatus: chatMember.status, botUsername: botInfo.username }
+          };
+        }
+
+        // Check if bot has the required permissions
+        if (chatMember.status === 'administrator' && chatMember.can_invite_users === false) {
+          return {
+            success: false,
+            message: `Bot is admin but lacks "can_invite_users" permission. Please grant this permission to @${botInfo.username}.`,
+            errorDetails: { permissions: chatMember }
+          };
+        }
+      } catch (permissionError) {
+        this.logger.warn('Could not check bot permissions, proceeding anyway:', permissionError);
+      }
+
+      // Try to generate the invite link
       const inviteLink = await this.bot.exportChatInviteLink(channelId);
       
       // Save invite link to database
@@ -439,9 +466,34 @@ export class TelegramService {
       };
     } catch (error) {
       this.logger.error('Failed to generate invite link:', error);
+      
+      // Provide more specific error messages
+      if (error.code === 400) {
+        if (error.description?.includes('not enough rights')) {
+          return {
+            success: false,
+            message: 'Bot does not have sufficient permissions. Please ensure the bot is an admin with "can_invite_users" permission.',
+            errorDetails: error
+          };
+        } else if (error.description?.includes('chat not found')) {
+          return {
+            success: false,
+            message: 'Channel not found. Please check the channel ID or username.',
+            errorDetails: error
+          };
+        } else if (error.description?.includes('CHAT_ADMIN_REQUIRED')) {
+          return {
+            success: false,
+            message: 'Bot must be an admin in the channel to generate invite links.',
+            errorDetails: error
+          };
+        }
+      }
+      
       return {
         success: false,
-        message: 'Failed to generate invite link. Make sure the bot is admin in the channel.',
+        message: `Failed to generate invite link: ${error.message || 'Unknown error'}. Make sure the bot is admin in the channel with invite permissions.`,
+        errorDetails: error
       };
     }
   }
@@ -485,6 +537,31 @@ export class TelegramService {
       return {
         isLinked: false,
         availableChannels: [],
+      };
+    }
+  }
+
+  async checkBotChannelStatus(channelId: string): Promise<{ success: boolean; botStatus?: string; botUsername?: string; permissions?: any; message: string }> {
+    if (!this.bot) {
+      return { success: false, message: 'Telegram bot not configured' };
+    }
+
+    try {
+      const botInfo = await this.bot.getMe();
+      const chatMember = await this.bot.getChatMember(channelId, botInfo.id);
+      
+      return {
+        success: true,
+        botStatus: chatMember.status,
+        botUsername: botInfo.username,
+        permissions: chatMember,
+        message: `Bot @${botInfo.username} status in channel: ${chatMember.status}`
+      };
+    } catch (error) {
+      this.logger.error('Failed to check bot status in channel:', error);
+      return {
+        success: false,
+        message: `Failed to check bot status: ${error.message}`
       };
     }
   }

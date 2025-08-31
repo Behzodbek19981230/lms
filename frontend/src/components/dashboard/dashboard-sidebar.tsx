@@ -13,7 +13,7 @@ import {
     SidebarMenuSubItem,
     useSidebar,
 } from '@/components/ui/sidebar';
-import { Award, FolderOpen, LayoutDashboard, MessageSquare, Settings, Users, Send, Book, AlertCircle, Users2 } from 'lucide-react';
+import { Award, FolderOpen, LayoutDashboard, MessageSquare, Settings, Users, Send, Book, AlertCircle, Users2, GraduationCap, UserCheck } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useEffect, useState } from 'react';
 
@@ -32,6 +32,8 @@ const superAdminMenuItems = [
 ];
 const centerAdminMenuItems = [
     { title: 'Dashboard', url: '/account/admin', icon: LayoutDashboard },
+    { title: 'Studentlarim', url: '/account/students', icon: GraduationCap },
+    { title: 'O\'qituvchilarim', url: '/account/teachers', icon: UserCheck },
     { title: 'Mening fanlarim', url: '/account/subjects', icon: Book
      },
     { title: 'Telegram Management', url: '/account/telegram', icon: Send },

@@ -3,10 +3,12 @@ import {
   Controller,
   Get,
   Param,
+  Patch,
   Post,
   Query,
   Request,
   UseGuards,
+  BadRequestException,
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
@@ -78,24 +80,65 @@ export class UsersController {
     @Request() req,
   ): Promise<User> {
     const hashedPassword = await bcrypt.hash(dto.password, 12);
+    
     // Fetch fresh admin with center to avoid missing center in token payload
     const me = await this.usersService.findOne(req.user.id);
+    
+    if (!me.center?.id) {
+      throw new BadRequestException('Admin foydalanuvchisi hech qanday markazga bog\'lanmagan');
+    }
+    
     return this.usersService.create({
       ...dto,
       password: hashedPassword,
-      centerId: me.center?.id,
+      centerId: me.center.id,
     } as CreateUserDto);
   }
 
-  //   @Post('all')
-  //   async findAllUsers(): Promise<User[]> {
-  //     return this.usersService.findAll();
-  //   }
+  @Get()
+  @Roles(UserRole.ADMIN, UserRole.SUPERADMIN)
+  @ApiOperation({ summary: 'Get users list with optional filters' })
+  @ApiResponse({ status: 200, description: 'Users list' })
+  async getUsers(
+    @Query('role') role?: string,
+    @Query('centerId') centerId?: string,
+    @Query('includeGroups') includeGroups?: string,
+    @Query('includeSubjects') includeSubjects?: string,
+    @Request() req?,
+  ) {
+    // For center admins, automatically filter by their center
+    let effectiveCenterId = centerId;
+    if (req.user.role === UserRole.ADMIN && req.user.center?.id) {
+      effectiveCenterId = req.user.center.id.toString();
+    }
+    
+    return this.usersService.findAll(
+      effectiveCenterId, 
+      role, 
+      includeGroups === 'true',
+      includeSubjects === 'true'
+    );
+  }
 
-  //   @Get(':id')
-  //   async findUserById(@Param('id') id: number): Promise<User> {
-  //     return this.usersService.findOne(id);
-  //   }
+  @Patch(':id')
+  @Roles(UserRole.ADMIN, UserRole.SUPERADMIN)
+  @ApiOperation({ summary: 'Update user data' })
+  @ApiResponse({ status: 200, description: 'User updated successfully' })
+  async updateUser(
+    @Param('id') id: string,
+    @Body() updateData: Partial<CreateUserDto>,
+    @Request() req,
+  ): Promise<User> {
+    // For center admins, ensure they can only update users in their center
+    if (req.user.role === UserRole.ADMIN) {
+      const user = await this.usersService.findOne(Number(id));
+      if (user.center?.id !== req.user.center?.id) {
+        throw new BadRequestException('Siz faqat o\'z markazingizdagi foydalanuvchilarni tahrirlashingiz mumkin');
+      }
+    }
+    
+    return this.usersService.update(Number(id), updateData);
+  }
 
   @Get('me')
   @ApiOperation({ summary: 'Me' })
@@ -108,34 +151,4 @@ export class UsersController {
     console.log('User ID:', req.user);
     return this.usersService.findOne(req.user.id);
   }
-
-  @Get()
-  @Roles(UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.TEACHER)
-  @ApiOperation({ summary: 'Foydalanuvchilar ro‘yxati' })
-  @ApiResponse({ status: 200, description: 'Foydalanuvchilar ro‘yxati' })
-  async findAll(
-    @Query('centerId') centerId: string,
-    @Query('role') role: string,
-    @Request() req,
-  ): Promise<User[]> {
-    let effectiveCenterId = centerId;
-    if (req.user.role === UserRole.ADMIN || req.user.role === UserRole.TEACHER) {
-      // Force to own center for admin/teacher
-      effectiveCenterId = String(req.user.center?.id || '');
-    }
-    return this.usersService.findAll(effectiveCenterId, role);
-  }
-
-  //   @Patch(':id')
-  //   async updateUser(
-  //     @Param('id') id: number,
-  //     @Body() updateUserDto: Partial<CreateUserDto>,
-  //   ): Promise<User> {
-  //     return this.usersService.update(id, updateUserDto);
-  //   }
-
-  //   @Delete(':id')
-  //   async deleteUser(@Param('id') id: number): Promise<void> {
-  //     return this.usersService.delete(id);
-  //   }
 }

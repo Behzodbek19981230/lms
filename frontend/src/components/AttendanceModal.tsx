@@ -4,10 +4,10 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Textarea } from '@/components/ui/textarea';
+import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 import { request } from '@/configs/request';
-import { CheckCircle, X, Clock, Users, Calendar, Save, Loader2 } from 'lucide-react';
+import { CheckCircle, X, Users, Save, Loader2 } from 'lucide-react';
 
 interface Student {
   id: number;
@@ -25,10 +25,7 @@ interface Group {
 
 interface AttendanceRecord {
   studentId: number;
-  status: 'present' | 'absent' | 'late' | 'excused';
-  notes?: string;
-  arrivedAt?: string;
-  leftAt?: string;
+  status: 'present' | 'absent';
 }
 
 interface AttendanceModalProps {
@@ -61,13 +58,10 @@ export default function AttendanceModal({ isOpen, onClose, onSuccess, groups }: 
       const studentsData = response.data || [];
       setStudents(studentsData);
       
-      // Initialize attendance records with default 'absent' status
+      // Initialize attendance records with default 'present' status
       const defaultRecords = studentsData.map((student: Student) => ({
         studentId: student.id,
-        status: 'absent' as const,
-        notes: '',
-        arrivedAt: '',
-        leftAt: ''
+        status: 'present' as const
       }));
       setAttendanceRecords(defaultRecords);
     } catch (error: any) {
@@ -82,11 +76,11 @@ export default function AttendanceModal({ isOpen, onClose, onSuccess, groups }: 
     }
   };
 
-  const updateAttendanceRecord = (studentId: number, field: keyof AttendanceRecord, value: string) => {
+  const toggleAttendanceStatus = (studentId: number) => {
     setAttendanceRecords(prev => 
       prev.map(record => 
         record.studentId === studentId 
-          ? { ...record, [field]: value }
+          ? { ...record, status: record.status === 'present' ? 'absent' : 'present' }
           : record
       )
     );
@@ -110,10 +104,7 @@ export default function AttendanceModal({ isOpen, onClose, onSuccess, groups }: 
         date: selectedDate,
         attendanceRecords: attendanceRecords.map(record => ({
           studentId: record.studentId,
-          status: record.status,
-          notes: record.notes || undefined,
-          arrivedAt: record.arrivedAt || undefined,
-          leftAt: record.leftAt || undefined
+          status: record.status
         }))
       };
 
@@ -150,10 +141,6 @@ export default function AttendanceModal({ isOpen, onClose, onSuccess, groups }: 
     switch (status) {
       case 'present':
         return 'bg-green-100 text-green-800 border-green-200';
-      case 'late':
-        return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-      case 'excused':
-        return 'bg-blue-100 text-blue-800 border-blue-200';
       case 'absent':
       default:
         return 'bg-red-100 text-red-800 border-red-200';
@@ -164,10 +151,6 @@ export default function AttendanceModal({ isOpen, onClose, onSuccess, groups }: 
     switch (status) {
       case 'present':
         return 'Keldi';
-      case 'late':
-        return 'Kechikdi';
-      case 'excused':
-        return 'Uzrli';
       case 'absent':
       default:
         return 'Kelmadi';
@@ -178,10 +161,6 @@ export default function AttendanceModal({ isOpen, onClose, onSuccess, groups }: 
     switch (status) {
       case 'present':
         return <CheckCircle className="h-4 w-4 text-green-600" />;
-      case 'late':
-        return <Clock className="h-4 w-4 text-yellow-600" />;
-      case 'excused':
-        return <CheckCircle className="h-4 w-4 text-blue-600" />;
       case 'absent':
       default:
         return <X className="h-4 w-4 text-red-600" />;
@@ -189,9 +168,7 @@ export default function AttendanceModal({ isOpen, onClose, onSuccess, groups }: 
   };
 
   const presentCount = attendanceRecords.filter(r => r.status === 'present').length;
-  const lateCount = attendanceRecords.filter(r => r.status === 'late').length;
   const absentCount = attendanceRecords.filter(r => r.status === 'absent').length;
-  const excusedCount = attendanceRecords.filter(r => r.status === 'excused').length;
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
@@ -243,7 +220,7 @@ export default function AttendanceModal({ isOpen, onClose, onSuccess, groups }: 
                 <CardTitle className="text-lg">Statistika</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-4 gap-4">
+                <div className="grid grid-cols-2 gap-4">
                   <div className="text-center">
                     <div className="flex items-center justify-center mb-1">
                       <CheckCircle className="h-4 w-4 text-green-600 mr-1" />
@@ -253,24 +230,10 @@ export default function AttendanceModal({ isOpen, onClose, onSuccess, groups }: 
                   </div>
                   <div className="text-center">
                     <div className="flex items-center justify-center mb-1">
-                      <Clock className="h-4 w-4 text-yellow-600 mr-1" />
-                      <span className="font-semibold text-yellow-600">{lateCount}</span>
-                    </div>
-                    <p className="text-xs text-muted-foreground">Kechikdi</p>
-                  </div>
-                  <div className="text-center">
-                    <div className="flex items-center justify-center mb-1">
                       <X className="h-4 w-4 text-red-600 mr-1" />
                       <span className="font-semibold text-red-600">{absentCount}</span>
                     </div>
                     <p className="text-xs text-muted-foreground">Kelmadi</p>
-                  </div>
-                  <div className="text-center">
-                    <div className="flex items-center justify-center mb-1">
-                      <CheckCircle className="h-4 w-4 text-blue-600 mr-1" />
-                      <span className="font-semibold text-blue-600">{excusedCount}</span>
-                    </div>
-                    <p className="text-xs text-muted-foreground">Uzrli</p>
                   </div>
                 </div>
               </CardContent>
@@ -303,7 +266,7 @@ export default function AttendanceModal({ isOpen, onClose, onSuccess, groups }: 
                       const record = attendanceRecords.find(r => r.studentId === student.id);
                       return (
                         <div key={student.id} className="border rounded-lg p-4">
-                          <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center justify-between">
                             <div className="flex items-center space-x-3">
                               {record && getStatusIcon(record.status)}
                               <div>
@@ -315,60 +278,13 @@ export default function AttendanceModal({ isOpen, onClose, onSuccess, groups }: 
                                 </p>
                               </div>
                             </div>
-                            <Badge className={getStatusColor(record?.status || 'absent')}>
-                              {getStatusText(record?.status || 'absent')}
-                            </Badge>
-                          </div>
-
-                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
-                            <div className="space-y-1">
-                              <label className="text-xs font-medium">Holat</label>
-                              <Select
-                                value={record?.status || 'absent'}
-                                onValueChange={(value) => updateAttendanceRecord(student.id, 'status', value)}
-                              >
-                                <SelectTrigger className="h-8">
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="present">Keldi</SelectItem>
-                                  <SelectItem value="late">Kechikdi</SelectItem>
-                                  <SelectItem value="absent">Kelmadi</SelectItem>
-                                  <SelectItem value="excused">Uzrli</SelectItem>
-                                </SelectContent>
-                              </Select>
-                            </div>
-
-                            <div className="space-y-1">
-                              <label className="text-xs font-medium">Kelgan vaqt</label>
-                              <input
-                                type="time"
-                                value={record?.arrivedAt || ''}
-                                onChange={(e) => updateAttendanceRecord(student.id, 'arrivedAt', e.target.value)}
-                                className="w-full px-2 py-1 border border-input rounded text-xs h-8"
-                                disabled={record?.status === 'absent'}
-                              />
-                            </div>
-
-                            <div className="space-y-1">
-                              <label className="text-xs font-medium">Ketgan vaqt</label>
-                              <input
-                                type="time"
-                                value={record?.leftAt || ''}
-                                onChange={(e) => updateAttendanceRecord(student.id, 'leftAt', e.target.value)}
-                                className="w-full px-2 py-1 border border-input rounded text-xs h-8"
-                                disabled={record?.status === 'absent'}
-                              />
-                            </div>
-
-                            <div className="space-y-1">
-                              <label className="text-xs font-medium">Izoh</label>
-                              <input
-                                type="text"
-                                value={record?.notes || ''}
-                                onChange={(e) => updateAttendanceRecord(student.id, 'notes', e.target.value)}
-                                placeholder="Izoh yozing..."
-                                className="w-full px-2 py-1 border border-input rounded text-xs h-8"
+                            <div className="flex items-center space-x-3">
+                              <Badge className={getStatusColor(record?.status || 'present')}>
+                                {getStatusText(record?.status || 'present')}
+                              </Badge>
+                              <Switch
+                                checked={record?.status === 'present'}
+                                onCheckedChange={() => toggleAttendanceStatus(student.id)}
                               />
                             </div>
                           </div>

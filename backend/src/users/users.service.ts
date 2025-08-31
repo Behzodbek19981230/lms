@@ -34,13 +34,19 @@ export class UsersService {
     return this.userRepository.save(user);
   }
 
-  async findAll(centerId?: string, role?: string): Promise<User[]> {
+  async findAll(centerId?: string, role?: string, includeGroups?: boolean, includeSubjects?: boolean): Promise<User[]> {
     const where: any = {};
     if (centerId) where.center = { id: Number(centerId) };
     if (role) where.role = role as UserRole;
+    
+    const relations: string[] = ['center'];
+    if (includeSubjects !== false) relations.push('subjects');
+    // Add groups relation if needed - this would require setting up the relationship
+    
     return await this.userRepository.find({
       where,
-      relations: ['center', 'subjects'],
+      relations,
+      order: { createdAt: 'DESC' },
     });
   }
 

@@ -16,6 +16,8 @@ import TestQuestions from '@/pages/test/test-questions.tsx';
 import Subjects from '@/pages/directory/Subjects.tsx';
 import SuperAdminDashboard from './pages/SuperAdminDashboard';
 import CenterAdminDashboard from './pages/CenterAdminDashboard';
+import CenterStudentsPage from './pages/CenterStudentsPage';
+import CenterTeachersPage from './pages/CenterTeachersPage';
 import GroupsPage from './pages/Groups';
 import ExamsPage from './pages/Exams';
 import TeacherDashboard from './pages/TeacherDashboard';
@@ -52,6 +54,8 @@ const App = () => (
 						>
 							<Route path='superadmin' element={<SuperAdminDashboard />} />
 							<Route path='admin' element={<CenterAdminDashboard />} />
+							<Route path='students' element={<CenterStudentsPage />} />
+							<Route path='teachers' element={<CenterTeachersPage />} />
 							<Route path='teacher' element={<TeacherDashboard />} />
 							<Route path='groups' element={<GroupsPage />} />
 							<Route path='exams' element={<ExamsPage />} />
