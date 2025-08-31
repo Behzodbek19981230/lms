@@ -431,147 +431,178 @@ export class ExamsService {
     html: string,
     title = 'Document',
   ): Promise<Buffer> {
-    let browser: puppeteer.Browser | null = null;
-    try {
-      this.logger.log(`Starting PDF generation for: ${title}`);
-      
-      // Validate HTML content
-      if (!html || html.trim().length === 0) {
-        this.logger.error('Empty HTML content provided for PDF generation');
-        throw new InternalServerErrorException('Cannot generate PDF: Empty content');
-      }
-      
-      this.logger.log(`HTML content length: ${html.length} characters`);
-      
-      // Check if HTML contains basic structure
-      if (!html.includes('<html') || !html.includes('<body')) {
-        this.logger.warn('HTML content may be malformed, wrapping it');
-        html = `<!DOCTYPE html><html><head><title>${title}</title></head><body>${html}</body></html>`;
-      }
-      
-      // Enhanced Puppeteer configuration for server environments
-      browser = await puppeteer.launch({
-        headless: true,
-        args: [
-          '--no-sandbox',
-          '--disable-setuid-sandbox', 
-          '--disable-web-security',
-          '--disable-features=VizDisplayCompositor',
-          '--disable-background-timer-throttling',
-          '--disable-backgrounding-occluded-windows',
-          '--disable-renderer-backgrounding',
-          '--disable-extensions',
-          '--disable-plugins',
-          '--disable-default-apps',
-          '--disable-hang-monitor',
-          '--disable-prompt-on-repost',
-          '--disable-sync',
-          '--disable-translate',
-          '--disable-ipc-flooding-protection',
-          '--no-first-run',
-          '--no-default-browser-check',
-          '--disable-dev-shm-usage',
-          '--single-process'
-        ],
-        timeout: 30000,
-      });
-      
-      const page = await browser.newPage();
-      
-      // Set longer timeouts for server environments
-      page.setDefaultTimeout(30000);
-      page.setDefaultNavigationTimeout(30000);
-
-      // Enhanced request interception with better error handling
-      await page.setRequestInterception(true);
-      page.on('request', (req) => {
-        try {
-          if (req.resourceType() === 'image' || req.url().startsWith('data:')) {
-            req.continue();
-          } else {
-            req.continue();
-          }
-        } catch (error) {
-          this.logger.warn('Request interception error:', error);
-          // Continue anyway to avoid blocking
+    // Retry logic for PDF generation
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      let browser: puppeteer.Browser | null = null;
+      try {
+        this.logger.log(`Starting PDF generation for: ${title} (attempt ${attempt}/3)`);
+        
+        // Validate HTML content
+        if (!html || html.trim().length === 0) {
+          this.logger.error('Empty HTML content provided for PDF generation');
+          throw new InternalServerErrorException('Cannot generate PDF: Empty content');
         }
-      });
+        
+        this.logger.log(`HTML content length: ${html.length} characters`);
+        
+        // Check if HTML contains basic structure
+        if (!html.includes('<html') || !html.includes('<body')) {
+          this.logger.warn('HTML content may be malformed, wrapping it');
+          html = `<!DOCTYPE html><html><head><title>${title}</title></head><body>${html}</body></html>`;
+        }
+        
+        // Enhanced Puppeteer configuration for server environments
+        browser = await puppeteer.launch({
+          headless: true,
+          args: [
+            '--no-sandbox',
+            '--disable-setuid-sandbox', 
+            '--disable-web-security',
+            '--disable-features=VizDisplayCompositor',
+            '--disable-background-timer-throttling',
+            '--disable-backgrounding-occluded-windows',
+            '--disable-renderer-backgrounding',
+            '--disable-extensions',
+            '--disable-plugins',
+            '--disable-default-apps',
+            '--disable-hang-monitor',
+            '--disable-prompt-on-repost',
+            '--disable-sync',
+            '--disable-translate',
+            '--disable-ipc-flooding-protection',
+            '--no-first-run',
+            '--no-default-browser-check',
+            '--disable-dev-shm-usage',
+            // Removed --single-process flag as it can cause issues
+          ],
+          timeout: 30000,
+        });
+        
+        const page = await browser.newPage();
+        
+        // Set longer timeouts for server environments
+        page.setDefaultTimeout(30000);
+        page.setDefaultNavigationTimeout(30000);
 
-      // Set content with longer timeout
-      this.logger.log('Setting page content...');
-      await page.setContent(html, { 
-        waitUntil: 'domcontentloaded',
-        timeout: 15000 
-      });
+        // Enhanced request interception with better error handling
+        await page.setRequestInterception(true);
+        page.on('request', (req) => {
+          try {
+            if (req.resourceType() === 'image' || req.url().startsWith('data:')) {
+              req.continue();
+            } else {
+              req.continue();
+            }
+          } catch (error) {
+            this.logger.warn('Request interception error:', error);
+            // Continue anyway to avoid blocking
+          }
+        });
 
-      // Try to load KaTeX with fallback
-      try {
-        this.logger.log('Loading KaTeX resources...');
-        await Promise.race([
-          this.loadKatexResources(page),
-          new Promise((_, reject) => setTimeout(() => reject(new Error('KaTeX loading timeout')), 10000))
-        ]);
-        this.logger.log('KaTeX resources loaded successfully');
-      } catch (error) {
-        this.logger.warn('Failed to load KaTeX resources, continuing without math rendering:', error);
-      }
-
-      // Wait for images with timeout
-      try {
-        this.logger.log('Waiting for images to load...');
-        await page.waitForFunction(
-          'Array.from(document.images).every(img => img.complete || img.naturalWidth > 0)',
-          { timeout: 8000 }
-        );
-        this.logger.log('Images loaded successfully');
-      } catch (e) {
-        this.logger.warn('Image loading timeout, continuing with PDF generation');
-      }
-
-      // Generate PDF with enhanced options
-      this.logger.log('Generating PDF...');
-      const pdfBuffer = await page.pdf({
-        format: 'A4',
-        margin: { top: '20mm', right: '20mm', bottom: '20mm', left: '20mm' },
-        printBackground: true,
-        preferCSSPageSize: true,
-        timeout: 30000,
-      });
-
-      this.logger.log(`PDF generated successfully, size: ${pdfBuffer.length} bytes`);
-      return Buffer.from(pdfBuffer);
-      
-    } catch (error) {
-      this.logger.error('PDF generation failed:', {
-        message: error.message,
-        stack: error.stack,
-        title
-      });
-      
-      // More specific error messages
-      if (error.message?.includes('timeout')) {
-        throw new InternalServerErrorException('PDF generation timed out. Please try again.');
-      } else if (error.message?.includes('Protocol error')) {
-        throw new InternalServerErrorException('Browser communication error during PDF generation.');
-      } else {
-        throw new InternalServerErrorException(`PDF generation failed: ${error.message || 'Unknown error'}`);
-      }
-    } finally {
-      if (browser) {
+        // Set content with longer timeout
+        this.logger.log('Setting page content...');
         try {
-          await browser.close();
-          this.logger.log('Browser closed successfully');
-        } catch (closeError) {
-          this.logger.warn('Error closing browser:', closeError);
+          await page.setContent(html, { 
+            waitUntil: 'domcontentloaded',
+            timeout: 15000 
+          });
+          this.logger.log('Page content set successfully');
+        } catch (setContentError) {
+          this.logger.error('Failed to set page content:', setContentError);
+          // Try a simpler approach
+          await page.setContent(html, { 
+            waitUntil: 'load',
+            timeout: 10000 
+          });
+          this.logger.log('Page content set with simplified approach');
+        }
+
+        // Try to load KaTeX with fallback
+        try {
+          this.logger.log('Loading KaTeX resources...');
+          await Promise.race([
+            this.loadKatexResources(page),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('KaTeX loading timeout')), 10000))
+          ]);
+          this.logger.log('KaTeX resources loaded successfully');
+        } catch (error) {
+          this.logger.warn('Failed to load KaTeX resources, continuing without math rendering:', error);
+        }
+
+        // Wait for images with timeout
+        try {
+          this.logger.log('Waiting for images to load...');
+          // More robust image loading check
+          await page.waitForFunction(() => {
+            const images = Array.from(document.images);
+            return images.every(img => 
+              img.complete && 
+              (img.naturalWidth !== 0 || img.naturalHeight !== 0)
+            );
+          }, { timeout: 10000 });
+          this.logger.log('Images loaded successfully');
+        } catch (e) {
+          this.logger.warn('Image loading timeout, continuing with PDF generation');
+        }
+
+        // Generate PDF with enhanced options
+        this.logger.log('Generating PDF...');
+        const pdfBuffer = await page.pdf({
+          format: 'A4',
+          margin: { top: '20mm', right: '20mm', bottom: '20mm', left: '20mm' },
+          printBackground: true,
+          preferCSSPageSize: true,
+          timeout: 30000,
+        });
+
+        this.logger.log(`PDF generated successfully, size: ${pdfBuffer.length} bytes`);
+        return Buffer.from(pdfBuffer);
+        
+      } catch (error) {
+        this.logger.error(`PDF generation failed on attempt ${attempt}:`, {
+          message: error.message,
+          stack: error.stack,
+          title
+        });
+        
+        // If this is the last attempt, throw the error
+        if (attempt === 3) {
+          // More specific error messages
+          if (error.message?.includes('timeout')) {
+            throw new InternalServerErrorException('PDF generation timed out. Please try again.');
+          } else if (error.message?.includes('Protocol error')) {
+            throw new InternalServerErrorException('Browser communication error during PDF generation.');
+          } else {
+            throw new InternalServerErrorException(`PDF generation failed: ${error.message || 'Unknown error'}`);
+          }
+        }
+        
+        // Wait before retrying
+        await new Promise(resolve => setTimeout(resolve, 2000 * attempt));
+      } finally {
+        if (browser) {
+          try {
+            await browser.close();
+            this.logger.log('Browser closed successfully');
+          } catch (closeError) {
+            this.logger.warn('Error closing browser:', closeError);
+          }
         }
       }
     }
+    
+    // This should never be reached
+    throw new InternalServerErrorException('PDF generation failed after all retries');
   }
 
   private async loadKatexResources(page: any): Promise<void> {
+    this.logger.log('Loading KaTeX resources...');
+    
     // Add KaTeX CSS
     await page.addStyleTag({
       url: 'https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.css',
+    }).then(() => {
+      this.logger.log('KaTeX CSS loaded successfully');
     }).catch((error) => {
       this.logger.warn('Failed to load KaTeX CSS:', error);
       // Add fallback inline CSS for basic math rendering
@@ -580,12 +611,16 @@ export class ExamsService {
           .katex { font-family: 'Times New Roman', serif; }
           .katex-display { text-align: center; margin: 1em 0; }
         `
+      }).then(() => {
+        this.logger.log('Fallback CSS loaded');
       });
     });
 
     // Add KaTeX JS
     await page.addScriptTag({
       url: 'https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.js',
+    }).then(() => {
+      this.logger.log('KaTeX JS loaded successfully');
     }).catch((error) => {
       this.logger.warn('Failed to load KaTeX JS:', error);
     });
@@ -593,6 +628,8 @@ export class ExamsService {
     // Add auto-render extension
     await page.addScriptTag({
       url: 'https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/contrib/auto-render.min.js',
+    }).then(() => {
+      this.logger.log('KaTeX auto-render loaded successfully');
     }).catch((error) => {
       this.logger.warn('Failed to load KaTeX auto-render:', error);
     });
@@ -1191,6 +1228,8 @@ export class ExamsService {
 
   async generateAndSendVariantPDF(variantId: number): Promise<{ pdfGenerated: boolean; telegramSent: boolean; message: string }> {
     try {
+      this.logger.log(`Starting PDF generation and send for variant ${variantId}`);
+      
       // First generate the PDF
       const pdfBuffer = await this.generateVariantPDF(variantId);
       
@@ -1201,6 +1240,7 @@ export class ExamsService {
       });
       
       if (!variant || !variant.student) {
+        this.logger.warn(`No student found for variant ${variantId}`);
         return {
           pdfGenerated: true,
           telegramSent: false,
@@ -1211,6 +1251,8 @@ export class ExamsService {
       const fileName = `${variant.exam.title}-Variant-${variant.variantNumber}.pdf`;
       const caption = `🎓 <b>Test PDF - ${variant.exam.title}</b>\n\n📋 <b>Variant:</b> ${variant.variantNumber}\n👤 <b>Talaba:</b> ${variant.student.firstName} ${variant.student.lastName}\n📅 <b>Sana:</b> ${new Date().toLocaleDateString()}`;
       
+      this.logger.log(`Sending PDF to user ${variant.student.id} for variant ${variantId}`);
+      
       // Send PDF to user's Telegram
       const telegramResult = await this.telegramService.sendPDFToUser(
         variant.student.id,
@@ -1218,6 +1260,8 @@ export class ExamsService {
         fileName,
         caption
       );
+      
+      this.logger.log(`PDF send result for variant ${variantId}: ${telegramResult.success ? 'SUCCESS' : 'FAILED'} - ${telegramResult.message}`);
       
       return {
         pdfGenerated: true,

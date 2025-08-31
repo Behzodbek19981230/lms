@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException, InternalServerErrorException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from '../users/entities/user.entity';
@@ -59,7 +59,7 @@ export class StudentsService {
     });
 
     // Calculate statistics
-    const completedExams = examVariants.filter(v => v.status === 'completed' || v.status === 'submitted').length;
+    const completedExams = examVariants.filter(v => v.status === ExamVariantStatus.COMPLETED || v.status === ExamVariantStatus.SUBMITTED).length;
     const completedTests = assignedTestVariants.filter(v => v.completedAt).length;
     const totalExams = examVariants.length;
     const totalTests = assignedTestVariants.length;
@@ -73,7 +73,7 @@ export class StudentsService {
 
     // Get upcoming exams (scheduled but not started)
     const upcomingExams = examVariants.filter(v => 
-      v.status === 'generated' && 
+      v.status === ExamVariantStatus.GENERATED && 
       v.exam.status === 'scheduled'
     ).length;
 

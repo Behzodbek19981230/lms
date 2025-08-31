@@ -1518,9 +1518,6 @@ export class TelegramService {
 
       // Send PDF document
       await this.bot.sendDocument(userChat.telegramUserId, pdfBuffer, {
-        filename: fileName,
-        contentType: 'application/pdf',
-      }, {
         caption: caption || `📄 ${fileName}`,
         parse_mode: 'HTML',
       });
@@ -1590,21 +1587,4 @@ export class TelegramService {
     }
   }
 
-  async getUserTelegramStatus(userId: number): Promise<{ isLinked: boolean; telegramUsername?: string }> {
-    try {
-      const userChat = await this.telegramChatRepo.findOne({
-        where: { user: { id: userId }, type: ChatType.PRIVATE },
-      });
-
-      return {
-        isLinked: !!userChat,
-        telegramUsername: userChat?.telegramUsername,
-      };
-    } catch (error) {
-      this.logger.error(`Failed to get Telegram status for user ${userId}:`, error);
-      return {
-        isLinked: false,
-      };
-    }
-  }
 }
