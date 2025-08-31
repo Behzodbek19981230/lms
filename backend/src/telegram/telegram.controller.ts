@@ -281,13 +281,30 @@ export class TelegramController {
         case 'yoklama':
           await this.handleAttendanceTaking(message);
           return;
+        case '/elon':
+        case 'elon':
+          await this.handleAnnouncements(message);
+          return;
+        case '/testlar':
+        case 'testlar':
+          await this.handleActiveTests(message);
+          return;
+        case '/aloqa':
+        case 'aloqa':
+          await this.handleContact(message);
+          return;
         default:
           // Check if it's a group selection for attendance
           if (command.startsWith('grup_')) {
             await this.handleGroupSelection(message);
             return;
           }
-          // Check if it's attendance marking
+          // Check if it's attendance marking (new format: studentId_status)
+          if (command.match(/^\d+_(keldi|kelmadi|kechikdi)$/)) {
+            await this.handleAttendanceMarking(message);
+            return;
+          }
+          // Check if it's old format attendance marking
           if (command.includes('_yoklama_')) {
             await this.handleAttendanceMarking(message);
             return;
@@ -341,6 +358,9 @@ export class TelegramController {
     const lastName = message.from.last_name;
 
     try {
+      // Set bot commands menu for this user
+      await this.telegramService.setBotCommands(message.chat.id);
+      
       // Use new authentication method that auto-connects users
       const result = await this.telegramService.authenticateAndConnectUser(
         telegramUserId,
@@ -352,19 +372,22 @@ export class TelegramController {
       let welcomeMessage = `🎓 <b>Assalomu alaykum, Universal LMS botiga xush kelibsiz!</b>\n\n`;
       
       if (result.autoConnected) {
-        welcomeMessage += `✅ Hisobingiz avtomatik ulandi.\n\n📋 <b>Mavjud imkoniyatlar:</b>\n`;
+        welcomeMessage += `✅ Hisobingiz avtomatik ulandi.\n\n📋 <b>Mavjud buyruqlar:</b>\n`;
       } else {
-        welcomeMessage += `📝 Ro'yxatdan o'tish muvaffaqiyatli!\n\n📋 <b>Keyingi qadamlar:</b>\n`;
+        welcomeMessage += `📝 Ro'yxatdan o'tish muvaffaqiyatli!\n\n📋 <b>Asosiy buyruqlar:</b>\n`;
       }
       
       welcomeMessage += `\n📊 /natijalarim - Test natijalarimni ko'rish`;
       welcomeMessage += `\n📅 /davomatim - Davomat hisobotim`;
       welcomeMessage += `\n👤 /hisobim - Shaxsiy ma'lumotlar`;
       welcomeMessage += `\n📋 /menu - Asosiy menyu`;
+      welcomeMessage += `\n✅ /yoklama - Yo'qlama olish (o'qituvchilar uchun)`;
+      welcomeMessage += `\n📢 /elon - E'lonlar va xabarlar`;
       welcomeMessage += `\n❓ /help - Yordam`;
       
       if (result.autoConnected) {
         welcomeMessage += `\n\n🎯 <b>Test formatiga misol:</b>\n#T123Q1 A`;
+        welcomeMessage += `\n\n📢 <b>E'lonlar:</b>\nBarcha e'lonlar sizga avtomatik yuboriladi`;
       } else {
         welcomeMessage += `\n\n🔗 <b>Hisobni ulash uchun:</b>\nO'qituvchingiz bilan bog'laning`;
       }
@@ -405,7 +428,7 @@ export class TelegramController {
   }
 
   private async handleMainMenu(message: any) {
-    const menuMessage = `🎓 <b>Universal LMS - Asosiy Menu</b>\n\nQuyidagi bo'limlardan birini tanlang:\n\n📊 /natijalarim - Test natijalarim\n📅 /davomatim - Davomat hisobotim\n👤 /hisobim - Shaxsiy ma'lumotlar\n❓ /help - Yordam\n\n---\nO'qituvchilar uchun:\n✅ /yoklama - Yo'qlama olish`;
+    const menuMessage = `🎓 <b>Universal LMS - Asosiy Menu</b>\n\nQuyidagi bo'limlardan birini tanlang:\n\n📊 /natijalarim - Test natijalarim\n📅 /davomatim - Davomat hisobotim\n👤 /hisobim - Shaxsiy ma'lumotlar\n\n---\n📚 <b>Ta'lim jarayoni:</b>\n✅ /yoklama - Yo'qlama olish (o'qituvchilar)\n📢 /elon - E'lonlar va xabarlar\n📝 /testlar - Aktiv testlar\n\n---\n📞 <b>Yordam:</b>\n❓ /help - To'liq yordam\n📞 /aloqa - Aloqa ma'lumotlari`;
     
     if (this.telegramService['bot']) {
       await this.telegramService['bot'].sendMessage(
@@ -546,6 +569,62 @@ export class TelegramController {
           'Yo\'qlama belgilashda xatolik.'
         );
       }
+    }
+  }
+
+  private async handleAnnouncements(message: any) {
+    try {
+      const announcements = await this.telegramService.getUserAnnouncements(message.from.id.toString());
+      
+      if (this.telegramService['bot']) {
+        await this.telegramService['bot'].sendMessage(
+          message.chat.id,
+          announcements,
+          { parse_mode: 'HTML' }
+        );
+      }
+    } catch (error) {
+      this.logger.error('Error getting announcements:', error);
+      if (this.telegramService['bot']) {
+        await this.telegramService['bot'].sendMessage(
+          message.chat.id,
+          'E\'lonlarni yuklab olishda xatolik yuz berdi.'
+        );
+      }
+    }
+  }
+
+  private async handleActiveTests(message: any) {
+    try {
+      const tests = await this.telegramService.getUserActiveTests(message.from.id.toString());
+      
+      if (this.telegramService['bot']) {
+        await this.telegramService['bot'].sendMessage(
+          message.chat.id,
+          tests,
+          { parse_mode: 'HTML' }
+        );
+      }
+    } catch (error) {
+      this.logger.error('Error getting active tests:', error);
+      if (this.telegramService['bot']) {
+        await this.telegramService['bot'].sendMessage(
+          message.chat.id,
+          'Aktiv testlarni yuklab olishda xatolik yuz berdi.'
+        );
+      }
+    }
+  }
+
+  private async handleContact(message: any) {
+    const contactMessage = `📞 <b>Aloqa Ma'lumotlari</b>\n\n🏢 <b>Universal LMS</b>\n\n📧 Email: info@universal-lms.uz\n📱 Telefon: +998 90 123 45 67\n🌐 Website: https://universal-lms.uz\n\n👨‍🏫 <b>O'qituvchi bilan bog'lanish:</b>\nO'z guruhingiz o'qituvchisi bilan to'g'ridan-to'g'ri bog'lanish uchun /menu bo'limidan foydalaning.\n\n💬 <b>Texnik yordam:</b>\nBot bilan bog'liq muammolar uchun admin bilan bog'laning.`;
+    
+    if (this.telegramService['bot']) {
+      await this.telegramService['bot'].sendMessage(
+        message.chat.id,
+        contactMessage,
+        { parse_mode: 'HTML' }
+      );
     }
   }
 

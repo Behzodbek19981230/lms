@@ -8,7 +8,7 @@ import type { Repository } from 'typeorm';
 import { In } from 'typeorm';
 import { Group } from './entities/group.entity';
 import { CreateGroupDto } from './dto/create-group.dto';
-import { GroupResponseDto } from './dto/group-response.dto';
+import { GroupResponseDto, StudentDto } from './dto/group-response.dto';
 import { User, UserRole } from '../users/entities/user.entity';
 import { Center } from '../centers/entities/center.entity';
 import { Subject } from '../subjects/entities/subject.entity';
@@ -225,6 +225,13 @@ export class GroupsService {
     description: g.description,
     subjectId: g.subject?.id ?? null,
     studentIds: (g.students || []).map((s) => s.id),
+    students: (g.students || []).map((s) => ({
+      id: s.id,
+      firstName: s.firstName,
+      lastName: s.lastName,
+      email: s.email,
+      role: s.role,
+    })),
     daysOfWeek: g.daysOfWeek || [],
     startTime: g.startTime,
     endTime: g.endTime,

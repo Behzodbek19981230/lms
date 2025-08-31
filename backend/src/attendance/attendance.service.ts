@@ -4,6 +4,7 @@ import { Repository, Between } from 'typeorm';
 import { Attendance, AttendanceStatus } from './entities/attendance.entity';
 import { User, UserRole } from '../users/entities/user.entity';
 import { Group } from '../groups/entities/group.entity';
+import { TelegramService } from '../telegram/telegram.service';
 import { CreateAttendanceDto, BulkAttendanceDto, AttendanceQueryDto, UpdateAttendanceDto } from './dto/attendance.dto';
 
 @Injectable()
@@ -15,6 +16,7 @@ export class AttendanceService {
     private userRepo: Repository<User>,
     @InjectRepository(Group)
     private groupRepo: Repository<Group>,
+    private telegramService: TelegramService,
   ) {}
 
   async create(dto: CreateAttendanceDto, teacherId: number): Promise<Attendance> {
@@ -77,7 +79,21 @@ export class AttendanceService {
       leftAt: dto.leftAt
     });
 
-    return this.attendanceRepo.save(attendance);
+    const savedAttendance = await this.attendanceRepo.save(attendance);
+
+    // Send notification to Telegram channels
+    try {
+      await this.telegramService.notifyAttendanceTaken(
+        group.name,
+        `${teacher.firstName} ${teacher.lastName}`,
+        dto.status === AttendanceStatus.PRESENT ? 1 : 0,
+        1
+      );
+    } catch (error) {
+      console.warn('Failed to send attendance notification to Telegram:', error);
+    }
+
+    return savedAttendance;
   }
 
   async createBulk(dto: BulkAttendanceDto, teacherId: number): Promise<Attendance[]> {
@@ -131,7 +147,24 @@ export class AttendanceService {
       attendanceRecords.push(attendance);
     }
 
-    return this.attendanceRepo.save(attendanceRecords);
+    const savedAttendances = await this.attendanceRepo.save(attendanceRecords);
+
+    // Send bulk notification to Telegram channels
+    try {
+      const presentCount = attendanceRecords.filter(record => record.status === AttendanceStatus.PRESENT).length;
+      const totalCount = attendanceRecords.length;
+      
+      await this.telegramService.notifyAttendanceTaken(
+        group.name,
+        `${teacher.firstName} ${teacher.lastName}`,
+        presentCount,
+        totalCount
+      );
+    } catch (error) {
+      console.warn('Failed to send bulk attendance notification to Telegram:', error);
+    }
+
+    return savedAttendances;
   }
 
   async findAll(query: AttendanceQueryDto, userId: number, userRole: UserRole): Promise<Attendance[]> {

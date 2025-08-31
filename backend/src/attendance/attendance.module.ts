@@ -5,10 +5,12 @@ import { AttendanceService } from './attendance.service';
 import { Attendance } from './entities/attendance.entity';
 import { User } from '../users/entities/user.entity';
 import { Group } from '../groups/entities/group.entity';
+import { TelegramModule } from '../telegram/telegram.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Attendance, User, Group])
+    TypeOrmModule.forFeature([Attendance, User, Group]),
+    TelegramModule
   ],
   controllers: [AttendanceController],
   providers: [AttendanceService],

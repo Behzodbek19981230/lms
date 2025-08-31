@@ -187,4 +187,30 @@ export class ExamsController {
     );
     res.send(buffer);
   }
+
+  @Post('variants/:variantId/send-telegram')
+  @ApiOperation({ summary: 'Generate and send exam variant PDF to student via Telegram' })
+  @ApiResponse({ status: 200, description: 'PDF generated and sent via Telegram' })
+  async sendVariantPDFToTelegram(@Param('variantId') variantId: string) {
+    const result = await this.examsService.generateAndSendVariantPDF(+variantId);
+    return {
+      success: result.telegramSent,
+      pdfGenerated: result.pdfGenerated,
+      message: result.message,
+    };
+  }
+
+  @Post(':id/send-all-telegram')
+  @ApiOperation({ summary: 'Generate and send all exam variant PDFs to students via Telegram' })
+  @ApiResponse({ status: 200, description: 'All PDFs generated and sent via Telegram' })
+  async sendAllVariantsPDFsToTelegram(@Param('id') id: string) {
+    const result = await this.examsService.generateAndSendAllVariantsPDFs(+id);
+    return {
+      success: result.failed === 0,
+      totalVariants: result.totalVariants,
+      sent: result.sent,
+      failed: result.failed,
+      details: result.details,
+    };
+  }
 }

@@ -14,6 +14,7 @@ import { ExamsModule } from './exams/exams.module';
 import { StudentsModule } from './students/students.module';
 import { TelegramModule } from './telegram/telegram.module';
 import { AttendanceModule } from './attendance/attendance.module';
+import { CronJobsModule } from './cron-jobs/cron-jobs.module';
 
 @Module({
   imports: [
@@ -49,6 +50,7 @@ import { AttendanceModule } from './attendance/attendance.module';
     StudentsModule,
     TelegramModule,
     AttendanceModule,
+    CronJobsModule,
   ],
 })
 export class AppModule {}

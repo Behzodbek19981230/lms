@@ -1,5 +1,22 @@
 import { ApiProperty } from '@nestjs/swagger';
 
+export class StudentDto {
+  @ApiProperty()
+  id: number;
+
+  @ApiProperty()
+  firstName: string;
+
+  @ApiProperty()
+  lastName: string;
+
+  @ApiProperty()
+  email: string;
+
+  @ApiProperty()
+  role: string;
+}
+
 export class GroupResponseDto {
   @ApiProperty()
   id: number;
@@ -15,6 +32,9 @@ export class GroupResponseDto {
 
   @ApiProperty({ type: [Number] })
   studentIds: number[];
+
+  @ApiProperty({ type: [StudentDto] })
+  students: StudentDto[];
 
   @ApiProperty({ type: [String] })
   daysOfWeek: string[];

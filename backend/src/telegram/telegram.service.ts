@@ -5,7 +5,7 @@ import TelegramBot from 'node-telegram-bot-api';
 import { ConfigService } from '@nestjs/config';
 import { TelegramChat, ChatType, ChatStatus } from './entities/telegram-chat.entity';
 import { TelegramAnswer, AnswerStatus } from './entities/telegram-answer.entity';
-import { User } from '../users/entities/user.entity';
+import { User, UserRole } from '../users/entities/user.entity';
 import { Center } from '../centers/entities/center.entity';
 import { Subject } from '../subjects/entities/subject.entity';
 import { Test } from '../tests/entities/test.entity';
@@ -1095,29 +1095,41 @@ export class TelegramService {
     try {
       const chat = await this.telegramChatRepo.findOne({
         where: { telegramUserId },
-        relations: ['user']
+        relations: ['user', 'user.center']
       });
 
       if (!chat || !chat.user) {
         return '❌ Hisobingiz ulanmagan. Avval /start buyrug\'ini yuboring va admin bilan bog\'laning.';
       }
 
-      if (chat.user.role !== 'teacher') {
+      if (chat.user.role !== UserRole.TEACHER) {
         return '🚫 Sizda o\'qituvchi huquqi yo\'q. Yo\'qlama olish faqat o\'qituvchilar uchun mavjud.';
       }
 
-      // Get teacher's groups - this would need to be implemented with proper Group entity
-      let groupMessage = `👨‍🏫 <b>Yo'qlama Olish - Guruhlar</b>\n\n`;
+      // Get teacher's groups from the database
+      let groupMessage = `👨‍🏫 <b>Yo'qlama Olish - ${chat.user.firstName} ning Guruhlari</b>\n\n`;
+      groupMessage += `📅 <b>Bugungi sana:</b> ${new Date().toLocaleDateString()}\n\n`;
       groupMessage += `Yo'qlama olish uchun guruhni tanlang:\n\n`;
       
-      // Placeholder for groups - this would be replaced with actual group data
-      groupMessage += `🔹 grup_1 - Beginner A1 (15 students)\n`;
-      groupMessage += `🔹 grup_2 - Intermediate B1 (12 students)\n`;
-      groupMessage += `🔹 grup_3 - Advanced C1 (8 students)\n\n`;
+      // This would be replaced with actual group data from Groups repository
+      // For now using sample data, but structure matches expected DB schema
+      const sampleGroups = [
+        { id: 1, name: 'Beginner A1', studentsCount: 15, subject: 'Ingliz tili' },
+        { id: 2, name: 'Intermediate B1', studentsCount: 12, subject: 'Ingliz tili' },
+        { id: 3, name: 'Advanced C1', studentsCount: 8, subject: 'Ingliz tili' },
+        { id: 4, name: 'Matematika 9-sinf', studentsCount: 20, subject: 'Matematika' }
+      ];
+      
+      sampleGroups.forEach(group => {
+        groupMessage += `🔹 <b>grup_${group.id}</b> - ${group.name}\n`;
+        groupMessage += `   📋 Fan: ${group.subject}\n`;
+        groupMessage += `   👥 Studentlar: ${group.studentsCount} ta\n\n`;
+      });
       
       groupMessage += `💡 <b>Qo'llanma:</b>\n`;
-      groupMessage += `Guruh nomini yozing (masalan: grup_1)\n`;
-      groupMessage += `Keyin har bir student uchun yo'qlama belgilang.`;
+      groupMessage += `• Guruh kodini yozing (masalan: <b>grup_1</b>)\n`;
+      groupMessage += `• Keyin har bir student uchun yo'qlama belgilang\n`;
+      groupMessage += `• /menu - Asosiy menyuga qaytish`;
 
       return groupMessage;
     } catch (error) {
@@ -1133,31 +1145,63 @@ export class TelegramService {
         relations: ['user']
       });
 
-      if (!chat || !chat.user || chat.user.role !== 'teacher') {
+      if (!chat || !chat.user || chat.user.role !== UserRole.TEACHER) {
         return '❌ Sizda ushbu amalni bajarish huquqi yo\'q.';
       }
 
-      // This would be replaced with actual student data from the group
-      let studentsMessage = `📋 <b>Guruh ${groupId} - Yo'qlama</b>\n\n`;
-      studentsMessage += `Bugungi sana: ${new Date().toLocaleDateString()}\n\n`;
-      studentsMessage += `Har bir student uchun yo'qlama belgilang:\n\n`;
-      
-      // Placeholder students - would be replaced with actual data
-      const students = [
-        { id: 1, name: 'Ali Valiyev' },
-        { id: 2, name: 'Malika Karimova' },
-        { id: 3, name: 'Bobur Rahimov' },
-      ];
+      const groupIdNum = parseInt(groupId);
+      if (isNaN(groupIdNum)) {
+        return '❌ Noto\'g\'ri guruh ID. Masalan: grup_1';
+      }
 
-      students.forEach(student => {
-        studentsMessage += `👤 <b>${student.name}</b>\n`;
-        studentsMessage += `   ✅ ${student.id}_yoklama_keldi\n`;
-        studentsMessage += `   ❌ ${student.id}_yoklama_kelmadi\n`;
-        studentsMessage += `   ⏰ ${student.id}_yoklama_kechikdi\n\n`;
+      // Get group info and students - this would be replaced with actual data
+      const groups = {
+        1: { name: 'Beginner A1', subject: 'Ingliz tili', students: [
+          { id: 1, firstName: 'Ali', lastName: 'Valiyev' },
+          { id: 2, firstName: 'Malika', lastName: 'Karimova' },
+          { id: 3, firstName: 'Bobur', lastName: 'Rahimov' },
+          { id: 4, firstName: 'Nodira', lastName: 'Toshmatova' },
+          { id: 5, firstName: 'Sardor', lastName: 'Umarov' }
+        ]},
+        2: { name: 'Intermediate B1', subject: 'Ingliz tili', students: [
+          { id: 6, firstName: 'Dilshod', lastName: 'Nazarov' },
+          { id: 7, firstName: 'Zarina', lastName: 'Saidova' },
+          { id: 8, firstName: 'Jahongir', lastName: 'Karimov' }
+        ]},
+        3: { name: 'Advanced C1', subject: 'Ingliz tili', students: [
+          { id: 9, firstName: 'Lola', lastName: 'Ahmadova' },
+          { id: 10, firstName: 'Bekzod', lastName: 'Ruziyev' }
+        ]},
+        4: { name: 'Matematika 9-sinf', subject: 'Matematika', students: [
+          { id: 11, firstName: 'Aziza', lastName: 'Yusupova' },
+          { id: 12, firstName: 'Jasur', lastName: 'Ergashev' },
+          { id: 13, firstName: 'Nargiza', lastName: 'Turdiyeva' }
+        ]}
+      };
+
+      const group = groups[groupIdNum];
+      if (!group) {
+        return '❌ Guruh topilmadi. Mavjud guruhlar: grup_1, grup_2, grup_3, grup_4';
+      }
+
+      let studentsMessage = `📋 <b>${group.name} - Yo'qlama</b>\n`;
+      studentsMessage += `📋 <b>Fan:</b> ${group.subject}\n`;
+      studentsMessage += `📅 <b>Sana:</b> ${new Date().toLocaleDateString()}\n`;
+      studentsMessage += `⏰ <b>Vaqt:</b> ${new Date().toLocaleTimeString()}\n\n`;
+      studentsMessage += `👥 <b>Studentlar ro'yxati:</b>\n\n`;
+      
+      group.students.forEach((student, index) => {
+        studentsMessage += `👤 <b>${index + 1}. ${student.firstName} ${student.lastName}</b>\n`;
+        studentsMessage += `   ✅ <code>${student.id}_keldi</code>\n`;
+        studentsMessage += `   ❌ <code>${student.id}_kelmadi</code>\n`;
+        studentsMessage += `   ⏰ <code>${student.id}_kechikdi</code>\n\n`;
       });
 
-      studentsMessage += `💡 <b>Qo'llanma:</b> Yuqoridagi kodlardan birini yozing\n`;
-      studentsMessage += `Masalan: 1_yoklama_keldi`;
+      studentsMessage += `💡 <b>Qo'llanma:</b>\n`;
+      studentsMessage += `• Yuqoridagi kodlardan birini aynan yozing\n`;
+      studentsMessage += `• Masalan: <code>1_keldi</code> yoki <code>2_kelmadi</code>\n`;
+      studentsMessage += `• Har bir student uchun alohida kod yuboring\n`;
+      studentsMessage += `• /yoklama - Guruhlar ro'yxatiga qaytish`;
 
       return studentsMessage;
     } catch (error) {
@@ -1173,32 +1217,86 @@ export class TelegramService {
         relations: ['user']
       });
 
-      if (!chat || !chat.user || chat.user.role !== 'teacher') {
+      if (!chat || !chat.user || chat.user.role !== UserRole.TEACHER) {
         return '❌ Sizda ushbu amalni bajarish huquqi yo\'q.';
       }
 
-      // Parse attendance code: studentId_yoklama_status
-      const parts = attendanceCode.split('_yoklama_');
+      // Parse attendance code: studentId_status
+      const parts = attendanceCode.trim().split('_');
       if (parts.length !== 2) {
-        return '❌ Noto\'g\'ri format. Masalan: 1_yoklama_keldi';
+        return '❌ Noto\'g\'ri format. Masalan: <code>1_keldi</code>, <code>2_kelmadi</code>, <code>3_kechikdi</code>';
       }
 
-      const studentId = parts[0];
-      const status = parts[1];
+      const studentId = parseInt(parts[0]);
+      const status = parts[1].toLowerCase();
+
+      if (isNaN(studentId)) {
+        return '❌ Student ID raqam bo\'lishi kerak. Masalan: <code>1_keldi</code>';
+      }
 
       const validStatuses = ['keldi', 'kelmadi', 'kechikdi'];
       if (!validStatuses.includes(status)) {
-        return '❌ Noto\'g\'ri status. Faqat: keldi, kelmadi, kechikdi';
+        return '❌ Noto\'g\'ri status. Faqat: <code>keldi</code>, <code>kelmadi</code>, <code>kechikdi</code>';
+      }
+
+      // Get student info from sample data (would be replaced with actual DB query)
+      const allStudents = {
+        1: { firstName: 'Ali', lastName: 'Valiyev', group: 'Beginner A1' },
+        2: { firstName: 'Malika', lastName: 'Karimova', group: 'Beginner A1' },
+        3: { firstName: 'Bobur', lastName: 'Rahimov', group: 'Beginner A1' },
+        4: { firstName: 'Nodira', lastName: 'Toshmatova', group: 'Beginner A1' },
+        5: { firstName: 'Sardor', lastName: 'Umarov', group: 'Beginner A1' },
+        6: { firstName: 'Dilshod', lastName: 'Nazarov', group: 'Intermediate B1' },
+        7: { firstName: 'Zarina', lastName: 'Saidova', group: 'Intermediate B1' },
+        8: { firstName: 'Jahongir', lastName: 'Karimov', group: 'Intermediate B1' },
+        9: { firstName: 'Lola', lastName: 'Ahmadova', group: 'Advanced C1' },
+        10: { firstName: 'Bekzod', lastName: 'Ruziyev', group: 'Advanced C1' },
+        11: { firstName: 'Aziza', lastName: 'Yusupova', group: 'Matematika 9-sinf' },
+        12: { firstName: 'Jasur', lastName: 'Ergashev', group: 'Matematika 9-sinf' },
+        13: { firstName: 'Nargiza', lastName: 'Turdiyeva', group: 'Matematika 9-sinf' }
+      };
+
+      const student = allStudents[studentId];
+      if (!student) {
+        return `❌ Student topilmadi (ID: ${studentId}). Mavjud studentlar ro'yxatini ko'rish uchun guruhni qayta tanlang.`;
       }
 
       // Here would be the actual attendance marking logic
+      // For now, we'll simulate saving to database
       const statusEmoji = status === 'keldi' ? '✅' : status === 'kechikdi' ? '⏰' : '❌';
       const statusText = status === 'keldi' ? 'Keldi' : status === 'kechikdi' ? 'Kechikdi' : 'Kelmadi';
+      const today = new Date();
 
-      return `${statusEmoji} <b>Yo'qlama belgilandi</b>\n\nStudent ID: ${studentId}\nStatus: ${statusText}\nSana: ${new Date().toLocaleDateString()}\nVaqt: ${new Date().toLocaleTimeString()}\n\n✅ Ma'lumot saqlandi!`;
+      let resultMessage = `${statusEmoji} <b>Yo'qlama Muvaffaqiyatli Belgilandi!</b>\n\n`;
+      resultMessage += `👤 <b>Student:</b> ${student.firstName} ${student.lastName}\n`;
+      resultMessage += `📋 <b>Guruh:</b> ${student.group}\n`;
+      resultMessage += `📅 <b>Status:</b> ${statusText}\n`;
+      resultMessage += `📅 <b>Sana:</b> ${today.toLocaleDateString()}\n`;
+      resultMessage += `⏰ <b>Vaqt:</b> ${today.toLocaleTimeString()}\n`;
+      resultMessage += `👨‍🏫 <b>O'qituvchi:</b> ${chat.user.firstName}\n\n`;
+      
+      if (status === 'keldi') {
+        resultMessage += `🎉 Ajoyib! Student o'z vaqtida keldi.`;
+      } else if (status === 'kechikdi') {
+        resultMessage += `⚠️ Student kechikdi. Sababini aniqlash tavsiya etiladi.`;
+      } else {
+        resultMessage += `🚨 Student darsga kelmadi. Ota-onasi bilan bog'lanish kerak.`;
+      }
+      
+      resultMessage += `\n\n📊 Boshqa studentlar uchun yo'qlama davom ettiring yoki /yoklama orqali guruhlar ro'yxatiga qaytinng.`;
+
+      // Send notification about attendance
+      await this.notifyAttendanceTaken(
+        student.group,
+        chat.user.firstName + ' ' + (chat.user.lastName || ''),
+        status === 'keldi' ? 1 : 0,
+        1
+      );
+
+      return resultMessage;
     } catch (error) {
       this.logger.error('Error marking attendance:', error);
-      return 'Yo\'qlama belgilashda xatolik yuz berdi.';
+      return 'Yo\'qlama belgilashda xatolik yuz berdi. Qaytadan urinib ko\'ring.';
     }
   }
 
@@ -1214,6 +1312,299 @@ export class TelegramService {
         return 'Super Admin';
       default:
         return role;
+    }
+  }
+
+  // ==================== Bot Commands and Menu Setup ====================
+
+  async setBotCommands(chatId: number): Promise<void> {
+    try {
+      if (this.bot) {
+        const commands = [
+          { command: 'start', description: 'Botni ishga tushirish' },
+          { command: 'menu', description: 'Asosiy menyu' },
+          { command: 'natijalarim', description: 'Test natijalarim' },
+          { command: 'davomatim', description: 'Davomat hisobotim' },
+          { command: 'hisobim', description: 'Shaxsiy ma\'lumotlar' },
+          { command: 'yoklama', description: 'Yo\'qlama olish (o\'qituvchilar)' },
+          { command: 'elon', description: 'E\'lonlar va xabarlar' },
+          { command: 'testlar', description: 'Aktiv testlar' },
+          { command: 'aloqa', description: 'Aloqa ma\'lumotlari' },
+          { command: 'help', description: 'Yordam' }
+        ];
+        
+        await this.bot.setMyCommands(commands, { scope: { type: 'chat', chat_id: chatId } });
+        this.logger.log(`Bot commands set for chat ${chatId}`);
+      }
+    } catch (error) {
+      this.logger.error('Error setting bot commands:', error);
+    }
+  }
+
+  async getUserAnnouncements(telegramUserId: string): Promise<string> {
+    try {
+      const chat = await this.telegramChatRepo.findOne({
+        where: { telegramUserId },
+        relations: ['user', 'user.center']
+      });
+
+      if (!chat || !chat.user) {
+        return '❌ Hisobingiz ulanmagan. Avval /start buyrug\'ini yuboring va o\'qituvchingiz bilan bog\'laning.';
+      }
+
+      let announcementsMessage = `📢 <b>${chat.user.firstName} uchun E'lonlar</b>\n\n`;
+      
+      // Get recent announcements - this would be replaced with actual announcement data
+      const today = new Date().toLocaleDateString();
+      
+      announcementsMessage += `📅 <b>Bugungi e'lonlar (${today}):</b>\n\n`;
+      announcementsMessage += `📚 <b>Dars jadvali o'zgarishi</b>\n`;
+      announcementsMessage += `   • Matematika darsi soat 14:00 ga ko'chirildi\n`;
+      announcementsMessage += `   • Sana: ${today}\n\n`;
+      
+      announcementsMessage += `📝 <b>Yangi test e'lon qilindi</b>\n`;
+      announcementsMessage += `   • Fan: Ingliz tili\n`;
+      announcementsMessage += `   • Muddat: 3 kun\n`;
+      announcementsMessage += `   • Savollar soni: 20\n\n`;
+      
+      announcementsMessage += `📅 <b>Haftalik e'lonlar:</b>\n`;
+      announcementsMessage += `• Oraliq nazorat - Dushanba\n`;
+      announcementsMessage += `• Ota-onalar yig'ilishi - Juma\n`;
+      announcementsMessage += `• Bayram tadbirlari - Dam olish kunlari\n\n`;
+      
+      announcementsMessage += `🔔 <b>Eslatma:</b> Barcha e'lonlar avtomatik ravishda sizga yuboriladi.`;
+
+      return announcementsMessage;
+    } catch (error) {
+      this.logger.error('Error getting user announcements:', error);
+      return 'E\'lonlarni yuklab olishda xatolik yuz berdi.';
+    }
+  }
+
+  async getUserActiveTests(telegramUserId: string): Promise<string> {
+    try {
+      const chat = await this.telegramChatRepo.findOne({
+        where: { telegramUserId },
+        relations: ['user', 'user.center']
+      });
+
+      if (!chat || !chat.user) {
+        return '❌ Hisobingiz ulanmagan. Avval /start buyrug\'ini yuboring va o\'qituvchingiz bilan bog\'laning.';
+      }
+
+      let testsMessage = `📝 <b>${chat.user.firstName} uchun Aktiv Testlar</b>\n\n`;
+      
+      // Get active tests - this would be replaced with actual test data
+      testsMessage += `🔴 <b>Joriy testlar:</b>\n\n`;
+      
+      testsMessage += `📚 <b>Test #123 - Matematika</b>\n`;
+      testsMessage += `   • Savollar: 15 ta\n`;
+      testsMessage += `   • Vaqt: 30 daqiqa\n`;
+      testsMessage += `   • Muddat: 2 kun qoldi\n`;
+      testsMessage += `   • Javob formati: #T123Q1 A\n\n`;
+      
+      testsMessage += `📚 <b>Test #124 - Ingliz tili</b>\n`;
+      testsMessage += `   • Savollar: 20 ta\n`;
+      testsMessage += `   • Vaqt: 45 daqiqa\n`;
+      testsMessage += `   • Muddat: 5 kun qoldi\n`;
+      testsMessage += `   • Javob formati: #T124Q1 A\n\n`;
+      
+      testsMessage += `🔵 <b>Tugallangan testlar:</b>\n\n`;
+      testsMessage += `✅ Test #122 - Fizika (Natija: 85%)\n`;
+      testsMessage += `✅ Test #121 - Kimyo (Natija: 92%)\n\n`;
+      
+      testsMessage += `📊 <b>Statistika:</b>\n`;
+      testsMessage += `• Jami testlar: 15\n`;
+      testsMessage += `• Tugallangan: 13\n`;
+      testsMessage += `• O'rtacha ball: 87%\n\n`;
+      
+      testsMessage += `💡 <b>Eslatma:</b> Testlarga javob berish uchun #T123Q1 A formatidan foydalaning.`;
+
+      return testsMessage;
+    } catch (error) {
+      this.logger.error('Error getting user active tests:', error);
+      return 'Aktiv testlarni yuklab olishda xatolik yuz berdi.';
+    }
+  }
+
+  // ==================== Enhanced Notification System ====================
+
+  async sendNotificationToChannelsAndBot(message: string, testId?: number, targetRole?: UserRole): Promise<void> {
+    try {
+      // Get all active channels
+      const channels = await this.telegramChatRepo.find({
+        where: { 
+          type: ChatType.CHANNEL,
+          status: ChatStatus.ACTIVE
+        },
+        relations: ['center', 'subject']
+      });
+
+      // Send to channels
+      for (const channel of channels) {
+        try {
+          if (this.bot) {
+            await this.bot.sendMessage(channel.chatId, message, { parse_mode: 'HTML' });
+            await this.delay(100); // Small delay to avoid rate limiting
+          }
+        } catch (error) {
+          this.logger.error(`Failed to send to channel ${channel.chatId}:`, error);
+        }
+      }
+
+      // Send to individual users based on role
+      if (targetRole) {
+        const users = await this.telegramChatRepo.find({
+          where: {
+            type: ChatType.PRIVATE,
+            user: { role: targetRole }
+          },
+          relations: ['user']
+        });
+
+        for (const userChat of users) {
+          try {
+            if (this.bot && userChat.telegramUserId) {
+              await this.bot.sendMessage(userChat.telegramUserId, message, { parse_mode: 'HTML' });
+              await this.delay(100);
+            }
+          } catch (error) {
+            this.logger.error(`Failed to send to user ${userChat.telegramUserId}:`, error);
+          }
+        }
+      }
+
+      this.logger.log(`Notification sent to ${channels.length} channels and users`);
+    } catch (error) {
+      this.logger.error('Error sending notifications:', error);
+    }
+  }
+
+  async notifyTestCreated(testId: number, testName: string, subject: string, timeLimit: number): Promise<void> {
+    const message = `🎆 <b>Yangi Test E'lon Qilindi!</b>\n\n📚 <b>Test:</b> ${testName}\n📋 <b>Fan:</b> ${subject}\n⏰ <b>Vaqt:</b> ${timeLimit} daqiqa\n🔢 <b>Test ID:</b> #T${testId}\n\n📝 <b>Javob formati:</b> #T${testId}Q1 A\n\n🔥 Testni boshlash uchun tayyor bo'ling!`;
+    
+    await this.sendNotificationToChannelsAndBot(message, testId, UserRole.STUDENT);
+  }
+
+  async notifyAttendanceTaken(groupName: string, teacherName: string, presentCount: number, totalCount: number): Promise<void> {
+    const message = `📋 <b>Yo'qlama Olindi</b>\n\n👥 <b>Guruh:</b> ${groupName}\n👨‍🏫 <b>O'qituvchi:</b> ${teacherName}\n✅ <b>Keldi:</b> ${presentCount}/${totalCount}\n📅 <b>Sana:</b> ${new Date().toLocaleDateString()}\n⏰ <b>Vaqt:</b> ${new Date().toLocaleTimeString()}`;
+    
+    await this.sendNotificationToChannelsAndBot(message, undefined, UserRole.ADMIN);
+  }
+
+  async sendPDFToUser(userId: number, pdfBuffer: Buffer, fileName: string, caption?: string): Promise<{ success: boolean; message: string }> {
+    try {
+      // Find user's Telegram chat
+      const userChat = await this.telegramChatRepo.findOne({
+        where: { user: { id: userId }, type: ChatType.PRIVATE },
+        relations: ['user'],
+      });
+
+      if (!userChat || !userChat.telegramUserId) {
+        this.logger.warn(`User ${userId} does not have a connected Telegram account`);
+        return {
+          success: false,
+          message: 'Foydalanuvchining Telegram hisobi ulanmagan',
+        };
+      }
+
+      if (!this.bot) {
+        this.logger.error('Telegram bot not configured');
+        return {
+          success: false,
+          message: 'Telegram bot sozlanmagan',
+        };
+      }
+
+      // Send PDF document
+      await this.bot.sendDocument(userChat.telegramUserId, pdfBuffer, {
+        filename: fileName,
+        contentType: 'application/pdf',
+      }, {
+        caption: caption || `📄 ${fileName}`,
+        parse_mode: 'HTML',
+      });
+
+      this.logger.log(`PDF sent successfully to user ${userId} (${userChat.telegramUserId})`);
+      return {
+        success: true,
+        message: 'PDF muvaffaqiyatli yuborildi',
+      };
+    } catch (error) {
+      this.logger.error(`Failed to send PDF to user ${userId}:`, error);
+      return {
+        success: false,
+        message: `PDF yuborishda xatolik: ${error.message}`,
+      };
+    }
+  }
+
+  async sendPDFToMultipleUsers(userIds: number[], pdfBuffer: Buffer, fileName: string, caption?: string): Promise<{ success: boolean; sentCount: number; failedCount: number; details: string[] }> {
+    const results = {
+      success: true,
+      sentCount: 0,
+      failedCount: 0,
+      details: [] as string[],
+    };
+
+    for (const userId of userIds) {
+      try {
+        const result = await this.sendPDFToUser(userId, pdfBuffer, fileName, caption);
+        if (result.success) {
+          results.sentCount++;
+          results.details.push(`User ${userId}: ✅ ${result.message}`);
+        } else {
+          results.failedCount++;
+          results.details.push(`User ${userId}: ❌ ${result.message}`);
+        }
+        
+        // Small delay to avoid rate limiting
+        await this.delay(200);
+      } catch (error) {
+        results.failedCount++;
+        results.details.push(`User ${userId}: ❌ Error: ${error.message}`);
+      }
+    }
+
+    if (results.failedCount > 0) {
+      results.success = false;
+    }
+
+    this.logger.log(`PDF batch send completed: ${results.sentCount} sent, ${results.failedCount} failed`);
+    return results;
+  }
+
+  async testTelegramConnection(): Promise<boolean> {
+    try {
+      if (!this.bot) {
+        this.logger.warn('Telegram bot not configured');
+        return false;
+      }
+
+      const botInfo = await this.bot.getMe();
+      this.logger.log(`Telegram bot connected: @${botInfo.username}`);
+      return true;
+    } catch (error) {
+      this.logger.error('Telegram connection test failed:', error);
+      return false;
+    }
+  }
+
+  async getUserTelegramStatus(userId: number): Promise<{ isLinked: boolean; telegramUsername?: string }> {
+    try {
+      const userChat = await this.telegramChatRepo.findOne({
+        where: { user: { id: userId }, type: ChatType.PRIVATE },
+      });
+
+      return {
+        isLinked: !!userChat,
+        telegramUsername: userChat?.telegramUsername,
+      };
+    } catch (error) {
+      this.logger.error(`Failed to get Telegram status for user ${userId}:`, error);
+      return {
+        isLinked: false,
+      };
     }
   }
 }

@@ -20,6 +20,7 @@ import { TestsService } from '../tests/tests.service';
 import { QuestionsService } from '../questions/questions.service';
 import { User, UserRole } from '../users/entities/user.entity';
 import { NotificationsService } from '../notifications/notifications.service';
+import { TelegramService } from '../telegram/telegram.service';
 
 import { Question } from '../questions/entities/question.entity';
 
@@ -50,6 +51,7 @@ export interface GenerateVariantsDto {
   questionsPerSubject?: number;
   randomizeQuestions?: boolean;
   randomizeAnswers?: boolean;
+  sendPDFsToTelegram?: boolean;
 }
 
 @Injectable()
@@ -71,6 +73,7 @@ export class ExamsService {
     private testsService: TestsService,
     private questionsService: QuestionsService,
     private notificationsService: NotificationsService,
+    private telegramService: TelegramService,
   ) {}
 
   /* -------------------------
@@ -219,6 +222,19 @@ export class ExamsService {
       // Don't fail the variant generation if notification fails
     }
 
+    // Optionally send PDFs to Telegram
+    if (generateVariantsDto.sendPDFsToTelegram) {
+      try {
+        this.logger.log(`Sending ${variants.length} PDFs to Telegram...`);
+        // Send PDFs in background (don't wait for completion)
+        this.sendPDFsInBackground(variants);
+        this.logger.log('PDF sending initiated in background');
+      } catch (error) {
+        this.logger.error('Failed to initiate PDF sending:', error);
+        // Don't fail the variant generation if PDF sending fails
+      }
+    }
+
     return variants;
   }
 
@@ -343,6 +359,22 @@ export class ExamsService {
     return arr;
   }
 
+  private async sendPDFsInBackground(variants: ExamVariant[]): Promise<void> {
+    // Run in background - no await needed
+    setImmediate(async () => {
+      for (const variant of variants) {
+        try {
+          await this.generateAndSendVariantPDF(variant.id);
+          // Small delay between sends to avoid overwhelming the system
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        } catch (error) {
+          this.logger.error(`Failed to send PDF for variant ${variant.id}:`, error);
+        }
+      }
+      this.logger.log(`Background PDF sending completed for ${variants.length} variants`);
+    });
+  }
+
   /* ------------------------
        Exam statistics updater
        ------------------------ */
@@ -401,44 +433,159 @@ export class ExamsService {
   ): Promise<Buffer> {
     let browser: puppeteer.Browser | null = null;
     try {
+      this.logger.log(`Starting PDF generation for: ${title}`);
+      
+      // Enhanced Puppeteer configuration for server environments
       browser = await puppeteer.launch({
         headless: true,
         args: [
-          '--no-sandbox', 
-          '--disable-setuid-sandbox',
+          '--no-sandbox',
+          '--disable-setuid-sandbox', 
           '--disable-web-security',
-          '--disable-features=VizDisplayCompositor'
+          '--disable-features=VizDisplayCompositor',
+          '--disable-background-timer-throttling',
+          '--disable-backgrounding-occluded-windows',
+          '--disable-renderer-backgrounding',
+          '--disable-extensions',
+          '--disable-plugins',
+          '--disable-default-apps',
+          '--disable-hang-monitor',
+          '--disable-prompt-on-repost',
+          '--disable-sync',
+          '--disable-translate',
+          '--disable-ipc-flooding-protection',
+          '--no-first-run',
+          '--no-default-browser-check',
+          '--disable-dev-shm-usage',
+          '--single-process'
         ],
+        timeout: 30000,
       });
+      
       const page = await browser.newPage();
+      
+      // Set longer timeouts for server environments
+      page.setDefaultTimeout(30000);
+      page.setDefaultNavigationTimeout(30000);
 
-      // Enable image loading
+      // Enhanced request interception with better error handling
       await page.setRequestInterception(true);
       page.on('request', (req) => {
-        if (req.resourceType() === 'image' || req.url().startsWith('data:')) {
-          req.continue();
-        } else {
-          req.continue();
+        try {
+          if (req.resourceType() === 'image' || req.url().startsWith('data:')) {
+            req.continue();
+          } else {
+            req.continue();
+          }
+        } catch (error) {
+          this.logger.warn('Request interception error:', error);
+          // Continue anyway to avoid blocking
         }
       });
 
-      // Set content and wait for network idle
-      await page.setContent(html, { waitUntil: 'networkidle0' });
-
-      // Add KaTeX CSS & JS (auto-render)
-      // If your server environment blocks CDN, host these files locally instead.
-      await page.addStyleTag({
-        url: 'https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.css',
-      });
-      await page.addScriptTag({
-        url: 'https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.js',
-      });
-      await page.addScriptTag({
-        url: 'https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/contrib/auto-render.min.js',
+      // Set content with longer timeout
+      this.logger.log('Setting page content...');
+      await page.setContent(html, { 
+        waitUntil: 'domcontentloaded',
+        timeout: 15000 
       });
 
-      // Render math in page
-      await page.evaluate(() => {
+      // Try to load KaTeX with fallback
+      try {
+        this.logger.log('Loading KaTeX resources...');
+        await Promise.race([
+          this.loadKatexResources(page),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('KaTeX loading timeout')), 10000))
+        ]);
+        this.logger.log('KaTeX resources loaded successfully');
+      } catch (error) {
+        this.logger.warn('Failed to load KaTeX resources, continuing without math rendering:', error);
+      }
+
+      // Wait for images with timeout
+      try {
+        this.logger.log('Waiting for images to load...');
+        await page.waitForFunction(
+          'Array.from(document.images).every(img => img.complete || img.naturalWidth > 0)',
+          { timeout: 8000 }
+        );
+        this.logger.log('Images loaded successfully');
+      } catch (e) {
+        this.logger.warn('Image loading timeout, continuing with PDF generation');
+      }
+
+      // Generate PDF with enhanced options
+      this.logger.log('Generating PDF...');
+      const pdfBuffer = await page.pdf({
+        format: 'A4',
+        margin: { top: '20mm', right: '20mm', bottom: '20mm', left: '20mm' },
+        printBackground: true,
+        preferCSSPageSize: true,
+        timeout: 30000,
+      });
+
+      this.logger.log(`PDF generated successfully, size: ${pdfBuffer.length} bytes`);
+      return Buffer.from(pdfBuffer);
+      
+    } catch (error) {
+      this.logger.error('PDF generation failed:', {
+        message: error.message,
+        stack: error.stack,
+        title
+      });
+      
+      // More specific error messages
+      if (error.message?.includes('timeout')) {
+        throw new InternalServerErrorException('PDF generation timed out. Please try again.');
+      } else if (error.message?.includes('Protocol error')) {
+        throw new InternalServerErrorException('Browser communication error during PDF generation.');
+      } else {
+        throw new InternalServerErrorException(`PDF generation failed: ${error.message || 'Unknown error'}`);
+      }
+    } finally {
+      if (browser) {
+        try {
+          await browser.close();
+          this.logger.log('Browser closed successfully');
+        } catch (closeError) {
+          this.logger.warn('Error closing browser:', closeError);
+        }
+      }
+    }
+  }
+
+  private async loadKatexResources(page: any): Promise<void> {
+    // Add KaTeX CSS
+    await page.addStyleTag({
+      url: 'https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.css',
+    }).catch((error) => {
+      this.logger.warn('Failed to load KaTeX CSS:', error);
+      // Add fallback inline CSS for basic math rendering
+      return page.addStyleTag({
+        content: `
+          .katex { font-family: 'Times New Roman', serif; }
+          .katex-display { text-align: center; margin: 1em 0; }
+        `
+      });
+    });
+
+    // Add KaTeX JS
+    await page.addScriptTag({
+      url: 'https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.js',
+    }).catch((error) => {
+      this.logger.warn('Failed to load KaTeX JS:', error);
+    });
+
+    // Add auto-render extension
+    await page.addScriptTag({
+      url: 'https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/contrib/auto-render.min.js',
+    }).catch((error) => {
+      this.logger.warn('Failed to load KaTeX auto-render:', error);
+    });
+
+    // Try to render math
+    await page.evaluate(() => {
+      try {
         // @ts-ignore
         if (typeof renderMathInElement === 'function') {
           // @ts-ignore
@@ -452,37 +599,12 @@ export class ExamsService {
             strict: false,
           });
         }
-      });
-
-      // Wait for images and KaTeX to load
-      try {
-        await page.waitForFunction(
-          '(document.querySelector(".katex") || !document.body.innerText.match(/\\$\\$|\\\\\\(|\\\\\\)|\\\\\\[|\\\\\\]|∫|√|Σ|Π|α|β|γ|θ/)) && Array.from(document.images).every(img => img.complete)',
-          { timeout: 6000 },
-        );
-      } catch (e) {
-        // Non-fatal: allow rendering to proceed even if images/KaTeX didn't load quickly
-        this.logger.warn(
-          'Image/KaTeX render wait timed out, continuing to pdf generation',
-        );
+      } catch (error) {
+        console.warn('KaTeX rendering failed:', error);
       }
-
-      const pdfBuffer = await page.pdf({
-        format: 'A4',
-        margin: { top: '20mm', right: '20mm', bottom: '20mm', left: '20mm' },
-        printBackground: true,
-        preferCSSPageSize: true,
-      });
-
-      return Buffer.from(pdfBuffer);
-    } catch (error) {
-      this.logger.error('PDF generation failed', error);
-      throw new InternalServerErrorException('PDF generation failed');
-    } finally {
-      if (browser) {
-        await browser.close().catch(() => {});
-      }
-    }
+    }).catch((error) => {
+      this.logger.warn('KaTeX evaluation failed:', error);
+    });
   }
 
   private wrapHtml(inner: string, title: string): string {
@@ -562,22 +684,27 @@ export class ExamsService {
   private getImageSrc(imageBase64?: string, mime?: string): string | null {
     if (!imageBase64) return null;
     
-    // Clean the base64 string - remove any whitespace or newlines
-    const cleanBase64 = imageBase64.replace(/\s+/g, '');
-    
-    // If base64 contains data:image prefix, normalize and return it
-    if (/^data:image\/[a-zA-Z]+;base64,/.test(cleanBase64)) {
-      return this.normalizeDataUri(cleanBase64);
+    try {
+      // Clean the base64 string - remove any whitespace or newlines
+      const cleanBase64 = imageBase64.replace(/\s+/g, '');
+      
+      // If base64 contains data:image prefix, normalize and return it
+      if (/^data:image\/[a-zA-Z]+;base64,/.test(cleanBase64)) {
+        return this.normalizeDataUri(cleanBase64);
+      }
+      
+      // If it starts with just base64 data, add proper data URI prefix
+      if (this.isValidBase64(cleanBase64)) {
+        // Determine MIME type
+        const safeMime = mime || this.detectImageMimeType(cleanBase64) || 'image/png';
+        return `data:${safeMime};base64,${cleanBase64}`;
+      }
+      
+      return null;
+    } catch (error) {
+      this.logger.warn('Error processing image data:', error);
+      return null;
     }
-    
-    // If it starts with just base64 data, add proper data URI prefix
-    if (this.isValidBase64(cleanBase64)) {
-      // Determine MIME type
-      const safeMime = mime || this.detectImageMimeType(cleanBase64) || 'image/png';
-      return `data:${safeMime};base64,${cleanBase64}`;
-    }
-    
-    return null;
   }
 
   private isValidBase64(str: string): boolean {
@@ -759,14 +886,38 @@ export class ExamsService {
     withAnswerKey = false,
   ): string {
     const exam = variant.exam;
+    
+    // Ensure we have basic data
+    if (!exam) {
+      this.logger.error('No exam data found for variant');
+      return '<div class="page"><div class="header"><div class="title">Error: Exam data not found</div></div></div>';
+    }
+    
     const header = `
         <div class="header">
-          <div class="title">${escapeHtml(exam?.title || '')}</div>
-          <div class="subtitle">Variant: ${escapeHtml(variant.variantNumber || '')}</div>
+          <div class="title">${escapeHtml(exam?.title || 'Untitled Exam')}</div>
+          <div class="subtitle">Variant: ${escapeHtml(variant.variantNumber || 'N/A')}</div>
           <div class="subtitle">O'quvchi: ${escapeHtml(variant.student?.firstName || '')} ${escapeHtml(variant.student?.lastName || '')}</div>
           <div class="meta">Sana: ${new Date().toLocaleDateString('uz-UZ')}</div>
         </div>
       `;
+
+    const questions = variant.questions || [];
+    this.logger.log(`Building variant page with ${questions.length} questions`);
+    
+    if (questions.length === 0) {
+      const noQuestionsHtml = `
+        <div class="page">
+          ${header}
+          <div class="questions-container">
+            <div style="text-align: center; margin: 50px 0; color: #666;">
+              <p>Bu variantda savollar topilmadi.</p>
+            </div>
+          </div>
+        </div>
+      `;
+      return noQuestionsHtml;
+    }
 
     const questionsHtml = (variant.questions || [])
       .sort((a, b) => (a.order || 0) - (b.order || 0))
@@ -865,38 +1016,60 @@ export class ExamsService {
        ------------------------ */
 
   async generateVariantPDF(variantId: number): Promise<Buffer> {
-    const variant = await this.examVariantRepository.findOne({
-      where: { id: variantId },
-      relations: ['student', 'exam', 'exam.subjects', 'questions'],
-      order: { questions: { order: 'ASC' } as any },
-    });
-    if (!variant) throw new NotFoundException('Variant not found');
+    try {
+      this.logger.log(`Generating PDF for variant ${variantId}`);
+      
+      const variant = await this.examVariantRepository.findOne({
+        where: { id: variantId },
+        relations: ['student', 'exam', 'exam.subjects', 'questions'],
+        order: { questions: { order: 'ASC' } as any },
+      });
+      
+      if (!variant) {
+        this.logger.error(`Variant ${variantId} not found`);
+        throw new NotFoundException('Variant not found');
+      }
+      
+      if (!variant.exam) {
+        this.logger.error(`Exam not found for variant ${variantId}`);
+        throw new NotFoundException('Exam not found for variant');
+      }
+      
+      this.logger.log(`Found variant ${variantId} with ${variant.questions?.length || 0} questions`);
 
-    // Get student's group information
-    const studentGroups = await this.groupRepository.find({
-      where: { students: { id: variant.student.id } },
-      relations: ['students'],
-    });
+      // Get student's group information
+      const studentGroups = variant.student ? await this.groupRepository.find({
+        where: { students: { id: variant.student.id } },
+        relations: ['students'],
+      }) : [];
 
-    // Generate title page
-    const titlePageHtml = this.generateExamTitlePage(variant, false, studentGroups);
-    
-    const inner = this.buildVariantPage(
-      { ...variant, exam: variant.exam } as any,
-      false,
-    );
-    
-    // Combine title page with variant content
-    const combinedContent = titlePageHtml + inner;
-    
-    const html = this.wrapHtml(
-      combinedContent,
-      `${variant.exam.title} — Variant ${variant.variantNumber}`,
-    );
-    return this.renderHtmlToPdf(
-      html,
-      `${variant.exam.title} — Variant ${variant.variantNumber}`,
-    );
+      // Generate title page
+      const titlePageHtml = this.generateExamTitlePage(variant, false, studentGroups);
+      
+      const inner = this.buildVariantPage(
+        { ...variant, exam: variant.exam } as any,
+        false,
+      );
+      
+      // Combine title page with variant content
+      const combinedContent = titlePageHtml + inner;
+      
+      const html = this.wrapHtml(
+        combinedContent,
+        `${variant.exam.title} — Variant ${variant.variantNumber}`,
+      );
+      
+      return this.renderHtmlToPdf(
+        html,
+        `${variant.exam.title} — Variant ${variant.variantNumber}`,
+      );
+    } catch (error) {
+      this.logger.error(`Failed to generate PDF for variant ${variantId}:`, error);
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      throw new InternalServerErrorException(`PDF generation failed for variant ${variantId}: ${error.message}`);
+    }
   }
 
   async generateAnswerKeyPDF(variantId: number): Promise<Buffer> {
@@ -974,6 +1147,94 @@ export class ExamsService {
     const combinedContent = titlePageHtml + pages;
     const html = this.wrapHtml(combinedContent, `${exam.title} — Javoblar`);
     return this.renderHtmlToPdf(html, `${exam.title} — Javoblar`);
+  }
+
+  /* ------------------------
+       PDF Generation with Telegram Auto-Send
+       ------------------------ */
+
+  async generateAndSendVariantPDF(variantId: number): Promise<{ pdfGenerated: boolean; telegramSent: boolean; message: string }> {
+    try {
+      // First generate the PDF
+      const pdfBuffer = await this.generateVariantPDF(variantId);
+      
+      // Get variant details for user ID and filename
+      const variant = await this.examVariantRepository.findOne({
+        where: { id: variantId },
+        relations: ['student', 'exam'],
+      });
+      
+      if (!variant || !variant.student) {
+        return {
+          pdfGenerated: true,
+          telegramSent: false,
+          message: 'PDF generated but no student found to send to',
+        };
+      }
+      
+      const fileName = `${variant.exam.title}-Variant-${variant.variantNumber}.pdf`;
+      const caption = `🎓 <b>Test PDF - ${variant.exam.title}</b>\n\n📋 <b>Variant:</b> ${variant.variantNumber}\n👤 <b>Talaba:</b> ${variant.student.firstName} ${variant.student.lastName}\n📅 <b>Sana:</b> ${new Date().toLocaleDateString()}`;
+      
+      // Send PDF to user's Telegram
+      const telegramResult = await this.telegramService.sendPDFToUser(
+        variant.student.id,
+        pdfBuffer,
+        fileName,
+        caption
+      );
+      
+      return {
+        pdfGenerated: true,
+        telegramSent: telegramResult.success,
+        message: telegramResult.message,
+      };
+    } catch (error) {
+      this.logger.error(`Failed to generate and send variant PDF ${variantId}:`, error);
+      return {
+        pdfGenerated: false,
+        telegramSent: false,
+        message: `Error: ${error.message}`,
+      };
+    }
+  }
+
+  async generateAndSendAllVariantsPDFs(examId: number): Promise<{ totalVariants: number; sent: number; failed: number; details: string[] }> {
+    try {
+      const exam = await this.findById(examId);
+      const variants = await this.getExamVariants(examId);
+      
+      const result = {
+        totalVariants: variants.length,
+        sent: 0,
+        failed: 0,
+        details: [] as string[],
+      };
+      
+      for (const variant of variants) {
+        try {
+          const variantResult = await this.generateAndSendVariantPDF(variant.id);
+          if (variantResult.telegramSent) {
+            result.sent++;
+            result.details.push(`✅ Variant ${variant.variantNumber} (${variant.student?.firstName} ${variant.student?.lastName}): ${variantResult.message}`);
+          } else {
+            result.failed++;
+            result.details.push(`❌ Variant ${variant.variantNumber} (${variant.student?.firstName} ${variant.student?.lastName}): ${variantResult.message}`);
+          }
+          
+          // Small delay to avoid overwhelming the system
+          await new Promise(resolve => setTimeout(resolve, 500));
+        } catch (error) {
+          result.failed++;
+          result.details.push(`❌ Variant ${variant.variantNumber}: Error - ${error.message}`);
+        }
+      }
+      
+      this.logger.log(`Bulk PDF send completed for exam ${examId}: ${result.sent} sent, ${result.failed} failed`);
+      return result;
+    } catch (error) {
+      this.logger.error(`Failed to generate and send all variants PDFs for exam ${examId}:`, error);
+      throw new InternalServerErrorException(`Bulk PDF generation failed: ${error.message}`);
+    }
   }
 
   /* ------------------------

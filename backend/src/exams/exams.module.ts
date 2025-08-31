@@ -11,6 +11,7 @@ import { SubjectsModule } from '../subjects/subjects.module';
 import { TestsModule } from '../tests/tests.module';
 import { QuestionsModule } from '../questions/questions.module';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { TelegramModule } from '../telegram/telegram.module';
 import { ExamsController } from './exams.controller';
 import { ExamsService } from './exams.service';
 
@@ -23,6 +24,7 @@ import { ExamsService } from './exams.service';
     TestsModule,
     QuestionsModule,
     NotificationsModule,
+    TelegramModule,
   ],
   controllers: [ExamsController],
   providers: [ExamsService],
