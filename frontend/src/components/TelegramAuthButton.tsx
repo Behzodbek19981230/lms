@@ -25,7 +25,7 @@ interface TelegramAuthButtonProps {
 }
 
 export default function TelegramAuthButton({ 
-  botUsername = import.meta.env.VITE_BOT_USERNAME || 'edunimbus_bot',
+  botUsername = import.meta.env.VITE_BOT_USERNAME || 'universal_lms_bot',
   onSuccess,
   onError,
   className,
@@ -35,6 +35,15 @@ export default function TelegramAuthButton({
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [connected, setConnected] = useState(false);
+  const [currentBotUsername, setCurrentBotUsername] = useState(botUsername);
+  
+  // Fallback bot usernames to try
+  const fallbackBotUsernames = [
+    'universal_lms_bot',
+    'edunimbus_bot', 
+    'universallmsbot',
+    'universal_edu_bot'
+  ];
 
   const handleTelegramAuth = async (telegramUser: TelegramUser) => {
     try {
@@ -104,6 +113,17 @@ export default function TelegramAuthButton({
     onError?.(error.message);
   };
 
+  const tryNextBotUsername = () => {
+    const currentIndex = fallbackBotUsernames.indexOf(currentBotUsername);
+    const nextIndex = (currentIndex + 1) % fallbackBotUsernames.length;
+    setCurrentBotUsername(fallbackBotUsernames[nextIndex]);
+    
+    toast({
+      title: 'Bot username o\'zgartirildi',
+      description: `Yangi bot username: ${fallbackBotUsernames[nextIndex]}`,
+    });
+  };
+
   if (connected) {
     return (
       <Button
@@ -120,8 +140,15 @@ export default function TelegramAuthButton({
 
   return (
     <div className="space-y-3">
+      {/* Debug info in development */}
+      {import.meta.env.DEV && (
+        <div className="text-xs text-gray-500 p-2 bg-gray-50 rounded">
+          <strong>Debug:</strong> Bot username: {currentBotUsername}
+        </div>
+      )}
+      
       <LoginButton
-        botUsername={botUsername}
+        botUsername={currentBotUsername}
         buttonSize={size === 'sm' ? 'small' : size === 'lg' ? 'large' : 'medium'}
         cornerRadius={8}
         showAvatar={true}
@@ -131,6 +158,19 @@ export default function TelegramAuthButton({
         }}
         className={className}
       />
+      
+      {/* Alternative bot username button */}
+      <div className="flex gap-2">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={tryNextBotUsername}
+          className="text-xs"
+        >
+          Boshqa bot username sinab ko'rish
+        </Button>
+      </div>
       
       {loading && (
         <div className="flex items-center justify-center gap-2 text-sm text-gray-600">
