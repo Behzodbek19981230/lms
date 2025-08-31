@@ -314,19 +314,33 @@ export class StudentsService {
     // First, verify that this variant belongs to the student
     const variant = await this.examVariantRepository.findOne({
       where: { id: variantId, student: { id: studentId } },
-      relations: ['student', 'exam', 'exam.subjects'],
+      relations: ['student', 'exam', 'exam.subjects', 'questions'],
     });
 
     console.log('Download attempt - Variant:', variantId, 'Student:', studentId);
     console.log('Found variant:', variant ? {
       id: variant.id,
       status: variant.status,
-      examStatus: variant.exam.status,
-      studentId: variant.student.id
+      examStatus: variant.exam?.status,
+      studentId: variant.student?.id,
+      hasExam: !!variant.exam,
+      hasStudent: !!variant.student,
+      questionsCount: variant.questions?.length || 0
     } : 'Not found');
 
     if (!variant) {
       throw new NotFoundException('Exam variant not found or does not belong to you');
+    }
+
+    // Check if required relations exist
+    if (!variant.student) {
+      console.error('Variant missing student relation:', variant.id);
+      throw new InternalServerErrorException('Variant data incomplete: missing student information');
+    }
+
+    if (!variant.exam) {
+      console.error('Variant missing exam relation:', variant.id);
+      throw new InternalServerErrorException('Variant data incomplete: missing exam information');
     }
 
     // Students can download their variants if they are generated or already started
@@ -346,7 +360,15 @@ export class StudentsService {
       });
     }
 
-    // Generate and return the PDF
-    return this.examsService.generateVariantPDF(variantId);
+    try {
+      // Generate and return the PDF
+      console.log('Generating PDF for variant:', variantId);
+      const pdfBuffer = await this.examsService.generateVariantPDF(variantId);
+      console.log('PDF generated successfully, size:', pdfBuffer.length);
+      return pdfBuffer;
+    } catch (error) {
+      console.error('PDF generation failed for variant:', variantId, error);
+      throw error;
+    }
   }
 }

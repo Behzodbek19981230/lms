@@ -435,6 +435,20 @@ export class ExamsService {
     try {
       this.logger.log(`Starting PDF generation for: ${title}`);
       
+      // Validate HTML content
+      if (!html || html.trim().length === 0) {
+        this.logger.error('Empty HTML content provided for PDF generation');
+        throw new InternalServerErrorException('Cannot generate PDF: Empty content');
+      }
+      
+      this.logger.log(`HTML content length: ${html.length} characters`);
+      
+      // Check if HTML contains basic structure
+      if (!html.includes('<html') || !html.includes('<body')) {
+        this.logger.warn('HTML content may be malformed, wrapping it');
+        html = `<!DOCTYPE html><html><head><title>${title}</title></head><body>${html}</body></html>`;
+      }
+      
       // Enhanced Puppeteer configuration for server environments
       browser = await puppeteer.launch({
         headless: true,
@@ -1030,12 +1044,34 @@ export class ExamsService {
         throw new NotFoundException('Variant not found');
       }
       
-      if (!variant.exam) {
-        this.logger.error(`Exam not found for variant ${variantId}`);
-        throw new NotFoundException('Exam not found for variant');
+      this.logger.log(`Found variant ${variantId}`, {
+        hasStudent: !!variant.student,
+        hasExam: !!variant.exam,
+        questionsCount: variant.questions?.length || 0,
+        studentName: variant.student?.firstName,
+        examTitle: variant.exam?.title
+      });
+      
+      if (!variant.student) {
+        this.logger.error(`Variant ${variantId} missing student relation`);
+        throw new InternalServerErrorException('Variant data incomplete: missing student information');
       }
       
-      this.logger.log(`Found variant ${variantId} with ${variant.questions?.length || 0} questions`);
+      if (!variant.exam) {
+        this.logger.error(`Variant ${variantId} missing exam relation`);
+        throw new InternalServerErrorException('Variant data incomplete: missing exam information');
+      }
+      
+      // Log questions info
+      this.logger.log(`Variant ${variantId} has ${variant.questions?.length || 0} questions`);
+      if (variant.questions && variant.questions.length > 0) {
+        this.logger.log(`First question sample:`, {
+          id: variant.questions[0].id,
+          text: variant.questions[0].questionText?.substring(0, 50) + '...',
+          hasAnswers: !!variant.questions[0].answers,
+          answersCount: variant.questions[0].answers?.length || 0
+        });
+      }
 
       // Get student's group information
       const studentGroups = variant.student ? await this.groupRepository.find({
