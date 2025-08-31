@@ -32,6 +32,14 @@ export default function TelegramAuthButton({
   variant = 'default',
   size = 'default'
 }: TelegramAuthButtonProps) {
+  console.log('🚀 TelegramAuthButton component render qilinmoqda:', {
+    botUsername,
+    className,
+    variant,
+    size,
+    timestamp: new Date().toISOString()
+  });
+  
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [connected, setConnected] = useState(false);
@@ -162,7 +170,11 @@ export default function TelegramAuthButton({
   }
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-3" style={{border: '3px solid red', padding: '20px', backgroundColor: 'yellow'}}>
+      <h2 style={{color: 'red', fontSize: '20px', fontWeight: 'bold'}}>
+        🚨 TELEGRAM AUTH BUTTON KOMPONENTI - TEST MODE 🚨
+      </h2>
+      
       {/* Debug info in development */}
       {import.meta.env.DEV && (
         <div className="text-xs text-gray-500 p-2 bg-gray-50 rounded border">
@@ -172,7 +184,8 @@ export default function TelegramAuthButton({
           <strong>Full URL:</strong> {window.location.origin}<br/>
           <strong>Environment:</strong> {import.meta.env.MODE}<br/>
           <strong>VITE_BOT_USERNAME:</strong> {import.meta.env.VITE_BOT_USERNAME || 'MAVJUD EMAS'}<br/>
-          <strong>Component ishlamoqda:</strong> ✅
+          <strong>Component ishlamoqda:</strong> ✅<br/>
+          <strong>Current time:</strong> {new Date().toLocaleTimeString()}
         </div>
       )}
       

@@ -159,8 +159,66 @@ export class TelegramController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get list of unlinked Telegram users' })
   @ApiResponse({ status: 200, description: 'Unlinked users retrieved' })
-  async getUnlinkedUsers() {
-    return this.telegramService.getUnlinkedTelegramUsers();
+  async getUnlinkedUsers(@Request() req) {
+    this.logger.log(`Unlinked users request from user: ${JSON.stringify({
+      id: req.user?.id,
+      role: req.user?.role,
+      email: req.user?.email
+    })}`);
+    
+    try {
+      const result = await this.telegramService.getUnlinkedTelegramUsers();
+      this.logger.log(`Found ${result.length} unlinked users`);
+      return result;
+    } catch (error) {
+      this.logger.error('Error getting unlinked users:', error);
+      throw error;
+    }
+  }
+
+  @Get('test-auth')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Test authentication without role restriction' })
+  @ApiResponse({ status: 200, description: 'Auth test successful' })
+  async testAuth(@Request() req) {
+    this.logger.log(`Test auth request from user: ${JSON.stringify({
+      id: req.user?.id,
+      role: req.user?.role,
+      email: req.user?.email,
+      firstName: req.user?.firstName,
+      lastName: req.user?.lastName
+    })}`);
+    
+    return {
+      success: true,
+      user: {
+        id: req.user?.id,
+        role: req.user?.role,
+        email: req.user?.email
+      },
+      message: 'Authentication successful'
+    };
+  }
+
+  @Get('test-teacher-role')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.TEACHER)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Test teacher role specifically' })
+  @ApiResponse({ status: 200, description: 'Teacher role test successful' })
+  async testTeacherRole(@Request() req) {
+    this.logger.log(`Teacher role test from user: ${JSON.stringify({
+      id: req.user?.id,
+      role: req.user?.role,
+      email: req.user?.email
+    })}`);
+    
+    return {
+      success: true,
+      message: 'Teacher role access successful',
+      userRole: req.user?.role
+    };
   }
 
   @Post('generate-invite/:channelId')
