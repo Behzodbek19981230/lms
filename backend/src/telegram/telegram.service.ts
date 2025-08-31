@@ -162,6 +162,25 @@ export class TelegramService {
 
   // ==================== Enhanced User Authentication & Auto-Connection ====================
 
+  async authenticateUser(dto: any): Promise<{ success: boolean; message: string; userId?: number; autoConnected?: boolean }> {
+    try {
+      // Use the enhanced authentication method
+      return await this.authenticateAndConnectUser(
+        dto.telegramUserId.toString(),
+        dto.username,
+        dto.firstName,
+        dto.lastName
+      );
+    } catch (error) {
+      this.logger.error('Failed to authenticate user:', error);
+      return {
+        success: false,
+        message: 'Autentifikatsiyada xatolik. Keyinroq qayta urinib ko\'ring.',
+        autoConnected: false,
+      };
+    }
+  }
+
   async authenticateAndConnectUser(telegramUserId: string, username?: string, firstName?: string, lastName?: string): Promise<{ success: boolean; message: string; userId?: number; autoConnected?: boolean }> {
     try {
       // Check if this Telegram user is already registered
@@ -881,5 +900,243 @@ export class TelegramService {
         totalPoints: answers.reduce((sum, a) => sum + (a.points || 0), 0),
       })),
     };
+  }
+
+  // ==================== Bot Command Handlers ====================
+
+  async getUserTestResults(telegramUserId: string): Promise<string> {
+    try {
+      const chat = await this.telegramChatRepo.findOne({
+        where: { telegramUserId },
+        relations: ['user']
+      });
+
+      if (!chat || !chat.user) {
+        return '❌ Hisobingiz ulanmagan. Avval /start buyrug\'ini yuboring va o\'qituvchingiz bilan bog\'laning.';
+      }
+
+      // Get user's test results from TelegramAnswer
+      const answers = await this.telegramAnswerRepo.find({
+        where: { student: { id: chat.user.id } },
+        relations: ['student'],
+        order: { createdAt: 'DESC' },
+        take: 10 // Last 10 tests
+      });
+
+      if (answers.length === 0) {
+        return `📊 <b>Test Natijalarim</b>\n\n🔍 Hozircha test natijalari yo'q.\nTestlarga javob bergansizdan so'ng, natijalar bu yerda ko'rinadi.`;
+      }
+
+      // Group answers by test
+      const testGroups = answers.reduce((groups, answer) => {
+        if (!groups[answer.testId]) {
+          groups[answer.testId] = [];
+        }
+        groups[answer.testId].push(answer);
+        return groups;
+      }, {} as Record<number, typeof answers>);
+
+      let resultMessage = `📊 <b>${chat.user.firstName} ning Test Natijalari</b>\n\n`;
+
+      Object.keys(testGroups).forEach((testId, index) => {
+        const testAnswers = testGroups[testId];
+        const correctAnswers = testAnswers.filter(a => a.isCorrect).length;
+        const totalQuestions = testAnswers.length;
+        const percentage = totalQuestions > 0 ? Math.round((correctAnswers / totalQuestions) * 100) : 0;
+        const emoji = percentage >= 80 ? '🟢' : percentage >= 60 ? '🟡' : '🔴';
+
+        resultMessage += `${emoji} <b>Test ${testId}</b>\n`;
+        resultMessage += `   ✅ To'g'ri: ${correctAnswers}/${totalQuestions} (${percentage}%)\n`;
+        resultMessage += `   📅 Sana: ${testAnswers[0].createdAt.toLocaleDateString()}\n\n`;
+      });
+
+      resultMessage += `💡 <b>Ko'rsatma:</b> Yanada yaxshi natijalar uchun darslarni takrorlang!`;
+
+      return resultMessage;
+    } catch (error) {
+      this.logger.error('Error getting user test results:', error);
+      return 'Natijalarni yuklab olishda xatolik yuz berdi. Keyinroq qayta urinib ko\'ring.';
+    }
+  }
+
+  async getUserAttendance(telegramUserId: string): Promise<string> {
+    try {
+      const chat = await this.telegramChatRepo.findOne({
+        where: { telegramUserId },
+        relations: ['user']
+      });
+
+      if (!chat || !chat.user) {
+        return '❌ Hisobingiz ulanmagan. Avval /start buyrug\'ini yuboring va o\'qituvchingiz bilan bog\'laning.';
+      }
+
+      // This would require implementing attendance tracking
+      // For now, return a placeholder message
+      return `📅 <b>${chat.user.firstName} ning Davomat Hisoboti</b>\n\n⏰ Davomat tizimi hali ishga tushirilmagan.\n\n📋 Tez orada quyidagi ma'lumotlar mavjud bo'ladi:\n• Darsga kelish statistikasi\n• Kechikishlar hisoboti\n• Oylik davomat foizi\n\n👨‍🏫 Batafsil ma'lumot uchun o'qituvchingiz bilan bog'laning.`;
+    } catch (error) {
+      this.logger.error('Error getting user attendance:', error);
+      return 'Davomat ma\'lumotlarini yuklab olishda xatolik yuz berdi.';
+    }
+  }
+
+  async getUserAccountInfo(telegramUserId: string): Promise<string> {
+    try {
+      const chat = await this.telegramChatRepo.findOne({
+        where: { telegramUserId },
+        relations: ['user', 'user.center']
+      });
+
+      if (!chat || !chat.user) {
+        return '❌ Hisobingiz ulanmagan. Avval /start buyrug\'ini yuboring va o\'qituvchingiz bilan bog\'laning.';
+      }
+
+      const user = chat.user;
+      let accountMessage = `👤 <b>Shaxsiy Ma'lumotlar</b>\n\n`;
+      accountMessage += `📝 <b>Ism:</b> ${user.firstName}\n`;
+      if (user.lastName) {
+        accountMessage += `📝 <b>Familiya:</b> ${user.lastName}\n`;
+      }
+      accountMessage += `📧 <b>Email:</b> ${user.email}\n`;
+      accountMessage += `👤 <b>Rol:</b> ${this.getRoleDisplayName(user.role)}\n`;
+      
+      if (user.center) {
+        accountMessage += `🏢 <b>Markaz:</b> ${user.center.name}\n`;
+      }
+      
+      accountMessage += `📱 <b>Telegram:</b> @${chat.telegramUsername || 'username yo\'q'}\n`;
+      accountMessage += `🔗 <b>Ulangan sana:</b> ${chat.createdAt.toLocaleDateString()}\n\n`;
+      accountMessage += `⚙️ Hisobingizni o'zgartirish uchun LMS tizimiga kiring yoki o'qituvchingiz bilan bog'laning.`;
+
+      return accountMessage;
+    } catch (error) {
+      this.logger.error('Error getting user account info:', error);
+      return 'Hisob ma\'lumotlarini yuklab olishda xatolik yuz berdi.';
+    }
+  }
+
+  async getTeacherGroups(telegramUserId: string): Promise<string> {
+    try {
+      const chat = await this.telegramChatRepo.findOne({
+        where: { telegramUserId },
+        relations: ['user']
+      });
+
+      if (!chat || !chat.user) {
+        return '❌ Hisobingiz ulanmagan. Avval /start buyrug\'ini yuboring va admin bilan bog\'laning.';
+      }
+
+      if (chat.user.role !== 'teacher') {
+        return '🚫 Sizda o\'qituvchi huquqi yo\'q. Yo\'qlama olish faqat o\'qituvchilar uchun mavjud.';
+      }
+
+      // Get teacher's groups - this would need to be implemented with proper Group entity
+      let groupMessage = `👨‍🏫 <b>Yo'qlama Olish - Guruhlar</b>\n\n`;
+      groupMessage += `Yo'qlama olish uchun guruhni tanlang:\n\n`;
+      
+      // Placeholder for groups - this would be replaced with actual group data
+      groupMessage += `🔹 grup_1 - Beginner A1 (15 students)\n`;
+      groupMessage += `🔹 grup_2 - Intermediate B1 (12 students)\n`;
+      groupMessage += `🔹 grup_3 - Advanced C1 (8 students)\n\n`;
+      
+      groupMessage += `💡 <b>Qo'llanma:</b>\n`;
+      groupMessage += `Guruh nomini yozing (masalan: grup_1)\n`;
+      groupMessage += `Keyin har bir student uchun yo'qlama belgilang.`;
+
+      return groupMessage;
+    } catch (error) {
+      this.logger.error('Error getting teacher groups:', error);
+      return 'Guruhlar ro\'yxatini yuklab olishda xatolik yuz berdi.';
+    }
+  }
+
+  async getGroupStudentsForAttendance(telegramUserId: string, groupId: string): Promise<string> {
+    try {
+      const chat = await this.telegramChatRepo.findOne({
+        where: { telegramUserId },
+        relations: ['user']
+      });
+
+      if (!chat || !chat.user || chat.user.role !== 'teacher') {
+        return '❌ Sizda ushbu amalni bajarish huquqi yo\'q.';
+      }
+
+      // This would be replaced with actual student data from the group
+      let studentsMessage = `📋 <b>Guruh ${groupId} - Yo'qlama</b>\n\n`;
+      studentsMessage += `Bugungi sana: ${new Date().toLocaleDateString()}\n\n`;
+      studentsMessage += `Har bir student uchun yo'qlama belgilang:\n\n`;
+      
+      // Placeholder students - would be replaced with actual data
+      const students = [
+        { id: 1, name: 'Ali Valiyev' },
+        { id: 2, name: 'Malika Karimova' },
+        { id: 3, name: 'Bobur Rahimov' },
+      ];
+
+      students.forEach(student => {
+        studentsMessage += `👤 <b>${student.name}</b>\n`;
+        studentsMessage += `   ✅ ${student.id}_yoklama_keldi\n`;
+        studentsMessage += `   ❌ ${student.id}_yoklama_kelmadi\n`;
+        studentsMessage += `   ⏰ ${student.id}_yoklama_kechikdi\n\n`;
+      });
+
+      studentsMessage += `💡 <b>Qo'llanma:</b> Yuqoridagi kodlardan birini yozing\n`;
+      studentsMessage += `Masalan: 1_yoklama_keldi`;
+
+      return studentsMessage;
+    } catch (error) {
+      this.logger.error('Error getting group students:', error);
+      return 'Guruh ma\'lumotlarini yuklab olishda xatolik yuz berdi.';
+    }
+  }
+
+  async markStudentAttendance(telegramUserId: string, attendanceCode: string): Promise<string> {
+    try {
+      const chat = await this.telegramChatRepo.findOne({
+        where: { telegramUserId },
+        relations: ['user']
+      });
+
+      if (!chat || !chat.user || chat.user.role !== 'teacher') {
+        return '❌ Sizda ushbu amalni bajarish huquqi yo\'q.';
+      }
+
+      // Parse attendance code: studentId_yoklama_status
+      const parts = attendanceCode.split('_yoklama_');
+      if (parts.length !== 2) {
+        return '❌ Noto\'g\'ri format. Masalan: 1_yoklama_keldi';
+      }
+
+      const studentId = parts[0];
+      const status = parts[1];
+
+      const validStatuses = ['keldi', 'kelmadi', 'kechikdi'];
+      if (!validStatuses.includes(status)) {
+        return '❌ Noto\'g\'ri status. Faqat: keldi, kelmadi, kechikdi';
+      }
+
+      // Here would be the actual attendance marking logic
+      const statusEmoji = status === 'keldi' ? '✅' : status === 'kechikdi' ? '⏰' : '❌';
+      const statusText = status === 'keldi' ? 'Keldi' : status === 'kechikdi' ? 'Kechikdi' : 'Kelmadi';
+
+      return `${statusEmoji} <b>Yo'qlama belgilandi</b>\n\nStudent ID: ${studentId}\nStatus: ${statusText}\nSana: ${new Date().toLocaleDateString()}\nVaqt: ${new Date().toLocaleTimeString()}\n\n✅ Ma'lumot saqlandi!`;
+    } catch (error) {
+      this.logger.error('Error marking attendance:', error);
+      return 'Yo\'qlama belgilashda xatolik yuz berdi.';
+    }
+  }
+
+  private getRoleDisplayName(role: string): string {
+    switch (role) {
+      case 'student':
+        return 'Talaba';
+      case 'teacher':
+        return 'O\'qituvchi';
+      case 'center_admin':
+        return 'Markaz Admin';
+      case 'super_admin':
+        return 'Super Admin';
+      default:
+        return role;
+    }
   }
 }

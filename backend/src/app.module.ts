@@ -13,6 +13,7 @@ import { AssignedTestsModule } from './assigned-tests/assigned-tests.module';
 import { ExamsModule } from './exams/exams.module';
 import { StudentsModule } from './students/students.module';
 import { TelegramModule } from './telegram/telegram.module';
+import { AttendanceModule } from './attendance/attendance.module';
 
 @Module({
   imports: [
@@ -47,6 +48,7 @@ import { TelegramModule } from './telegram/telegram.module';
     ExamsModule,
     StudentsModule,
     TelegramModule,
+    AttendanceModule,
   ],
 })
 export class AppModule {}

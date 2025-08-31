@@ -40,6 +40,14 @@ export class GroupsController {
     return this.groupsService.listMy(req.user.id);
   }
 
+  @Get(':groupId/students')
+  async getStudents(
+    @Param('groupId') groupId: string,
+    @Request() req,
+  ) {
+    return this.groupsService.getStudents(Number(groupId), req.user.id);
+  }
+
   @Patch(':groupId/students')
   async addStudents(
     @Param('groupId') groupId: string,

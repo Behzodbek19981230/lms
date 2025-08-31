@@ -21,6 +21,7 @@ import type { SubjectType } from '@/types/subject.type';
 import { useAuth } from '@/contexts/AuthContext';
 import TelegramManagementCard from '@/components/TelegramManagementCard';
 import TelegramConnectCard from '@/components/TelegramConnectCard';
+import AttendanceCard from '@/components/AttendanceCard';
 import moment from 'moment';
 export default function TeacherDashboard() {
 	const navigate = useNavigate();
@@ -207,7 +208,7 @@ export default function TeacherDashboard() {
 					</Card>
 				</div>
 
-				<div className='grid grid-cols-1 lg:grid-cols-3 gap-6'>
+				<div className='grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6'>
 					{/* Today's Schedule */}
 					<Card className='border-border'>
 						<CardHeader>
@@ -285,6 +286,14 @@ export default function TeacherDashboard() {
 						</CardContent>
 					</Card>
 
+					{/* Attendance Section */}
+					<div className='space-y-6'>
+						<AttendanceCard />
+					</div>
+				</div>
+
+				{/* Additional Dashboard Sections */}
+				<div className='grid grid-cols-1 lg:grid-cols-3 gap-6 mt-8'>
 					{/* Quick Actions & Recent Activity */}
 					<div className='space-y-6'>
 						{/* Telegram Personal Connection */}
@@ -293,59 +302,9 @@ export default function TeacherDashboard() {
 						{/* Telegram Management */}
 						<TelegramManagementCard />
 
-						{/* Quick Actions */}
-						<Card className='border-border'>
-							<CardHeader>
-								<CardTitle className='text-card-foreground'>Tezkor amallar</CardTitle>
-							</CardHeader>
-							<CardContent className='space-y-3'>
-								<Button
-									variant='hero'
-									className='w-full justify-start'
-									onClick={() => {
-										navigate('/account/test/create');
-									}}
-								>
-									<Plus className='h-4 w-4 mr-2' />
-									Yangi test yaratish
-								</Button>
-								<Button variant='outline' className='w-full justify-start'>
-									<Upload className='h-4 w-4 mr-2' />
-									Video dars yuklash
-								</Button>
-								<Button variant='outline' className='w-full justify-start'>
-									<CheckCircle className='h-4 w-4 mr-2' />
-									Yo'qlama olish
-								</Button>
-								<Button variant='outline' className='w-full justify-start'>
-									<FileText className='h-4 w-4 mr-2' />
-									Vazifa berish
-								</Button>
-								<Button variant='outline' className='w-full justify-start'>
-									<BarChart3 className='h-4 w-4 mr-2' />
-									Progress ko'rish
-								</Button>
-							</CardContent>
-						</Card>
+					
 
-						{/* Recent Activities */}
-						<Card className='border-border'>
-							<CardHeader>
-								<CardTitle className='text-card-foreground text-sm'>So'nggi faoliyat</CardTitle>
-							</CardHeader>
-							<CardContent>
-								<div className='space-y-3'>
-									{recentActivities.map((activity) => (
-										<div key={activity.id} className='text-sm'>
-											<p className='text-foreground font-medium'>{activity.action}</p>
-											<p className='text-muted-foreground text-xs'>
-												{activity.group} • {activity.time}
-											</p>
-										</div>
-									))}
-								</div>
-							</CardContent>
-						</Card>
+					
 					</div>
 				</div>
 

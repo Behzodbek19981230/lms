@@ -130,6 +130,23 @@ export class GroupsService {
     return this.map(saved);
   }
 
+  async getStudents(groupId: number, userId: number) {
+    const group = await this.groupRepo.findOne({
+      where: { id: groupId },
+      relations: ['teacher', 'students'],
+    });
+    if (!group) throw new NotFoundException('Guruh topilmadi');
+    if (group.teacher.id !== userId)
+      throw new ForbiddenException("Faqat o'qituvchi guruh talabalarini ko'ra oladi");
+    
+    return group.students.map(student => ({
+      id: student.id,
+      firstName: student.firstName,
+      lastName: student.lastName,
+      email: student.email,
+    }));
+  }
+
   async update(
     id: number,
     dto: Partial<CreateGroupDto>,

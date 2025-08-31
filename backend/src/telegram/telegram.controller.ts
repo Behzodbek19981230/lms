@@ -81,9 +81,9 @@ export class TelegramController {
   @Get('chats/user/me')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Get all chats for current user' })
-  @ApiResponse({ status: 200, description: 'Current user chats retrieved' })
-  async getCurrentUserChats(@Request() req) {
+  @ApiOperation({ summary: 'Get current user\'s Telegram chats' })
+  @ApiResponse({ status: 200, description: 'User chats retrieved' })
+  async getMyChats(@Request() req) {
     return this.telegramService.getUserChats(req.user.id);
   }
 
@@ -91,135 +91,89 @@ export class TelegramController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.TEACHER, UserRole.ADMIN, UserRole.SUPERADMIN)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Get all chats for management' })
+  @ApiOperation({ summary: 'Get all Telegram chats' })
   @ApiResponse({ status: 200, description: 'All chats retrieved' })
   async getAllChats() {
     return this.telegramService.getAllChats();
   }
 
-  @Get('chats/user/:userId')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.TEACHER, UserRole.ADMIN, UserRole.SUPERADMIN)
-  @ApiBearerAuth()
-  @ApiOperation({ summary: 'Get all chats for a user' })
-  @ApiResponse({ status: 200, description: 'User chats retrieved' })
-  async getUserChats(@Param('userId') userId: string) {
-    return this.telegramService.getUserChats(+userId);
-  }
-
-  // ==================== User Registration & Linking ====================
+  // ==================== Authentication ====================
 
   @Get('user-status')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Get current user Telegram status and available channels' })
-  @ApiResponse({ status: 200, description: 'User Telegram status retrieved' })
-  async getCurrentUserStatus(@Request() req) {
+  @ApiOperation({ summary: 'Get user Telegram connection status' })
+  @ApiResponse({ status: 200, description: 'User status retrieved successfully' })
+  async getUserStatus(@Request() req) {
     return this.telegramService.getUserTelegramStatus(req.user.id);
   }
+
   @Post('authenticate')
-  @ApiOperation({ summary: 'Authenticate and auto-connect user to Telegram' })
-  @ApiResponse({ status: 200, description: 'User authenticated and connected' })
-  async authenticateUser(@Body() dto: AuthenticateUserDto) {
-    return this.telegramService.authenticateAndConnectUser(
-      dto.telegramUserId,
-      dto.username,
-      dto.firstName,
-      dto.lastName
-    );
+  @ApiOperation({ summary: 'Authenticate user via Telegram widget' })
+  @ApiResponse({ status: 200, description: 'Authentication successful' })
+  async authenticate(@Body() dto: AuthenticateUserDto) {
+    return this.telegramService.authenticateUser(dto);
   }
 
-  @Post('register-user')
-  @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth()
-  @ApiOperation({ summary: 'Register current user to Telegram bot and get channel invitations' })
-  @ApiResponse({ status: 200, description: 'User registered and invitations sent' })
-  async registerCurrentUser(@Request() req) {
-    return this.telegramService.sendUserInvitations(req.user.id);
-  }
-
-  @Post('link-telegram-user')
+  @Post('link/:telegramUserId/:lmsUserId')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.TEACHER, UserRole.ADMIN, UserRole.SUPERADMIN)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Link a Telegram user to an LMS user' })
-  @ApiResponse({ status: 200, description: 'User linked successfully' })
-  async linkTelegramUser(
-    @Body() dto: { telegramUserId: string; lmsUserId: number }
+  @ApiOperation({ summary: 'Link Telegram user to LMS user' })
+  @ApiResponse({ status: 200, description: 'Users linked successfully' })
+  async linkUsers(
+    @Param('telegramUserId') telegramUserId: string,
+    @Param('lmsUserId') lmsUserId: string,
   ) {
-    return this.telegramService.linkTelegramUserToLmsUser(
-      dto.telegramUserId,
-      dto.lmsUserId
-    );
+    return this.telegramService.linkTelegramUserToLmsUser(telegramUserId, +lmsUserId);
   }
 
   @Get('unlinked-users')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.TEACHER, UserRole.ADMIN, UserRole.SUPERADMIN)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Get list of unlinked Telegram users' })
+  @ApiOperation({ summary: 'Get unlinked Telegram users' })
   @ApiResponse({ status: 200, description: 'Unlinked users retrieved' })
   async getUnlinkedUsers(@Request() req) {
-    this.logger.log(`Unlinked users request from user: ${JSON.stringify({
-      id: req.user?.id,
-      role: req.user?.role,
-      email: req.user?.email
-    })}`);
+    this.logger.log(`Getting unlinked users. User: ${JSON.stringify(req.user)}`);
     
-    try {
-      const result = await this.telegramService.getUnlinkedTelegramUsers();
-      this.logger.log(`Found ${result.length} unlinked users`);
-      return result;
-    } catch (error) {
-      this.logger.error('Error getting unlinked users:', error);
-      throw error;
+    if (!req.user) {
+      this.logger.error('No user found in request');
+      throw new BadRequestException('User not authenticated');
     }
+    
+    this.logger.log(`User role: ${req.user.role}, User ID: ${req.user.id}`);
+    return this.telegramService.getUnlinkedTelegramUsers();
   }
+
+  // ==================== Test Debug Endpoints ====================
 
   @Get('test-auth')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Test authentication without role restriction' })
-  @ApiResponse({ status: 200, description: 'Auth test successful' })
   async testAuth(@Request() req) {
-    this.logger.log(`Test auth request from user: ${JSON.stringify({
-      id: req.user?.id,
-      role: req.user?.role,
-      email: req.user?.email,
-      firstName: req.user?.firstName,
-      lastName: req.user?.lastName
-    })}`);
-    
+    this.logger.log(`Test auth endpoint hit. User: ${JSON.stringify(req.user)}`);
     return {
-      success: true,
-      user: {
-        id: req.user?.id,
-        role: req.user?.role,
-        email: req.user?.email
-      },
-      message: 'Authentication successful'
+      message: 'Authentication successful',
+      user: req.user,
+      timestamp: new Date().toISOString()
     };
   }
 
-  @Get('test-teacher-role')
+  @Get('test-roles')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.TEACHER)
+  @Roles(UserRole.TEACHER, UserRole.ADMIN, UserRole.SUPERADMIN)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Test teacher role specifically' })
-  @ApiResponse({ status: 200, description: 'Teacher role test successful' })
-  async testTeacherRole(@Request() req) {
-    this.logger.log(`Teacher role test from user: ${JSON.stringify({
-      id: req.user?.id,
-      role: req.user?.role,
-      email: req.user?.email
-    })}`);
-    
+  async testRoles(@Request() req) {
+    this.logger.log(`Test roles endpoint hit. User: ${JSON.stringify(req.user)}`);
     return {
-      success: true,
-      message: 'Teacher role access successful',
-      userRole: req.user?.role
+      message: 'Role authorization successful',
+      user: req.user,
+      timestamp: new Date().toISOString()
     };
   }
+
+  // ==================== Channel Management ====================
 
   @Post('generate-invite/:channelId')
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -286,19 +240,53 @@ export class TelegramController {
       return;
     }
 
-    // Handle chat registration
-    if (message.text === '/start' || message.text === '/register') {
-      await this.handleRegistration(message);
-      return;
+    // Handle bot commands
+    if (message.text) {
+      const command = message.text.toLowerCase().trim();
+      
+      switch (command) {
+        case '/start':
+        case '/register':
+          await this.handleRegistration(message);
+          return;
+        case '/help':
+          await this.handleHelp(message);
+          return;
+        case '/menu':
+          await this.handleMainMenu(message);
+          return;
+        case '/natijalarim':
+        case 'natijalarim':
+          await this.handleMyResults(message);
+          return;
+        case '/davomatim':
+        case 'davomatim':
+          await this.handleMyAttendance(message);
+          return;
+        case '/hisobim':
+        case 'hisobim':
+          await this.handleMyAccount(message);
+          return;
+        case '/yoklama':
+        case 'yoklama':
+          await this.handleAttendanceTaking(message);
+          return;
+        default:
+          // Check if it's a group selection for attendance
+          if (command.startsWith('grup_')) {
+            await this.handleGroupSelection(message);
+            return;
+          }
+          // Check if it's attendance marking
+          if (command.includes('_yoklama_')) {
+            await this.handleAttendanceMarking(message);
+            return;
+          }
+          break;
+      }
     }
 
-    // Handle help command
-    if (message.text === '/help') {
-      await this.handleHelp(message);
-      return;
-    }
-
-    this.logger.log(`Unhandled message type: ${message.text}`);
+    this.logger.log(`Unhandled message: ${message.text}`);
   }
 
   private async processChannelPost(channelPost: any) {
@@ -351,22 +339,42 @@ export class TelegramController {
         lastName
       );
 
+      let welcomeMessage = `🎓 <b>Assalomu alaykum, Universal LMS botiga xush kelibsiz!</b>\n\n`;
+      
+      if (result.autoConnected) {
+        welcomeMessage += `✅ Hisobingiz avtomatik ulandi.\n\n📋 <b>Mavjud imkoniyatlar:</b>\n`;
+      } else {
+        welcomeMessage += `📝 Ro'yxatdan o'tish muvaffaqiyatli!\n\n📋 <b>Keyingi qadamlar:</b>\n`;
+      }
+      
+      welcomeMessage += `\n📊 /natijalarim - Test natijalarimni ko'rish`;
+      welcomeMessage += `\n📅 /davomatim - Davomat hisobotim`;
+      welcomeMessage += `\n👤 /hisobim - Shaxsiy ma'lumotlar`;
+      welcomeMessage += `\n📋 /menu - Asosiy menyu`;
+      welcomeMessage += `\n❓ /help - Yordam`;
+      
+      if (result.autoConnected) {
+        welcomeMessage += `\n\n🎯 <b>Test formatiga misol:</b>\n#T123Q1 A`;
+      } else {
+        welcomeMessage += `\n\n🔗 <b>Hisobni ulash uchun:</b>\nO'qituvchingiz bilan bog'laning`;
+      }
+
       if (this.telegramService['bot']) {
         await this.telegramService['bot'].sendMessage(
           message.chat.id,
-          result.message + (result.autoConnected ? '' : '\n\n' + this.getRegistrationInstructions()),
+          welcomeMessage,
           { parse_mode: 'HTML' }
         );
       }
 
-      this.logger.log(`Authentication handled for ${username}: ${result.success}, auto-connected: ${result.autoConnected}`);
+      this.logger.log(`Registration handled for ${username}: ${result.success}, auto-connected: ${result.autoConnected}`);
     } catch (error) {
-      this.logger.error('Error handling authentication:', error);
+      this.logger.error('Error handling registration:', error);
       
       if (this.telegramService['bot']) {
         await this.telegramService['bot'].sendMessage(
           message.chat.id,
-          'Kechirasiz, autentifikatsiyada xatolik. Keyinroq qayta urinib ko\'ring yoki qo\'llab-quvvatlash xizmatiga murojaat qiling.',
+          'Kechirasiz, ro\'yxatdan o\'tishda xatolik. Keyinroq qayta urinib ko\'ring.',
         );
       }
     }
@@ -386,11 +394,156 @@ export class TelegramController {
     this.logger.log(`Help request from ${message.from.username}`);
   }
 
+  private async handleMainMenu(message: any) {
+    const menuMessage = `🎓 <b>Universal LMS - Asosiy Menu</b>\n\nQuyidagi bo'limlardan birini tanlang:\n\n📊 /natijalarim - Test natijalarim\n📅 /davomatim - Davomat hisobotim\n👤 /hisobim - Shaxsiy ma'lumotlar\n❓ /help - Yordam\n\n---\nO'qituvchilar uchun:\n✅ /yoklama - Yo'qlama olish`;
+    
+    if (this.telegramService['bot']) {
+      await this.telegramService['bot'].sendMessage(
+        message.chat.id,
+        menuMessage,
+        { parse_mode: 'HTML' }
+      );
+    }
+  }
+
+  private async handleMyResults(message: any) {
+    try {
+      const results = await this.telegramService.getUserTestResults(message.from.id.toString());
+      
+      if (this.telegramService['bot']) {
+        await this.telegramService['bot'].sendMessage(
+          message.chat.id,
+          results,
+          { parse_mode: 'HTML' }
+        );
+      }
+    } catch (error) {
+      this.logger.error('Error getting user results:', error);
+      if (this.telegramService['bot']) {
+        await this.telegramService['bot'].sendMessage(
+          message.chat.id,
+          'Natijalarni yuklab olishda xatolik. Keyinroq qayta urinib ko\'ring.'
+        );
+      }
+    }
+  }
+
+  private async handleMyAttendance(message: any) {
+    try {
+      const attendance = await this.telegramService.getUserAttendance(message.from.id.toString());
+      
+      if (this.telegramService['bot']) {
+        await this.telegramService['bot'].sendMessage(
+          message.chat.id,
+          attendance,
+          { parse_mode: 'HTML' }
+        );
+      }
+    } catch (error) {
+      this.logger.error('Error getting user attendance:', error);
+      if (this.telegramService['bot']) {
+        await this.telegramService['bot'].sendMessage(
+          message.chat.id,
+          'Davomat ma\'lumotlarini yuklab olishda xatolik. Keyinroq qayta urinib ko\'ring.'
+        );
+      }
+    }
+  }
+
+  private async handleMyAccount(message: any) {
+    try {
+      const account = await this.telegramService.getUserAccountInfo(message.from.id.toString());
+      
+      if (this.telegramService['bot']) {
+        await this.telegramService['bot'].sendMessage(
+          message.chat.id,
+          account,
+          { parse_mode: 'HTML' }
+        );
+      }
+    } catch (error) {
+      this.logger.error('Error getting user account info:', error);
+      if (this.telegramService['bot']) {
+        await this.telegramService['bot'].sendMessage(
+          message.chat.id,
+          'Hisob ma\'lumotlarini yuklab olishda xatolik. Keyinroq qayta urinib ko\'ring.'
+        );
+      }
+    }
+  }
+
+  private async handleAttendanceTaking(message: any) {
+    try {
+      const groups = await this.telegramService.getTeacherGroups(message.from.id.toString());
+      
+      if (this.telegramService['bot']) {
+        await this.telegramService['bot'].sendMessage(
+          message.chat.id,
+          groups,
+          { parse_mode: 'HTML' }
+        );
+      }
+    } catch (error) {
+      this.logger.error('Error getting teacher groups:', error);
+      if (this.telegramService['bot']) {
+        await this.telegramService['bot'].sendMessage(
+          message.chat.id,
+          'Sizda o\'qituvchi huquqi yo\'q yoki guruhlar yuklanmadi.'
+        );
+      }
+    }
+  }
+
+  private async handleGroupSelection(message: any) {
+    try {
+      const groupId = message.text.replace('grup_', '');
+      const students = await this.telegramService.getGroupStudentsForAttendance(message.from.id.toString(), groupId);
+      
+      if (this.telegramService['bot']) {
+        await this.telegramService['bot'].sendMessage(
+          message.chat.id,
+          students,
+          { parse_mode: 'HTML' }
+        );
+      }
+    } catch (error) {
+      this.logger.error('Error getting group students:', error);
+      if (this.telegramService['bot']) {
+        await this.telegramService['bot'].sendMessage(
+          message.chat.id,
+          'Guruh ma\'lumotlarini yuklab olishda xatolik.'
+        );
+      }
+    }
+  }
+
+  private async handleAttendanceMarking(message: any) {
+    try {
+      const result = await this.telegramService.markStudentAttendance(message.from.id.toString(), message.text);
+      
+      if (this.telegramService['bot']) {
+        await this.telegramService['bot'].sendMessage(
+          message.chat.id,
+          result,
+          { parse_mode: 'HTML' }
+        );
+      }
+    } catch (error) {
+      this.logger.error('Error marking attendance:', error);
+      if (this.telegramService['bot']) {
+        await this.telegramService['bot'].sendMessage(
+          message.chat.id,
+          'Yo\'qlama belgilashda xatolik.'
+        );
+      }
+    }
+  }
+
   private getRegistrationInstructions(): string {
     return `📋 <b>Next Steps:</b>\n\n1. Contact your teacher with this information:\n   • Your Telegram username: @${this.telegramService['username'] || 'your_username'}\n   • Your name from LMS\n\n2. Once linked, you'll receive channel invitations\n\n3. Join your class channels to receive tests\n\n❓ Questions? Send /help`;
   }
 
   private getHelpMessage(): string {
-    return `🤖 <b>Universal LMS Bot Help</b>\n\n📋 <b>Commands:</b>\n/start - Register with the bot\n/help - Show this help message\n\n📚 <b>How to Answer Tests:</b>\nUse format: #T123Q1 A\n• T123 = Test ID\n• Q1 = Question number\n• A = Your answer\n\n🔗 <b>Need Account Linking?</b>\nContact your teacher with:\n• Your Telegram username\n• Your full name from LMS\n\n📞 <b>Support:</b>\nContact your teacher or school admin for help.`;
+    return `🤖 <b>Universal LMS Bot</b>\n\n📋 <b>Mavjud buyruqlar:</b>\n/start - Botni ishga tushirish\n/menu - Asosiy menyu\n/natijalarim - Test natijalarim\n/davomatim - Davomat ma'lumotlarim\n/hisobim - Hisob ma'lumotlarim\n/help - Yordam\n\n📚 <b>Testlarga javob berish:</b>\nFormat: #T123Q1 A\n• T123 = Test ID\n• Q1 = Savol raqami\n• A = Javobingiz\n\n🔗 <b>Hisobni ulash kerakmi?</b>\nO'qituvchingiz bilan bog'laning:\n• Telegram username\n• To'liq ismingiz\n\n📞 <b>Yordam:</b>\nO'qituvchi yoki admin bilan bog'laning.`;
   }
 }

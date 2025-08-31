@@ -328,6 +328,10 @@ const CenterAdminDashboard = () => {
                                 Fanlarimni boshqarish
                             </Button>
                             <Button variant="outline" className="w-full justify-start">
+                                <CheckCircle className="h-4 w-4 mr-2" />
+                                Davomat hisoboti
+                            </Button>
+                            <Button variant="outline" className="w-full justify-start">
                                 <DollarSign className="h-4 w-4 mr-2" />
                                 To'lovlarni ko'rish
                             </Button>
