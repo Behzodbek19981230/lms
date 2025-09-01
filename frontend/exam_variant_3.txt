@@ -1,0 +1,111 @@
+====================
+PDF DOCUMENT (FALLBACK MODE)
+====================
+
+Document Title: imtihon-2 — Variant 2025-002-003-01
+Variant Number: 2025-002-003-01
+Student Name: John Doe
+Generated on: 9/1/2025, 12:43:18 PM
+Status: Generated in fallback mode due to system limitations
+
+====================
+DOCUMENT CONTENT
+====================
+
+Total Questions: 10
+
+Question 1:
+  Text: (2^3) * (2^2) nechaga teng?
+  Answers:
+    A) A) 4
+    B) B) 32
+    C) C) 16
+    D) D) 8
+
+Question 2:
+  Text: 9 * 6 nechaga teng?
+  Answers:
+    A) A) 54
+    B) B) 52
+    C) C) 45
+    D) D) 64
+
+Question 3:
+  Text: 15 / 3 nechaga teng?
+  Answers:
+    A) A) 4
+    B) B) 6
+    C) C) 5
+    D) D) 7
+
+Question 4:
+  Text: √81 nechaga teng?
+  Answers:
+    A) A) 9
+    B) B) 10
+    C) C) 7
+    D) D) 8
+
+Question 5:
+  Text: Sin 90° ning qiymati nechaga teng?
+  Answers:
+    A) A) 1
+    B) B) ∞
+    C) C) 0
+    D) D) -1
+
+Question 6:
+  Text: (2^3) * (2^2) nechaga teng?
+  Answers:
+    A) A) 16
+    B) B) 32
+    C) C) 4
+    D) D) 8
+
+Question 7:
+  Text: Uchburchak ichki burchaklari yig‘indisi nechaga teng?
+  Answers:
+    A) A) 120°
+    B) B) 360°
+    C) C) 90°
+    D) D) 180°
+
+Question 8:
+  Text: (2^3) * (2^2) nechaga teng?
+  Answers:
+    A) A) 8
+    B) B) 16
+    C) C) 4
+    D) D) 32
+
+Question 9:
+  Text: (2^3) * (2^2) nechaga teng?
+  Answers:
+    A) A) 8
+    B) B) 16
+    C) C) 4
+    D) D) 32
+
+Question 10:
+  Text: Uchburchak ichki burchaklari yig‘indisi nechaga teng?
+  Answers:
+    A) A) 180°
+    B) B) 120°
+    C) C) 90°
+    D) D) 360°
+
+====================
+SYSTEM INFORMATION
+====================
+
+This document was generated in fallback mode because the system is missing required libraries
+for full PDF generation (e.g., libnspr4.so).
+
+For full PDF functionality, please ensure all required system libraries are installed.
+See: https://pptr.dev/troubleshooting
+
+====================
+RAW CONTENT (TRUNCATED)
+====================
+
+imtihon-2 — Variant 2025-002-003-01 Matematika IMTIHON imtihon-2 Fan(lar): Matematika Savollar soni: 10 ta Variant: 2025-002-003-01 Talaba: John Doe Sana: 01/09/2025 KO'RSATMALAR: Barcha savollarga javob bering Har bir savol uchun faqat bitta to'g'ri javob mavjud Javoblarni aniq va tushunarli yozing Vaqtni to'g'ri taqsimlang Ishingizni tekshirib chiqing Ism: John Familiya: Doe Guruh: 1-guruh matem, 2-guruh Variant raqami: 2025-002-003-01 Sana: 01/09/2025 imtihon-2 Variant: 2025-002-003-01 O'quvchi: John Doe Sana: 01/09/2025 1. (2^3) * (2^2) nechaga teng? A) 4 B) 32 C) 16 D) 8 [1 ball] 2. 9 * 6 nechaga teng? A) 54 B) 52 C) 45 D) 64 [1 ball] 3. 15 / 3 nechaga teng? A) 4 B) 6 C) 5 D) 7 [1 ball] 4. √81 nechaga teng? A) 9 B) 10 C) 7 D) 8 [1 ball] 5. Sin 90° ning qiymati nechaga teng? A) 1 B) ∞ C) 0 D) -1 [1 ball] 6. (2^3) * (2^2) nechaga teng? A) 16 B) 32 C) 4 D) 8 [1 ball] 7. Uchburchak ichki burchaklari yig‘indisi nechaga teng? A) 120° B) 360° C) 90° D) 180° [1 ball] 8. (2^3) * (2^2) nechaga teng? A) 8 B) 16 C) 4 D) 32 [1 ball] 9. (2^3) * (2^2) nechaga teng? A) 8 B) 16 C) 4 D) 32 [1 ball] 10. Uchburchak ichki burchaklari yig‘indisi nechaga teng? A) 180° B) 120° C) 90° D) 360° [1 ball]

@@ -20,6 +20,7 @@ import {
 
 import { telegramService } from '@/services/telegram.service';
 import { TelegramChat, PDFDistributionResult, ChatType } from '@/types/telegram.type';
+import TelegramAuthWidget from './TelegramAuthWidget';
 
 interface TelegramTestDistributionProps {
   testId?: number;
@@ -123,6 +124,38 @@ const TelegramTestDistribution: React.FC<TelegramTestDistributionProps> = ({
 
   return (
     <div className="space-y-6">
+      {/* Telegram Authentication */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center space-x-2">
+            <Users className="h-5 w-5" />
+            <span>Student Account Linking</span>
+          </CardTitle>
+          <CardDescription>
+            Students can link their Telegram accounts to automatically receive personalized tests
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <TelegramAuthWidget 
+            onAuthSuccess={(data) => {
+              onSuccess(`User ${data.first_name} successfully linked their Telegram account!`);
+            }}
+            onAuthError={(error) => {
+              onError(`Telegram authentication failed: ${error}`);
+            }}
+          />
+          
+          <Alert className="mt-4">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>How it works</AlertTitle>
+            <AlertDescription>
+              Students click the "Login with Telegram" button above to link their accounts. 
+              Once linked, they can receive personalized PDF tests and their answers will be automatically tracked.
+            </AlertDescription>
+          </Alert>
+        </CardContent>
+      </Card>
+
       {/* Channel Selection */}
       <Card>
         <CardHeader>

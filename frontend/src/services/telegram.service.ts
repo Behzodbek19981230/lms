@@ -115,6 +115,41 @@ class TelegramService {
     return response.data;
   }
 
+  // Send exam notification to specific channel
+  async sendExamNotificationToChannel(examId: number, channelId: string, customMessage?: string): Promise<{ success: boolean; message: string }> {
+    const response = await request.post(`${this.baseURL}/send-exam-notification`, {
+      examId,
+      channelId,
+      customMessage
+    });
+    return response.data;
+  }
+
+  // ==================== Telegram Authentication ====================
+
+  async initiateTelegramAuth(userId: number): Promise<{ authUrl: string; token: string }> {
+    const response = await request.post(`${this.baseURL}/auth/initiate`, { userId });
+    return response.data;
+  }
+
+  async completeTelegramAuth(authData: {
+    id: number;
+    first_name: string;
+    last_name?: string;
+    username?: string;
+    photo_url?: string;
+    auth_date: number;
+    hash: string;
+  }): Promise<{ success: boolean; message: string; user?: any }> {
+    const response = await request.post(`${this.baseURL}/auth/complete`, authData);
+    return response.data;
+  }
+
+  async checkTelegramLinkStatus(userId: number): Promise<{ linked: boolean; telegramUser?: any }> {
+    const response = await request.get(`${this.baseURL}/auth/status/${userId}`);
+    return response.data;
+  }
+
   async getTestStatistics(testId: number): Promise<TestStatistics> {
     const response = await request.get(`${this.baseURL}/statistics/${testId}`);
     return response.data;
