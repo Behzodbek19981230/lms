@@ -8,7 +8,6 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { 
-  Send, 
   FileText, 
   MessageSquare, 
   Users, 
@@ -40,39 +39,8 @@ const TelegramTestDistribution: React.FC<TelegramTestDistributionProps> = ({
   onError
 }) => {
   const [loading, setLoading] = useState(false);
-  const [customMessage, setCustomMessage] = useState('');
   const [distributionResult, setDistributionResult] = useState<PDFDistributionResult | null>(null);
-  const [distributionType, setDistributionType] = useState<'text' | 'pdf'>('pdf');
-
   const selectedChannel = channels.find(ch => ch.chatId === selectedChannelId);
-
-  const handleSendTextTest = async () => {
-    if (!testId || !selectedChannelId) {
-      onError('Please select a test and channel');
-      return;
-    }
-
-    try {
-      setLoading(true);
-      const result = await telegramService.sendTestToChannel({
-        testId,
-        channelId: selectedChannelId,
-        customMessage
-      });
-
-      if (result.success) {
-        onSuccess('Text test sent successfully to Telegram channel!');
-        setCustomMessage('');
-      } else {
-        onError(result.message || 'Failed to send test');
-      }
-    } catch (error: any) {
-      const errorMessage = error?.response?.data?.message || 'Failed to send text test';
-      onError(errorMessage);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleSendPDFTests = async () => {
     if (!testId || !selectedChannelId) {
@@ -215,93 +183,46 @@ const TelegramTestDistribution: React.FC<TelegramTestDistributionProps> = ({
         </CardContent>
       </Card>
 
-      {/* Distribution Options */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Text Test Distribution */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center space-x-2">
-              <MessageSquare className="h-5 w-5" />
-              <span>Text Test</span>
-            </CardTitle>
-            <CardDescription>
-              Send test questions as text messages to the channel
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid w-full items-center gap-1.5">
-              <Label htmlFor="custom-message">Custom Message (Optional)</Label>
-              <Textarea
-                id="custom-message"
-                placeholder="Add a custom message to accompany the test..."
-                value={customMessage}
-                onChange={(e) => setCustomMessage(e.target.value)}
-                rows={3}
-              />
-            </div>
-            
-            <Button
-              onClick={handleSendTextTest}
-              disabled={loading || !testId || !selectedChannelId}
-              className="w-full"
-            >
-              {loading ? (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              ) : (
-                <Send className="h-4 w-4 mr-2" />
-              )}
-              Send Text Test
-            </Button>
+      {/* PDF Test Distribution */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center space-x-2">
+            <FileText className="h-5 w-5" />
+            <span>PDF Tests</span>
+          </CardTitle>
+          <CardDescription>
+            Generate and send personalized PDF tests to students
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <Alert>
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Individual Variants</AlertTitle>
+            <AlertDescription>
+              Each student will receive a unique PDF with shuffled questions
+            </AlertDescription>
+          </Alert>
 
-            <div className="text-sm text-muted-foreground space-y-1">
-              <p>• Test questions will be sent as individual messages</p>
-              <p>• Students can answer using #T{testId}Q1 A format</p>
-              <p>• Answers will be automatically checked</p>
-            </div>
-          </CardContent>
-        </Card>
+          <Button
+            onClick={handleSendPDFTests}
+            disabled={loading || !testId || !selectedChannelId}
+            className="w-full"
+          >
+            {loading ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <FileText className="h-4 w-4 mr-2" />
+            )}
+            Generate & Send PDFs
+          </Button>
 
-        {/* PDF Test Distribution */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center space-x-2">
-              <FileText className="h-5 w-5" />
-              <span>PDF Tests</span>
-            </CardTitle>
-            <CardDescription>
-              Generate and send personalized PDF tests to students
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <Alert>
-              <AlertCircle className="h-4 w-4" />
-              <AlertTitle>Individual Variants</AlertTitle>
-              <AlertDescription>
-                Each student will receive a unique PDF with shuffled questions
-              </AlertDescription>
-            </Alert>
-
-            <Button
-              onClick={handleSendPDFTests}
-              disabled={loading || !testId || !selectedChannelId}
-              className="w-full"
-            >
-              {loading ? (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              ) : (
-                <FileText className="h-4 w-4 mr-2" />
-              )}
-              Generate & Send PDFs
-            </Button>
-
-            <div className="text-sm text-muted-foreground space-y-1">
-              <p>• Individual PDF variants for each student</p>
-              <p>• Questions are shuffled for unique tests</p>
-              <p>• PDFs sent directly to students' private chats</p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+          <div className="text-sm text-muted-foreground space-y-1">
+            <p>• Individual PDF variants for each student</p>
+            <p>• Questions are shuffled for unique tests</p>
+            <p>• PDFs sent directly to students' private chats</p>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Distribution Results */}
       {distributionResult && (

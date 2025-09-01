@@ -28,6 +28,7 @@ import StudentDashboard from './pages/StudentDashboard';
 import TelegramManagement from './pages/TelegramManagement';
 import TelegramUserDashboard from './pages/TelegramUserDashboard';
 import CenterUsersManagement from './pages/CenterUsersManagement';
+import { TeacherPayments, StudentPayments } from './pages/payments';
 
 const queryClient = new QueryClient();
 
@@ -67,6 +68,9 @@ const App = () => (
 							<Route path='test/:testId/questions' element={<TestQuestions />} />
 							<Route path='subjects' element={<Subjects />} />
 							<Route path='student' element={<StudentDashboard />} />
+							<Route path='payments' element={<TeacherPayments />} />
+							<Route path='teacher-payments' element={<TeacherPayments />} />
+							<Route path='student-payments' element={<StudentPayments />} />
 							<Route path='telegram' element={<TelegramManagement />} />
 							<Route path='telegram-user' element={<TelegramUserDashboard />} />
 							<Route path='center-users' element={<CenterUsersManagement />} />

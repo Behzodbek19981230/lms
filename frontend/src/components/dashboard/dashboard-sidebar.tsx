@@ -13,7 +13,7 @@ import {
     SidebarMenuSubItem,
     useSidebar,
 } from '@/components/ui/sidebar';
-import { Award, FolderOpen, LayoutDashboard, MessageSquare, Settings, Users, Send, Book, AlertCircle, Users2, GraduationCap, UserCheck } from 'lucide-react';
+import { Award, FolderOpen, LayoutDashboard, MessageSquare, Settings, Users, Send, Book, AlertCircle, Users2, GraduationCap, UserCheck, CreditCard } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useEffect, useState } from 'react';
 
@@ -36,6 +36,7 @@ const centerAdminMenuItems = [
     { title: 'O\'qituvchilarim', url: '/account/teachers', icon: UserCheck },
     { title: 'Mening fanlarim', url: '/account/subjects', icon: Book
      },
+    { title: 'To\'lovlar', url: '/account/payments', icon: CreditCard },
     { title: 'Telegram Management', url: '/account/telegram', icon: Send },
 ];
 const teacherMenuItems = [
@@ -44,12 +45,14 @@ const teacherMenuItems = [
     { title: 'Mening guruhlarim', url: '/account/groups', icon: Users2 },
     { title: 'Mening fanlarim', url: '/account/subjects', icon: Book
      },
+    { title: 'To\'lovlar', url: '/account/teacher-payments', icon: CreditCard },
     { title: 'Telegram Management', url: '/account/telegram', icon: Send },
 ];
 const studentMenuItems = [
     { title: 'Dashboard', url: '/account/student', icon: LayoutDashboard },
     { title: 'Mening fanlarim', url: '/account/subjects', icon: Book
      },
+    { title: 'Mening to\'lovlarim', url: '/account/student-payments', icon: CreditCard },
     { title: 'Telegram', url: '/account/telegram-user', icon: Send },
 ];
 

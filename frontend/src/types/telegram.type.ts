@@ -89,12 +89,6 @@ export interface CreateTelegramChatDto {
   userId?: number;
 }
 
-export interface SendTestToChannelDto {
-  testId: number;
-  channelId: string;
-  customMessage?: string;
-}
-
 export interface SendTestPDFsDto {
   studentIds: number[];
   channelId?: string;

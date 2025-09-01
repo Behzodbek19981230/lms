@@ -2,7 +2,6 @@ import { request } from '@/configs/request';
 import {
   TelegramChat,
   CreateTelegramChatDto,
-  SendTestToChannelDto,
   SendTestPDFsDto,
   TelegramUserStatus,
   TestStatistics,
@@ -74,11 +73,6 @@ class TelegramService {
   }
 
   // ==================== Test Distribution ====================
-
-  async sendTestToChannel(data: SendTestToChannelDto): Promise<{ success: boolean; message: string }> {
-    const response = await request.post(`${this.baseURL}/send-test`, data);
-    return response.data;
-  }
 
   async sendTestPDFsToChannel(testId: number, channelId: string): Promise<PDFDistributionResult> {
     const response = await request.post(`${this.baseURL}/send-test-pdfs/${testId}/${channelId}`);

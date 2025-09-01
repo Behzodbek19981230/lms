@@ -22,6 +22,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import TelegramManagementCard from '@/components/TelegramManagementCard';
 import TelegramConnectCard from '@/components/TelegramConnectCard';
 import AttendanceCard from '@/components/AttendanceCard';
+import { PaymentStatsWidget } from '@/components/payments';
 import moment from 'moment';
 export default function TeacherDashboard() {
 	const navigate = useNavigate();
@@ -302,9 +303,24 @@ export default function TeacherDashboard() {
 						{/* Telegram Management */}
 						<TelegramManagementCard />
 
-					
-
-					
+						{/* Payment Stats Widget */}
+						<PaymentStatsWidget 
+							stats={{
+								totalAmount: 15000000,
+								paidAmount: 12000000,
+								pendingAmount: 2500000,
+								overdueAmount: 500000,
+								totalPayments: 45,
+								paidPayments: 38,
+								pendingPayments: 5,
+								overduePayments: 2,
+								currentMonthAmount: 3500000,
+								previousMonthAmount: 3200000,
+								paymentsByType: [],
+								paymentsByStatus: [],
+								monthlyTrend: []
+							}} 
+						/>
 					</div>
 				</div>
 

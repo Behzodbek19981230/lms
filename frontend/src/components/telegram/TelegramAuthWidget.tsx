@@ -60,7 +60,7 @@ const TelegramAuthWidget: React.FC<TelegramAuthWidgetProps> = ({
       const script = document.createElement('script');
       script.id = 'telegram-widget-script';
       script.src = 'https://telegram.org/js/telegram-widget.js?22';
-      script.setAttribute('data-telegram-login', process.env.REACT_APP_TELEGRAM_BOT_USERNAME || 'YourBotUsername');
+      script.setAttribute('data-telegram-login', import.meta.env.VITE_BOT_USERNAME || 'universal_lmsbot');
       script.setAttribute('data-size', 'large');
       script.setAttribute('data-onauth', 'onTelegramAuth(user)');
       script.setAttribute('data-request-access', 'write');
@@ -90,9 +90,9 @@ const TelegramAuthWidget: React.FC<TelegramAuthWidgetProps> = ({
       });
 
       if (result.success) {
-        setIsLinked(true);
-        setTelegramUser(result.user);
-        onSuccess?.(`Telegram hisobingiz muvaffaqiyatli bog'landi!`);
+        // Refresh the link status after successful authentication
+        await checkLinkStatus();
+        onSuccess?.(result.message || `Telegram hisobingiz muvaffaqiyatli bog'landi!`);
       } else {
         onError?.(result.message || "Bog'lashda xatolik yuz berdi");
       }
@@ -240,7 +240,7 @@ const TelegramAuthWidget: React.FC<TelegramAuthWidgetProps> = ({
                   dangerouslySetInnerHTML={{
                     __html: `
                       <script async src="https://telegram.org/js/telegram-widget.js?22" 
-                        data-telegram-login="${process.env.REACT_APP_TELEGRAM_BOT_USERNAME || 'YourBotUsername'}" 
+                        data-telegram-login="${import.meta.env.VITE_BOT_USERNAME || 'universal_lmsbot'}"
                         data-size="large" 
                         data-onauth="onTelegramAuth(user)" 
                         data-request-access="write">
