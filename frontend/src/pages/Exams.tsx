@@ -29,9 +29,12 @@ import {
 	Shuffle,
 	Settings,
 	FileSpreadsheet,
+	MessageCircle,
 } from 'lucide-react';
 import { request } from '@/configs/request';
 import { useAuth } from '@/contexts/AuthContext';
+import { telegramService } from '@/services/telegram.service';
+import { useToast } from '@/components/ui/use-toast';
 import moment from 'moment';
 
 interface Exam {
@@ -106,6 +109,7 @@ interface ExamVariant {
 export default function ExamsPage() {
 	const navigate = useNavigate();
 	const { user } = useAuth();
+	const { toast } = useToast();
 
 	const [exams, setExams] = useState<Exam[]>([]);
 	const [groups, setGroups] = useState<Group[]>([]);
@@ -205,10 +209,74 @@ export default function ExamsPage() {
 
 	const handleUpdateExamStatus = async (examId: number, status: string) => {
 		try {
+			// Find the exam to get group information
+			const exam = exams.find(e => e.id === examId);
+			
+			// Update the exam status first
 			const response = await request.put(`/exams/${examId}/status`, { status });
 			setExams(exams.map((exam) => (exam.id === examId ? response.data : exam)));
+
+			// Send Telegram notifications when exam starts
+			if (status === 'in_progress' && exam && exam.groups.length > 0) {
+				try {
+					const groupIds = exam.groups.map(group => group.id);
+					const notificationResult = await telegramService.notifyExamStart(examId, groupIds);
+					
+					if (notificationResult.success) {
+						toast({
+							title: 'Imtihon boshlandi!',
+							description: `Telegram orqali ${notificationResult.sentCount || 0} ta o'quvchiga xabar yuborildi.`,
+							variant: 'default'
+						});
+					} else {
+						toast({
+							title: 'Imtihon boshlandi',
+							description: `Telegram xabari yuborishda muammo: ${notificationResult.message}`,
+							variant: 'default'
+						});
+					}
+				} catch (notificationError: any) {
+					// Don't fail the exam start if notification fails
+					console.error('Telegram notification failed:', notificationError);
+					toast({
+						title: 'Imtihon boshlandi',
+						description: 'Telegram xabari yuborishda xatolik yuz berdi, ammo imtihon boshlandi.',
+						variant: 'default'
+					});
+				}
+			} else if (status === 'completed' && exam && exam.groups.length > 0) {
+				// Optionally notify when exam ends
+				try {
+					const groupIds = exam.groups.map(group => group.id);
+					await telegramService.notifyExamEnd(examId, groupIds);
+					toast({
+						title: 'Imtihon tugallandi',
+						description: "O'quvchilarga Telegram orqali xabar yuborildi.",
+						variant: 'default'
+					});
+				} catch (notificationError) {
+					console.error('End notification failed:', notificationError);
+					toast({
+						title: 'Imtihon tugallandi',
+						description: 'Imtihon tugallandi.',
+						variant: 'default'
+					});
+				}
+			} else {
+				// Regular status update without notifications
+				toast({
+					title: 'Imtihon holati yangilandi',
+					description: `Imtihon holati "${getStatusText(status)}" ga o'zgartirildi.`,
+					variant: 'default'
+				});
+			}
 		} catch (e: any) {
 			setErrorMessage(e?.response?.data?.message || "Imtihon holatini yangilab bo'lmadi");
+			toast({
+				title: 'Xatolik',
+				description: e?.response?.data?.message || "Imtihon holatini yangilab bo'lmadi",
+				variant: 'destructive'
+			});
 		}
 	};
 
@@ -530,7 +598,7 @@ export default function ExamsPage() {
 										)}
 
 										{exam.status === 'scheduled' && (
-											<div className='mt-2'>
+											<div className='mt-2 space-y-2'>
 												<Button
 													size='sm'
 													className='w-full'
@@ -539,6 +607,12 @@ export default function ExamsPage() {
 													<Play className='h-4 w-4 mr-2' />
 													Boshlash
 												</Button>
+												{exam.groups.length > 0 && (
+													<div className='flex items-center justify-center text-xs text-muted-foreground'>
+														<MessageCircle className='h-3 w-3 mr-1' />
+														Telegram orqali xabar yuboriladi
+												</div>
+												)}
 											</div>
 										)}
 

@@ -25,12 +25,14 @@ import {
 	Download,
 	Upload,
 	FileSpreadsheet,
+	MessageCircle,
 } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { request } from '@/configs/request';
 import { useToast } from '@/components/ui/use-toast';
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
+import TelegramManager from '@/components/telegram/TelegramManager';
 
 interface Question {
 	id: string | number;
@@ -77,6 +79,7 @@ export default function CreateTestPage() {
 	const [subjects, setSubjects] = useState<Subject[]>([]);
 	const [excelFile, setExcelFile] = useState<File | null>(null);
 	const [importedQuestions, setImportedQuestions] = useState<Question[]>([]);
+	const [savedTestId, setSavedTestId] = useState<number | null>(null);
 
 	useEffect(() => {
 		(async () => {
@@ -186,8 +189,11 @@ export default function CreateTestPage() {
 				});
 			}
 
-			toast({ title: 'Test yaratildi', description: 'Test va savollar muvaffaqiyatli saqlandi.' });
-			navigate('/account/teacher');
+			setSavedTestId(Number(testId));
+			toast({ 
+				title: 'Test yaratildi', 
+				description: 'Test va savollar muvaffaqiyatli saqlandi. Endi Telegram orqali tarqatishingiz mumkin.' 
+			});
 		} catch (e: any) {
 			toast({
 				title: 'Xatolik',
@@ -608,10 +614,16 @@ export default function CreateTestPage() {
 					</CardHeader>
 					<CardContent>
 						<Tabs defaultValue='create' className='w-full'>
-							<TabsList className='grid w-full grid-cols-3'>
+							<TabsList className={`grid w-full ${savedTestId ? 'grid-cols-4' : 'grid-cols-3'}`}>
 								<TabsTrigger value='create'>Yangi savol</TabsTrigger>
 								<TabsTrigger value='list'>Savollar ro'yxati ({questions.length})</TabsTrigger>
 								<TabsTrigger value='excel'>Excel import</TabsTrigger>
+								{savedTestId && (
+									<TabsTrigger value='telegram'>
+										<MessageCircle className='h-4 w-4 mr-1' />
+										Telegram
+									</TabsTrigger>
+								)}
 							</TabsList>
 
 							<TabsContent value='create' className='space-y-4'>
@@ -991,6 +1003,45 @@ export default function CreateTestPage() {
 									</div>
 								</div>
 							</TabsContent>
+
+							{savedTestId && (
+								<TabsContent value='telegram' className='space-y-4'>
+									<div className='bg-green-50 border border-green-200 rounded-lg p-4 mb-4'>
+										<div className='flex items-center gap-2 mb-2'>
+											<CheckCircle className='h-4 w-4 text-green-600' />
+											<span className='font-medium text-green-800'>Test muvaffaqiyatli yaratildi!</span>
+										</div>
+										<p className='text-sm text-green-700 mb-3'>
+											Endi testni Telegram orqali tarqatishingiz va natijalarni kuzatishingiz mumkin.
+										</p>
+										<div className='flex gap-2'>
+											<Button 
+												variant='outline' 
+												size='sm'
+												onClick={() => navigate('/account/teacher')}
+											>
+												Testlar ro'yxatiga qaytish
+											</Button>
+										</div>
+									</div>
+									<TelegramManager 
+										testId={savedTestId}
+										onSuccess={(message) => {
+											toast({
+												title: 'Muvaffaqiyat',
+												description: message
+											});
+										}}
+										onError={(error) => {
+											toast({
+												title: 'Xatolik',
+												description: error,
+												variant: 'destructive'
+											});
+										}}
+									/>
+								</TabsContent>
+							)}
 						</Tabs>
 					</CardContent>
 				</Card>
