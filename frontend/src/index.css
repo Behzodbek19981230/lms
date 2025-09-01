@@ -17,19 +17,19 @@ All colors MUST be HSL.
         --popover: 0 0% 100%;
         --popover-foreground: 220 14% 8%;
 
-        --primary: 217 91% 59%;
-        --primary-foreground: 0 0% 98%;
-        --primary-glow: 213 93% 72%;
+        --primary: 220 93% 64%;
+        --primary-foreground: 0 0% 100%;
+        --primary-glow: 218 95% 78%;
 
         --secondary: 210 40% 96%;
         --secondary-foreground: 217 19% 27%;
 
-        --muted: 210 40% 98%;
-        --muted-foreground: 215 16% 47%;
+        --muted: 220 14% 96%;
+        --muted-foreground: 220 8% 46%;
 
-        --accent: 142 76% 36%;
-        --accent-foreground: 0 0% 98%;
-        --accent-glow: 142 69% 58%;
+        --accent: 160 84% 39%;
+        --accent-foreground: 0 0% 100%;
+        --accent-glow: 160 77% 54%;
 
         --destructive: 0 84% 60%;
         --destructive-foreground: 210 40% 98%;
@@ -41,15 +41,18 @@ All colors MUST be HSL.
         --radius: 0.75rem;
 
         /* Educational design tokens */
-        --gradient-primary: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary-glow)));
-        --gradient-accent: linear-gradient(135deg, hsl(var(--accent)), hsl(var(--accent-glow)));
-        --gradient-hero: linear-gradient(135deg, hsl(217 91% 59%), hsl(213 93% 72%), hsl(142 76% 36%));
-        --gradient-subtle: linear-gradient(180deg, hsl(0 0% 100%), hsl(210 40% 98%));
+        --gradient-primary: linear-gradient(135deg, hsl(220 93% 64%), hsl(218 95% 78%));
+        --gradient-accent: linear-gradient(135deg, hsl(160 84% 39%), hsl(160 77% 54%));
+        --gradient-hero: linear-gradient(135deg, hsl(220 93% 64%), hsl(218 95% 78%), hsl(160 84% 39%));
+        --gradient-subtle: linear-gradient(180deg, hsl(0 0% 100%), hsl(220 14% 98%));
+        --gradient-card: linear-gradient(145deg, hsl(0 0% 100%), hsl(220 14% 99%));
+        --gradient-shimmer: linear-gradient(90deg, transparent 0%, hsl(220 93% 64% / 0.1) 50%, transparent 100%);
 
-        /* Shadows with brand colors */
-        --shadow-elegant: 0 10px 30px -5px hsl(217 91% 59% / 0.1);
-        --shadow-glow: 0 0 30px hsl(217 91% 59% / 0.15);
-        --shadow-card: 0 4px 20px -2px hsl(217 91% 59% / 0.08);
+        /* Enhanced shadows with new color scheme */
+        --shadow-elegant: 0 10px 30px -5px hsl(220 93% 64% / 0.12), 0 4px 15px -2px hsl(220 93% 64% / 0.08);
+        --shadow-glow: 0 0 25px hsl(220 93% 64% / 0.2), 0 0 50px hsl(220 93% 64% / 0.1);
+        --shadow-card: 0 4px 20px -2px hsl(220 50% 20% / 0.1), 0 2px 8px -1px hsl(220 50% 20% / 0.06);
+        --shadow-hover: 0 8px 35px -8px hsl(220 93% 64% / 0.15), 0 4px 20px -4px hsl(220 93% 64% / 0.1);
 
         /* Animations */
         --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -134,4 +137,16 @@ All colors MUST be HSL.
     body {
         @apply bg-background text-foreground;
     }
+}
+
+/* Telegram iframe styles */
+iframe[src*="oauth.telegram.org"] {
+    min-height: 40px !important;
+    height: auto !important;
+    width: 100% !important;
+    max-width: 300px !important;
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    border-radius: 8px !important;
 }

@@ -28,38 +28,51 @@ const Hero = () => {
             </div>
 
             <div className="flex flex-col sm:flex-row gap-4">
-              <Button variant="hero" size="lg" className="text-lg px-8 py-6">
+              <Button 
+                className="text-lg px-8 py-6 bg-gradient-primary hover:shadow-glow transition-all duration-300 hover:scale-105 hover:-translate-y-1 group"
+                size="lg"
+              >
                 Bepul sinab ko'ring
-                <ArrowRight className="h-5 w-5" />
+                <ArrowRight className="h-5 w-5 group-hover:translate-x-1 transition-transform duration-300" />
               </Button>
-              <Button variant="glass" size="lg" className="text-lg px-8 py-6">
-                <Play className="h-5 w-5" />
+              <Button 
+                variant="outline" 
+                size="lg" 
+                className="text-lg px-8 py-6 bg-white/10 border-white/20 text-foreground hover:bg-white/20 backdrop-blur-sm transition-all duration-300 hover:scale-105 hover:-translate-y-1 group"
+              >
+                <Play className="h-5 w-5 group-hover:scale-110 transition-transform duration-300" />
                 Demo ko'rish
               </Button>
             </div>
 
             {/* Stats */}
             <div className="grid grid-cols-3 gap-6 pt-8">
-              <div className="text-center">
-                <div className="flex items-center justify-center mb-2">
-                  <Building2 className="h-6 w-6 text-primary mr-2" />
-                  <span className="text-3xl font-bold text-foreground">500+</span>
+              <div className="text-center group animate-fade-in" style={{ animationDelay: '600ms' }}>
+                <div className="flex items-center justify-center mb-3 p-3 bg-gradient-to-r from-primary/10 to-primary-glow/10 rounded-xl group-hover:scale-110 transition-transform duration-300">
+                  <div className="p-2 bg-gradient-primary rounded-lg mr-3">
+                    <Building2 className="h-6 w-6 text-white" />
+                  </div>
+                  <span className="text-3xl font-bold bg-gradient-primary bg-clip-text text-transparent">500+</span>
                 </div>
-                <p className="text-sm text-muted-foreground">O'quv markazlari</p>
+                <p className="text-sm font-semibold text-muted-foreground group-hover:text-primary transition-colors">O'quv markazlari</p>
               </div>
-              <div className="text-center">
-                <div className="flex items-center justify-center mb-2">
-                  <Users className="h-6 w-6 text-accent mr-2" />
-                  <span className="text-3xl font-bold text-foreground">50K+</span>
+              <div className="text-center group animate-fade-in" style={{ animationDelay: '700ms' }}>
+                <div className="flex items-center justify-center mb-3 p-3 bg-gradient-to-r from-accent/10 to-accent-glow/10 rounded-xl group-hover:scale-110 transition-transform duration-300">
+                  <div className="p-2 bg-gradient-accent rounded-lg mr-3">
+                    <Users className="h-6 w-6 text-white" />
+                  </div>
+                  <span className="text-3xl font-bold bg-gradient-accent bg-clip-text text-transparent">50K+</span>
                 </div>
-                <p className="text-sm text-muted-foreground">Studentlar</p>
+                <p className="text-sm font-semibold text-muted-foreground group-hover:text-accent transition-colors">Studentlar</p>
               </div>
-              <div className="text-center">
-                <div className="flex items-center justify-center mb-2">
-                  <GraduationCap className="h-6 w-6 text-primary mr-2" />
-                  <span className="text-3xl font-bold text-foreground">10K+</span>
+              <div className="text-center group animate-fade-in" style={{ animationDelay: '800ms' }}>
+                <div className="flex items-center justify-center mb-3 p-3 bg-gradient-to-r from-primary/10 to-primary-glow/10 rounded-xl group-hover:scale-110 transition-transform duration-300">
+                  <div className="p-2 bg-gradient-primary rounded-lg mr-3">
+                    <GraduationCap className="h-6 w-6 text-white" />
+                  </div>
+                  <span className="text-3xl font-bold bg-gradient-primary bg-clip-text text-transparent">10K+</span>
                 </div>
-                <p className="text-sm text-muted-foreground">O'qituvchilar</p>
+                <p className="text-sm font-semibold text-muted-foreground group-hover:text-primary transition-colors">O'qituvchilar</p>
               </div>
             </div>
           </div>

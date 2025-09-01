@@ -87,19 +87,44 @@ const Features = () => {
             return (
               <Card 
                 key={index} 
-                className="group hover:shadow-card transition-all duration-300 hover:-translate-y-2 bg-card border-border"
+                className="group hover:shadow-hover transition-all duration-500 hover:-translate-y-3 bg-gradient-card border-border/50 backdrop-blur-sm animate-slide-up relative overflow-hidden"
+                style={{ animationDelay: `${index * 100}ms` }}
               >
-                <CardContent className="p-6">
+                {/* Shimmer effect */}
+                <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 bg-gradient-shimmer opacity-20"></div>
+                
+                <CardContent className="p-6 relative z-10">
                   <div className="space-y-4">
-                    <div className={`inline-flex p-3 rounded-lg bg-gradient-to-br from-primary/10 to-accent/10`}>
-                      <Icon className={`h-6 w-6 ${feature.color}`} />
+                    <div className="relative">
+                      <div className={`inline-flex p-4 rounded-xl bg-gradient-to-br ${
+                        feature.color === 'text-primary' 
+                          ? 'from-primary/20 to-primary-glow/20 shadow-lg shadow-primary/20' 
+                          : 'from-accent/20 to-accent-glow/20 shadow-lg shadow-accent/20'
+                      } group-hover:scale-110 transition-transform duration-300`}>
+                        <Icon className={`h-7 w-7 ${feature.color} group-hover:scale-110 transition-transform duration-300`} />
+                      </div>
+                      {/* Animated pulse ring */}
+                      <div className={`absolute inset-0 rounded-xl ${
+                        feature.color === 'text-primary' ? 'bg-primary/10' : 'bg-accent/10'
+                      } animate-ping opacity-75 group-hover:animate-pulse"></div>
                     </div>
-                    <h3 className="text-xl font-semibold text-card-foreground">
+                    
+                    <h3 className="text-xl font-bold text-card-foreground group-hover:text-primary transition-colors duration-300">
                       {feature.title}
                     </h3>
-                    <p className="text-muted-foreground leading-relaxed">
+                    
+                    <p className="text-muted-foreground leading-relaxed group-hover:text-foreground/80 transition-colors duration-300">
                       {feature.description}
                     </p>
+                    
+                    {/* Progress indicator */}
+                    <div className="pt-2">
+                      <div className="w-full h-1 bg-border/30 rounded-full overflow-hidden">
+                        <div className={`h-full rounded-full transition-all duration-1000 group-hover:w-full ${
+                          feature.color === 'text-primary' ? 'bg-gradient-primary' : 'bg-gradient-accent'
+                        } w-0`}></div>
+                      </div>
+                    </div>
                   </div>
                 </CardContent>
               </Card>

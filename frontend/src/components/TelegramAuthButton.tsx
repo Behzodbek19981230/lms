@@ -187,19 +187,6 @@ export default function TelegramAuthButton({
           </p>
         </div>
       </div>
-      
-      <style>{`
-        iframe[src*="oauth.telegram.org"] {
-          min-height: 40px !important;
-          height: auto !important;
-          width: 100% !important;
-          max-width: 300px !important;
-          display: block !important;
-          visibility: visible !important;
-          opacity: 1 !important;
-          border-radius: 8px !important;
-        }
-      `}</style>
     </div>
   );
 };

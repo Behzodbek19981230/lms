@@ -163,14 +163,22 @@ export default function AttendanceCard() {
   return (
     <div className="space-y-6">
       {/* Attendance Overview */}
-      <Card className="border-border">
-        <CardHeader>
+      <Card className="border-border shadow-card hover:shadow-hover transition-all duration-500 hover:-translate-y-1 bg-gradient-card backdrop-blur-sm animate-slide-up">
+        <CardHeader className="pb-4">
           <CardTitle className="text-card-foreground flex items-center justify-between">
             <div className="flex items-center">
-              <Users className="h-5 w-5 mr-2" />
-              Bugungi Davomat
+              <div className="p-2 rounded-lg bg-gradient-primary mr-3">
+                <Users className="h-5 w-5 text-white" />
+              </div>
+              <span className="bg-gradient-hero bg-clip-text text-transparent font-bold">
+                Bugungi Davomat
+              </span>
             </div>
-            <Button size="sm" variant="outline" onClick={handleTakeAttendance}>
+            <Button 
+              size="sm" 
+              className="bg-gradient-primary hover:shadow-glow transition-all duration-300 hover:scale-105" 
+              onClick={handleTakeAttendance}
+            >
               <Plus className="h-4 w-4 mr-1" />
               Yo'qlama olish
             </Button>
@@ -179,44 +187,86 @@ export default function AttendanceCard() {
         <CardContent>
           {stats.length > 0 ? (
             <div className="space-y-4">
-              {stats.map((groupStats) => (
-                <div key={groupStats.group.id} className="p-3 bg-muted rounded-lg">
-                  <div className="flex justify-between items-start mb-3">
-                    <div>
-                      <h4 className="font-medium text-foreground">{groupStats.group.name}</h4>
+              {stats.map((groupStats, index) => (
+                <div 
+                  key={groupStats.group.id} 
+                  className="group p-4 bg-gradient-subtle border border-border/50 rounded-xl hover:shadow-hover transition-all duration-300 hover:-translate-y-1 animate-fade-in"
+                  style={{ animationDelay: `${index * 100}ms` }}
+                >
+                  <div className="flex justify-between items-start mb-4">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <h4 className="font-semibold text-foreground group-hover:text-primary transition-colors">{groupStats.group.name}</h4>
+                        <div className="w-2 h-2 rounded-full bg-primary animate-pulse-glow"></div>
+                      </div>
                       {groupStats.group.subject && (
-                        <p className="text-sm text-muted-foreground">{groupStats.group.subject}</p>
+                        <p className="text-sm text-muted-foreground font-medium">{groupStats.group.subject}</p>
                       )}
                     </div>
-                    <Badge 
-                      variant={getTodayAttendanceRate(groupStats) >= 80 ? 'default' : 'secondary'}
-                      className="text-xs"
-                    >
-                      {getTodayAttendanceRate(groupStats)}% keldi
-                    </Badge>
-                  </div>
-                  
-                  <div className="grid grid-cols-4 gap-2 text-xs">
-                    <div className="flex items-center">
-                      <CheckCircle className="h-3 w-3 text-green-500 mr-1" />
-                      <span>{groupStats.todayAttendance.present} keldi</span>
-                    </div>
-                    <div className="flex items-center">
-                      <Clock className="h-3 w-3 text-yellow-500 mr-1" />
-                      <span>{groupStats.todayAttendance.late} kechikdi</span>
-                    </div>
-                    <div className="flex items-center">
-                      <X className="h-3 w-3 text-red-500 mr-1" />
-                      <span>{groupStats.todayAttendance.absent} kelmadi</span>
-                    </div>
-                    <div className="flex items-center">
-                      <Users className="h-3 w-3 text-muted-foreground mr-1" />
-                      <span>{groupStats.totalStudents} jami</span>
+                    <div className="text-right">
+                      <Badge 
+                        variant={getTodayAttendanceRate(groupStats) >= 80 ? 'default' : 'secondary'}
+                        className={`text-xs font-semibold px-3 py-1 ${
+                          getTodayAttendanceRate(groupStats) >= 80 
+                            ? 'bg-gradient-accent text-white shadow-glow' 
+                            : 'bg-gradient-to-r from-yellow-400 to-orange-500 text-white'
+                        }`}
+                      >
+                        {getTodayAttendanceRate(groupStats)}% keldi
+                      </Badge>
                     </div>
                   </div>
                   
-                  <div className="mt-2 text-xs text-muted-foreground">
-                    Haftalik: {groupStats.weeklyPresentRate}% davomat
+                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
+                    <div className="flex items-center p-2 bg-green-50 rounded-lg transition-all hover:bg-green-100">
+                      <div className="p-1 bg-green-500 rounded-full mr-2">
+                        <CheckCircle className="h-3 w-3 text-white" />
+                      </div>
+                      <div>
+                        <span className="text-sm font-semibold text-green-700">{groupStats.todayAttendance.present}</span>
+                        <p className="text-xs text-green-600">keldi</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center p-2 bg-yellow-50 rounded-lg transition-all hover:bg-yellow-100">
+                      <div className="p-1 bg-yellow-500 rounded-full mr-2">
+                        <Clock className="h-3 w-3 text-white" />
+                      </div>
+                      <div>
+                        <span className="text-sm font-semibold text-yellow-700">{groupStats.todayAttendance.late}</span>
+                        <p className="text-xs text-yellow-600">kechikdi</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center p-2 bg-red-50 rounded-lg transition-all hover:bg-red-100">
+                      <div className="p-1 bg-red-500 rounded-full mr-2">
+                        <X className="h-3 w-3 text-white" />
+                      </div>
+                      <div>
+                        <span className="text-sm font-semibold text-red-700">{groupStats.todayAttendance.absent}</span>
+                        <p className="text-xs text-red-600">kelmadi</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center p-2 bg-blue-50 rounded-lg transition-all hover:bg-blue-100">
+                      <div className="p-1 bg-blue-500 rounded-full mr-2">
+                        <Users className="h-3 w-3 text-white" />
+                      </div>
+                      <div>
+                        <span className="text-sm font-semibold text-blue-700">{groupStats.totalStudents}</span>
+                        <p className="text-xs text-blue-600">jami</p>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center justify-between pt-3 border-t border-border/30">
+                    <div className="text-xs text-muted-foreground flex items-center">
+                      <div className="w-2 h-2 rounded-full bg-accent mr-2 animate-pulse"></div>
+                      Haftalik: <span className="font-semibold ml-1">{groupStats.weeklyPresentRate}%</span> davomat
+                    </div>
+                    <div className="w-20 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                      <div 
+                        className="h-full bg-gradient-accent rounded-full transition-all duration-1000 ease-out"
+                        style={{ width: `${groupStats.weeklyPresentRate}%` }}
+                      ></div>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -232,38 +282,53 @@ export default function AttendanceCard() {
       </Card>
 
       {/* Recent Attendance Records */}
-      <Card className="border-border">
-        <CardHeader>
+      <Card className="border-border shadow-card hover:shadow-hover transition-all duration-500 hover:-translate-y-1 bg-gradient-card animate-slide-up" style={{ animationDelay: '200ms' }}>
+        <CardHeader className="pb-4">
           <CardTitle className="text-card-foreground flex items-center">
-            <Calendar className="h-5 w-5 mr-2" />
-            So'nggi davomatlar
+            <div className="p-2 rounded-lg bg-gradient-accent mr-3">
+              <Calendar className="h-5 w-5 text-white" />
+            </div>
+            <span className="bg-gradient-hero bg-clip-text text-transparent font-bold">
+              So'nggi davomatlar
+            </span>
           </CardTitle>
         </CardHeader>
         <CardContent>
           {attendance.length > 0 ? (
             <div className="space-y-3">
-              {attendance.slice(0, 5).map((record) => (
-                <div key={record.id} className="flex items-center justify-between p-2 bg-muted rounded">
-                  <div className="flex items-center space-x-3">
-                    {getStatusIcon(record.status)}
+              {attendance.slice(0, 5).map((record, index) => (
+                <div 
+                  key={record.id} 
+                  className="flex items-center justify-between p-4 bg-gradient-subtle border border-border/50 rounded-lg hover:shadow-card transition-all duration-300 hover:-translate-y-0.5 animate-fade-in group"
+                  style={{ animationDelay: `${(index + 1) * 100}ms` }}
+                >
+                  <div className="flex items-center space-x-4">
+                    <div className="p-2 bg-white rounded-full shadow-sm group-hover:shadow-md transition-shadow">
+                      {getStatusIcon(record.status)}
+                    </div>
                     <div>
-                      <p className="text-sm font-medium text-foreground">
+                      <p className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors">
                         {record.student.firstName} {record.student.lastName}
                       </p>
-                      <p className="text-xs text-muted-foreground">
-                        {record.group.name} • {new Date(record.date).toLocaleDateString()}
+                      <p className="text-xs text-muted-foreground font-medium">
+                        {record.group.name} • {new Date(record.date).toLocaleDateString('uz-UZ')}
                       </p>
                     </div>
                   </div>
                   <div className="text-right">
                     <Badge 
-                      variant={record.status === 'present' ? 'default' : record.status === 'late' ? 'secondary' : 'destructive'}
-                      className="text-xs"
+                      className={`text-xs font-semibold px-3 py-1 transition-all duration-300 ${
+                        record.status === 'present' 
+                          ? 'bg-gradient-to-r from-green-500 to-emerald-500 text-white shadow-sm hover:shadow-lg' 
+                          : record.status === 'late' 
+                          ? 'bg-gradient-to-r from-yellow-500 to-orange-500 text-white shadow-sm hover:shadow-lg' 
+                          : 'bg-gradient-to-r from-red-500 to-rose-500 text-white shadow-sm hover:shadow-lg'
+                      }`}
                     >
                       {getStatusText(record.status)}
                     </Badge>
                     {record.arrivedAt && (
-                      <p className="text-xs text-muted-foreground mt-1">{record.arrivedAt}</p>
+                      <p className="text-xs text-muted-foreground mt-1 font-mono">{record.arrivedAt}</p>
                     )}
                   </div>
                 </div>
