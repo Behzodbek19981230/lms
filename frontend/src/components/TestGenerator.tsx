@@ -221,186 +221,557 @@ export function TestGenerator({ subject }: TestGeneratorProps) {
   }
 
   const exportToPDF = async () => {
-    if (!generatedTest) return
+    if (!generatedTest) return;
 
-    const doc = new jsPDF("p", "mm", "a4")
-    const pageWidth = doc.internal.pageSize.getWidth()
-    const pageHeight = doc.internal.pageSize.getHeight()
-    const margin = 20
+    try {
+      // Show loading state
+      const originalButtonText = "PDF yuklab olish";
+      const downloadButton = document.querySelector('button:has(.h-4.w-4.mr-2) ~ button');
+      if (downloadButton) {
+        downloadButton.innerHTML = '<div class="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2"></div>Yaratilmoqda...';
+        (downloadButton as HTMLButtonElement).disabled = true;
+      }
 
-    if (showTitleSheet) {
-      // Title Sheet
-      doc.setFontSize(20)
-      doc.setFont("times", "bold")
-      doc.text(`${selectedSubject?.nameUz.toUpperCase()} FANIDAN TEST`, pageWidth / 2, 60, { align: "center" })
+      // Create a new window with the test content in HTML format
+      const printWindow = window.open('', '_blank');
+      if (!printWindow) {
+        toast({
+          title: 'Xatolik',
+          description: 'PDF yaratish uchun oyna ochilmadi. Brauzer sozlamalarini tekshiring.',
+          variant: 'destructive'
+        });
+        return;
+      }
 
-      doc.setFontSize(16)
-      doc.setFont("times", "normal")
-      doc.text(generatedTest.title || "Test", pageWidth / 2, 80, { align: "center" })
-
-      doc.setFontSize(12)
-      doc.text(`Savollar soni: ${testConfig.questionCount}`, pageWidth / 2, 100, { align: "center" })
-      doc.text(`Variantlar soni: ${testConfig.variantCount}`, pageWidth / 2, 110, { align: "center" })
-      doc.text(`Vaqt: ${testConfig.timeLimit} daqiqa`, pageWidth / 2, 120, { align: "center" })
-
-      doc.setFontSize(10)
-      doc.text(`Sana: ${new Date().toLocaleDateString("uz-UZ")}`, pageWidth / 2, 140, { align: "center" })
-
-      // Instructions
-      doc.setFontSize(11)
-      doc.setFont("times", "bold")
-      doc.text("KO'RSATMALAR:", margin, 170)
-
-      doc.setFont("times", "normal")
-      const instructions = [
-        "• Barcha savollarga javob bering",
-        "• Har bir savol uchun faqat bitta to'g'ri javob mavjud",
-        "• Javoblarni aniq va tushunarli yozing",
-        "• Vaqtni to'g'ri taqsimlang",
-        "• Ishingizni tekshirib chiqing",
-      ]
-
-      instructions.forEach((instruction, index) => {
-        doc.text(instruction, margin, 180 + index * 8)
-      })
-
-      doc.addPage()
-    }
-
-    // Generate each variant
-    generatedTest.variants.forEach((variant: any, variantIndex: number) => {
-      if (variantIndex > 0) doc.addPage()
-
-      // Variant header
-      doc.setFontSize(16)
-      doc.setFont("times", "bold")
-      doc.text(`Variant ${variant.variantNumber}`, pageWidth / 2, 30, { align: "center" })
-
-      doc.setFontSize(12)
-      doc.setFont("times", "normal")
-      doc.text(`${selectedSubject?.nameUz} fanidan test`, pageWidth / 2, 45, { align: "center" })
-
-      let currentY = 65
-      const lineHeight = 5
-      const questionSpacing = 20
-
-      variant.questions.forEach((question: any, index: number) => {
-        if (currentY > pageHeight - 40) {
-          doc.addPage()
-          currentY = 30
-        }
-
-        doc.setFontSize(11)
-        doc.setFont("times", "normal")
-
-        // Question number with point value
-        const pointText = `[${question.points} ball]`
-        doc.text(pointText, pageWidth - margin - 5, currentY, { align: "right" })
-
-        // Question text
-        const questionText = `${index + 1}.`
-        doc.text(questionText, margin, currentY)
-
-        let cleanQuestion = question.text.replace(/\$\$/g, "")
-
-        // Check if question contains mathematical expressions
-        const hasFormula = question.text.includes("$$") || /[x²³⁴⁵⁶⁷⁸⁹⁰]|[∫∑∏√]|[αβγδεζηθικλμνξοπρστυφχψω]/.test(question.text)
-
-        if (hasFormula) {
-          doc.setFont("times", "italic")
-          cleanQuestion = cleanQuestion.replace(/\\/g, "")
-          doc.text("(LaTeX formula)", margin + 8, currentY)
-          currentY += 5
-        } else {
-          doc.setFont("times", "normal")
-        }
-
-        const questionLines = doc.splitTextToSize(cleanQuestion, pageWidth - margin * 2 - 15)
-        doc.text(questionLines, margin + 8, currentY)
-        currentY += questionLines.length * lineHeight + 3
-
-        // Add image if exists
-        if (question.imageBase64) {
-          try {
-            doc.setFont("times", "italic")
-            doc.text("(Rasm mavjud)", margin + 8, currentY)
-            currentY += 5
-          } catch (error) {
-            console.error("Image processing error:", error)
-          }
-        }
-
-        // Reset to normal font for options
-        doc.setFontSize(10)
-        doc.setFont("times", "normal")
-
-        if (question.type === "multiple_choice" && question.answers) {
-          question.answers.forEach((option: any, i: number) => {
-            const hasOptionFormula = /[x²³⁴⁵⁶⁷⁸⁹⁰]|[∫∑∏√]|[αβγδεζηθικλμνξοπρστυφχψω]/.test(option.text)
-            if (hasOptionFormula) {
-              doc.setFont("times", "italic")
-            } else {
-              doc.setFont("times", "normal")
+      // Generate HTML content for the test
+      let htmlContent = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="UTF-8">
+          <title>${generatedTest.title}</title>
+          <style>
+            body {
+              font-family: 'Times New Roman', Times, serif;
+              margin: 0;
+              padding: 20mm;
+              font-size: 12pt;
+              line-height: 1.4;
             }
+            .page-break {
+              page-break-before: always;
+            }
+            .title-sheet {
+              text-align: center;
+              margin-bottom: 30mm;
+            }
+            .title-sheet h1 {
+              font-size: 24pt;
+              margin-bottom: 10mm;
+            }
+            .title-sheet h2 {
+              font-size: 18pt;
+              margin-bottom: 8mm;
+            }
+            .test-info {
+              margin: 5mm 0;
+            }
+            .instructions {
+              margin: 10mm 0;
+              text-align: left;
+            }
+            .instructions h3 {
+              font-size: 14pt;
+              margin-bottom: 3mm;
+            }
+            .instructions ul {
+              margin: 0;
+              padding-left: 8mm;
+            }
+            .variant-header {
+              text-align: center;
+              margin: 10mm 0;
+              font-size: 16pt;
+              font-weight: bold;
+            }
+            .question {
+              margin: 8mm 0;
+            }
+            .question-header {
+              display: flex;
+              justify-content: space-between;
+              margin-bottom: 2mm;
+            }
+            .question-number {
+              font-weight: bold;
+            }
+            .question-points {
+              font-style: italic;
+            }
+            .options {
+              margin-left: 8mm;
+            }
+            .option {
+              margin: 2mm 0;
+            }
+            .answer-key {
+              margin-top: 20mm;
+            }
+            .answer-key h2 {
+              text-align: center;
+              margin-bottom: 10mm;
+            }
+            .variant-answers {
+              margin-bottom: 15mm;
+            }
+            .image-placeholder {
+              font-style: italic;
+              color: #666;
+            }
+            @media print {
+              body {
+                padding: 15mm;
+              }
+            }
+          </style>
+        </head>
+        <body>
+      `;
 
-            const optionText = `${String.fromCharCode(65 + i)}) ${option.text}`
-            doc.text(optionText, margin + 8, currentY)
-            currentY += 4
-          })
-        } else if (question.type === "true_false") {
-          doc.text("A) To'g'ri", margin + 8, currentY)
-          currentY += 4
-          doc.text("B) Noto'g'ri", margin + 8, currentY)
-          currentY += 4
-        } else {
-          doc.text("Javob: ________________________", margin + 8, currentY)
-          currentY += 6
+      // Add title sheet if requested
+      if (showTitleSheet) {
+        htmlContent += `
+          <div class="title-sheet">
+            <h1>${selectedSubject?.nameUz.toUpperCase()} FANIDAN TEST</h1>
+            <h2>${generatedTest.title || "Test"}</h2>
+            
+            <div class="test-info">
+              <p>Savollar soni: ${testConfig.questionCount}</p>
+              <p>Variantlar soni: ${testConfig.variantCount}</p>
+              <p>Vaqt: ${testConfig.timeLimit} daqiqa</p>
+              <p>Sana: ${new Date().toLocaleDateString("uz-UZ")}</p>
+            </div>
+            
+            <div class="instructions">
+              <h3>KO'RSATMALAR:</h3>
+              <ul>
+                <li>Barcha savollarga javob bering</li>
+                <li>Har bir savol uchun faqat bitta to'g'ri javob mavjud</li>
+                <li>Javoblarni aniq va tushunarli yozing</li>
+                <li>Vaqtni to'g'ri taqsimlang</li>
+                <li>Ishingizni tekshirib chiqing</li>
+              </ul>
+            </div>
+          </div>
+        `;
+      }
+
+      // Generate each variant
+      generatedTest.variants.forEach((variant: any, variantIndex: number) => {
+        if (variantIndex > 0 || showTitleSheet) {
+          htmlContent += '<div class="page-break"></div>';
         }
 
-        currentY += questionSpacing
-      })
-
-      // Footer
-      doc.setFontSize(8)
-      doc.setFont("times", "normal")
-      doc.text(`Variant ${variant.variantNumber} | Test yaratilgan: ${new Date().toLocaleString("uz-UZ")}`, pageWidth / 2, pageHeight - 10, {
-        align: "center",
-      })
-    })
-
-    // Answer key if requested
-    if (generatedTest.includeAnswers) {
-      doc.addPage()
-      doc.setFontSize(14)
-      doc.setFont("times", "bold")
-      doc.text("Javoblar Kaliti", pageWidth / 2, 30, { align: "center" })
-
-      const answerY = 45
-      const answersPerRow = 4
-      const answerColumnWidth = (pageWidth - margin * 2) / answersPerRow
-
-      generatedTest.variants.forEach((variant: any, variantIndex: number) => {
-        doc.setFontSize(12)
-        doc.setFont("times", "bold")
-        doc.text(`Variant ${variant.variantNumber}:`, margin, answerY + variantIndex * 80)
+        htmlContent += `
+          <div class="variant-header">
+            Variant ${variant.variantNumber}<br>
+            <span style="font-size: 14pt; font-weight: normal;">${selectedSubject?.nameUz} fanidan test</span>
+          </div>
+        `;
 
         variant.questions.forEach((question: any, index: number) => {
-          const col = index % answersPerRow
-          const row = Math.floor(index / answersPerRow)
-          const x = margin + col * answerColumnWidth
-          const y = answerY + variantIndex * 80 + 15 + row * 8
+          htmlContent += `
+            <div class="question">
+              <div class="question-header">
+                <span class="question-number">${index + 1}.</span>
+                <span class="question-points">[${question.points} ball]</span>
+              </div>
+              <div>
+                ${question.text.replace(/\$\$/g, "")}
+          `;
 
-          doc.setFontSize(9)
-          const hasAnswerFormula = /[x²³⁴⁵⁶⁷⁸⁹⁰]|[∫∑∏√]|[αβγδεζηθικλμνξοπρστυφχψω]/.test(question.correctAnswer)
-          doc.setFont("times", hasAnswerFormula ? "italic" : "normal")
-          doc.text(`${index + 1}. ${question.correctAnswer}`, x, y)
-        })
-      })
+          // Add image placeholder if exists
+          if (question.imageBase64) {
+            htmlContent += '<div class="image-placeholder">(Rasm mavjud)</div>';
+          }
+
+          // Add options
+          if (question.type === "multiple_choice" && question.answers) {
+            htmlContent += '<div class="options">';
+            question.answers.forEach((option: any, i: number) => {
+              htmlContent += `<div class="option">${String.fromCharCode(65 + i)}) ${option.text}</div>`;
+            });
+            htmlContent += '</div>';
+          } else if (question.type === "true_false") {
+            htmlContent += `
+              <div class="options">
+                <div class="option">A) To'g'ri</div>
+                <div class="option">B) Noto'g'ri</div>
+              </div>
+            `;
+          } else {
+            htmlContent += '<div class="options">Javob: ________________________</div>';
+          }
+
+          htmlContent += `
+              </div>
+            </div>
+          `;
+        });
+
+        // Add footer
+        htmlContent += `
+          <div style="position: fixed; bottom: 10mm; width: 100%; text-align: center; font-size: 10pt;">
+            Variant ${variant.variantNumber} | Test yaratilgan: ${new Date().toLocaleString("uz-UZ")}
+          </div>
+        `;
+      });
+
+      // Add answer key if requested
+      if (generatedTest.includeAnswers) {
+        htmlContent += '<div class="page-break"></div>';
+        htmlContent += `
+          <div class="answer-key">
+            <h2>Javoblar Kaliti</h2>
+        `;
+
+        generatedTest.variants.forEach((variant: any, variantIndex: number) => {
+          htmlContent += `
+            <div class="variant-answers">
+              <h3>Variant ${variant.variantNumber}:</h3>
+              <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 5mm;">
+          `;
+
+          variant.questions.forEach((question: any, index: number) => {
+            htmlContent += `<div>${index + 1}. ${question.correctAnswer || 'N/A'}</div>`;
+          });
+
+          htmlContent += `
+              </div>
+            </div>
+          `;
+        });
+
+        htmlContent += '</div>';
+      }
+
+      htmlContent += `
+        </body>
+        </html>
+      `;
+
+      // Write content to the new window
+      printWindow.document.write(htmlContent);
+      printWindow.document.close();
+
+      // Wait a bit for content to load
+      setTimeout(() => {
+        // Print the window (this will show the browser's print dialog)
+        printWindow.print();
+        
+        // Restore button text
+        if (downloadButton) {
+          downloadButton.innerHTML = '<svg class="h-4 w-4 mr-2" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>PDF yuklab olish';
+          (downloadButton as HTMLButtonElement).disabled = false;
+        }
+
+        toast({
+          title: 'PDF tayyor',
+          description: 'PDF fayl brauzer orqali yuklab olinadi'
+        });
+      }, 500);
+
+    } catch (error) {
+      console.error('PDF generation error:', error);
+      toast({
+        title: 'Xatolik',
+        description: 'PDF yaratishda xatolik yuz berdi',
+        variant: 'destructive'
+      });
+      
+      // Restore button text
+      const downloadButton = document.querySelector('button:has(.h-4.w-4.mr-2) ~ button');
+      if (downloadButton) {
+        downloadButton.innerHTML = '<svg class="h-4 w-4 mr-2" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>PDF yuklab olish';
+        (downloadButton as HTMLButtonElement).disabled = false;
+      }
     }
+};
 
-    // Save PDF
-    doc.save(`${generatedTest.title.replace(/[^a-zA-Z0-9]/g, "_")}.pdf`)
+// Add a new function for direct PDF download
+const downloadAsPDF = async () => {
+  if (!generatedTest) return;
+
+  try {
+    // Show loading state
+    const downloadButton = Array.from(document.querySelectorAll('button')).find(btn => 
+      btn.textContent?.includes('PDF yuklab olish')
+    );
+    
+    if (downloadButton) {
+      const originalHTML = downloadButton.innerHTML;
+      downloadButton.innerHTML = '<div class="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2"></div>Yaratilmoqda...';
+      (downloadButton as HTMLButtonElement).disabled = true;
+
+      // Generate a more structured HTML for better PDF conversion
+      let htmlContent = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="UTF-8">
+          <title>${generatedTest.title}</title>
+          <style>
+            body {
+              font-family: 'Times New Roman', Times, serif;
+              margin: 0;
+              padding: 20mm;
+              font-size: 12pt;
+              line-height: 1.4;
+            }
+            .page-break {
+              page-break-before: always;
+            }
+            .title-sheet {
+              text-align: center;
+              margin-bottom: 30mm;
+            }
+            .title-sheet h1 {
+              font-size: 24pt;
+              margin-bottom: 10mm;
+            }
+            .title-sheet h2 {
+              font-size: 18pt;
+              margin-bottom: 8mm;
+            }
+            .test-info {
+              margin: 5mm 0;
+            }
+            .instructions {
+              margin: 10mm 0;
+              text-align: left;
+            }
+            .instructions h3 {
+              font-size: 14pt;
+              margin-bottom: 3mm;
+            }
+            .instructions ul {
+              margin: 0;
+              padding-left: 8mm;
+            }
+            .variant-header {
+              text-align: center;
+              margin: 10mm 0;
+              font-size: 16pt;
+              font-weight: bold;
+            }
+            .question {
+              margin: 8mm 0;
+            }
+            .question-header {
+              display: flex;
+              justify-content: space-between;
+              margin-bottom: 2mm;
+            }
+            .question-number {
+              font-weight: bold;
+            }
+            .question-points {
+              font-style: italic;
+            }
+            .options {
+              margin-left: 8mm;
+            }
+            .option {
+              margin: 2mm 0;
+            }
+            .answer-key {
+              margin-top: 20mm;
+            }
+            .answer-key h2 {
+              text-align: center;
+              margin-bottom: 10mm;
+            }
+            .variant-answers {
+              margin-bottom: 15mm;
+            }
+            .image-placeholder {
+              font-style: italic;
+              color: #666;
+            }
+          </style>
+        </head>
+        <body>
+      `;
+
+      // Add title sheet if requested
+      if (showTitleSheet) {
+        htmlContent += `
+          <div class="title-sheet">
+            <h1>${selectedSubject?.nameUz.toUpperCase()} FANIDAN TEST</h1>
+            <h2>${generatedTest.title || "Test"}</h2>
+            
+            <div class="test-info">
+              <p>Savollar soni: ${testConfig.questionCount}</p>
+              <p>Variantlar soni: ${testConfig.variantCount}</p>
+              <p>Vaqt: ${testConfig.timeLimit} daqiqa</p>
+              <p>Sana: ${new Date().toLocaleDateString("uz-UZ")}</p>
+            </div>
+            
+            <div class="instructions">
+              <h3>KO'RSATMALAR:</h3>
+              <ul>
+                <li>Barcha savollarga javob bering</li>
+                <li>Har bir savol uchun faqat bitta to'g'ri javob mavjud</li>
+                <li>Javoblarni aniq va tushunarli yozing</li>
+                <li>Vaqtni to'g'ri taqsimlang</li>
+                <li>Ishingizni tekshirib chiqing</li>
+              </ul>
+            </div>
+          </div>
+        `;
+      }
+
+      // Generate each variant
+      generatedTest.variants.forEach((variant: any, variantIndex: number) => {
+        if (variantIndex > 0 || showTitleSheet) {
+          htmlContent += '<div class="page-break"></div>';
+        }
+
+        htmlContent += `
+          <div class="variant-header">
+            Variant ${variant.variantNumber}<br>
+            <span style="font-size: 14pt; font-weight: normal;">${selectedSubject?.nameUz} fanidan test</span>
+          </div>
+        `;
+
+        variant.questions.forEach((question: any, index: number) => {
+          htmlContent += `
+            <div class="question">
+              <div class="question-header">
+                <span class="question-number">${index + 1}.</span>
+                <span class="question-points">[${question.points} ball]</span>
+              </div>
+              <div>
+                ${question.text.replace(/\$\$/g, "")}
+          `;
+
+          // Add image placeholder if exists
+          if (question.imageBase64) {
+            htmlContent += '<div class="image-placeholder">(Rasm mavjud)</div>';
+          }
+
+          // Add options
+          if (question.type === "multiple_choice" && question.answers) {
+            htmlContent += '<div class="options">';
+            question.answers.forEach((option: any, i: number) => {
+              htmlContent += `<div class="option">${String.fromCharCode(65 + i)}) ${option.text}</div>`;
+            });
+            htmlContent += '</div>';
+          } else if (question.type === "true_false") {
+            htmlContent += `
+              <div class="options">
+                <div class="option">A) To'g'ri</div>
+                <div class="option">B) Noto'g'ri</div>
+              </div>
+            `;
+          } else {
+            htmlContent += '<div class="options">Javob: ________________________</div>';
+          }
+
+          htmlContent += `
+              </div>
+            </div>
+          `;
+        });
+
+        // Add footer
+        htmlContent += `
+          <div style="position: fixed; bottom: 10mm; width: 100%; text-align: center; font-size: 10pt;">
+            Variant ${variant.variantNumber} | Test yaratilgan: ${new Date().toLocaleString("uz-UZ")}
+          </div>
+        `;
+      });
+
+      // Add answer key if requested
+      if (generatedTest.includeAnswers) {
+        htmlContent += '<div class="page-break"></div>';
+        htmlContent += `
+          <div class="answer-key">
+            <h2>Javoblar Kaliti</h2>
+        `;
+
+        generatedTest.variants.forEach((variant: any, variantIndex: number) => {
+          htmlContent += `
+            <div class="variant-answers">
+              <h3>Variant ${variant.variantNumber}:</h3>
+              <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 5mm;">
+          `;
+
+          variant.questions.forEach((question: any, index: number) => {
+            htmlContent += `<div>${index + 1}. ${question.correctAnswer || 'N/A'}</div>`;
+          });
+
+          htmlContent += `
+              </div>
+            </div>
+          `;
+        });
+
+        htmlContent += '</div>';
+      }
+
+      htmlContent += `
+        </body>
+        </html>
+      `;
+
+      // Create a Blob with the HTML content
+      const blob = new Blob([htmlContent], { type: 'text/html' });
+      const url = URL.createObjectURL(blob);
+      
+      // Create a temporary link to trigger download
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${generatedTest.title.replace(/[^a-zA-Z0-9]/g, "_")}.html`;
+      document.body.appendChild(link);
+      link.click();
+      
+      // Clean up
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      // Restore button
+      setTimeout(() => {
+        if (downloadButton) {
+          downloadButton.innerHTML = originalHTML;
+          (downloadButton as HTMLButtonElement).disabled = false;
+        }
+        
+        toast({
+          title: 'Fayl tayyor',
+          description: 'HTML fayl yuklab olindi. Uni PDF ga aylantirish uchun brauzer orqali oching va "Chop etish" dan "PDF ga saqlash"ni tanlang.'
+        });
+      }, 500);
+    }
+  } catch (error) {
+    console.error('Download error:', error);
+    toast({
+      title: 'Xatolik',
+      description: 'Fayl yuklab olishda xatolik yuz berdi',
+      variant: 'destructive'
+    });
+    
+    // Restore button
+    const downloadButton = Array.from(document.querySelectorAll('button')).find(btn => 
+      btn.textContent?.includes('PDF yuklab olish')
+    );
+    
+    if (downloadButton) {
+      downloadButton.innerHTML = '<svg class="h-4 w-4 mr-2" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>PDF yuklab olish';
+      (downloadButton as HTMLButtonElement).disabled = false;
+    }
   }
+};
 
   return (
     <div className="space-y-6">
@@ -603,7 +974,16 @@ export function TestGenerator({ subject }: TestGeneratorProps) {
                   className="border-primary text-primary hover:bg-primary/5"
                 >
                   <Download className="h-4 w-4 mr-2" />
-                  PDF yuklab olish
+                  PDF ko'rish
+                </Button>
+
+                <Button
+                  onClick={downloadAsPDF}
+                  variant="outline"
+                  className="border-primary text-primary hover:bg-primary/5"
+                >
+                  <FileText className="h-4 w-4 mr-2" />
+                  HTML yuklab olish
                 </Button>
 
                 <Button

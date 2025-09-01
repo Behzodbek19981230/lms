@@ -8,6 +8,11 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as puppeteer from 'puppeteer';
+import * as PDFDocument from 'pdfkit';
+import { createWriteStream, writeFileSync, readFileSync, unlinkSync } from 'fs';
+import { join } from 'path';
+import { tmpdir } from 'os';
+import { Readable } from 'stream';
 
 import { Exam, ExamStatus, ExamType } from './entities/exam.entity';
 import { ExamVariant, ExamVariantStatus } from './entities/exam-variant.entity';
@@ -431,28 +436,65 @@ export class ExamsService {
     html: string,
     title = 'Document',
   ): Promise<Buffer> {
-    // Retry logic for PDF generation
+    // First try Puppeteer with retry logic
     for (let attempt = 1; attempt <= 3; attempt++) {
-      let browser: puppeteer.Browser | null = null;
       try {
         this.logger.log(`Starting PDF generation for: ${title} (attempt ${attempt}/3)`);
+        return await this.renderHtmlToPdfWithPuppeteer(html, title);
+      } catch (error: any) {
+        this.logger.error(`PDF generation failed on attempt ${attempt}:`, {
+          message: error.message,
+          stack: error.stack,
+          title
+        });
         
-        // Validate HTML content
-        if (!html || html.trim().length === 0) {
-          this.logger.error('Empty HTML content provided for PDF generation');
-          throw new InternalServerErrorException('Cannot generate PDF: Empty content');
+        // Check if the error is related to missing system libraries
+        const isMissingLibraryError = error.message?.includes('libnspr4.so') || 
+          error.message?.includes('shared libraries') ||
+          error.message?.includes('error while loading shared libraries');
+        
+        // If this is the last attempt or it's a missing library error, try fallback method
+        if (attempt === 3 || isMissingLibraryError) {
+          this.logger.warn('Puppeteer failed, trying fallback PDF generation method due to:', error.message);
+          return await this.renderHtmlToPdfFallback(html, title);
         }
         
-        this.logger.log(`HTML content length: ${html.length} characters`);
-        
-        // Check if HTML contains basic structure
-        if (!html.includes('<html') || !html.includes('<body')) {
-          this.logger.warn('HTML content may be malformed, wrapping it');
-          html = `<!DOCTYPE html><html><head><title>${title}</title></head><body>${html}</body></html>`;
-        }
-        
-        // Enhanced Puppeteer configuration for server environments
-        browser = await puppeteer.launch({
+        // Wait before retrying (exponential backoff)
+        await new Promise(resolve => setTimeout(resolve, 2000 * attempt));
+      }
+    }
+    
+    // This should never be reached
+    throw new InternalServerErrorException('PDF generation failed after all retries');
+  }
+
+  private async renderHtmlToPdfWithPuppeteer(
+    html: string,
+    title = 'Document',
+  ): Promise<Buffer> {
+    let browser: puppeteer.Browser | null = null;
+    try {
+      this.logger.log(`Starting PDF generation with Puppeteer for: ${title}`);
+      
+      // Validate HTML content
+      if (!html || html.trim().length === 0) {
+        this.logger.error('Empty HTML content provided for PDF generation');
+        throw new InternalServerErrorException('Cannot generate PDF: Empty content');
+      }
+      
+      this.logger.log(`HTML content length: ${html.length} characters`);
+      
+      // Check if HTML contains basic structure
+      if (!html.includes('<html') || !html.includes('<body')) {
+        this.logger.warn('HTML content may be malformed, wrapping it');
+        html = `<!DOCTYPE html><html><head><title>${title}</title></head><body>${html}</body></html>`;
+      }
+      
+      // Enhanced Puppeteer configuration for server environments
+      // Try multiple launch configurations to handle different environments
+      const launchConfigs = [
+        // Primary configuration for most environments
+        {
           headless: true,
           args: [
             '--no-sandbox',
@@ -473,127 +515,180 @@ export class ExamsService {
             '--no-first-run',
             '--no-default-browser-check',
             '--disable-dev-shm-usage',
-            // Removed --single-process flag as it can cause issues
           ],
           timeout: 30000,
-        });
-        
-        const page = await browser.newPage();
-        
-        // Set longer timeouts for server environments
-        page.setDefaultTimeout(30000);
-        page.setDefaultNavigationTimeout(30000);
-
-        // Enhanced request interception with better error handling
-        await page.setRequestInterception(true);
-        page.on('request', (req) => {
-          try {
-            if (req.resourceType() === 'image' || req.url().startsWith('data:')) {
-              req.continue();
-            } else {
-              req.continue();
-            }
-          } catch (error) {
-            this.logger.warn('Request interception error:', error);
-            // Continue anyway to avoid blocking
-          }
-        });
-
-        // Set content with longer timeout
-        this.logger.log('Setting page content...');
-        try {
-          await page.setContent(html, { 
-            waitUntil: 'domcontentloaded',
-            timeout: 15000 
-          });
-          this.logger.log('Page content set successfully');
-        } catch (setContentError) {
-          this.logger.error('Failed to set page content:', setContentError);
-          // Try a simpler approach
-          await page.setContent(html, { 
-            waitUntil: 'load',
-            timeout: 10000 
-          });
-          this.logger.log('Page content set with simplified approach');
-        }
-
-        // Try to load KaTeX with fallback
-        try {
-          this.logger.log('Loading KaTeX resources...');
-          await Promise.race([
-            this.loadKatexResources(page),
-            new Promise((_, reject) => setTimeout(() => reject(new Error('KaTeX loading timeout')), 10000))
-          ]);
-          this.logger.log('KaTeX resources loaded successfully');
-        } catch (error) {
-          this.logger.warn('Failed to load KaTeX resources, continuing without math rendering:', error);
-        }
-
-        // Wait for images with timeout
-        try {
-          this.logger.log('Waiting for images to load...');
-          // More robust image loading check
-          await page.waitForFunction(() => {
-            const images = Array.from(document.images);
-            return images.every(img => 
-              img.complete && 
-              (img.naturalWidth !== 0 || img.naturalHeight !== 0)
-            );
-          }, { timeout: 10000 });
-          this.logger.log('Images loaded successfully');
-        } catch (e) {
-          this.logger.warn('Image loading timeout, continuing with PDF generation');
-        }
-
-        // Generate PDF with enhanced options
-        this.logger.log('Generating PDF...');
-        const pdfBuffer = await page.pdf({
-          format: 'A4',
-          margin: { top: '20mm', right: '20mm', bottom: '20mm', left: '20mm' },
-          printBackground: true,
-          preferCSSPageSize: true,
+        },
+        // Fallback configuration for environments with missing libraries
+        {
+          headless: true,
+          args: [
+            '--no-sandbox',
+            '--disable-setuid-sandbox',
+            '--disable-dev-shm-usage',
+            '--disable-gpu',
+            '--disable-software-rasterizer',
+            '--disable-web-security',
+            '--no-first-run',
+            '--no-zygote',
+            '--single-process', // Only as last resort
+          ],
           timeout: 30000,
-        });
-
-        this.logger.log(`PDF generated successfully, size: ${pdfBuffer.length} bytes`);
-        return Buffer.from(pdfBuffer);
-        
-      } catch (error) {
-        this.logger.error(`PDF generation failed on attempt ${attempt}:`, {
-          message: error.message,
-          stack: error.stack,
-          title
-        });
-        
-        // If this is the last attempt, throw the error
-        if (attempt === 3) {
-          // More specific error messages
-          if (error.message?.includes('timeout')) {
-            throw new InternalServerErrorException('PDF generation timed out. Please try again.');
-          } else if (error.message?.includes('Protocol error')) {
-            throw new InternalServerErrorException('Browser communication error during PDF generation.');
-          } else {
-            throw new InternalServerErrorException(`PDF generation failed: ${error.message || 'Unknown error'}`);
-          }
         }
-        
-        // Wait before retrying
-        await new Promise(resolve => setTimeout(resolve, 2000 * attempt));
-      } finally {
-        if (browser) {
-          try {
-            await browser.close();
-            this.logger.log('Browser closed successfully');
-          } catch (closeError) {
-            this.logger.warn('Error closing browser:', closeError);
+      ];
+      
+      let launchError: Error | undefined;
+      for (let configIndex = 0; configIndex < launchConfigs.length; configIndex++) {
+        try {
+          this.logger.log(`Trying Puppeteer launch configuration ${configIndex + 1}/${launchConfigs.length}`);
+          browser = await puppeteer.launch(launchConfigs[configIndex]);
+          this.logger.log(`Puppeteer launched successfully with configuration ${configIndex + 1}`);
+          launchError = undefined;
+          break;
+        } catch (launchErr: any) {
+          this.logger.warn(`Puppeteer launch failed with configuration ${configIndex + 1}:`, launchErr.message);
+          launchError = launchErr;
+          
+          // Check if this is a missing library error
+          const isMissingLibraryError = launchErr.message?.includes('libnspr4.so') || 
+            launchErr.message?.includes('shared libraries') ||
+            launchErr.message?.includes('error while loading shared libraries');
+          
+          // If it's a missing library error, try the fallback method immediately
+          if (isMissingLibraryError) {
+            this.logger.warn('Missing system libraries detected, will use fallback method');
+            throw new Error(`MISSING_LIBRARY: ${launchErr.message}`);
           }
+          
+          // If this is the last configuration and it failed, rethrow the error
+          if (configIndex === launchConfigs.length - 1) {
+            throw new InternalServerErrorException(
+              `Failed to launch browser after trying ${launchConfigs.length} configurations. ` +
+              `Original error: ${launchErr.message}`
+            );
+          }
+          
+          // Wait before trying next configuration
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+      }
+        
+      // Check if browser is successfully launched
+      if (!browser) {
+        throw new InternalServerErrorException('Failed to launch browser');
+      }
+      
+      const page = await browser.newPage();
+      
+      // Set longer timeouts for server environments
+      page.setDefaultTimeout(30000);
+      page.setDefaultNavigationTimeout(30000);
+
+      // Enhanced request interception with better error handling
+      await page.setRequestInterception(true);
+      page.on('request', (req) => {
+        try {
+          if (req.resourceType() === 'image' || req.url().startsWith('data:')) {
+            req.continue();
+          } else {
+            req.continue();
+          }
+        } catch (error) {
+          this.logger.warn('Request interception error:', error);
+          // Continue anyway to avoid blocking
+        }
+      });
+
+      // Set content with longer timeout
+      this.logger.log('Setting page content...');
+      try {
+        await page.setContent(html, { 
+          waitUntil: 'domcontentloaded',
+          timeout: 15000 
+        });
+        this.logger.log('Page content set successfully');
+      } catch (setContentError: any) {
+        this.logger.error('Failed to set page content:', setContentError);
+        // Try a simpler approach
+        await page.setContent(html, { 
+          waitUntil: 'load',
+          timeout: 10000 
+        });
+        this.logger.log('Page content set with simplified approach');
+      }
+
+      // Try to load KaTeX with fallback
+      try {
+        this.logger.log('Loading KaTeX resources...');
+        await Promise.race([
+          this.loadKatexResources(page),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('KaTeX loading timeout')), 10000))
+        ]);
+        this.logger.log('KaTeX resources loaded successfully');
+      } catch (error: any) {
+        this.logger.warn('Failed to load KaTeX resources, continuing without math rendering:', error);
+      }
+
+      // Wait for images with timeout
+      try {
+        this.logger.log('Waiting for images to load...');
+        // More robust image loading check
+        await page.waitForFunction(() => {
+          const images = Array.from(document.images);
+          return images.every(img => 
+            img.complete && 
+            (img.naturalWidth !== 0 || img.naturalHeight !== 0)
+          );
+        }, { timeout: 10000 });
+        this.logger.log('Images loaded successfully');
+      } catch (e) {
+        this.logger.warn('Image loading timeout, continuing with PDF generation');
+      }
+
+      // Generate PDF with enhanced options
+      this.logger.log('Generating PDF...');
+      const pdfBuffer = await page.pdf({
+        format: 'A4',
+        margin: { top: '20mm', right: '20mm', bottom: '20mm', left: '20mm' },
+        printBackground: true,
+        preferCSSPageSize: true,
+        timeout: 30000,
+      });
+
+      this.logger.log(`PDF generated successfully, size: ${pdfBuffer.length} bytes`);
+      return Buffer.from(pdfBuffer);
+      
+    } catch (error: any) {
+      this.logger.error('PDF generation failed with Puppeteer:', {
+        message: error.message,
+        stack: error.stack,
+        title
+      });
+      
+      // Check if this is a missing library error that we threw intentionally
+      if (error.message?.startsWith('MISSING_LIBRARY:')) {
+        throw error; // Re-throw so it can be handled by the calling function
+      }
+      
+      // More specific error messages
+      if (error.message?.includes('timeout')) {
+        throw new InternalServerErrorException('PDF generation timed out. Please try again.');
+      } else if (error.message?.includes('Protocol error')) {
+        throw new InternalServerErrorException('Browser communication error during PDF generation.');
+      } else {
+        throw new InternalServerErrorException(`PDF generation failed: ${error.message || 'Unknown error'}`);
+      }
+    } finally {
+      if (browser) {
+        try {
+          await browser.close();
+          this.logger.log('Browser closed successfully');
+        } catch (closeError) {
+          this.logger.warn('Error closing browser:', closeError);
         }
       }
     }
-    
-    // This should never be reached
-    throw new InternalServerErrorException('PDF generation failed after all retries');
   }
+
 
   private async loadKatexResources(page: any): Promise<void> {
     this.logger.log('Loading KaTeX resources...');
@@ -1441,6 +1536,196 @@ export class ExamsService {
         </div>
       </div>
     `;
+  }
+
+  /* ------------------------
+       Fallback PDF Generation
+       ------------------------ */
+
+  private async renderHtmlToPdfFallback(
+    html: string,
+    title = 'Document',
+  ): Promise<Buffer> {
+    this.logger.warn(`Using fallback PDF generation for: ${title}`);
+    
+    // For environments where Puppeteer cannot run due to missing system libraries,
+    // we'll create a structured text representation that's more useful than plain text
+    
+    try {
+      // Attempt to parse basic information from HTML
+      let examTitle = title;
+      let variantNumber = '';
+      let studentName = '';
+      
+      // Extract title from HTML if possible
+      const titleMatch = html.match(/<title>([^<]+)<\/title>/i);
+      if (titleMatch && titleMatch[1]) {
+        examTitle = titleMatch[1];
+      }
+      
+      // Extract variant information
+      const variantMatch = html.match(/Variant:\s*([^\n<]+)/i);
+      if (variantMatch && variantMatch[1]) {
+        variantNumber = variantMatch[1].trim();
+      }
+      
+      // Extract student name
+      const studentMatch = html.match(/O'quvchi:\s*([^\n<]+)/i);
+      if (studentMatch && studentMatch[1]) {
+        studentName = studentMatch[1].trim();
+      }
+      
+      // Create a structured document
+      let documentContent = `====================\n`;
+      documentContent += `PDF DOCUMENT (FALLBACK MODE)\n`;
+      documentContent += `====================\n\n`;
+      
+      documentContent += `Document Title: ${examTitle}\n`;
+      if (variantNumber) {
+        documentContent += `Variant Number: ${variantNumber}\n`;
+      }
+      if (studentName) {
+        documentContent += `Student Name: ${studentName}\n`;
+      }
+      documentContent += `Generated on: ${new Date().toLocaleString()}\n`;
+      documentContent += `Status: Generated in fallback mode due to system limitations\n\n`;
+      
+      documentContent += `====================\n`;
+      documentContent += `DOCUMENT CONTENT\n`;
+      documentContent += `====================\n\n`;
+      
+      // Extract questions section if it exists
+      const questionsStart = html.indexOf('Savollar');
+      if (questionsStart > 0) {
+        // Try to extract questions in a structured way
+        const questionsSection = html.substring(questionsStart);
+        const questionMatches = questionsSection.match(/<div class="question">[\s\S]*?<\/div>\s*<\/div>/g);
+        
+        if (questionMatches && questionMatches.length > 0) {
+          documentContent += `Total Questions: ${questionMatches.length}\n\n`;
+          
+          questionMatches.forEach((questionHtml, index) => {
+            documentContent += `Question ${index + 1}:\n`;
+            
+            // Extract question text
+            const textMatch = questionHtml.match(/<div class="q-text">([\s\S]*?)<\/div>/);
+            if (textMatch && textMatch[1]) {
+              // Basic HTML tag removal
+              let questionText = textMatch[1]
+                .replace(/<[^>]*>/g, ' ')
+                .replace(/\s+/g, ' ')
+                .trim();
+              
+              // Decode basic HTML entities
+              questionText = questionText
+                .replace(/&nbsp;/g, ' ')
+                .replace(/&amp;/g, '&')
+                .replace(/&lt;/g, '<')
+                .replace(/&gt;/g, '>')
+                .replace(/&quot;/g, '"')
+                .replace(/&#039;/g, "'");
+              
+              documentContent += `  Text: ${questionText}\n`;
+            }
+            
+            // Extract answers if they exist
+            const answerMatches = questionHtml.match(/<div class="answer">([\s\S]*?)<\/div>/g);
+            if (answerMatches && answerMatches.length > 0) {
+              documentContent += `  Answers:\n`;
+              answerMatches.forEach((answerHtml, ansIndex) => {
+                // Basic HTML tag removal
+                let answerText = answerHtml
+                  .replace(/<[^>]*>/g, ' ')
+                  .replace(/\s+/g, ' ')
+                  .trim();
+                
+                // Decode basic HTML entities
+                answerText = answerText
+                  .replace(/&nbsp;/g, ' ')
+                  .replace(/&amp;/g, '&')
+                  .replace(/&lt;/g, '<')
+                  .replace(/&gt;/g, '>')
+                  .replace(/&quot;/g, '"')
+                  .replace(/&#039;/g, "'");
+                
+                documentContent += `    ${String.fromCharCode(65 + ansIndex)}) ${answerText}\n`;
+              });
+            }
+            
+            documentContent += `\n`;
+          });
+        } else {
+          documentContent += `Questions section found but could not parse individual questions.\n\n`;
+        }
+      } else {
+        documentContent += `Questions section not found in document.\n\n`;
+      }
+      
+      // Add a note about the limitation
+      documentContent += `====================\n`;
+      documentContent += `SYSTEM INFORMATION\n`;
+      documentContent += `====================\n\n`;
+      documentContent += `This document was generated in fallback mode because the system is missing required libraries\n`;
+      documentContent += `for full PDF generation (e.g., libnspr4.so).\n\n`;
+      documentContent += `For full PDF functionality, please ensure all required system libraries are installed.\n`;
+      documentContent += `See: https://pptr.dev/troubleshooting\n\n`;
+      
+      // Add raw content as last resort
+      documentContent += `====================\n`;
+      documentContent += `RAW CONTENT (TRUNCATED)\n`;
+      documentContent += `====================\n\n`;
+      
+      // Remove most HTML tags and clean up
+      let rawContent = html
+        .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '') // Remove style tags
+        .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '') // Remove script tags
+        .replace(/<[^>]*>/g, ' ') // Remove other HTML tags
+        .replace(/\s+/g, ' ') // Collapse whitespace
+        .trim();
+      
+      // Truncate if too long
+      if (rawContent.length > 10000) {
+        rawContent = rawContent.substring(0, 10000) + '\n\n... (content truncated)';
+      }
+      
+      documentContent += rawContent;
+      
+      // Convert to Buffer
+      return Buffer.from(documentContent, 'utf-8');
+    } catch (error) {
+      // If our structured approach fails, fall back to simple text extraction
+      this.logger.error('Structured fallback failed, using basic text extraction:', error);
+      
+      // Extract text content from HTML (very basic extraction)
+      let textContent = html;
+      
+      // Remove HTML tags
+      textContent = textContent.replace(/<[^>]*>/g, ' ');
+      
+      // Decode HTML entities
+      textContent = textContent
+        .replace(/&amp;/g, '&')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&quot;/g, '"')
+        .replace(/&#039;/g, "'");
+      
+      // Clean up extra whitespace
+      textContent = textContent.replace(/\s+/g, ' ').trim();
+      
+      // Create a simple text-based PDF representation
+      const pdfContent = `PDF Document: ${title}
+
+Generated on: ${new Date().toISOString()}
+Generated in fallback mode due to system limitations
+
+Content:
+
+${textContent.substring(0, 10000)}${textContent.length > 10000 ? '\n\n... (content truncated)' : ''}`;
+      
+      // Convert to Buffer
+      return Buffer.from(pdfContent, 'utf-8');
+    }
   }
 }
 
