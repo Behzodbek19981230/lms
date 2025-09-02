@@ -1131,7 +1131,7 @@ export class ExamsService {
               id: variant.student.id,
               firstName: variant.student.firstName,
               lastName: variant.student.lastName,
-              email: variant.student.email,
+              username: variant.student.username,
             }
           : null,
         exam: variant.exam

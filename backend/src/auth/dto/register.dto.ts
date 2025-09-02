@@ -11,7 +11,7 @@ import { UserRole } from '../../users/entities/user.entity';
 export class RegisterDto {
   @ApiProperty({
     example: 'teacher123',
-    description: 'O'qituvchining foydalanuvchi nomi',
+    description: 'O\'qituvchining foydalanuvchi nomi',
   })
   @IsString()
   @IsNotEmpty()

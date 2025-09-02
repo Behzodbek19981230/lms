@@ -182,10 +182,20 @@ export class AuthService {
       where: { id: user.id },
       relations: ['subjects', 'center'],
     });
+    if (!userData) {
+      throw new UnauthorizedException('Foydalanuvchi topilmadi');
+    }
 
     return {
       access_token,
-      user: userData,
+      user: {
+        id: userData.id,
+        username: userData.username,
+        firstName: userData.firstName,
+        lastName: userData.lastName,
+        fullName: userData.fullName,
+        role: userData.role,
+      },
     };
   }
 }

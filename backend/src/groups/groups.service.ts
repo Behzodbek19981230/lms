@@ -143,7 +143,7 @@ export class GroupsService {
       id: student.id,
       firstName: student.firstName,
       lastName: student.lastName,
-      email: student.email,
+      username: student.username,
     }));
   }
 
@@ -229,7 +229,7 @@ export class GroupsService {
       id: s.id,
       firstName: s.firstName,
       lastName: s.lastName,
-      email: s.email,
+      username: s.username,
       role: s.role,
     })),
     daysOfWeek: g.daysOfWeek || [],

@@ -83,7 +83,7 @@ export class StudentsService {
         firstName: student.firstName,
         lastName: student.lastName,
         fullName: student.fullName,
-        email: student.email,
+        username: student.username,
         center: student.center?.name || null,
       },
       stats: {

@@ -276,7 +276,7 @@ export class TelegramService {
 
         // Search by username if provided
         if (username) {
-          searchConditions.push({ email: `${username}@telegram.user` });
+          searchConditions.push({ username: username });
         }
 
         potentialUsers = await this.userRepo.find({
@@ -295,7 +295,17 @@ export class TelegramService {
         );
       } else {
         try {
-          linkedUser = await this.userRepo.update({});
+          // Create a temporary user - this code seems wrong, fixing it
+          linkedUser = await this.userRepo.save(
+            this.userRepo.create({
+              username: `telegram_${telegramUserId}`,
+              firstName: firstName || 'Telegram',
+              lastName: lastName || 'User',
+              password: 'temp_password_' + Math.random().toString(36),
+              role: UserRole.STUDENT,
+              isActive: true,
+            }),
+          );
 
           this.logger.log(
             `Created temporary user ${linkedUser.id} for Telegram user ${telegramUserId}`,
@@ -1471,7 +1481,7 @@ export class TelegramService {
       if (user.lastName) {
         accountMessage += `📝 <b>Familiya:</b> ${user.lastName}\n`;
       }
-      accountMessage += `📧 <b>Email:</b> ${user.email}\n`;
+      accountMessage += `👤 <b>Foydalanuvchi nomi:</b> ${user.username}\n`;
       accountMessage += `👤 <b>Rol:</b> ${this.getRoleDisplayName(user.role)}\n`;
 
       if (user.center) {

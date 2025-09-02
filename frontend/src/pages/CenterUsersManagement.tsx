@@ -12,7 +12,7 @@ import {
     Search,
     Filter,
     Download,
-    Mail,
+    User as UserIcon,
     Phone,
     Building,
     ChevronDown,
@@ -43,7 +43,7 @@ interface User {
     id: number;
     firstName: string;
     lastName: string;
-    email: string;
+    username: string;
     phone?: string;
     role: 'student' | 'teacher' | 'admin';
     isActive: boolean;
@@ -138,7 +138,7 @@ const CenterUsersManagement = () => {
             const matchesSearch = 
                 user.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||
                 user.lastName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                user.email.toLowerCase().includes(searchTerm.toLowerCase());
+                user.username.toLowerCase().includes(searchTerm.toLowerCase());
             
             const matchesRole = roleFilter === "all" || user.role === roleFilter;
             
@@ -177,7 +177,7 @@ const CenterUsersManagement = () => {
 
     const exportUsersData = () => {
         const csvData = [];
-        csvData.push(['Markaz', 'Ism', 'Familiya', 'Email', 'Telefon', 'Rol', 'Holat', 'Oxirgi kirish']);
+        csvData.push(['Markaz', 'Ism', 'Familiya', 'Foydalanuvchi nomi', 'Telefon', 'Rol', 'Holat', 'Oxirgi kirish']);
         
         centers.forEach(center => {
             center.users.forEach(user => {
@@ -185,7 +185,7 @@ const CenterUsersManagement = () => {
                     center.name,
                     user.firstName,
                     user.lastName,
-                    user.email,
+                    user.username,
                     user.phone || '',
                     user.role,
                     user.isActive ? 'Faol' : 'Nofaol',
@@ -320,7 +320,7 @@ const CenterUsersManagement = () => {
                                 <div className="relative">
                                     <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
                                     <Input
-                                        placeholder="Ism, familiya yoki email bo'yicha qidirish..."
+                                        placeholder="Ism, familiya yoki foydalanuvchi nomi bo'yicha qidirish..."
                                         value={searchTerm}
                                         onChange={(e) => setSearchTerm(e.target.value)}
                                         className="pl-8"
@@ -397,7 +397,7 @@ const CenterUsersManagement = () => {
                                                 <TableHeader>
                                                     <TableRow>
                                                         <TableHead>Foydalanuvchi</TableHead>
-                                                        <TableHead>Email</TableHead>
+                                                        <TableHead>Foydalanuvchi nomi</TableHead>
                                                         <TableHead>Telefon</TableHead>
                                                         <TableHead>Rol</TableHead>
                                                         <TableHead>Holat</TableHead>
@@ -417,8 +417,8 @@ const CenterUsersManagement = () => {
                                                             </TableCell>
                                                             <TableCell>
                                                                 <div className="flex items-center">
-                                                                    <Mail className="h-4 w-4 mr-2 text-muted-foreground" />
-                                                                    {user.email}
+                                                                    <UserIcon className="h-4 w-4 mr-2 text-muted-foreground" />
+                                                                    {user.username}
                                                                 </div>
                                                             </TableCell>
                                                             <TableCell>
