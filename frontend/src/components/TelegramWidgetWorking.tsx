@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { MessageSquare } from 'lucide-react';
+import { MessageSquare, ExternalLink } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -20,79 +20,7 @@ interface Props {
   onError?: (error: string) => void;
 }
 
-declare global {
-  interface Window {
-    onTelegramAuth: (user: TelegramUser) => void;
-  }
-}
-
-// Telegram Login Button Component
-interface TelegramLoginButtonProps {
-  botUsername: string;
-  onAuth: (user: TelegramUser) => void;
-}
-
-const TelegramLoginButton: React.FC<TelegramLoginButtonProps> = ({ botUsername, onAuth }) => {
-  const containerRef = React.useRef<HTMLDivElement>(null);
-  const [isLoaded, setIsLoaded] = useState(false);
-
-  React.useEffect(() => {
-    if (!containerRef.current) return;
-
-    // Clear container
-    containerRef.current.innerHTML = '';
-
-    // Create a unique callback name
-    const callbackName = `telegramAuth_${Date.now()}`;
-    
-    // Set up callback
-    (window as any)[callbackName] = onAuth;
-
-    // Create script element
-    const script = document.createElement('script');
-    script.async = true;
-    script.src = 'https://telegram.org/js/telegram-widget.js?22';
-    script.setAttribute('data-telegram-login', botUsername);
-    script.setAttribute('data-size', 'large');
-    script.setAttribute('data-onauth', `${callbackName}(user)`);
-    script.setAttribute('data-request-access', 'write');
-    
-    script.onload = () => {
-      console.log('Telegram widget loaded');
-      setIsLoaded(true);
-    };
-    
-    script.onerror = () => {
-      console.error('Failed to load Telegram widget');
-    };
-
-    containerRef.current.appendChild(script);
-
-    return () => {
-      // Cleanup
-      if ((window as any)[callbackName]) {
-        delete (window as any)[callbackName];
-      }
-    };
-  }, [botUsername, onAuth]);
-
-  if (!isLoaded) {
-    return (
-      <div className="flex items-center justify-center py-4">
-        <div className="animate-pulse flex items-center space-x-2">
-          <div className="w-4 h-4 bg-blue-300 rounded-full animate-bounce"></div>
-          <span className="text-sm text-gray-500">Telegram widget yuklanmoqda...</span>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div ref={containerRef} className="flex justify-center" />
-  );
-};
-
-const TelegramRegisterSimple: React.FC<Props> = ({ onSuccess, onError }) => {
+const TelegramWidgetWorking: React.FC<Props> = ({ onSuccess, onError }) => {
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
   const { login } = useAuth();
@@ -167,14 +95,16 @@ const TelegramRegisterSimple: React.FC<Props> = ({ onSuccess, onError }) => {
     }
   };
 
-  useEffect(() => {
-    // Set up global callback
-    window.onTelegramAuth = handleTelegramAuth;
+  // Manual registration method
+  const handleManualRegistration = () => {
+    const telegramUrl = `https://t.me/${TELEGRAM_BOT_USERNAME}`;
+    window.open(telegramUrl, '_blank');
     
-    return () => {
-      delete window.onTelegramAuth;
-    };
-  }, []);
+    toast({
+      title: 'Telegram Bot',
+      description: `@${TELEGRAM_BOT_USERNAME} botiga o'ting va /start buyrug'ini yuboring.`,
+    });
+  };
 
   return (
     <Card className="w-full max-w-md">
@@ -193,12 +123,48 @@ const TelegramRegisterSimple: React.FC<Props> = ({ onSuccess, onError }) => {
       <CardContent className="space-y-4">
         <div className="text-center space-y-4">
           <p className="text-sm text-gray-600">
-            Bot: <code className="bg-gray-100 px-1 rounded">{TELEGRAM_BOT_USERNAME}</code>
+            Bot: <code className="bg-gray-100 px-1 rounded">@{TELEGRAM_BOT_USERNAME}</code>
           </p>
           
-          {/* Telegram Login Button */}
-          <div className="telegram-login-widget">
-            <TelegramLoginButton botUsername={TELEGRAM_BOT_USERNAME} onAuth={handleTelegramAuth} />
+          {/* Alternative: Direct Telegram Link */}
+          <div className="space-y-3">
+            <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+              <h3 className="font-medium text-blue-900 mb-2">1. Telegram botiga o'ting</h3>
+              <Button
+                onClick={handleManualRegistration}
+                className="w-full bg-blue-600 hover:bg-blue-700"
+              >
+                <MessageSquare className="mr-2 h-4 w-4" />
+                @{TELEGRAM_BOT_USERNAME} botini ochish
+                <ExternalLink className="ml-2 h-4 w-4" />
+              </Button>
+            </div>
+            
+            <div className="p-4 bg-green-50 rounded-lg border border-green-200">
+              <h3 className="font-medium text-green-900 mb-2">2. Botga buyruq yuboring</h3>
+              <div className="bg-gray-800 text-green-400 p-3 rounded font-mono text-sm">
+                /start
+              </div>
+              <p className="text-sm text-green-700 mt-2">
+                Bot sizga ro'yxatdan o'tish uchun ko'rsatmalar beradi
+              </p>
+            </div>
+          </div>
+
+          {/* Telegram Widget Iframe - Alternative approach */}
+          <div className="mt-6">
+            <h3 className="font-medium mb-2">Yoki Telegram Login Widget:</h3>
+            <div className="flex justify-center">
+              <iframe
+                src={`https://oauth.telegram.org/embed/${TELEGRAM_BOT_USERNAME}?origin=${encodeURIComponent(window.location.origin)}&size=large&userpic=false&radius=4`}
+                width="200"
+                height="36"
+                frameBorder="0"
+                scrolling="no"
+                style={{ border: 'none', borderRadius: '4px' }}
+                title="Telegram Login"
+              />
+            </div>
           </div>
           
           {isLoading && (
@@ -210,9 +176,11 @@ const TelegramRegisterSimple: React.FC<Props> = ({ onSuccess, onError }) => {
             </div>
           )}
           
-          <div className="text-xs text-gray-500 space-y-1">
+          <div className="text-xs text-gray-500 space-y-1 p-3 bg-yellow-50 rounded">
+            <p><strong>Eslatma:</strong></p>
             <p>• Telegram hisobingizda username bo'lishi kerak</p>
             <p>• Bot bilan avval muloqot qilmagan bo'lishingiz kerak</p>
+            <p>• Widget ko'rinmasa, bot linkini ishlatib qo'lda ro'yxatdan o'ting</p>
           </div>
         </div>
       </CardContent>
@@ -220,4 +188,4 @@ const TelegramRegisterSimple: React.FC<Props> = ({ onSuccess, onError }) => {
   );
 };
 
-export default TelegramRegisterSimple;
+export default TelegramWidgetWorking;
