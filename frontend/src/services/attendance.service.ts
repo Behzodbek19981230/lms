@@ -56,7 +56,7 @@ export interface PresentStudentsResponse {
     firstName: string;
     lastName: string;
     fullName: string;
-    arrivedAt?: Date;
+    arrivedAt?: string;
     notes?: string;
   }>;
   totalPresent: number;

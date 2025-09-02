@@ -208,7 +208,7 @@ export default function PresentStudentsCard() {
                             <p className="font-medium text-green-800">{student.fullName}</p>
                             {student.arrivedAt && (
                               <p className="text-xs text-green-600 font-mono">
-                                Keldi: {new Date(student.arrivedAt).toLocaleTimeString('uz-UZ')}
+                                Keldi: {student.arrivedAt}
                               </p>
                             )}
                           </div>
