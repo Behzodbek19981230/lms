@@ -230,6 +230,7 @@ export class TelegramService {
     autoConnected?: boolean;
   }> {
     try {
+      console.log(`Authenticating Telegram user ${telegramUserId}`);
       // Check if this Telegram user is already registered
       const existingChat = await this.telegramChatRepo.findOne({
         where: { telegramUserId },
@@ -239,6 +240,8 @@ export class TelegramService {
       if (existingChat && existingChat.user) {
         // User already connected, send updated channel list
         await this.sendUserChannelsAndInvitation(existingChat.user.id);
+
+        console.log(`User ${existingChat.user.id} is already connected.`);
         return {
           success: true,
           message: `Qaytib kelganingiz bilan, ${existingChat.user.firstName}! Sizning hisobingiz allaqachon ulangan.`,
