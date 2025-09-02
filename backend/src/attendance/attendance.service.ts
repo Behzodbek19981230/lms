@@ -378,7 +378,7 @@ export class AttendanceService {
       firstName: string;
       lastName: string;
       fullName: string;
-      arrivedAt?: Date;
+      arrivedAt?: string;
       notes?: string;
     }>;
     totalPresent: number;
@@ -440,7 +440,7 @@ export class AttendanceService {
       firstName: string;
       lastName: string;
       fullName: string;
-      arrivedAt?: Date;
+      arrivedAt?: string;
       notes?: string;
     }>;
     totalPresent: number;
