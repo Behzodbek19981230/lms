@@ -9,7 +9,7 @@ EduNimbus Connect - bu zamonaviy ta'lim boshqaruv tizimi (LMS) bo'lib, Telegram 
 Endi foydalanuvchilar Telegram hisobi orqali tezda ro'yxatdan o'tishlari mumkin:
 
 - **Avtomatik username**: Telegram username'i tizimda avtomatik ishlatiladi
-- **Xavfsiz**: Parol talab qilinmaydi, Telegram autentifikatsiyasi ishlatiladi
+- **Standart parol**: Telegram orqali ro'yxatdan o'tgan foydalanuvchilar uchun standart parol: `lms1234`
 - **Tezkor**: Bir bosish bilan ro'yxatdan o'tish
 - **Student roli**: Telegram orqali ro'yxatdan o'tgan foydalanuvchilar avtomatik student rolini oladi
 
@@ -182,7 +182,13 @@ ALTER TABLE users DROP COLUMN email;
    - Telegram'da username bo'lishi shart
    - Username unique bo'lishi kerak
 
-3. **Migration**:
+3. **Telegram Foydalanuvchilar uchun Login**:
+   - Telegram orqali ro'yxatdan o'tgandan keyin, foydalanuvchilar oddiy login formasi orqali kirishi mumkin
+   - Username: Telegram username'i
+   - Parol: `lms1234` (standart parol)
+   - Kerak bo'lsa, foydalanuvchilar parolni profile settings'da o'zgartirishi mumkin
+
+4. **Migration**:
    - Database migration'ni production'da ehtiyotkorlik bilan bajaring
    - Backup oling
 

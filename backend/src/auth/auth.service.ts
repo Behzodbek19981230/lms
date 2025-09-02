@@ -225,11 +225,8 @@ export class AuthService {
       );
     }
 
-    // Generate a secure random password for Telegram users
-    const hashedPassword = await bcrypt.hash(
-      `telegram_${telegramUserId}_${Date.now()}`,
-      12
-    );
+    // Use default password for Telegram users
+    const hashedPassword = await bcrypt.hash('lms1234', 12);
 
     // Create new user with telegram username
     const user = this.userRepository.create({
