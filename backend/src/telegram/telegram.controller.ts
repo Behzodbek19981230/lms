@@ -244,7 +244,10 @@ export class TelegramController {
     description: 'Exam start notification sent successfully',
   })
   async notifyExamStart(@Body() dto: { examId: number; groupIds: number[] }) {
-    const result = await this.telegramService.notifyExamStart(dto.examId, dto.groupIds);
+    const result = await this.telegramService.notifyExamStart(
+      dto.examId,
+      dto.groupIds,
+    );
     return result;
   }
 

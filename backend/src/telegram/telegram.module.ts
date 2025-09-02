@@ -5,6 +5,7 @@ import { TelegramService } from './telegram.service';
 import { TelegramController } from './telegram.controller';
 import { TelegramChat } from './entities/telegram-chat.entity';
 import { TelegramAnswer } from './entities/telegram-answer.entity';
+import { PendingPdf } from './entities/pending-pdf.entity';
 import { User } from '../users/entities/user.entity';
 import { Center } from '../centers/entities/center.entity';
 import { Subject } from '../subjects/entities/subject.entity';
@@ -19,6 +20,7 @@ import { NotificationsModule } from '../notifications/notifications.module';
     TypeOrmModule.forFeature([
       TelegramChat,
       TelegramAnswer,
+      PendingPdf,
       User,
       Center,
       Subject,

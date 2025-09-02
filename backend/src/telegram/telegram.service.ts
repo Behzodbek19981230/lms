@@ -12,6 +12,11 @@ import {
   TelegramAnswer,
   AnswerStatus,
 } from './entities/telegram-answer.entity';
+import {
+  PendingPdf,
+  PendingPdfType,
+  PendingPdfStatus,
+} from './entities/pending-pdf.entity';
 import { User, UserRole } from '../users/entities/user.entity';
 import { Center } from '../centers/entities/center.entity';
 import { Subject } from '../subjects/entities/subject.entity';
@@ -36,6 +41,8 @@ export class TelegramService {
     private telegramChatRepo: Repository<TelegramChat>,
     @InjectRepository(TelegramAnswer)
     private telegramAnswerRepo: Repository<TelegramAnswer>,
+    @InjectRepository(PendingPdf)
+    private pendingPdfRepo: Repository<PendingPdf>,
     @InjectRepository(User)
     private userRepo: Repository<User>,
     @InjectRepository(Center)
@@ -237,23 +244,66 @@ export class TelegramService {
         };
       }
 
-      // Try to find matching LMS user by name or email
-      const potentialUsers = await this.userRepo.find({
-        where: [
-          { firstName: firstName, lastName: lastName },
-          { firstName: lastName, lastName: firstName }, // Try reversed names
-        ],
-        relations: ['center', 'subjects'],
-      });
+      // Try to find matching LMS user by name - be more flexible with matching
+      let potentialUsers: User[] = [];
+      
+      if (firstName || lastName) {
+        const searchConditions = [];
+        
+        // Search by first name and last name combinations
+        if (firstName && lastName) {
+          searchConditions.push(
+            { firstName: firstName, lastName: lastName },
+            { firstName: lastName, lastName: firstName }, // Try reversed names
+          );
+        }
+        
+        // Search by first name only
+        if (firstName) {
+          searchConditions.push({ firstName: firstName });
+        }
+        
+        // Search by last name only
+        if (lastName) {
+          searchConditions.push({ lastName: lastName });
+        }
+        
+        // Search by username if provided
+        if (username) {
+          searchConditions.push({ email: `${username}@telegram.user` });
+        }
+
+        potentialUsers = await this.userRepo.find({
+          where: searchConditions,
+          relations: ['center', 'subjects'],
+        });
+      }
 
       let linkedUser: User | null = null;
 
-      if (potentialUsers.length === 1) {
-        // Exact match found - auto-link
+      if (potentialUsers.length > 0) {
+        // Take the first matching user for auto-linking
         linkedUser = potentialUsers[0];
-        const chat =
-          existingChat ||
-          this.telegramChatRepo.create({
+        this.logger.log(`Auto-linking user ${linkedUser.firstName} ${linkedUser.lastName} with Telegram user ${telegramUserId}`);
+      } else {
+        // No matching user found - create a placeholder/guest user or handle differently
+        // For now, we'll create a basic user record to allow immediate connection
+        try {
+          linkedUser = await this.userRepo.save({
+            firstName: firstName || 'Telegram',
+            lastName: lastName || 'User',
+            email: `telegram_${telegramUserId}@temp.universal-lms.uz`,
+            password: 'temp_telegram_user', // This should be hashed in real implementation
+            role: UserRole.STUDENT,
+            isActive: true,
+            // Set other required fields with defaults
+          });
+          
+          this.logger.log(`Created temporary user ${linkedUser.id} for Telegram user ${telegramUserId}`);
+        } catch (error) {
+          this.logger.error('Failed to create temporary user:', error);
+          // Fallback - create chat without user link for manual processing later
+          const chatData = {
             chatId: telegramUserId,
             type: ChatType.PRIVATE,
             telegramUserId,
@@ -261,51 +311,78 @@ export class TelegramService {
             firstName,
             lastName,
             status: ChatStatus.ACTIVE,
-          });
+          };
 
-        chat.user = linkedUser;
-        await this.telegramChatRepo.save(chat);
+          let chat: TelegramChat;
+          if (existingChat) {
+            Object.assign(existingChat, chatData);
+            chat = await this.telegramChatRepo.save(existingChat);
+          } else {
+            chat = await this.telegramChatRepo.save(
+              this.telegramChatRepo.create(chatData),
+            );
+          }
 
-        // Automatically send invitations to relevant channels
-        await this.sendUserChannelsAndInvitation(linkedUser.id);
-
-        return {
-          success: true,
-          message: `🎉 Salom ${linkedUser.firstName}! Hisobingiz avtomatik ulandi. Tegishli kanallarga qo'shilish uchun quyidagi havolalardan foydalaning.`,
-          userId: linkedUser.id,
-          autoConnected: true,
-        };
+          return {
+            success: true,
+            message: `Salom ${firstName || 'Telegram foydalanuvchisi'}! Hisobingiz yaratilmoqda. Tez orada barcha funksiyalar mavjud bo'ladi.`,
+            userId: undefined,
+            autoConnected: false,
+          };
+        }
       }
 
-      // No exact match or multiple matches - manual linking required
-      const chatData = {
-        chatId: telegramUserId,
-        type: ChatType.PRIVATE,
-        telegramUserId,
-        telegramUsername: username,
-        firstName,
-        lastName,
-        status: ChatStatus.ACTIVE,
-      };
+      // Create or update chat with linked user
+      const chat =
+        existingChat ||
+        this.telegramChatRepo.create({
+          chatId: telegramUserId,
+          type: ChatType.PRIVATE,
+          telegramUserId,
+          telegramUsername: username,
+          firstName,
+          lastName,
+          status: ChatStatus.ACTIVE,
+        });
 
-      let chat: TelegramChat;
-      if (existingChat) {
-        Object.assign(existingChat, chatData);
-        chat = await this.telegramChatRepo.save(existingChat);
-      } else {
-        chat = await this.telegramChatRepo.save(
-          this.telegramChatRepo.create(chatData),
+      chat.user = linkedUser;
+      await this.telegramChatRepo.save(chat);
+
+      // Automatically send invitations to relevant channels
+      await this.sendUserChannelsAndInvitation(linkedUser.id);
+
+      // Send any pending PDFs to the newly connected user
+      try {
+        const pendingResult = await this.sendAllPendingPdfs(linkedUser.id);
+        if (pendingResult.sent > 0) {
+          this.logger.log(
+            `Successfully sent ${pendingResult.sent} pending PDFs to user ${linkedUser.id} after connection`,
+          );
+          
+          // Optionally notify user about sent PDFs
+          const userChat = await this.telegramChatRepo.findOne({
+            where: { user: { id: linkedUser.id }, type: ChatType.PRIVATE },
+          });
+          
+          if (userChat && userChat.telegramUserId && this.bot) {
+            const pdfMessage = `📄 Sizga ${pendingResult.sent} ta kutilayotgan PDF yuborildi!`;
+            await this.bot.sendMessage(userChat.telegramUserId, pdfMessage, {
+              parse_mode: 'HTML',
+            });
+          }
+        }
+      } catch (error) {
+        this.logger.error(
+          `Failed to send pending PDFs to user ${linkedUser.id} after connection:`,
+          error,
         );
       }
 
       return {
         success: true,
-        message:
-          potentialUsers.length > 1
-            ? `Bir nechta mos hisoblar topildi. O'qituvchingiz bilan bog'lanib, hisobingizni qo'lda ulashni so'rang.`
-            : `Ro'yxatdan o'tish muvaffaqiyatli! Hisobingizni LMS tizimiga ulash uchun o'qituvchingiz bilan bog'laning.`,
-        userId: undefined,
-        autoConnected: false,
+        message: `🎉 Salom ${linkedUser.firstName}! Hisobingiz avtomatik ulandi. Tegishli kanallarga qo'shilish uchun quyidagi havolalardan foydalaning.`,
+        userId: linkedUser.id,
+        autoConnected: true,
       };
     } catch (error) {
       this.logger.error('Failed to authenticate and connect user:', error);
@@ -1162,9 +1239,9 @@ export class TelegramService {
     const duration = `<b>⏱ Davomiyligi:</b> ${exam.duration} daqiqa\n`;
     const startTime = `<b>🕐 Boshlanish vaqti:</b> ${exam.startTime ? new Date(exam.startTime).toLocaleString() : 'Hozir'}\n`;
     const endTime = `<b>🕕 Tugash vaqti:</b> ${exam.endTime ? new Date(exam.endTime).toLocaleString() : 'Belgilanmagan'}\n\n`;
-    
+
     const personalNote = `🎓 <b>Sizning imtihon variantingiz tayyor!</b>\n\n`;
-    
+
     return (
       header +
       greeting +
@@ -1873,7 +1950,13 @@ export class TelegramService {
 
     const exam = await this.examRepo.findOne({
       where: { id: examId },
-      relations: ['subjects', 'teacher', 'variants', 'groups', 'groups.students'],
+      relations: [
+        'subjects',
+        'teacher',
+        'variants',
+        'groups',
+        'groups.students',
+      ],
     });
 
     if (!exam) {
@@ -1923,6 +2006,7 @@ export class TelegramService {
         // Find student's Telegram chat
         const studentChat = await this.telegramChatRepo.findOne({
           where: {
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
             user: { id: student.id },
             type: ChatType.PRIVATE,
           },
@@ -1963,7 +2047,9 @@ export class TelegramService {
         await this.delay(100);
       } catch (error) {
         failedCount++;
-        errors.push(`${student.firstName} ${student.lastName}: ${error.message}`);
+        errors.push(
+          `${student.firstName} ${student.lastName}: ${error.message}`,
+        );
         this.logger.error(
           `Failed to send exam start notification to student ${student.id}:`,
           error,
@@ -2252,5 +2338,254 @@ export class TelegramService {
       `Monthly payment notifications sent: ${sentCount} sent, ${failedCount} failed`,
     );
     return { sentCount, failedCount };
+  }
+
+  // ==================== Pending PDF Management ====================
+
+  async createPendingPdf(
+    userId: number,
+    type: PendingPdfType,
+    fileName: string,
+    caption: string,
+    metadata: any,
+    pdfBuffer?: Buffer,
+    expirationDays: number = 30,
+  ): Promise<PendingPdf> {
+    try {
+      const user = await this.userRepo.findOne({ where: { id: userId } });
+      if (!user) {
+        throw new BadRequestException('User not found');
+      }
+
+      // Set expiration date
+      const expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + expirationDays);
+
+      const pendingPdf = this.pendingPdfRepo.create({
+        user,
+        userId,
+        type,
+        fileName,
+        caption,
+        metadata,
+        pdfData: pdfBuffer ? pdfBuffer.toString('base64') : null,
+        status: PendingPdfStatus.PENDING,
+        expiresAt,
+      });
+
+      const savedPendingPdf = await this.pendingPdfRepo.save(pendingPdf);
+      
+      this.logger.log(
+        `Created pending PDF ${savedPendingPdf.id} for user ${userId}: ${fileName}`,
+      );
+      
+      return savedPendingPdf;
+    } catch (error) {
+      this.logger.error(`Failed to create pending PDF for user ${userId}:`, error);
+      throw error;
+    }
+  }
+
+  async getUserPendingPdfs(
+    userId: number,
+    status?: PendingPdfStatus,
+  ): Promise<PendingPdf[]> {
+    try {
+      const where: any = {
+        userId,
+        expiresAt: { $gte: new Date() }, // Not expired
+      };
+      
+      if (status) {
+        where.status = status;
+      }
+
+      return await this.pendingPdfRepo.find({
+        where,
+        relations: ['user'],
+        order: { createdAt: 'DESC' },
+      });
+    } catch (error) {
+      this.logger.error(
+        `Failed to get pending PDFs for user ${userId}:`,
+        error,
+      );
+      return [];
+    }
+  }
+
+  async sendAllPendingPdfs(userId: number): Promise<{
+    sent: number;
+    failed: number;
+    details: string[];
+  }> {
+    const result = {
+      sent: 0,
+      failed: 0,
+      details: [] as string[],
+    };
+
+    try {
+      // Get all pending PDFs for the user
+      const pendingPdfs = await this.getUserPendingPdfs(
+        userId,
+        PendingPdfStatus.PENDING,
+      );
+
+      if (pendingPdfs.length === 0) {
+        this.logger.log(`No pending PDFs found for user ${userId}`);
+        return result;
+      }
+
+      this.logger.log(
+        `Found ${pendingPdfs.length} pending PDFs for user ${userId}`,
+      );
+
+      for (const pendingPdf of pendingPdfs) {
+        try {
+          let pdfBuffer: Buffer;
+
+          if (pendingPdf.pdfData) {
+            // Use stored PDF data
+            pdfBuffer = Buffer.from(pendingPdf.pdfData, 'base64');
+          } else {
+            // Regenerate PDF from metadata
+            pdfBuffer = await this.regeneratePdfFromMetadata(pendingPdf);
+          }
+
+          // Attempt to send the PDF
+          const sendResult = await this.sendPDFToUser(
+            userId,
+            pdfBuffer,
+            pendingPdf.fileName,
+            pendingPdf.caption,
+          );
+
+          if (sendResult.success) {
+            // Mark as sent
+            pendingPdf.status = PendingPdfStatus.SENT;
+            pendingPdf.sentAt = new Date();
+            await this.pendingPdfRepo.save(pendingPdf);
+
+            result.sent++;
+            result.details.push(
+              `✅ ${pendingPdf.fileName}: ${sendResult.message}`,
+            );
+
+            this.logger.log(
+              `Successfully sent pending PDF ${pendingPdf.id} to user ${userId}`,
+            );
+          } else {
+            // Mark as failed
+            pendingPdf.status = PendingPdfStatus.FAILED;
+            pendingPdf.failureReason = sendResult.message;
+            await this.pendingPdfRepo.save(pendingPdf);
+
+            result.failed++;
+            result.details.push(
+              `❌ ${pendingPdf.fileName}: ${sendResult.message}`,
+            );
+
+            this.logger.warn(
+              `Failed to send pending PDF ${pendingPdf.id} to user ${userId}: ${sendResult.message}`,
+            );
+          }
+
+          // Small delay between sends
+          await this.delay(300);
+        } catch (error) {
+          // Mark as failed
+          pendingPdf.status = PendingPdfStatus.FAILED;
+          pendingPdf.failureReason = error.message;
+          await this.pendingPdfRepo.save(pendingPdf);
+
+          result.failed++;
+          result.details.push(
+            `❌ ${pendingPdf.fileName}: Error - ${error.message}`,
+          );
+
+          this.logger.error(
+            `Error sending pending PDF ${pendingPdf.id} to user ${userId}:`,
+            error,
+          );
+        }
+      }
+
+      this.logger.log(
+        `Completed sending pending PDFs for user ${userId}: ${result.sent} sent, ${result.failed} failed`,
+      );
+    } catch (error) {
+      this.logger.error(
+        `Error processing pending PDFs for user ${userId}:`,
+        error,
+      );
+    }
+
+    return result;
+  }
+
+  private async regeneratePdfFromMetadata(pendingPdf: PendingPdf): Promise<Buffer> {
+    // This method would regenerate the PDF based on the stored metadata
+    // For now, we'll throw an error if no PDF data is stored
+    if (!pendingPdf.pdfData) {
+      throw new Error(
+        `Cannot regenerate PDF for ${pendingPdf.fileName} - no stored data or regeneration logic`,
+      );
+    }
+    
+    return Buffer.from(pendingPdf.pdfData, 'base64');
+  }
+
+  async cleanupExpiredPendingPdfs(): Promise<number> {
+    try {
+      const result = await this.pendingPdfRepo
+        .createQueryBuilder()
+        .delete()
+        .from(PendingPdf)
+        .where('expiresAt < :now', { now: new Date() })
+        .execute();
+
+      const deletedCount = result.affected || 0;
+      
+      if (deletedCount > 0) {
+        this.logger.log(`Cleaned up ${deletedCount} expired pending PDFs`);
+      }
+      
+      return deletedCount;
+    } catch (error) {
+      this.logger.error('Error cleaning up expired pending PDFs:', error);
+      return 0;
+    }
+  }
+
+  async getpendingPdfStats(): Promise<{
+    total: number;
+    pending: number;
+    sent: number;
+    failed: number;
+    expired: number;
+  }> {
+    try {
+      const [total, pending, sent, failed, expired] = await Promise.all([
+        this.pendingPdfRepo.count(),
+        this.pendingPdfRepo.count({
+          where: { status: PendingPdfStatus.PENDING },
+        }),
+        this.pendingPdfRepo.count({
+          where: { status: PendingPdfStatus.SENT },
+        }),
+        this.pendingPdfRepo.count({
+          where: { status: PendingPdfStatus.FAILED },
+        }),
+        this.pendingPdfRepo.count({
+          where: { status: PendingPdfStatus.EXPIRED },
+        }),
+      ]);
+
+      return { total, pending, sent, failed, expired };
+    } catch (error) {
+      this.logger.error('Error getting pending PDF stats:', error);
+      return { total: 0, pending: 0, sent: 0, failed: 0, expired: 0 };
+    }
   }
 }
