@@ -8,7 +8,7 @@ import { User, UserRole } from '../users/entities/user.entity';
 import { Question } from '../questions/entities/question.entity';
 import { Answer } from '../questions/entities/answer.entity';
 import { NotificationsService } from '../notifications/notifications.service';
-import * as puppeteer from 'puppeteer';
+const PDFDocument = require('pdfkit');
 
 interface GenerateDto {
   baseTestId: number;
@@ -264,20 +264,205 @@ export class AssignedTestsService {
       order: { order: 'ASC' },
     });
 
-    const browser = await puppeteer.launch({ headless: true });
-    const page = await browser.newPage();
+    return this.generatePdfWithPDFKit(assignedTest, variants, questions);
+  }
 
-    const htmlContent = this.generateTestHtml(assignedTest, variants, questions);
-    await page.setContent(htmlContent);
-    
-    const pdfBuffer = await page.pdf({
-      format: 'A4',
-      margin: { top: '20mm', right: '20mm', bottom: '20mm', left: '20mm' },
-      printBackground: true,
+  private async generatePdfWithPDFKit(assignedTest: AssignedTest, variants: AssignedTestVariant[], questions: Question[]): Promise<Buffer> {
+    return new Promise((resolve, reject) => {
+      try {
+        // Create a new PDFDocument
+        const doc = new PDFDocument({
+          size: 'A4',
+          margin: 50,
+          info: {
+            Title: assignedTest.title,
+            Author: 'Universal LMS',
+            Subject: 'Assigned Test Document',
+            Creator: 'Universal LMS System',
+          },
+        });
+
+        const buffers: Buffer[] = [];
+
+        // Collect PDF data
+        doc.on('data', (chunk) => {
+          buffers.push(chunk);
+        });
+
+        doc.on('end', () => {
+          const finalBuffer = Buffer.concat(buffers);
+          resolve(finalBuffer);
+        });
+
+        doc.on('error', (error) => {
+          reject(error);
+        });
+
+        const subjectName = assignedTest.baseTest.subject?.name || "Fan ko'rsatilmagan";
+        const totalStudents = variants.length;
+        const totalQuestions = questions.length;
+        const currentDate = new Date().toLocaleDateString('uz-UZ');
+
+        // Generate title page
+        doc
+          .fontSize(20)
+          .font('Helvetica-Bold')
+          .text(`${subjectName.toUpperCase()} FANIDAN BLOK TEST`, { align: 'center' })
+          .moveDown(1);
+
+        doc
+          .fontSize(16)
+          .font('Helvetica-Bold')
+          .text(assignedTest.title, { align: 'center' })
+          .moveDown(2);
+
+        // Add test information
+        doc
+          .fontSize(12)
+          .font('Helvetica')
+          .text(`Guruh: ${assignedTest.group.name}`, { align: 'center' })
+          .text(`Savollar soni: ${totalQuestions} ta`, { align: 'center' })
+          .text(`Variantlar soni: ${totalStudents} ta`, { align: 'center' })
+          .text(`Sana: ${currentDate}`, { align: 'center' })
+          .moveDown(2);
+
+        // Add instructions
+        doc
+          .fontSize(14)
+          .font('Helvetica-Bold')
+          .text("KO'RSATMALAR:", { align: 'center' })
+          .moveDown(1);
+
+        const instructions = [
+          'Barcha savollarga javob bering',
+          "Har bir savol uchun faqat bitta to'g'ri javob mavjud",
+          'Javoblarni aniq va tushunarli yozing',
+          "Vaqtni to'g'ri taqsimlang",
+          'Ishingizni tekshirib chiqing',
+        ];
+
+        doc.fontSize(11).font('Helvetica');
+        instructions.forEach((instruction) => {
+          doc.text(`• ${instruction}`, { indent: 50 });
+        });
+        doc.moveDown(2);
+
+        // Add student info fields
+        const studentFields = [
+          'Ism: ___________________________',
+          'Familiya: ___________________________',
+          'Guruh: ___________________________',
+          'Variant raqami: ___________________________',
+          'Sana: ___________________________',
+        ];
+
+        studentFields.forEach((field) => {
+          doc.text(field, { align: 'left', indent: 100 }).moveDown(0.5);
+        });
+
+        // Generate variants
+        variants.forEach((variant, variantIndex) => {
+          doc.addPage();
+
+          // Variant header
+          doc
+            .fontSize(16)
+            .font('Helvetica-Bold')
+            .text(assignedTest.title, { align: 'center' })
+            .moveDown(0.5);
+
+          doc
+            .fontSize(12)
+            .font('Helvetica')
+            .text(`Guruh: ${assignedTest.group.name}`, { align: 'center' })
+            .text(`Variant: ${variant.variantNumber}`, { align: 'center' })
+            .text(`O'quvchi: ${variant.student.fullName}`, { align: 'center' })
+            .text(`Sana: ${currentDate}`, { align: 'center' })
+            .moveDown(1);
+
+          // Add separator line
+          doc
+            .moveTo(50, doc.y)
+            .lineTo(545, doc.y)
+            .stroke()
+            .moveDown(1);
+
+          // Get questions for this variant
+          const variantQuestionIds = variant.payload.questions.map(q => q.questionId);
+          const variantQuestions = questions.filter(q => variantQuestionIds.includes(q.id));
+
+          // Add questions
+          variantQuestions.forEach((question, qIndex) => {
+            const variantData = variant.payload.questions.find(vq => vq.questionId === question.id);
+            
+            // Question text
+            doc
+              .fontSize(11)
+              .font('Helvetica-Bold')
+              .text(`${qIndex + 1}. ${question.text}`, { 
+                width: 495,
+                lineGap: 2 
+              })
+              .moveDown(0.5);
+
+            // Answers
+            if (question.type === 'multiple_choice' && variantData?.answerOrder) {
+              const shuffledAnswers = variantData.answerOrder.map(orderIndex => question.answers[orderIndex]);
+              shuffledAnswers.forEach((answer, aIndex) => {
+                doc
+                  .fontSize(10)
+                  .font('Helvetica')
+                  .text(`${String.fromCharCode(65 + aIndex)}. ${answer.text}`, {
+                    indent: 20,
+                    width: 475,
+                    lineGap: 1
+                  });
+              });
+            } else if (question.type === 'true_false') {
+              doc
+                .fontSize(10)
+                .font('Helvetica')
+                .text("A. To'g'ri", { indent: 20 })
+                .text("B. Noto'g'ri", { indent: 20 });
+            } else {
+              doc
+                .fontSize(10)
+                .font('Helvetica')
+                .text('Javob: _________________', { indent: 20 });
+            }
+
+            // Points
+            doc
+              .fontSize(9)
+              .font('Helvetica')
+              .text(`Ball: ${question.points || 1}`, { 
+                indent: 20,
+                color: '#666666' 
+              })
+              .moveDown(1);
+
+            // Check if we need a new page
+            if (doc.y > 700) {
+              doc.addPage();
+            }
+          });
+
+          // Footer
+          doc
+            .fontSize(10)
+            .font('Helvetica')
+            .text('Jami ball: ___________', { 
+              align: 'center',
+              y: doc.page.height - 100 
+            });
+        });
+
+        // Finalize the PDF
+        doc.end();
+      } catch (error) {
+        reject(error);
+      }
     });
-
-    await browser.close();
-    return Buffer.from(pdfBuffer);
   }
 
   private generateTestHtml(assignedTest: AssignedTest, variants: AssignedTestVariant[], questions: Question[]): string {

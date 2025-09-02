@@ -20,7 +20,13 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { UserRole } from '../users/entities/user.entity';
 import { TelegramService } from './telegram.service';
-import { CreateTelegramChatDto, SendTestToChannelDto, SubmitAnswerDto, AuthenticateUserDto, NotifyExamStartDto } from './dto/telegram.dto';
+import {
+  CreateTelegramChatDto,
+  SendTestToChannelDto,
+  SubmitAnswerDto,
+  AuthenticateUserDto,
+  NotifyExamStartDto,
+} from './dto/telegram.dto';
 
 @ApiTags('Telegram')
 @Controller('telegram')
@@ -35,7 +41,10 @@ export class TelegramController {
   @ApiOperation({ summary: 'Telegram webhook endpoint for receiving messages' })
   @ApiResponse({ status: 200, description: 'Webhook processed successfully' })
   async handleWebhook(@Body() update: any) {
-    this.logger.log('Received Telegram webhook:', JSON.stringify(update, null, 2));
+    this.logger.log(
+      'Received Telegram webhook:',
+      JSON.stringify(update, null, 2),
+    );
 
     try {
       if (update.message) {
@@ -81,7 +90,7 @@ export class TelegramController {
   @Get('chats/user/me')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Get current user\'s Telegram chats' })
+  @ApiOperation({ summary: "Get current user's Telegram chats" })
   @ApiResponse({ status: 200, description: 'User chats retrieved' })
   async getMyChats(@Request() req) {
     return this.telegramService.getUserChats(req.user.id);
@@ -103,7 +112,10 @@ export class TelegramController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get user Telegram connection status' })
-  @ApiResponse({ status: 200, description: 'User status retrieved successfully' })
+  @ApiResponse({
+    status: 200,
+    description: 'User status retrieved successfully',
+  })
   async getUserStatus(@Request() req) {
     return this.telegramService.getUserTelegramStatus(req.user.id);
   }
@@ -125,7 +137,10 @@ export class TelegramController {
     @Param('telegramUserId') telegramUserId: string,
     @Param('lmsUserId') lmsUserId: string,
   ) {
-    return this.telegramService.linkTelegramUserToLmsUser(telegramUserId, +lmsUserId);
+    return this.telegramService.linkTelegramUserToLmsUser(
+      telegramUserId,
+      +lmsUserId,
+    );
   }
 
   @Get('unlinked-users')
@@ -135,13 +150,15 @@ export class TelegramController {
   @ApiOperation({ summary: 'Get unlinked Telegram users' })
   @ApiResponse({ status: 200, description: 'Unlinked users retrieved' })
   async getUnlinkedUsers(@Request() req) {
-    this.logger.log(`Getting unlinked users. User: ${JSON.stringify(req.user)}`);
-    
+    this.logger.log(
+      `Getting unlinked users. User: ${JSON.stringify(req.user)}`,
+    );
+
     if (!req.user) {
       this.logger.error('No user found in request');
       throw new BadRequestException('User not authenticated');
     }
-    
+
     this.logger.log(`User role: ${req.user.role}, User ID: ${req.user.id}`);
     return this.telegramService.getUnlinkedTelegramUsers();
   }
@@ -152,11 +169,13 @@ export class TelegramController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   async testAuth(@Request() req) {
-    this.logger.log(`Test auth endpoint hit. User: ${JSON.stringify(req.user)}`);
+    this.logger.log(
+      `Test auth endpoint hit. User: ${JSON.stringify(req.user)}`,
+    );
     return {
       message: 'Authentication successful',
       user: req.user,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     };
   }
 
@@ -165,11 +184,13 @@ export class TelegramController {
   @Roles(UserRole.TEACHER, UserRole.ADMIN, UserRole.SUPERADMIN)
   @ApiBearerAuth()
   async testRoles(@Request() req) {
-    this.logger.log(`Test roles endpoint hit. User: ${JSON.stringify(req.user)}`);
+    this.logger.log(
+      `Test roles endpoint hit. User: ${JSON.stringify(req.user)}`,
+    );
     return {
       message: 'Role authorization successful',
       user: req.user,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     };
   }
 
@@ -217,11 +238,14 @@ export class TelegramController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.TEACHER, UserRole.ADMIN, UserRole.SUPERADMIN)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Notify exam start to a Telegram channel' })
-  @ApiResponse({ status: 200, description: 'Exam start notification sent successfully' })
-  async notifyExamStart(@Body() dto: NotifyExamStartDto) {
-    const success = await this.telegramService.notifyExamStart(dto);
-    return { success, message: 'Imtihon boshlanishi haqida xabar yuborildi' };
+  @ApiOperation({ summary: 'Notify exam start to Telegram channels' })
+  @ApiResponse({
+    status: 200,
+    description: 'Exam start notification sent successfully',
+  })
+  async notifyExamStart(@Body() dto: { examId: number; groupIds: number[] }) {
+    const result = await this.telegramService.notifyExamStart(dto.examId, dto.groupIds);
+    return result;
   }
 
   // ==================== Results Management ====================
@@ -253,7 +277,9 @@ export class TelegramController {
   // ==================== Private Helper Methods ====================
 
   private async processMessage(message: any) {
-    this.logger.log(`Processing message from ${message.from?.username || message.from?.first_name}`);
+    this.logger.log(
+      `Processing message from ${message.from?.username || message.from?.first_name}`,
+    );
 
     // Check if this is an answer submission
     if (message.text && message.text.startsWith('#T')) {
@@ -264,7 +290,7 @@ export class TelegramController {
     // Handle bot commands
     if (message.text) {
       const command = message.text.toLowerCase().trim();
-      
+
       switch (command) {
         case '/start':
         case '/register':
@@ -328,7 +354,10 @@ export class TelegramController {
   }
 
   private async processChannelPost(channelPost: any) {
-    this.logger.log('Processing channel post:', channelPost.text?.substring(0, 100));
+    this.logger.log(
+      'Processing channel post:',
+      channelPost.text?.substring(0, 100),
+    );
     // Handle channel posts if needed
   }
 
@@ -355,8 +384,9 @@ export class TelegramController {
       };
 
       await this.telegramService.processAnswer(dto);
-      this.logger.log(`Answer processed for test ${testId}, question ${questionNumber}`);
-
+      this.logger.log(
+        `Answer processed for test ${testId}, question ${questionNumber}`,
+      );
     } catch (error) {
       this.logger.error('Error processing answer submission:', error);
     }
@@ -371,23 +401,23 @@ export class TelegramController {
     try {
       // Set bot commands menu for this user
       await this.telegramService.setBotCommands(message.chat.id);
-      
+
       // Use new authentication method that auto-connects users
       const result = await this.telegramService.authenticateAndConnectUser(
         telegramUserId,
         username,
         firstName,
-        lastName
+        lastName,
       );
 
       let welcomeMessage = `🎓 <b>Assalomu alaykum, Universal LMS botiga xush kelibsiz!</b>\n\n`;
-      
+
       if (result.autoConnected) {
         welcomeMessage += `✅ Hisobingiz avtomatik ulandi.\n\n📋 <b>Mavjud buyruqlar:</b>\n`;
       } else {
         welcomeMessage += `📝 Ro'yxatdan o'tish muvaffaqiyatli!\n\n📋 <b>Asosiy buyruqlar:</b>\n`;
       }
-      
+
       welcomeMessage += `\n📊 /natijalarim - Test natijalarimni ko'rish`;
       welcomeMessage += `\n📅 /davomatim - Davomat hisobotim`;
       welcomeMessage += `\n👤 /hisobim - Shaxsiy ma'lumotlar`;
@@ -395,7 +425,7 @@ export class TelegramController {
       welcomeMessage += `\n✅ /yoklama - Yo'qlama olish (o'qituvchilar uchun)`;
       welcomeMessage += `\n📢 /elon - E'lonlar va xabarlar`;
       welcomeMessage += `\n❓ /help - Yordam`;
-      
+
       if (result.autoConnected) {
         welcomeMessage += `\n\n🎯 <b>Test formatiga misol:</b>\n#T123Q1 A`;
         welcomeMessage += `\n\n📢 <b>E'lonlar:</b>\nBarcha e'lonlar sizga avtomatik yuboriladi`;
@@ -407,18 +437,20 @@ export class TelegramController {
         await this.telegramService['bot'].sendMessage(
           message.chat.id,
           welcomeMessage,
-          { parse_mode: 'HTML' }
+          { parse_mode: 'HTML' },
         );
       }
 
-      this.logger.log(`Registration handled for ${username}: ${result.success}, auto-connected: ${result.autoConnected}`);
+      this.logger.log(
+        `Registration handled for ${username}: ${result.success}, auto-connected: ${result.autoConnected}`,
+      );
     } catch (error) {
       this.logger.error('Error handling registration:', error);
-      
+
       if (this.telegramService['bot']) {
         await this.telegramService['bot'].sendMessage(
           message.chat.id,
-          'Kechirasiz, ro\'yxatdan o\'tishda xatolik. Keyinroq qayta urinib ko\'ring.',
+          "Kechirasiz, ro'yxatdan o'tishda xatolik. Keyinroq qayta urinib ko'ring.",
         );
       }
     }
@@ -426,39 +458,41 @@ export class TelegramController {
 
   private async handleHelp(message: any) {
     const helpMessage = this.getHelpMessage();
-    
+
     if (this.telegramService['bot']) {
       await this.telegramService['bot'].sendMessage(
         message.chat.id,
         helpMessage,
-        { parse_mode: 'HTML' }
+        { parse_mode: 'HTML' },
       );
     }
-    
+
     this.logger.log(`Help request from ${message.from.username}`);
   }
 
   private async handleMainMenu(message: any) {
     const menuMessage = `🎓 <b>Universal LMS - Asosiy Menu</b>\n\nQuyidagi bo'limlardan birini tanlang:\n\n📊 /natijalarim - Test natijalarim\n📅 /davomatim - Davomat hisobotim\n👤 /hisobim - Shaxsiy ma'lumotlar\n\n---\n📚 <b>Ta'lim jarayoni:</b>\n✅ /yoklama - Yo'qlama olish (o'qituvchilar)\n📢 /elon - E'lonlar va xabarlar\n📝 /testlar - Aktiv testlar\n\n---\n📞 <b>Yordam:</b>\n❓ /help - To'liq yordam\n📞 /aloqa - Aloqa ma'lumotlari`;
-    
+
     if (this.telegramService['bot']) {
       await this.telegramService['bot'].sendMessage(
         message.chat.id,
         menuMessage,
-        { parse_mode: 'HTML' }
+        { parse_mode: 'HTML' },
       );
     }
   }
 
   private async handleMyResults(message: any) {
     try {
-      const results = await this.telegramService.getUserTestResults(message.from.id.toString());
-      
+      const results = await this.telegramService.getUserTestResults(
+        message.from.id.toString(),
+      );
+
       if (this.telegramService['bot']) {
         await this.telegramService['bot'].sendMessage(
           message.chat.id,
           results,
-          { parse_mode: 'HTML' }
+          { parse_mode: 'HTML' },
         );
       }
     } catch (error) {
@@ -466,7 +500,7 @@ export class TelegramController {
       if (this.telegramService['bot']) {
         await this.telegramService['bot'].sendMessage(
           message.chat.id,
-          'Natijalarni yuklab olishda xatolik. Keyinroq qayta urinib ko\'ring.'
+          "Natijalarni yuklab olishda xatolik. Keyinroq qayta urinib ko'ring.",
         );
       }
     }
@@ -474,13 +508,15 @@ export class TelegramController {
 
   private async handleMyAttendance(message: any) {
     try {
-      const attendance = await this.telegramService.getUserAttendance(message.from.id.toString());
-      
+      const attendance = await this.telegramService.getUserAttendance(
+        message.from.id.toString(),
+      );
+
       if (this.telegramService['bot']) {
         await this.telegramService['bot'].sendMessage(
           message.chat.id,
           attendance,
-          { parse_mode: 'HTML' }
+          { parse_mode: 'HTML' },
         );
       }
     } catch (error) {
@@ -488,7 +524,7 @@ export class TelegramController {
       if (this.telegramService['bot']) {
         await this.telegramService['bot'].sendMessage(
           message.chat.id,
-          'Davomat ma\'lumotlarini yuklab olishda xatolik. Keyinroq qayta urinib ko\'ring.'
+          "Davomat ma'lumotlarini yuklab olishda xatolik. Keyinroq qayta urinib ko'ring.",
         );
       }
     }
@@ -496,13 +532,15 @@ export class TelegramController {
 
   private async handleMyAccount(message: any) {
     try {
-      const account = await this.telegramService.getUserAccountInfo(message.from.id.toString());
-      
+      const account = await this.telegramService.getUserAccountInfo(
+        message.from.id.toString(),
+      );
+
       if (this.telegramService['bot']) {
         await this.telegramService['bot'].sendMessage(
           message.chat.id,
           account,
-          { parse_mode: 'HTML' }
+          { parse_mode: 'HTML' },
         );
       }
     } catch (error) {
@@ -510,7 +548,7 @@ export class TelegramController {
       if (this.telegramService['bot']) {
         await this.telegramService['bot'].sendMessage(
           message.chat.id,
-          'Hisob ma\'lumotlarini yuklab olishda xatolik. Keyinroq qayta urinib ko\'ring.'
+          "Hisob ma'lumotlarini yuklab olishda xatolik. Keyinroq qayta urinib ko'ring.",
         );
       }
     }
@@ -518,21 +556,21 @@ export class TelegramController {
 
   private async handleAttendanceTaking(message: any) {
     try {
-      const groups = await this.telegramService.getTeacherGroups(message.from.id.toString());
-      
+      const groups = await this.telegramService.getTeacherGroups(
+        message.from.id.toString(),
+      );
+
       if (this.telegramService['bot']) {
-        await this.telegramService['bot'].sendMessage(
-          message.chat.id,
-          groups,
-          { parse_mode: 'HTML' }
-        );
+        await this.telegramService['bot'].sendMessage(message.chat.id, groups, {
+          parse_mode: 'HTML',
+        });
       }
     } catch (error) {
       this.logger.error('Error getting teacher groups:', error);
       if (this.telegramService['bot']) {
         await this.telegramService['bot'].sendMessage(
           message.chat.id,
-          'Sizda o\'qituvchi huquqi yo\'q yoki guruhlar yuklanmadi.'
+          "Sizda o'qituvchi huquqi yo'q yoki guruhlar yuklanmadi.",
         );
       }
     }
@@ -541,13 +579,16 @@ export class TelegramController {
   private async handleGroupSelection(message: any) {
     try {
       const groupId = message.text.replace('grup_', '');
-      const students = await this.telegramService.getGroupStudentsForAttendance(message.from.id.toString(), groupId);
-      
+      const students = await this.telegramService.getGroupStudentsForAttendance(
+        message.from.id.toString(),
+        groupId,
+      );
+
       if (this.telegramService['bot']) {
         await this.telegramService['bot'].sendMessage(
           message.chat.id,
           students,
-          { parse_mode: 'HTML' }
+          { parse_mode: 'HTML' },
         );
       }
     } catch (error) {
@@ -555,7 +596,7 @@ export class TelegramController {
       if (this.telegramService['bot']) {
         await this.telegramService['bot'].sendMessage(
           message.chat.id,
-          'Guruh ma\'lumotlarini yuklab olishda xatolik.'
+          "Guruh ma'lumotlarini yuklab olishda xatolik.",
         );
       }
     }
@@ -563,21 +604,22 @@ export class TelegramController {
 
   private async handleAttendanceMarking(message: any) {
     try {
-      const result = await this.telegramService.markStudentAttendance(message.from.id.toString(), message.text);
-      
+      const result = await this.telegramService.markStudentAttendance(
+        message.from.id.toString(),
+        message.text,
+      );
+
       if (this.telegramService['bot']) {
-        await this.telegramService['bot'].sendMessage(
-          message.chat.id,
-          result,
-          { parse_mode: 'HTML' }
-        );
+        await this.telegramService['bot'].sendMessage(message.chat.id, result, {
+          parse_mode: 'HTML',
+        });
       }
     } catch (error) {
       this.logger.error('Error marking attendance:', error);
       if (this.telegramService['bot']) {
         await this.telegramService['bot'].sendMessage(
           message.chat.id,
-          'Yo\'qlama belgilashda xatolik.'
+          "Yo'qlama belgilashda xatolik.",
         );
       }
     }
@@ -585,13 +627,15 @@ export class TelegramController {
 
   private async handleAnnouncements(message: any) {
     try {
-      const announcements = await this.telegramService.getUserAnnouncements(message.from.id.toString());
-      
+      const announcements = await this.telegramService.getUserAnnouncements(
+        message.from.id.toString(),
+      );
+
       if (this.telegramService['bot']) {
         await this.telegramService['bot'].sendMessage(
           message.chat.id,
           announcements,
-          { parse_mode: 'HTML' }
+          { parse_mode: 'HTML' },
         );
       }
     } catch (error) {
@@ -599,7 +643,7 @@ export class TelegramController {
       if (this.telegramService['bot']) {
         await this.telegramService['bot'].sendMessage(
           message.chat.id,
-          'E\'lonlarni yuklab olishda xatolik yuz berdi.'
+          "E'lonlarni yuklab olishda xatolik yuz berdi.",
         );
       }
     }
@@ -607,21 +651,21 @@ export class TelegramController {
 
   private async handleActiveTests(message: any) {
     try {
-      const tests = await this.telegramService.getUserActiveTests(message.from.id.toString());
-      
+      const tests = await this.telegramService.getUserActiveTests(
+        message.from.id.toString(),
+      );
+
       if (this.telegramService['bot']) {
-        await this.telegramService['bot'].sendMessage(
-          message.chat.id,
-          tests,
-          { parse_mode: 'HTML' }
-        );
+        await this.telegramService['bot'].sendMessage(message.chat.id, tests, {
+          parse_mode: 'HTML',
+        });
       }
     } catch (error) {
       this.logger.error('Error getting active tests:', error);
       if (this.telegramService['bot']) {
         await this.telegramService['bot'].sendMessage(
           message.chat.id,
-          'Aktiv testlarni yuklab olishda xatolik yuz berdi.'
+          'Aktiv testlarni yuklab olishda xatolik yuz berdi.',
         );
       }
     }
@@ -629,12 +673,12 @@ export class TelegramController {
 
   private async handleContact(message: any) {
     const contactMessage = `📞 <b>Aloqa Ma'lumotlari</b>\n\n🏢 <b>Universal LMS</b>\n\n📧 Email: info@universal-lms.uz\n📱 Telefon: +998 90 123 45 67\n🌐 Website: https://universal-lms.uz\n\n👨‍🏫 <b>O'qituvchi bilan bog'lanish:</b>\nO'z guruhingiz o'qituvchisi bilan to'g'ridan-to'g'ri bog'lanish uchun /menu bo'limidan foydalaning.\n\n💬 <b>Texnik yordam:</b>\nBot bilan bog'liq muammolar uchun admin bilan bog'laning.`;
-    
+
     if (this.telegramService['bot']) {
       await this.telegramService['bot'].sendMessage(
         message.chat.id,
         contactMessage,
-        { parse_mode: 'HTML' }
+        { parse_mode: 'HTML' },
       );
     }
   }

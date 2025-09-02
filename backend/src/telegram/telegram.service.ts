@@ -3,8 +3,15 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, IsNull } from 'typeorm';
 import TelegramBot from 'node-telegram-bot-api';
 import { ConfigService } from '@nestjs/config';
-import { TelegramChat, ChatType, ChatStatus } from './entities/telegram-chat.entity';
-import { TelegramAnswer, AnswerStatus } from './entities/telegram-answer.entity';
+import {
+  TelegramChat,
+  ChatType,
+  ChatStatus,
+} from './entities/telegram-chat.entity';
+import {
+  TelegramAnswer,
+  AnswerStatus,
+} from './entities/telegram-answer.entity';
 import { User, UserRole } from '../users/entities/user.entity';
 import { Center } from '../centers/entities/center.entity';
 import { Subject } from '../subjects/entities/subject.entity';
@@ -12,7 +19,12 @@ import { Test } from '../tests/entities/test.entity';
 import { Question } from '../questions/entities/question.entity';
 import { Answer } from '../questions/entities/answer.entity';
 import { Exam } from '../exams/entities/exam.entity';
-import { CreateTelegramChatDto, SendTestToChannelDto, SubmitAnswerDto, NotifyExamStartDto } from './dto/telegram.dto';
+import {
+  CreateTelegramChatDto,
+  SendTestToChannelDto,
+  SubmitAnswerDto,
+  NotifyExamStartDto,
+} from './dto/telegram.dto';
 
 @Injectable()
 export class TelegramService {
@@ -51,7 +63,10 @@ export class TelegramService {
 
   // ==================== Chat Management ====================
 
-  async createOrUpdateChat(dto: CreateTelegramChatDto, authenticatedUser: User): Promise<TelegramChat> {
+  async createOrUpdateChat(
+    dto: CreateTelegramChatDto,
+    authenticatedUser: User,
+  ): Promise<TelegramChat> {
     const existingChat = await this.telegramChatRepo.findOne({
       where: { chatId: dto.chatId },
       relations: ['user', 'center', 'subject'],
@@ -82,7 +97,9 @@ export class TelegramService {
 
       // Use subject from DTO if provided
       if (dto.subjectId) {
-        subject = await this.subjectRepo.findOne({ where: { id: dto.subjectId } });
+        subject = await this.subjectRepo.findOne({
+          where: { id: dto.subjectId },
+        });
       }
     }
 
@@ -98,10 +115,10 @@ export class TelegramService {
         telegramUsername: dto.telegramUsername,
         lastActivity: new Date(),
       });
-      
+
       if (center) existingChat.center = center;
       if (subject) existingChat.subject = subject;
-      
+
       return this.telegramChatRepo.save(existingChat);
     }
 
@@ -120,10 +137,12 @@ export class TelegramService {
       center: center || undefined,
       subject: subject || undefined,
     };
-    
+
     // For private chats, link to the user who sent the message
     if (dto.type === ChatType.PRIVATE && dto.userId) {
-      const chatUser = await this.userRepo.findOne({ where: { id: dto.userId } });
+      const chatUser = await this.userRepo.findOne({
+        where: { id: dto.userId },
+      });
       if (chatUser) {
         (newChatData as any).user = chatUser;
       }
@@ -165,26 +184,41 @@ export class TelegramService {
 
   // ==================== Enhanced User Authentication & Auto-Connection ====================
 
-  async authenticateUser(dto: any): Promise<{ success: boolean; message: string; userId?: number; autoConnected?: boolean }> {
+  async authenticateUser(dto: any): Promise<{
+    success: boolean;
+    message: string;
+    userId?: number;
+    autoConnected?: boolean;
+  }> {
     try {
       // Use the enhanced authentication method
       return await this.authenticateAndConnectUser(
         dto.telegramUserId.toString(),
         dto.username,
         dto.firstName,
-        dto.lastName
+        dto.lastName,
       );
     } catch (error) {
       this.logger.error('Failed to authenticate user:', error);
       return {
         success: false,
-        message: 'Autentifikatsiyada xatolik. Keyinroq qayta urinib ko\'ring.',
+        message: "Autentifikatsiyada xatolik. Keyinroq qayta urinib ko'ring.",
         autoConnected: false,
       };
     }
   }
 
-  async authenticateAndConnectUser(telegramUserId: string, username?: string, firstName?: string, lastName?: string): Promise<{ success: boolean; message: string; userId?: number; autoConnected?: boolean }> {
+  async authenticateAndConnectUser(
+    telegramUserId: string,
+    username?: string,
+    firstName?: string,
+    lastName?: string,
+  ): Promise<{
+    success: boolean;
+    message: string;
+    userId?: number;
+    autoConnected?: boolean;
+  }> {
     try {
       // Check if this Telegram user is already registered
       const existingChat = await this.telegramChatRepo.findOne({
@@ -217,15 +251,17 @@ export class TelegramService {
       if (potentialUsers.length === 1) {
         // Exact match found - auto-link
         linkedUser = potentialUsers[0];
-        const chat = existingChat || this.telegramChatRepo.create({
-          chatId: telegramUserId,
-          type: ChatType.PRIVATE,
-          telegramUserId,
-          telegramUsername: username,
-          firstName,
-          lastName,
-          status: ChatStatus.ACTIVE,
-        });
+        const chat =
+          existingChat ||
+          this.telegramChatRepo.create({
+            chatId: telegramUserId,
+            type: ChatType.PRIVATE,
+            telegramUserId,
+            telegramUsername: username,
+            firstName,
+            lastName,
+            status: ChatStatus.ACTIVE,
+          });
 
         chat.user = linkedUser;
         await this.telegramChatRepo.save(chat);
@@ -257,14 +293,17 @@ export class TelegramService {
         Object.assign(existingChat, chatData);
         chat = await this.telegramChatRepo.save(existingChat);
       } else {
-        chat = await this.telegramChatRepo.save(this.telegramChatRepo.create(chatData));
+        chat = await this.telegramChatRepo.save(
+          this.telegramChatRepo.create(chatData),
+        );
       }
 
       return {
         success: true,
-        message: potentialUsers.length > 1 
-          ? `Bir nechta mos hisoblar topildi. O'qituvchingiz bilan bog'lanib, hisobingizni qo'lda ulashni so'rang.`
-          : `Ro'yxatdan o'tish muvaffaqiyatli! Hisobingizni LMS tizimiga ulash uchun o'qituvchingiz bilan bog'laning.`,
+        message:
+          potentialUsers.length > 1
+            ? `Bir nechta mos hisoblar topildi. O'qituvchingiz bilan bog'lanib, hisobingizni qo'lda ulashni so'rang.`
+            : `Ro'yxatdan o'tish muvaffaqiyatli! Hisobingizni LMS tizimiga ulash uchun o'qituvchingiz bilan bog'laning.`,
         userId: undefined,
         autoConnected: false,
       };
@@ -272,13 +311,15 @@ export class TelegramService {
       this.logger.error('Failed to authenticate and connect user:', error);
       return {
         success: false,
-        message: 'Autentifikatsiyada xatolik. Keyinroq qayta urinib ko\'ring.',
+        message: "Autentifikatsiyada xatolik. Keyinroq qayta urinib ko'ring.",
         autoConnected: false,
       };
     }
   }
 
-  async sendUserChannelsAndInvitation(userId: number): Promise<{ success: boolean; message: string; channels: string[] }> {
+  async sendUserChannelsAndInvitation(
+    userId: number,
+  ): Promise<{ success: boolean; message: string; channels: string[] }> {
     try {
       const user = await this.userRepo.findOne({
         where: { id: userId },
@@ -286,7 +327,11 @@ export class TelegramService {
       });
 
       if (!user) {
-        return { success: false, message: 'Foydalanuvchi topilmadi', channels: [] };
+        return {
+          success: false,
+          message: 'Foydalanuvchi topilmadi',
+          channels: [],
+        };
       }
 
       // Find user's Telegram chat
@@ -315,7 +360,7 @@ export class TelegramService {
 
       if (relevantChannels.length === 0) {
         const defaultMessage = `🎓 Salom ${user.firstName}! Telegram hisobingiz muvaffaqiyatli ulandi.\n\n📚 Hozircha sizning markazingiz uchun faol kanallar yo'q. O'qituvchingiz kanallar yaratganida, sizga avtomatik xabar yuboriladi.\n\n❓ Yordam kerakmi? /help buyrug'ini yuboring.`;
-        
+
         if (this.bot) {
           await this.bot.sendMessage(userChat.telegramUserId, defaultMessage, {
             parse_mode: 'HTML',
@@ -325,18 +370,24 @@ export class TelegramService {
 
         return {
           success: true,
-          message: 'Foydalanuvchi xabardor qilindi (kanallar yo\'q)',
+          message: "Foydalanuvchi xabardor qilindi (kanallar yo'q)",
           channels: [],
         };
       }
 
       // Create invitation message with channel links
       const channelList = relevantChannels
-        .map(channel => {
-          const channelName = channel.title || channel.username || channel.chatId;
-          const subjectInfo = channel.subject ? ` (${channel.subject.name})` : '';
-          const joinLink = channel.inviteLink || channel.username || 'O\'qituvchingiz bilan bog\'laning';
-          
+        .map((channel) => {
+          const channelName =
+            channel.title || channel.username || channel.chatId;
+          const subjectInfo = channel.subject
+            ? ` (${channel.subject.name})`
+            : '';
+          const joinLink =
+            channel.inviteLink ||
+            channel.username ||
+            "O'qituvchingiz bilan bog'laning";
+
           return `📚 ${channelName}${subjectInfo}\n   👉 Qo'shilish: ${joinLink}`;
         })
         .join('\n\n');
@@ -354,17 +405,22 @@ export class TelegramService {
           if (channel.username && channel.username.startsWith('@')) {
             try {
               // Generate a fresh invite link for the channel
-              const inviteResult = await this.generateChannelInviteLink(channel.chatId);
+              const inviteResult = await this.generateChannelInviteLink(
+                channel.chatId,
+              );
               if (inviteResult.success && inviteResult.inviteLink) {
                 // Send individual invitation
                 await this.bot.sendMessage(
                   userChat.telegramUserId,
                   `🔗 ${channel.title || channel.username} kanaliga avtomatik qo'shilish:\n${inviteResult.inviteLink}`,
-                  { disable_web_page_preview: true }
+                  { disable_web_page_preview: true },
                 );
               }
             } catch (error) {
-              this.logger.warn(`Failed to generate invite for channel ${channel.chatId}:`, error);
+              this.logger.warn(
+                `Failed to generate invite for channel ${channel.chatId}:`,
+                error,
+              );
             }
           }
         }
@@ -372,8 +428,10 @@ export class TelegramService {
 
       return {
         success: true,
-        message: 'Kanallar ro\'yxati muvaffaqiyatli yuborildi',
-        channels: relevantChannels.map(c => c.title || c.username || c.chatId),
+        message: "Kanallar ro'yxati muvaffaqiyatli yuborildi",
+        channels: relevantChannels.map(
+          (c) => c.title || c.username || c.chatId,
+        ),
       };
     } catch (error) {
       this.logger.error('Failed to send user channels and invitation:', error);
@@ -385,7 +443,10 @@ export class TelegramService {
     }
   }
 
-  async linkTelegramUserToLmsUser(telegramUserId: string, lmsUserId: number): Promise<{ success: boolean; message: string }> {
+  async linkTelegramUserToLmsUser(
+    telegramUserId: string,
+    lmsUserId: number,
+  ): Promise<{ success: boolean; message: string }> {
     try {
       const user = await this.userRepo.findOne({ where: { id: lmsUserId } });
       if (!user) {
@@ -397,7 +458,11 @@ export class TelegramService {
       });
 
       if (!chat) {
-        return { success: false, message: 'Telegram foydalanuvchisi topilmadi. Iltimos avval botni ishga tushiring.' };
+        return {
+          success: false,
+          message:
+            'Telegram foydalanuvchisi topilmadi. Iltimos avval botni ishga tushiring.',
+        };
       }
 
       chat.user = user;
@@ -409,7 +474,10 @@ export class TelegramService {
       };
     } catch (error) {
       this.logger.error('Failed to link Telegram user to LMS user:', error);
-      return { success: false, message: 'Ulanishda xatolik. Qayta urinib ko\'ring.' };
+      return {
+        success: false,
+        message: "Ulanishda xatolik. Qayta urinib ko'ring.",
+      };
     }
   }
 
@@ -420,7 +488,12 @@ export class TelegramService {
     });
   }
 
-  async generateChannelInviteLink(channelId: string): Promise<{ success: boolean; inviteLink?: string; message: string; errorDetails?: any }> {
+  async generateChannelInviteLink(channelId: string): Promise<{
+    success: boolean;
+    inviteLink?: string;
+    message: string;
+    errorDetails?: any;
+  }> {
     if (!this.bot) {
       return { success: false, message: 'Telegram bot not configured' };
     }
@@ -431,32 +504,43 @@ export class TelegramService {
       try {
         botInfo = await this.bot.getMe();
         const chatMember = await this.bot.getChatMember(channelId, botInfo.id);
-        
+
         if (!['administrator', 'creator'].includes(chatMember.status)) {
           return {
             success: false,
             message: `Bot is not an admin in the channel. Bot status: ${chatMember.status}. Please add @${botInfo.username} as an admin with "can_invite_users" permission.`,
-            errorDetails: { botStatus: chatMember.status, botUsername: botInfo.username }
+            errorDetails: {
+              botStatus: chatMember.status,
+              botUsername: botInfo.username,
+            },
           };
         }
 
         // Check if bot has the required permissions
-        if (chatMember.status === 'administrator' && chatMember.can_invite_users === false) {
+        if (
+          chatMember.status === 'administrator' &&
+          chatMember.can_invite_users === false
+        ) {
           return {
             success: false,
             message: `Bot is admin but lacks "can_invite_users" permission. Please grant this permission to @${botInfo.username}.`,
-            errorDetails: { permissions: chatMember }
+            errorDetails: { permissions: chatMember },
           };
         }
       } catch (permissionError) {
-        this.logger.warn('Could not check bot permissions, proceeding anyway:', permissionError);
+        this.logger.warn(
+          'Could not check bot permissions, proceeding anyway:',
+          permissionError,
+        );
       }
 
       // Try to generate the invite link
       const inviteLink = await this.bot.exportChatInviteLink(channelId);
-      
+
       // Save invite link to database
-      const chat = await this.telegramChatRepo.findOne({ where: { chatId: channelId } });
+      const chat = await this.telegramChatRepo.findOne({
+        where: { chatId: channelId },
+      });
       if (chat) {
         chat.inviteLink = inviteLink;
         await this.telegramChatRepo.save(chat);
@@ -469,39 +553,48 @@ export class TelegramService {
       };
     } catch (error) {
       this.logger.error('Failed to generate invite link:', error);
-      
+
       // Provide more specific error messages
       if (error.code === 400) {
         if (error.description?.includes('not enough rights')) {
           return {
             success: false,
-            message: 'Bot does not have sufficient permissions. Please ensure the bot is an admin with "can_invite_users" permission.',
-            errorDetails: error
+            message:
+              'Bot does not have sufficient permissions. Please ensure the bot is an admin with "can_invite_users" permission.',
+            errorDetails: error,
           };
         } else if (error.description?.includes('chat not found')) {
           return {
             success: false,
-            message: 'Channel not found. Please check the channel ID or username.',
-            errorDetails: error
+            message:
+              'Channel not found. Please check the channel ID or username.',
+            errorDetails: error,
           };
         } else if (error.description?.includes('CHAT_ADMIN_REQUIRED')) {
           return {
             success: false,
-            message: 'Bot must be an admin in the channel to generate invite links.',
-            errorDetails: error
+            message:
+              'Bot must be an admin in the channel to generate invite links.',
+            errorDetails: error,
           };
         }
       }
-      
+
       return {
         success: false,
         message: `Failed to generate invite link: ${error.message || 'Unknown error'}. Make sure the bot is admin in the channel with invite permissions.`,
-        errorDetails: error
+        errorDetails: error,
       };
     }
   }
 
-  async getUserTelegramStatus(userId: number): Promise<{ isLinked: boolean; telegramUsername?: string; firstName?: string; lastName?: string; availableChannels: TelegramChat[] }> {
+  async getUserTelegramStatus(userId: number): Promise<{
+    isLinked: boolean;
+    telegramUsername?: string;
+    firstName?: string;
+    lastName?: string;
+    availableChannels: TelegramChat[];
+  }> {
     try {
       // Get user's Telegram connection
       const userChat = await this.telegramChatRepo.findOne({
@@ -516,7 +609,7 @@ export class TelegramService {
 
       // Get available channels for this user (based on center)
       let availableChannels: TelegramChat[] = [];
-      
+
       if (user) {
         availableChannels = await this.telegramChatRepo.find({
           where: {
@@ -544,7 +637,13 @@ export class TelegramService {
     }
   }
 
-  async checkBotChannelStatus(channelId: string): Promise<{ success: boolean; botStatus?: string; botUsername?: string; permissions?: any; message: string }> {
+  async checkBotChannelStatus(channelId: string): Promise<{
+    success: boolean;
+    botStatus?: string;
+    botUsername?: string;
+    permissions?: any;
+    message: string;
+  }> {
     if (!this.bot) {
       return { success: false, message: 'Telegram bot not configured' };
     }
@@ -552,24 +651,26 @@ export class TelegramService {
     try {
       const botInfo = await this.bot.getMe();
       const chatMember = await this.bot.getChatMember(channelId, botInfo.id);
-      
+
       return {
         success: true,
         botStatus: chatMember.status,
         botUsername: botInfo.username,
         permissions: chatMember,
-        message: `Bot @${botInfo.username} status in channel: ${chatMember.status}`
+        message: `Bot @${botInfo.username} status in channel: ${chatMember.status}`,
       };
     } catch (error) {
       this.logger.error('Failed to check bot status in channel:', error);
       return {
         success: false,
-        message: `Failed to check bot status: ${error.message}`
+        message: `Failed to check bot status: ${error.message}`,
       };
     }
   }
 
-  async sendUserInvitations(userId: number): Promise<{ success: boolean; message: string; channels: string[] }> {
+  async sendUserInvitations(
+    userId: number,
+  ): Promise<{ success: boolean; message: string; channels: string[] }> {
     try {
       const user = await this.userRepo.findOne({
         where: { id: userId },
@@ -577,7 +678,11 @@ export class TelegramService {
       });
 
       if (!user) {
-        return { success: false, message: 'Foydalanuvchi topilmadi', channels: [] };
+        return {
+          success: false,
+          message: 'Foydalanuvchi topilmadi',
+          channels: [],
+        };
       }
 
       // Find user's Telegram chat
@@ -613,7 +718,10 @@ export class TelegramService {
 
       // Send invitation message with channel links
       const channelList = relevantChannels
-        .map(channel => `📚 ${channel.title || channel.username || channel.chatId}\n   Qo'shilish: ${channel.inviteLink || channel.username || 'Adminstratsiya bilan bog\'laning'}`)
+        .map(
+          (channel) =>
+            `📚 ${channel.title || channel.username || channel.chatId}\n   Qo'shilish: ${channel.inviteLink || channel.username || "Adminstratsiya bilan bog'laning"}`,
+        )
         .join('\n\n');
 
       const invitationMessage = `🎓 Universal LMS Telegram integratsiyasiga xush kelibsiz!\n\nDarslaringiz uchun quyidagi kanallarga qo'shiling:\n\n${channelList}\n\n📋 Ko'rsatmalar:\n• Yuqoridagi kanallarga qo'shiling\n• U yerda test xabarnomalari olasiz\n• Testlarga quyidagi formatda javob bering: #T123Q1 A\n• Javoblaringizga darhol fikr-mulohaza oling\n\n❓ Yordam kerakmi? O'qituvchingiz bilan bog'laning yoki /help yuboring`;
@@ -628,7 +736,9 @@ export class TelegramService {
       return {
         success: true,
         message: 'Taklifnoma muvaffaqiyatli yuborildi',
-        channels: relevantChannels.map(c => c.title || c.username || c.chatId),
+        channels: relevantChannels.map(
+          (c) => c.title || c.username || c.chatId,
+        ),
       };
     } catch (error) {
       this.logger.error('Failed to send user invitations:', error);
@@ -666,7 +776,7 @@ export class TelegramService {
 
     try {
       const message = this.formatTestMessage(test, dto.customMessage);
-      
+
       await this.bot.sendMessage(dto.channelId, message, {
         parse_mode: 'HTML',
         disable_web_page_preview: true,
@@ -675,8 +785,12 @@ export class TelegramService {
       // Send questions one by one
       for (let i = 0; i < test.questions.length; i++) {
         const question = test.questions[i];
-        const questionMessage = this.formatQuestionMessage(question, i + 1, dto.testId);
-        
+        const questionMessage = this.formatQuestionMessage(
+          question,
+          i + 1,
+          dto.testId,
+        );
+
         await this.bot.sendMessage(dto.channelId, questionMessage, {
           parse_mode: 'HTML',
         });
@@ -694,7 +808,9 @@ export class TelegramService {
       return true;
     } catch (error) {
       this.logger.error('Failed to send test to channel:', error);
-      throw new BadRequestException('Testni Telegram kanaliga yuborishda xatolik');
+      throw new BadRequestException(
+        'Testni Telegram kanaliga yuborishda xatolik',
+      );
     }
   }
 
@@ -708,7 +824,9 @@ export class TelegramService {
     });
 
     if (!chat || !chat.user) {
-      throw new BadRequestException('Talaba topilmadi. Avval Telegram hisobingizni ulang.');
+      throw new BadRequestException(
+        'Talaba topilmadi. Avval Telegram hisobingizni ulang.',
+      );
     }
 
     // Check if answer already exists
@@ -722,7 +840,9 @@ export class TelegramService {
     });
 
     if (existingAnswer) {
-      throw new BadRequestException('Bu savol uchun javob allaqachon yuborilgan');
+      throw new BadRequestException(
+        'Bu savol uchun javob allaqachon yuborilgan',
+      );
     }
 
     const answer = this.telegramAnswerRepo.create({
@@ -756,26 +876,31 @@ export class TelegramService {
     try {
       // Get the question and correct answer
       const question = await this.questionRepo.findOne({
-        where: { 
+        where: {
           test: { id: answer.testId },
-          order: answer.questionNumber 
+          order: answer.questionNumber,
         },
         relations: ['answers', 'test'],
       });
 
       if (!question) {
-        this.logger.warn(`Question not found for test ${answer.testId}, question ${answer.questionNumber}`);
+        this.logger.warn(
+          `Question not found for test ${answer.testId}, question ${answer.questionNumber}`,
+        );
         return;
       }
 
-      const correctAnswer = question.answers.find(a => a.isCorrect);
+      const correctAnswer = question.answers.find((a) => a.isCorrect);
       if (!correctAnswer) {
         this.logger.warn(`No correct answer found for question ${question.id}`);
         return;
       }
 
       // Check if the answer is correct
-      const isCorrect = this.compareAnswers(answer.answerText, correctAnswer.text);
+      const isCorrect = this.compareAnswers(
+        answer.answerText,
+        correctAnswer.text,
+      );
       const points = isCorrect ? question.points : 0;
 
       // Update the answer
@@ -789,7 +914,6 @@ export class TelegramService {
 
       // Send result back to the student
       await this.sendAnswerResult(answer);
-
     } catch (error) {
       this.logger.error('Failed to check answer:', error);
       answer.status = AnswerStatus.INVALID;
@@ -811,15 +935,19 @@ export class TelegramService {
     });
 
     if (answers.length === 0) {
-      await this.bot.sendMessage(channelId, '📊 <b>Test Natijalari</b>\n\nHali hech qanday javob yuborilmagan.', {
-        parse_mode: 'HTML',
-      });
+      await this.bot.sendMessage(
+        channelId,
+        '📊 <b>Test Natijalari</b>\n\nHali hech qanday javob yuborilmagan.',
+        {
+          parse_mode: 'HTML',
+        },
+      );
       return;
     }
 
     // Group answers by student
     const studentResults = this.groupAnswersByStudent(answers);
-    
+
     const resultsMessage = this.formatResultsMessage(testId, studentResults);
 
     try {
@@ -828,7 +956,9 @@ export class TelegramService {
       });
     } catch (error) {
       this.logger.error('Failed to publish results:', error);
-      throw new BadRequestException('Natijalarni kanalga e\'lon qilishda xatolik');
+      throw new BadRequestException(
+        "Natijalarni kanalga e'lon qilishda xatolik",
+      );
     }
   }
 
@@ -838,19 +968,34 @@ export class TelegramService {
     const header = '📝 <b>YANGI TEST MAVJUD</b>\n\n';
     const testInfo = `<b>📚 Fan:</b> ${test.subject?.name || 'Aniqlanmagan'}\n`;
     const title = `<b>🎯 Test:</b> ${test.title}\n`;
-    const description = test.description ? `<b>📖 Tavsif:</b> ${test.description}\n` : '';
+    const description = test.description
+      ? `<b>📖 Tavsif:</b> ${test.description}\n`
+      : '';
     const duration = `<b>⏱ Davomiyligi:</b> ${test.duration} daqiqa\n`;
     const questions = `<b>❓ Savollar:</b> ${test.questions?.length || 0}\n`;
     const points = `<b>🎯 Jami ball:</b> ${test.totalPoints}\n\n`;
-    
+
     const custom = customMessage ? `${customMessage}\n\n` : '';
-    
-    return header + testInfo + title + description + duration + questions + points + custom;
+
+    return (
+      header +
+      testInfo +
+      title +
+      description +
+      duration +
+      questions +
+      points +
+      custom
+    );
   }
 
-  private formatQuestionMessage(question: Question, number: number, testId: number): string {
+  private formatQuestionMessage(
+    question: Question,
+    number: number,
+    testId: number,
+  ): string {
     let message = `<b>Savol ${number}:</b>\n${question.text}\n\n`;
-    
+
     if (question.imageBase64) {
       message += '🖼 [Rasm biriktirilgan]\n\n';
     }
@@ -870,31 +1015,33 @@ export class TelegramService {
   }
 
   private getAnswerInstructions(testId: number): string {
-    return `📋 <b>JAVOBLARNI QANDAY YUBORISH</b>\n\n` +
-           `Javoblaringizni yuborish uchun quyidagi formatda xabar yuboring:\n` +
-           `<code>#T${testId}Q1 A</code> (1-savol uchun, A javobi)\n` +
-           `<code>#T${testId}Q2 B</code> (2-savol uchun, B javobi)\n\n` +
-           `⚠️ <b>Muhim:</b>\n` +
-           `• Yuqorida ko'rsatilgan aniq formatni ishlating\n` +
-           `• Har bir savol uchun alohida xabar yuboring\n` +
-           `• Yangi xabar yuborish orqali javobingizni o'zgartirishingiz mumkin\n` +
-           `• Tekshirilgandan so'ng natijalar avtomatik e'lon qilinadi\n\n` +
-           `Omad tilaymiz! 🍀`;
+    return (
+      `📋 <b>JAVOBLARNI QANDAY YUBORISH</b>\n\n` +
+      `Javoblaringizni yuborish uchun quyidagi formatda xabar yuboring:\n` +
+      `<code>#T${testId}Q1 A</code> (1-savol uchun, A javobi)\n` +
+      `<code>#T${testId}Q2 B</code> (2-savol uchun, B javobi)\n\n` +
+      `⚠️ <b>Muhim:</b>\n` +
+      `• Yuqorida ko'rsatilgan aniq formatni ishlating\n` +
+      `• Har bir savol uchun alohida xabar yuboring\n` +
+      `• Yangi xabar yuborish orqali javobingizni o'zgartirishingiz mumkin\n` +
+      `• Tekshirilgandan so'ng natijalar avtomatik e'lon qilinadi\n\n` +
+      `Omad tilaymiz! 🍀`
+    );
   }
 
   private async sendAnswerResult(answer: TelegramAnswer): Promise<void> {
     if (!this.bot || !answer.chat) return;
 
     const emoji = answer.isCorrect ? '✅' : '❌';
-    const status = answer.isCorrect ? 'To\'g\'ri' : 'Noto\'g\'ri';
-    
+    const status = answer.isCorrect ? "To'g'ri" : "Noto'g'ri";
+
     let message = `${emoji} <b>Savol ${answer.questionNumber} - ${status}</b>\n\n`;
     message += `<b>Sizning javobingiz:</b> ${answer.answerText}\n`;
-    
+
     if (!answer.isCorrect && answer.correctAnswer) {
       message += `<b>To'g'ri javob:</b> ${answer.correctAnswer}\n`;
     }
-    
+
     message += `<b>Olingan ball:</b> ${answer.points || 0}`;
 
     try {
@@ -906,21 +1053,27 @@ export class TelegramService {
     }
   }
 
-  private compareAnswers(studentAnswer: string, correctAnswer: string): boolean {
+  private compareAnswers(
+    studentAnswer: string,
+    correctAnswer: string,
+  ): boolean {
     // Normalize both answers for comparison
-    const normalize = (text: string) => 
-      text.toLowerCase()
-          .trim()
-          .replace(/[^\w\s]/g, '') // Remove punctuation
-          .replace(/\s+/g, ' '); // Normalize whitespace
+    const normalize = (text: string) =>
+      text
+        .toLowerCase()
+        .trim()
+        .replace(/[^\w\s]/g, '') // Remove punctuation
+        .replace(/\s+/g, ' '); // Normalize whitespace
 
     return normalize(studentAnswer) === normalize(correctAnswer);
   }
 
-  private groupAnswersByStudent(answers: TelegramAnswer[]): Map<string, TelegramAnswer[]> {
+  private groupAnswersByStudent(
+    answers: TelegramAnswer[],
+  ): Map<string, TelegramAnswer[]> {
     const grouped = new Map<string, TelegramAnswer[]>();
-    
-    answers.forEach(answer => {
+
+    answers.forEach((answer) => {
       const studentKey = `${answer.student.firstName} ${answer.student.lastName}`;
       if (!grouped.has(studentKey)) {
         grouped.set(studentKey, []);
@@ -931,14 +1084,25 @@ export class TelegramService {
     return grouped;
   }
 
-  private formatResultsMessage(testId: number, studentResults: Map<string, TelegramAnswer[]>): string {
+  private formatResultsMessage(
+    testId: number,
+    studentResults: Map<string, TelegramAnswer[]>,
+  ): string {
     let message = `📊 <b>TEST NATIJALARI - Test #${testId}</b>\n\n`;
 
     studentResults.forEach((answers, studentName) => {
-      const totalPoints = answers.reduce((sum, answer) => sum + (answer.points || 0), 0);
-      const correctAnswers = answers.filter(answer => answer.isCorrect).length;
+      const totalPoints = answers.reduce(
+        (sum, answer) => sum + (answer.points || 0),
+        0,
+      );
+      const correctAnswers = answers.filter(
+        (answer) => answer.isCorrect,
+      ).length;
       const totalQuestions = answers.length;
-      const percentage = totalQuestions > 0 ? Math.round((correctAnswers / totalQuestions) * 100) : 0;
+      const percentage =
+        totalQuestions > 0
+          ? Math.round((correctAnswers / totalQuestions) * 100)
+          : 0;
 
       message += `👤 <b>${studentName}</b>\n`;
       message += `   ✅ To'g'ri: ${correctAnswers}/${totalQuestions} (${percentage}%)\n`;
@@ -951,37 +1115,81 @@ export class TelegramService {
   }
 
   private delay(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
   // ==================== Exam Helper Methods ====================
 
   private formatExamStartMessage(exam: Exam, customMessage?: string): string {
     const header = '🎯 <b>IMTIHON BOSHLANDI!</b>\n\n';
-    const subjectNames = exam.subjects?.map(s => s.name).join(', ') || 'Aniqlanmagan';
+    const subjectNames =
+      exam.subjects?.map((s) => s.name).join(', ') || 'Aniqlanmagan';
     const examInfo = `<b>📚 Fan:</b> ${subjectNames}\n`;
     const title = `<b>📝 Imtihon:</b> ${exam.title}\n`;
-    const description = exam.description ? `<b>📖 Tavsif:</b> ${exam.description}\n` : '';
+    const description = exam.description
+      ? `<b>📖 Tavsif:</b> ${exam.description}\n`
+      : '';
     const duration = `<b>⏱ Davomiyligi:</b> ${exam.duration} daqiqa\n`;
     const variants = `<b>🔢 Variantlar:</b> ${exam.variants?.length || 0}\n`;
     const startTime = `<b>🕐 Boshlanish vaqti:</b> ${exam.startTime ? new Date(exam.startTime).toLocaleString() : 'Hozir'}\n`;
     const endTime = `<b>🕕 Tugash vaqti:</b> ${exam.endTime ? new Date(exam.endTime).toLocaleString() : 'Belgilanmagan'}\n\n`;
-    
+
     const custom = customMessage ? `${customMessage}\n\n` : '';
+
+    return (
+      header +
+      examInfo +
+      title +
+      description +
+      duration +
+      variants +
+      startTime +
+      endTime +
+      custom
+    );
+  }
+
+  private formatExamStartMessageForStudent(exam: Exam, student: any): string {
+    const header = '🎯 <b>IMTIHON BOSHLANDI!</b>\n\n';
+    const greeting = `Salom ${student.firstName}!\n\n`;
+    const subjectNames =
+      exam.subjects?.map((s) => s.name).join(', ') || 'Aniqlanmagan';
+    const examInfo = `<b>📚 Fan:</b> ${subjectNames}\n`;
+    const title = `<b>📝 Imtihon:</b> ${exam.title}\n`;
+    const description = exam.description
+      ? `<b>📖 Tavsif:</b> ${exam.description}\n`
+      : '';
+    const duration = `<b>⏱ Davomiyligi:</b> ${exam.duration} daqiqa\n`;
+    const startTime = `<b>🕐 Boshlanish vaqti:</b> ${exam.startTime ? new Date(exam.startTime).toLocaleString() : 'Hozir'}\n`;
+    const endTime = `<b>🕕 Tugash vaqti:</b> ${exam.endTime ? new Date(exam.endTime).toLocaleString() : 'Belgilanmagan'}\n\n`;
     
-    return header + examInfo + title + description + duration + variants + startTime + endTime + custom;
+    const personalNote = `🎓 <b>Sizning imtihon variantingiz tayyor!</b>\n\n`;
+    
+    return (
+      header +
+      greeting +
+      examInfo +
+      title +
+      description +
+      duration +
+      startTime +
+      endTime +
+      personalNote
+    );
   }
 
   private getExamInstructions(exam: Exam): string {
-    return `📋 <b>IMTIHON QOIDALARI</b>\n\n` +
-           `⚠️ <b>Muhim ko'rsatmalar:</b>\n` +
-           `• Imtihon ${exam.duration} daqiqa davom etadi\n` +
-           `• Har bir variant uchun alohida javob varaqasi beriladi\n` +
-           `• Vaqt tugagach, javob varaqlari yig'ib olinadi\n` +
-           `• Imtihon davomida telefondan foydalanish taqiqlanadi\n` +
-           `• Nusxa ko'chirish va gaplashish taqiqlanadi\n\n` +
-           `🎯 <b>Muvaffaqiyat tilaymiz!</b>\n\n` +
-           `📞 Savollar bo'lsa, nazoratchi bilan bog'laning.`;
+    return (
+      `📋 <b>IMTIHON QOIDALARI</b>\n\n` +
+      `⚠️ <b>Muhim ko'rsatmalar:</b>\n` +
+      `• Imtihon ${exam.duration} daqiqa davom etadi\n` +
+      `• Har bir variant uchun alohida javob varaqasi beriladi\n` +
+      `• Vaqt tugagach, javob varaqlari yig'ib olinadi\n` +
+      `• Imtihon davomida telefondan foydalanish taqiqlanadi\n` +
+      `• Nusxa ko'chirish va gaplashish taqiqlanadi\n\n` +
+      `🎯 <b>Muvaffaqiyat tilaymiz!</b>\n\n` +
+      `📞 Savollar bo'lsa, nazoratchi bilan bog'laning.`
+    );
   }
 
   // ==================== Public Methods for Statistics ====================
@@ -995,20 +1203,25 @@ export class TelegramService {
     const studentResults = this.groupAnswersByStudent(answers);
     const totalStudents = studentResults.size;
     const totalAnswers = answers.length;
-    const correctAnswers = answers.filter(a => a.isCorrect).length;
+    const correctAnswers = answers.filter((a) => a.isCorrect).length;
 
     return {
       testId,
       totalStudents,
       totalAnswers,
       correctAnswers,
-      accuracy: totalAnswers > 0 ? Math.round((correctAnswers / totalAnswers) * 100) : 0,
-      studentResults: Array.from(studentResults.entries()).map(([name, answers]) => ({
-        student: name,
-        totalQuestions: answers.length,
-        correctAnswers: answers.filter(a => a.isCorrect).length,
-        totalPoints: answers.reduce((sum, a) => sum + (a.points || 0), 0),
-      })),
+      accuracy:
+        totalAnswers > 0
+          ? Math.round((correctAnswers / totalAnswers) * 100)
+          : 0,
+      studentResults: Array.from(studentResults.entries()).map(
+        ([name, answers]) => ({
+          student: name,
+          totalQuestions: answers.length,
+          correctAnswers: answers.filter((a) => a.isCorrect).length,
+          totalPoints: answers.reduce((sum, a) => sum + (a.points || 0), 0),
+        }),
+      ),
     };
   }
 
@@ -1018,11 +1231,11 @@ export class TelegramService {
     try {
       const chat = await this.telegramChatRepo.findOne({
         where: { telegramUserId },
-        relations: ['user']
+        relations: ['user'],
       });
 
       if (!chat || !chat.user) {
-        return '❌ Hisobingiz ulanmagan. Avval /start buyrug\'ini yuboring va o\'qituvchingiz bilan bog\'laning.';
+        return "❌ Hisobingiz ulanmagan. Avval /start buyrug'ini yuboring va o'qituvchingiz bilan bog'laning.";
       }
 
       // Get user's test results from TelegramAnswer
@@ -1030,7 +1243,7 @@ export class TelegramService {
         where: { student: { id: chat.user.id } },
         relations: ['student'],
         order: { createdAt: 'DESC' },
-        take: 10 // Last 10 tests
+        take: 10, // Last 10 tests
       });
 
       if (answers.length === 0) {
@@ -1038,21 +1251,27 @@ export class TelegramService {
       }
 
       // Group answers by test
-      const testGroups = answers.reduce((groups, answer) => {
-        if (!groups[answer.testId]) {
-          groups[answer.testId] = [];
-        }
-        groups[answer.testId].push(answer);
-        return groups;
-      }, {} as Record<number, typeof answers>);
+      const testGroups = answers.reduce(
+        (groups, answer) => {
+          if (!groups[answer.testId]) {
+            groups[answer.testId] = [];
+          }
+          groups[answer.testId].push(answer);
+          return groups;
+        },
+        {} as Record<number, typeof answers>,
+      );
 
       let resultMessage = `📊 <b>${chat.user.firstName} ning Test Natijalari</b>\n\n`;
 
       Object.keys(testGroups).forEach((testId, index) => {
         const testAnswers = testGroups[testId];
-        const correctAnswers = testAnswers.filter(a => a.isCorrect).length;
+        const correctAnswers = testAnswers.filter((a) => a.isCorrect).length;
         const totalQuestions = testAnswers.length;
-        const percentage = totalQuestions > 0 ? Math.round((correctAnswers / totalQuestions) * 100) : 0;
+        const percentage =
+          totalQuestions > 0
+            ? Math.round((correctAnswers / totalQuestions) * 100)
+            : 0;
         const emoji = percentage >= 80 ? '🟢' : percentage >= 60 ? '🟡' : '🔴';
 
         resultMessage += `${emoji} <b>Test ${testId}</b>\n`;
@@ -1065,7 +1284,7 @@ export class TelegramService {
       return resultMessage;
     } catch (error) {
       this.logger.error('Error getting user test results:', error);
-      return 'Natijalarni yuklab olishda xatolik yuz berdi. Keyinroq qayta urinib ko\'ring.';
+      return "Natijalarni yuklab olishda xatolik yuz berdi. Keyinroq qayta urinib ko'ring.";
     }
   }
 
@@ -1073,11 +1292,11 @@ export class TelegramService {
     try {
       const chat = await this.telegramChatRepo.findOne({
         where: { telegramUserId },
-        relations: ['user']
+        relations: ['user'],
       });
 
       if (!chat || !chat.user) {
-        return '❌ Hisobingiz ulanmagan. Avval /start buyrug\'ini yuboring va o\'qituvchingiz bilan bog\'laning.';
+        return "❌ Hisobingiz ulanmagan. Avval /start buyrug'ini yuboring va o'qituvchingiz bilan bog'laning.";
       }
 
       // This would require implementing attendance tracking
@@ -1085,7 +1304,7 @@ export class TelegramService {
       return `📅 <b>${chat.user.firstName} ning Davomat Hisoboti</b>\n\n⏰ Davomat tizimi hali ishga tushirilmagan.\n\n📋 Tez orada quyidagi ma'lumotlar mavjud bo'ladi:\n• Darsga kelish statistikasi\n• Kechikishlar hisoboti\n• Oylik davomat foizi\n\n👨‍🏫 Batafsil ma'lumot uchun o'qituvchingiz bilan bog'laning.`;
     } catch (error) {
       this.logger.error('Error getting user attendance:', error);
-      return 'Davomat ma\'lumotlarini yuklab olishda xatolik yuz berdi.';
+      return "Davomat ma'lumotlarini yuklab olishda xatolik yuz berdi.";
     }
   }
 
@@ -1093,11 +1312,11 @@ export class TelegramService {
     try {
       const chat = await this.telegramChatRepo.findOne({
         where: { telegramUserId },
-        relations: ['user', 'user.center']
+        relations: ['user', 'user.center'],
       });
 
       if (!chat || !chat.user) {
-        return '❌ Hisobingiz ulanmagan. Avval /start buyrug\'ini yuboring va o\'qituvchingiz bilan bog\'laning.';
+        return "❌ Hisobingiz ulanmagan. Avval /start buyrug'ini yuboring va o'qituvchingiz bilan bog'laning.";
       }
 
       const user = chat.user;
@@ -1108,19 +1327,19 @@ export class TelegramService {
       }
       accountMessage += `📧 <b>Email:</b> ${user.email}\n`;
       accountMessage += `👤 <b>Rol:</b> ${this.getRoleDisplayName(user.role)}\n`;
-      
+
       if (user.center) {
         accountMessage += `🏢 <b>Markaz:</b> ${user.center.name}\n`;
       }
-      
-      accountMessage += `📱 <b>Telegram:</b> @${chat.telegramUsername || 'username yo\'q'}\n`;
+
+      accountMessage += `📱 <b>Telegram:</b> @${chat.telegramUsername || "username yo'q"}\n`;
       accountMessage += `🔗 <b>Ulangan sana:</b> ${chat.createdAt.toLocaleDateString()}\n\n`;
       accountMessage += `⚙️ Hisobingizni o'zgartirish uchun LMS tizimiga kiring yoki o'qituvchingiz bilan bog'laning.`;
 
       return accountMessage;
     } catch (error) {
       this.logger.error('Error getting user account info:', error);
-      return 'Hisob ma\'lumotlarini yuklab olishda xatolik yuz berdi.';
+      return "Hisob ma'lumotlarini yuklab olishda xatolik yuz berdi.";
     }
   }
 
@@ -1128,37 +1347,57 @@ export class TelegramService {
     try {
       const chat = await this.telegramChatRepo.findOne({
         where: { telegramUserId },
-        relations: ['user', 'user.center']
+        relations: ['user', 'user.center'],
       });
 
       if (!chat || !chat.user) {
-        return '❌ Hisobingiz ulanmagan. Avval /start buyrug\'ini yuboring va admin bilan bog\'laning.';
+        return "❌ Hisobingiz ulanmagan. Avval /start buyrug'ini yuboring va admin bilan bog'laning.";
       }
 
       if (chat.user.role !== UserRole.TEACHER) {
-        return '🚫 Sizda o\'qituvchi huquqi yo\'q. Yo\'qlama olish faqat o\'qituvchilar uchun mavjud.';
+        return "🚫 Sizda o'qituvchi huquqi yo'q. Yo'qlama olish faqat o'qituvchilar uchun mavjud.";
       }
 
       // Get teacher's groups from the database
       let groupMessage = `👨‍🏫 <b>Yo'qlama Olish - ${chat.user.firstName} ning Guruhlari</b>\n\n`;
       groupMessage += `📅 <b>Bugungi sana:</b> ${new Date().toLocaleDateString()}\n\n`;
       groupMessage += `Yo'qlama olish uchun guruhni tanlang:\n\n`;
-      
+
       // This would be replaced with actual group data from Groups repository
       // For now using sample data, but structure matches expected DB schema
       const sampleGroups = [
-        { id: 1, name: 'Beginner A1', studentsCount: 15, subject: 'Ingliz tili' },
-        { id: 2, name: 'Intermediate B1', studentsCount: 12, subject: 'Ingliz tili' },
-        { id: 3, name: 'Advanced C1', studentsCount: 8, subject: 'Ingliz tili' },
-        { id: 4, name: 'Matematika 9-sinf', studentsCount: 20, subject: 'Matematika' }
+        {
+          id: 1,
+          name: 'Beginner A1',
+          studentsCount: 15,
+          subject: 'Ingliz tili',
+        },
+        {
+          id: 2,
+          name: 'Intermediate B1',
+          studentsCount: 12,
+          subject: 'Ingliz tili',
+        },
+        {
+          id: 3,
+          name: 'Advanced C1',
+          studentsCount: 8,
+          subject: 'Ingliz tili',
+        },
+        {
+          id: 4,
+          name: 'Matematika 9-sinf',
+          studentsCount: 20,
+          subject: 'Matematika',
+        },
       ];
-      
-      sampleGroups.forEach(group => {
+
+      sampleGroups.forEach((group) => {
         groupMessage += `🔹 <b>grup_${group.id}</b> - ${group.name}\n`;
         groupMessage += `   📋 Fan: ${group.subject}\n`;
         groupMessage += `   👥 Studentlar: ${group.studentsCount} ta\n\n`;
       });
-      
+
       groupMessage += `💡 <b>Qo'llanma:</b>\n`;
       groupMessage += `• Guruh kodini yozing (masalan: <b>grup_1</b>)\n`;
       groupMessage += `• Keyin har bir student uchun yo'qlama belgilang\n`;
@@ -1167,49 +1406,68 @@ export class TelegramService {
       return groupMessage;
     } catch (error) {
       this.logger.error('Error getting teacher groups:', error);
-      return 'Guruhlar ro\'yxatini yuklab olishda xatolik yuz berdi.';
+      return "Guruhlar ro'yxatini yuklab olishda xatolik yuz berdi.";
     }
   }
 
-  async getGroupStudentsForAttendance(telegramUserId: string, groupId: string): Promise<string> {
+  async getGroupStudentsForAttendance(
+    telegramUserId: string,
+    groupId: string,
+  ): Promise<string> {
     try {
       const chat = await this.telegramChatRepo.findOne({
         where: { telegramUserId },
-        relations: ['user']
+        relations: ['user'],
       });
 
       if (!chat || !chat.user || chat.user.role !== UserRole.TEACHER) {
-        return '❌ Sizda ushbu amalni bajarish huquqi yo\'q.';
+        return "❌ Sizda ushbu amalni bajarish huquqi yo'q.";
       }
 
       const groupIdNum = parseInt(groupId);
       if (isNaN(groupIdNum)) {
-        return '❌ Noto\'g\'ri guruh ID. Masalan: grup_1';
+        return "❌ Noto'g'ri guruh ID. Masalan: grup_1";
       }
 
       // Get group info and students - this would be replaced with actual data
       const groups = {
-        1: { name: 'Beginner A1', subject: 'Ingliz tili', students: [
-          { id: 1, firstName: 'Ali', lastName: 'Valiyev' },
-          { id: 2, firstName: 'Malika', lastName: 'Karimova' },
-          { id: 3, firstName: 'Bobur', lastName: 'Rahimov' },
-          { id: 4, firstName: 'Nodira', lastName: 'Toshmatova' },
-          { id: 5, firstName: 'Sardor', lastName: 'Umarov' }
-        ]},
-        2: { name: 'Intermediate B1', subject: 'Ingliz tili', students: [
-          { id: 6, firstName: 'Dilshod', lastName: 'Nazarov' },
-          { id: 7, firstName: 'Zarina', lastName: 'Saidova' },
-          { id: 8, firstName: 'Jahongir', lastName: 'Karimov' }
-        ]},
-        3: { name: 'Advanced C1', subject: 'Ingliz tili', students: [
-          { id: 9, firstName: 'Lola', lastName: 'Ahmadova' },
-          { id: 10, firstName: 'Bekzod', lastName: 'Ruziyev' }
-        ]},
-        4: { name: 'Matematika 9-sinf', subject: 'Matematika', students: [
-          { id: 11, firstName: 'Aziza', lastName: 'Yusupova' },
-          { id: 12, firstName: 'Jasur', lastName: 'Ergashev' },
-          { id: 13, firstName: 'Nargiza', lastName: 'Turdiyeva' }
-        ]}
+        1: {
+          name: 'Beginner A1',
+          subject: 'Ingliz tili',
+          students: [
+            { id: 1, firstName: 'Ali', lastName: 'Valiyev' },
+            { id: 2, firstName: 'Malika', lastName: 'Karimova' },
+            { id: 3, firstName: 'Bobur', lastName: 'Rahimov' },
+            { id: 4, firstName: 'Nodira', lastName: 'Toshmatova' },
+            { id: 5, firstName: 'Sardor', lastName: 'Umarov' },
+          ],
+        },
+        2: {
+          name: 'Intermediate B1',
+          subject: 'Ingliz tili',
+          students: [
+            { id: 6, firstName: 'Dilshod', lastName: 'Nazarov' },
+            { id: 7, firstName: 'Zarina', lastName: 'Saidova' },
+            { id: 8, firstName: 'Jahongir', lastName: 'Karimov' },
+          ],
+        },
+        3: {
+          name: 'Advanced C1',
+          subject: 'Ingliz tili',
+          students: [
+            { id: 9, firstName: 'Lola', lastName: 'Ahmadova' },
+            { id: 10, firstName: 'Bekzod', lastName: 'Ruziyev' },
+          ],
+        },
+        4: {
+          name: 'Matematika 9-sinf',
+          subject: 'Matematika',
+          students: [
+            { id: 11, firstName: 'Aziza', lastName: 'Yusupova' },
+            { id: 12, firstName: 'Jasur', lastName: 'Ergashev' },
+            { id: 13, firstName: 'Nargiza', lastName: 'Turdiyeva' },
+          ],
+        },
       };
 
       const group = groups[groupIdNum];
@@ -1222,7 +1480,7 @@ export class TelegramService {
       studentsMessage += `📅 <b>Sana:</b> ${new Date().toLocaleDateString()}\n`;
       studentsMessage += `⏰ <b>Vaqt:</b> ${new Date().toLocaleTimeString()}\n\n`;
       studentsMessage += `👥 <b>Studentlar ro'yxati:</b>\n\n`;
-      
+
       group.students.forEach((student, index) => {
         studentsMessage += `👤 <b>${index + 1}. ${student.firstName} ${student.lastName}</b>\n`;
         studentsMessage += `   ✅ <code>${student.id}_keldi</code>\n`;
@@ -1239,37 +1497,40 @@ export class TelegramService {
       return studentsMessage;
     } catch (error) {
       this.logger.error('Error getting group students:', error);
-      return 'Guruh ma\'lumotlarini yuklab olishda xatolik yuz berdi.';
+      return "Guruh ma'lumotlarini yuklab olishda xatolik yuz berdi.";
     }
   }
 
-  async markStudentAttendance(telegramUserId: string, attendanceCode: string): Promise<string> {
+  async markStudentAttendance(
+    telegramUserId: string,
+    attendanceCode: string,
+  ): Promise<string> {
     try {
       const chat = await this.telegramChatRepo.findOne({
         where: { telegramUserId },
-        relations: ['user']
+        relations: ['user'],
       });
 
       if (!chat || !chat.user || chat.user.role !== UserRole.TEACHER) {
-        return '❌ Sizda ushbu amalni bajarish huquqi yo\'q.';
+        return "❌ Sizda ushbu amalni bajarish huquqi yo'q.";
       }
 
       // Parse attendance code: studentId_status
       const parts = attendanceCode.trim().split('_');
       if (parts.length !== 2) {
-        return '❌ Noto\'g\'ri format. Masalan: <code>1_keldi</code>, <code>2_kelmadi</code>, <code>3_kechikdi</code>';
+        return "❌ Noto'g'ri format. Masalan: <code>1_keldi</code>, <code>2_kelmadi</code>, <code>3_kechikdi</code>";
       }
 
       const studentId = parseInt(parts[0]);
       const status = parts[1].toLowerCase();
 
       if (isNaN(studentId)) {
-        return '❌ Student ID raqam bo\'lishi kerak. Masalan: <code>1_keldi</code>';
+        return "❌ Student ID raqam bo'lishi kerak. Masalan: <code>1_keldi</code>";
       }
 
       const validStatuses = ['keldi', 'kelmadi', 'kechikdi'];
       if (!validStatuses.includes(status)) {
-        return '❌ Noto\'g\'ri status. Faqat: <code>keldi</code>, <code>kelmadi</code>, <code>kechikdi</code>';
+        return "❌ Noto'g'ri status. Faqat: <code>keldi</code>, <code>kelmadi</code>, <code>kechikdi</code>";
       }
 
       // Get student info from sample data (would be replaced with actual DB query)
@@ -1277,16 +1538,44 @@ export class TelegramService {
         1: { firstName: 'Ali', lastName: 'Valiyev', group: 'Beginner A1' },
         2: { firstName: 'Malika', lastName: 'Karimova', group: 'Beginner A1' },
         3: { firstName: 'Bobur', lastName: 'Rahimov', group: 'Beginner A1' },
-        4: { firstName: 'Nodira', lastName: 'Toshmatova', group: 'Beginner A1' },
+        4: {
+          firstName: 'Nodira',
+          lastName: 'Toshmatova',
+          group: 'Beginner A1',
+        },
         5: { firstName: 'Sardor', lastName: 'Umarov', group: 'Beginner A1' },
-        6: { firstName: 'Dilshod', lastName: 'Nazarov', group: 'Intermediate B1' },
-        7: { firstName: 'Zarina', lastName: 'Saidova', group: 'Intermediate B1' },
-        8: { firstName: 'Jahongir', lastName: 'Karimov', group: 'Intermediate B1' },
+        6: {
+          firstName: 'Dilshod',
+          lastName: 'Nazarov',
+          group: 'Intermediate B1',
+        },
+        7: {
+          firstName: 'Zarina',
+          lastName: 'Saidova',
+          group: 'Intermediate B1',
+        },
+        8: {
+          firstName: 'Jahongir',
+          lastName: 'Karimov',
+          group: 'Intermediate B1',
+        },
         9: { firstName: 'Lola', lastName: 'Ahmadova', group: 'Advanced C1' },
         10: { firstName: 'Bekzod', lastName: 'Ruziyev', group: 'Advanced C1' },
-        11: { firstName: 'Aziza', lastName: 'Yusupova', group: 'Matematika 9-sinf' },
-        12: { firstName: 'Jasur', lastName: 'Ergashev', group: 'Matematika 9-sinf' },
-        13: { firstName: 'Nargiza', lastName: 'Turdiyeva', group: 'Matematika 9-sinf' }
+        11: {
+          firstName: 'Aziza',
+          lastName: 'Yusupova',
+          group: 'Matematika 9-sinf',
+        },
+        12: {
+          firstName: 'Jasur',
+          lastName: 'Ergashev',
+          group: 'Matematika 9-sinf',
+        },
+        13: {
+          firstName: 'Nargiza',
+          lastName: 'Turdiyeva',
+          group: 'Matematika 9-sinf',
+        },
       };
 
       const student = allStudents[studentId];
@@ -1296,8 +1585,14 @@ export class TelegramService {
 
       // Here would be the actual attendance marking logic
       // For now, we'll simulate saving to database
-      const statusEmoji = status === 'keldi' ? '✅' : status === 'kechikdi' ? '⏰' : '❌';
-      const statusText = status === 'keldi' ? 'Keldi' : status === 'kechikdi' ? 'Kechikdi' : 'Kelmadi';
+      const statusEmoji =
+        status === 'keldi' ? '✅' : status === 'kechikdi' ? '⏰' : '❌';
+      const statusText =
+        status === 'keldi'
+          ? 'Keldi'
+          : status === 'kechikdi'
+            ? 'Kechikdi'
+            : 'Kelmadi';
       const today = new Date();
 
       let resultMessage = `${statusEmoji} <b>Yo'qlama Muvaffaqiyatli Belgilandi!</b>\n\n`;
@@ -1307,7 +1602,7 @@ export class TelegramService {
       resultMessage += `📅 <b>Sana:</b> ${today.toLocaleDateString()}\n`;
       resultMessage += `⏰ <b>Vaqt:</b> ${today.toLocaleTimeString()}\n`;
       resultMessage += `👨‍🏫 <b>O'qituvchi:</b> ${chat.user.firstName}\n\n`;
-      
+
       if (status === 'keldi') {
         resultMessage += `🎉 Ajoyib! Student o'z vaqtida keldi.`;
       } else if (status === 'kechikdi') {
@@ -1315,7 +1610,7 @@ export class TelegramService {
       } else {
         resultMessage += `🚨 Student darsga kelmadi. Ota-onasi bilan bog'lanish kerak.`;
       }
-      
+
       resultMessage += `\n\n📊 Boshqa studentlar uchun yo'qlama davom ettiring yoki /yoklama orqali guruhlar ro'yxatiga qaytinng.`;
 
       // Send notification about attendance
@@ -1323,13 +1618,13 @@ export class TelegramService {
         student.group,
         chat.user.firstName + ' ' + (chat.user.lastName || ''),
         status === 'keldi' ? 1 : 0,
-        1
+        1,
       );
 
       return resultMessage;
     } catch (error) {
       this.logger.error('Error marking attendance:', error);
-      return 'Yo\'qlama belgilashda xatolik yuz berdi. Qaytadan urinib ko\'ring.';
+      return "Yo'qlama belgilashda xatolik yuz berdi. Qaytadan urinib ko'ring.";
     }
   }
 
@@ -1338,7 +1633,7 @@ export class TelegramService {
       case 'student':
         return 'Talaba';
       case 'teacher':
-        return 'O\'qituvchi';
+        return "O'qituvchi";
       case 'center_admin':
         return 'Markaz Admin';
       case 'super_admin':
@@ -1358,15 +1653,17 @@ export class TelegramService {
           { command: 'menu', description: 'Asosiy menyu' },
           { command: 'natijalarim', description: 'Test natijalarim' },
           { command: 'davomatim', description: 'Davomat hisobotim' },
-          { command: 'hisobim', description: 'Shaxsiy ma\'lumotlar' },
-          { command: 'yoklama', description: 'Yo\'qlama olish (o\'qituvchilar)' },
-          { command: 'elon', description: 'E\'lonlar va xabarlar' },
+          { command: 'hisobim', description: "Shaxsiy ma'lumotlar" },
+          { command: 'yoklama', description: "Yo'qlama olish (o'qituvchilar)" },
+          { command: 'elon', description: "E'lonlar va xabarlar" },
           { command: 'testlar', description: 'Aktiv testlar' },
-          { command: 'aloqa', description: 'Aloqa ma\'lumotlari' },
-          { command: 'help', description: 'Yordam' }
+          { command: 'aloqa', description: "Aloqa ma'lumotlari" },
+          { command: 'help', description: 'Yordam' },
         ];
-        
-        await this.bot.setMyCommands(commands, { scope: { type: 'chat', chat_id: chatId } });
+
+        await this.bot.setMyCommands(commands, {
+          scope: { type: 'chat', chat_id: chatId },
+        });
         this.logger.log(`Bot commands set for chat ${chatId}`);
       }
     } catch (error) {
@@ -1378,39 +1675,39 @@ export class TelegramService {
     try {
       const chat = await this.telegramChatRepo.findOne({
         where: { telegramUserId },
-        relations: ['user', 'user.center']
+        relations: ['user', 'user.center'],
       });
 
       if (!chat || !chat.user) {
-        return '❌ Hisobingiz ulanmagan. Avval /start buyrug\'ini yuboring va o\'qituvchingiz bilan bog\'laning.';
+        return "❌ Hisobingiz ulanmagan. Avval /start buyrug'ini yuboring va o'qituvchingiz bilan bog'laning.";
       }
 
       let announcementsMessage = `📢 <b>${chat.user.firstName} uchun E'lonlar</b>\n\n`;
-      
+
       // Get recent announcements - this would be replaced with actual announcement data
       const today = new Date().toLocaleDateString();
-      
+
       announcementsMessage += `📅 <b>Bugungi e'lonlar (${today}):</b>\n\n`;
       announcementsMessage += `📚 <b>Dars jadvali o'zgarishi</b>\n`;
       announcementsMessage += `   • Matematika darsi soat 14:00 ga ko'chirildi\n`;
       announcementsMessage += `   • Sana: ${today}\n\n`;
-      
+
       announcementsMessage += `📝 <b>Yangi test e'lon qilindi</b>\n`;
       announcementsMessage += `   • Fan: Ingliz tili\n`;
       announcementsMessage += `   • Muddat: 3 kun\n`;
       announcementsMessage += `   • Savollar soni: 20\n\n`;
-      
+
       announcementsMessage += `📅 <b>Haftalik e'lonlar:</b>\n`;
       announcementsMessage += `• Oraliq nazorat - Dushanba\n`;
       announcementsMessage += `• Ota-onalar yig'ilishi - Juma\n`;
       announcementsMessage += `• Bayram tadbirlari - Dam olish kunlari\n\n`;
-      
+
       announcementsMessage += `🔔 <b>Eslatma:</b> Barcha e'lonlar avtomatik ravishda sizga yuboriladi.`;
 
       return announcementsMessage;
     } catch (error) {
       this.logger.error('Error getting user announcements:', error);
-      return 'E\'lonlarni yuklab olishda xatolik yuz berdi.';
+      return "E'lonlarni yuklab olishda xatolik yuz berdi.";
     }
   }
 
@@ -1418,39 +1715,39 @@ export class TelegramService {
     try {
       const chat = await this.telegramChatRepo.findOne({
         where: { telegramUserId },
-        relations: ['user', 'user.center']
+        relations: ['user', 'user.center'],
       });
 
       if (!chat || !chat.user) {
-        return '❌ Hisobingiz ulanmagan. Avval /start buyrug\'ini yuboring va o\'qituvchingiz bilan bog\'laning.';
+        return "❌ Hisobingiz ulanmagan. Avval /start buyrug'ini yuboring va o'qituvchingiz bilan bog'laning.";
       }
 
       let testsMessage = `📝 <b>${chat.user.firstName} uchun Aktiv Testlar</b>\n\n`;
-      
+
       // Get active tests - this would be replaced with actual test data
       testsMessage += `🔴 <b>Joriy testlar:</b>\n\n`;
-      
+
       testsMessage += `📚 <b>Test #123 - Matematika</b>\n`;
       testsMessage += `   • Savollar: 15 ta\n`;
       testsMessage += `   • Vaqt: 30 daqiqa\n`;
       testsMessage += `   • Muddat: 2 kun qoldi\n`;
       testsMessage += `   • Javob formati: #T123Q1 A\n\n`;
-      
+
       testsMessage += `📚 <b>Test #124 - Ingliz tili</b>\n`;
       testsMessage += `   • Savollar: 20 ta\n`;
       testsMessage += `   • Vaqt: 45 daqiqa\n`;
       testsMessage += `   • Muddat: 5 kun qoldi\n`;
       testsMessage += `   • Javob formati: #T124Q1 A\n\n`;
-      
+
       testsMessage += `🔵 <b>Tugallangan testlar:</b>\n\n`;
       testsMessage += `✅ Test #122 - Fizika (Natija: 85%)\n`;
       testsMessage += `✅ Test #121 - Kimyo (Natija: 92%)\n\n`;
-      
+
       testsMessage += `📊 <b>Statistika:</b>\n`;
       testsMessage += `• Jami testlar: 15\n`;
       testsMessage += `• Tugallangan: 13\n`;
       testsMessage += `• O'rtacha ball: 87%\n\n`;
-      
+
       testsMessage += `💡 <b>Eslatma:</b> Testlarga javob berish uchun #T123Q1 A formatidan foydalaning.`;
 
       return testsMessage;
@@ -1462,26 +1759,35 @@ export class TelegramService {
 
   // ==================== Enhanced Notification System ====================
 
-  async sendNotificationToChannelsAndBot(message: string, testId?: number, targetRole?: UserRole): Promise<void> {
+  async sendNotificationToChannelsAndBot(
+    message: string,
+    testId?: number,
+    targetRole?: UserRole,
+  ): Promise<void> {
     try {
       // Get all active channels
       const channels = await this.telegramChatRepo.find({
-        where: { 
+        where: {
           type: ChatType.CHANNEL,
-          status: ChatStatus.ACTIVE
+          status: ChatStatus.ACTIVE,
         },
-        relations: ['center', 'subject']
+        relations: ['center', 'subject'],
       });
 
       // Send to channels
       for (const channel of channels) {
         try {
           if (this.bot) {
-            await this.bot.sendMessage(channel.chatId, message, { parse_mode: 'HTML' });
+            await this.bot.sendMessage(channel.chatId, message, {
+              parse_mode: 'HTML',
+            });
             await this.delay(100); // Small delay to avoid rate limiting
           }
         } catch (error) {
-          this.logger.error(`Failed to send to channel ${channel.chatId}:`, error);
+          this.logger.error(
+            `Failed to send to channel ${channel.chatId}:`,
+            error,
+          );
         }
       }
 
@@ -1490,88 +1796,200 @@ export class TelegramService {
         const users = await this.telegramChatRepo.find({
           where: {
             type: ChatType.PRIVATE,
-            user: { role: targetRole }
+            user: { role: targetRole },
           },
-          relations: ['user']
+          relations: ['user'],
         });
 
         for (const userChat of users) {
           try {
             if (this.bot && userChat.telegramUserId) {
-              await this.bot.sendMessage(userChat.telegramUserId, message, { parse_mode: 'HTML' });
+              await this.bot.sendMessage(userChat.telegramUserId, message, {
+                parse_mode: 'HTML',
+              });
               await this.delay(100);
             }
           } catch (error) {
-            this.logger.error(`Failed to send to user ${userChat.telegramUserId}:`, error);
+            this.logger.error(
+              `Failed to send to user ${userChat.telegramUserId}:`,
+              error,
+            );
           }
         }
       }
 
-      this.logger.log(`Notification sent to ${channels.length} channels and users`);
+      this.logger.log(
+        `Notification sent to ${channels.length} channels and users`,
+      );
     } catch (error) {
       this.logger.error('Error sending notifications:', error);
     }
   }
 
-  async notifyTestCreated(testId: number, testName: string, subject: string, timeLimit: number): Promise<void> {
+  async notifyTestCreated(
+    testId: number,
+    testName: string,
+    subject: string,
+    timeLimit: number,
+  ): Promise<void> {
     const message = `🎆 <b>Yangi Test E'lon Qilindi!</b>\n\n📚 <b>Test:</b> ${testName}\n📋 <b>Fan:</b> ${subject}\n⏰ <b>Vaqt:</b> ${timeLimit} daqiqa\n🔢 <b>Test ID:</b> #T${testId}\n\n📝 <b>Javob formati:</b> #T${testId}Q1 A\n\n🔥 Testni boshlash uchun tayyor bo'ling!`;
-    
-    await this.sendNotificationToChannelsAndBot(message, testId, UserRole.STUDENT);
+
+    await this.sendNotificationToChannelsAndBot(
+      message,
+      testId,
+      UserRole.STUDENT,
+    );
   }
 
-  async notifyAttendanceTaken(groupName: string, teacherName: string, presentCount: number, totalCount: number): Promise<void> {
+  async notifyAttendanceTaken(
+    groupName: string,
+    teacherName: string,
+    presentCount: number,
+    totalCount: number,
+  ): Promise<void> {
     const message = `📋 <b>Yo'qlama Olindi</b>\n\n👥 <b>Guruh:</b> ${groupName}\n👨‍🏫 <b>O'qituvchi:</b> ${teacherName}\n✅ <b>Keldi:</b> ${presentCount}/${totalCount}\n📅 <b>Sana:</b> ${new Date().toLocaleDateString()}\n⏰ <b>Vaqt:</b> ${new Date().toLocaleTimeString()}`;
-    
-    await this.sendNotificationToChannelsAndBot(message, undefined, UserRole.ADMIN);
+
+    await this.sendNotificationToChannelsAndBot(
+      message,
+      undefined,
+      UserRole.ADMIN,
+    );
   }
 
   // ==================== Exam Notifications ====================
 
-  async notifyExamStart(dto: NotifyExamStartDto): Promise<boolean> {
+  async notifyExamStart(
+    examId: number,
+    groupIds: number[],
+  ): Promise<{
+    success: boolean;
+    message: string;
+    sentCount?: number;
+    failedCount?: number;
+  }> {
     if (!this.bot) {
       throw new BadRequestException('Telegram bot sozlanmagan');
     }
 
     const exam = await this.examRepo.findOne({
-      where: { id: dto.examId },
-      relations: ['subjects', 'teacher', 'variants'],
+      where: { id: examId },
+      relations: ['subjects', 'teacher', 'variants', 'groups', 'groups.students'],
     });
 
     if (!exam) {
       throw new BadRequestException('Imtihon topilmadi');
     }
 
-    const channel = await this.telegramChatRepo.findOne({
-      where: { chatId: dto.channelId, type: ChatType.CHANNEL },
-    });
-
-    if (!channel) {
-      throw new BadRequestException('Kanal topilmadi');
+    if (!groupIds || groupIds.length === 0) {
+      return {
+        success: false,
+        message: 'Hech qanday guruh ID si berilmagan',
+        sentCount: 0,
+        failedCount: 0,
+      };
     }
 
-    try {
-      const message = this.formatExamStartMessage(exam, dto.customMessage);
-      
-      await this.bot.sendMessage(dto.channelId, message, {
-        parse_mode: 'HTML',
-        disable_web_page_preview: true,
-      });
-
-      // Also send additional instructions if needed
-      const instructionsMessage = this.getExamInstructions(exam);
-      await this.bot.sendMessage(dto.channelId, instructionsMessage, {
-        parse_mode: 'HTML',
-      });
-
-      this.logger.log(`Exam start notification sent to channel ${dto.channelId} for exam ${dto.examId}`);
-      return true;
-    } catch (error) {
-      this.logger.error('Failed to send exam start notification:', error);
-      throw new BadRequestException('Imtihon boshlanishi haqida xabarni yuborishda xatolik');
+    // Get all students from specified groups
+    const allStudents: any[] = [];
+    for (const groupId of groupIds) {
+      const group = exam.groups.find((g) => g.id === groupId);
+      if (group && group.students) {
+        allStudents.push(...group.students);
+      }
     }
+
+    // Remove duplicate students
+    const uniqueStudents = allStudents.filter(
+      (student, index, self) =>
+        index === self.findIndex((s) => s.id === student.id),
+    );
+
+    if (uniqueStudents.length === 0) {
+      return {
+        success: false,
+        message: 'Tanlangan guruhlarda studentlar topilmadi',
+        sentCount: 0,
+        failedCount: 0,
+      };
+    }
+
+    let sentCount = 0;
+    let failedCount = 0;
+    const errors: string[] = [];
+
+    // Send notification to each student's private chat
+    for (const student of uniqueStudents) {
+      try {
+        // Find student's Telegram chat
+        const studentChat = await this.telegramChatRepo.findOne({
+          where: {
+            user: { id: student.id },
+            type: ChatType.PRIVATE,
+          },
+          relations: ['user'],
+        });
+
+        if (!studentChat || !studentChat.telegramUserId) {
+          failedCount++;
+          errors.push(
+            `${student.firstName} ${student.lastName}: Telegram hisobi ulanmagan`,
+          );
+          continue;
+        }
+
+        const message = this.formatExamStartMessageForStudent(exam, student);
+
+        await this.bot.sendMessage(studentChat.telegramUserId, message, {
+          parse_mode: 'HTML',
+          disable_web_page_preview: true,
+        });
+
+        // Also send additional instructions
+        const instructionsMessage = this.getExamInstructions(exam);
+        await this.bot.sendMessage(
+          studentChat.telegramUserId,
+          instructionsMessage,
+          {
+            parse_mode: 'HTML',
+          },
+        );
+
+        sentCount++;
+        this.logger.log(
+          `Exam start notification sent to student ${student.firstName} ${student.lastName} (${studentChat.telegramUserId}) for exam ${examId}`,
+        );
+
+        // Small delay to avoid rate limiting
+        await this.delay(100);
+      } catch (error) {
+        failedCount++;
+        errors.push(`${student.firstName} ${student.lastName}: ${error.message}`);
+        this.logger.error(
+          `Failed to send exam start notification to student ${student.id}:`,
+          error,
+        );
+      }
+    }
+
+    const success = sentCount > 0;
+    const message = success
+      ? `Imtihon boshlanishi haqida xabar yuborildi. Muvaffaqiyatli: ${sentCount}, Xato: ${failedCount}`
+      : `Hech qanday studentga xabar yuborib bo'lmadi. Xatolar: ${errors.slice(0, 3).join(', ')}${errors.length > 3 ? '...' : ''}`;
+
+    return {
+      success,
+      message,
+      sentCount,
+      failedCount,
+    };
   }
 
-  async sendPDFToUser(userId: number, pdfBuffer: Buffer, fileName: string, caption?: string): Promise<{ success: boolean; message: string }> {
+  async sendPDFToUser(
+    userId: number,
+    pdfBuffer: Buffer,
+    fileName: string,
+    caption?: string,
+  ): Promise<{ success: boolean; message: string }> {
     try {
       // Find user's Telegram chat
       const userChat = await this.telegramChatRepo.findOne({
@@ -1580,7 +1998,9 @@ export class TelegramService {
       });
 
       if (!userChat || !userChat.telegramUserId) {
-        this.logger.warn(`User ${userId} does not have a connected Telegram account`);
+        this.logger.warn(
+          `User ${userId} does not have a connected Telegram account`,
+        );
         return {
           success: false,
           message: 'Foydalanuvchining Telegram hisobi ulanmagan',
@@ -1601,7 +2021,9 @@ export class TelegramService {
         parse_mode: 'HTML',
       });
 
-      this.logger.log(`PDF sent successfully to user ${userId} (${userChat.telegramUserId})`);
+      this.logger.log(
+        `PDF sent successfully to user ${userId} (${userChat.telegramUserId})`,
+      );
       return {
         success: true,
         message: 'PDF muvaffaqiyatli yuborildi',
@@ -1615,7 +2037,17 @@ export class TelegramService {
     }
   }
 
-  async sendPDFToMultipleUsers(userIds: number[], pdfBuffer: Buffer, fileName: string, caption?: string): Promise<{ success: boolean; sentCount: number; failedCount: number; details: string[] }> {
+  async sendPDFToMultipleUsers(
+    userIds: number[],
+    pdfBuffer: Buffer,
+    fileName: string,
+    caption?: string,
+  ): Promise<{
+    success: boolean;
+    sentCount: number;
+    failedCount: number;
+    details: string[];
+  }> {
     const results = {
       success: true,
       sentCount: 0,
@@ -1625,7 +2057,12 @@ export class TelegramService {
 
     for (const userId of userIds) {
       try {
-        const result = await this.sendPDFToUser(userId, pdfBuffer, fileName, caption);
+        const result = await this.sendPDFToUser(
+          userId,
+          pdfBuffer,
+          fileName,
+          caption,
+        );
         if (result.success) {
           results.sentCount++;
           results.details.push(`User ${userId}: ✅ ${result.message}`);
@@ -1633,7 +2070,7 @@ export class TelegramService {
           results.failedCount++;
           results.details.push(`User ${userId}: ❌ ${result.message}`);
         }
-        
+
         // Small delay to avoid rate limiting
         await this.delay(200);
       } catch (error) {
@@ -1646,7 +2083,9 @@ export class TelegramService {
       results.success = false;
     }
 
-    this.logger.log(`PDF batch send completed: ${results.sentCount} sent, ${results.failedCount} failed`);
+    this.logger.log(
+      `PDF batch send completed: ${results.sentCount} sent, ${results.failedCount} failed`,
+    );
     return results;
   }
 
@@ -1670,27 +2109,32 @@ export class TelegramService {
 
   async sendPaymentReminder(studentId: number, payment: any): Promise<void> {
     if (!this.bot) {
-      this.logger.warn('Telegram bot not configured - cannot send payment reminder');
+      this.logger.warn(
+        'Telegram bot not configured - cannot send payment reminder',
+      );
       return;
     }
 
     try {
       // Find student's private chat
       const studentChat = await this.telegramChatRepo.findOne({
-        where: { 
-          user: { id: studentId }, 
-          type: ChatType.PRIVATE 
+        where: {
+          user: { id: studentId },
+          type: ChatType.PRIVATE,
         },
-        relations: ['user']
+        relations: ['user'],
       });
 
       if (!studentChat || !studentChat.telegramUserId) {
-        this.logger.warn(`Student ${studentId} does not have Telegram connected`);
+        this.logger.warn(
+          `Student ${studentId} does not have Telegram connected`,
+        );
         return;
       }
 
-      const message = `💰 To'lov eslatmasi\n\n` +
-        `📚 Guruh: ${payment.group?.name || 'Noma\'lum'}\n` +
+      const message =
+        `💰 To'lov eslatmasi\n\n` +
+        `📚 Guruh: ${payment.group?.name || "Noma'lum"}\n` +
         `💵 Miqdor: ${payment.amount} so'm\n` +
         `📅 Muddat: ${new Date(payment.dueDate).toLocaleDateString('uz-UZ')}\n` +
         `📋 Tavsif: ${payment.description}\n\n` +
@@ -1698,52 +2142,75 @@ export class TelegramService {
         `❓ Savollar bo'lsa o'qituvchingiz bilan bog'laning.`;
 
       await this.bot.sendMessage(studentChat.telegramUserId, message, {
-        parse_mode: 'HTML'
+        parse_mode: 'HTML',
       });
 
       this.logger.log(`Payment reminder sent to student ${studentId}`);
     } catch (error) {
-      this.logger.error(`Failed to send payment reminder to student ${studentId}:`, error);
+      this.logger.error(
+        `Failed to send payment reminder to student ${studentId}:`,
+        error,
+      );
       throw error;
     }
   }
 
-  async sendPaymentReminderToChannel(channelId: string, payment: any): Promise<void> {
+  async sendPaymentReminderToChannel(
+    channelId: string,
+    payment: any,
+  ): Promise<void> {
     if (!this.bot) {
-      this.logger.warn('Telegram bot not configured - cannot send payment reminder to channel');
+      this.logger.warn(
+        'Telegram bot not configured - cannot send payment reminder to channel',
+      );
       return;
     }
 
     try {
-      const message = `💰 To'lov eslatmasi\n\n` +
+      const message =
+        `💰 To'lov eslatmasi\n\n` +
         `👤 O'quvchi: ${payment.student?.firstName} ${payment.student?.lastName}\n` +
-        `📚 Guruh: ${payment.group?.name || 'Noma\'lum'}\n` +
+        `📚 Guruh: ${payment.group?.name || "Noma'lum"}\n` +
         `💵 Miqdor: ${payment.amount} so'm\n` +
         `📅 Muddat: ${new Date(payment.dueDate).toLocaleDateString('uz-UZ')}\n` +
         `📋 Tavsif: ${payment.description}\n\n` +
         `⚠️ To'lov muddati yetib keldi!`;
 
       await this.bot.sendMessage(channelId, message, {
-        parse_mode: 'HTML'
+        parse_mode: 'HTML',
       });
 
       this.logger.log(`Payment reminder sent to channel ${channelId}`);
     } catch (error) {
-      this.logger.error(`Failed to send payment reminder to channel ${channelId}:`, error);
+      this.logger.error(
+        `Failed to send payment reminder to channel ${channelId}:`,
+        error,
+      );
       throw error;
     }
   }
 
-  async sendMonthlyPaymentNotifications(studentIds: number[], paymentData: { amount: number; description: string; dueDate: Date; groupName: string }): Promise<{ sentCount: number; failedCount: number }> {
+  async sendMonthlyPaymentNotifications(
+    studentIds: number[],
+    paymentData: {
+      amount: number;
+      description: string;
+      dueDate: Date;
+      groupName: string;
+    },
+  ): Promise<{ sentCount: number; failedCount: number }> {
     if (!this.bot) {
-      this.logger.warn('Telegram bot not configured - cannot send monthly payment notifications');
+      this.logger.warn(
+        'Telegram bot not configured - cannot send monthly payment notifications',
+      );
       return { sentCount: 0, failedCount: studentIds.length };
     }
 
     let sentCount = 0;
     let failedCount = 0;
 
-    const message = `🗓️ Yangi oylik to'lov\n\n` +
+    const message =
+      `🗓️ Yangi oylik to'lov\n\n` +
       `📚 Guruh: ${paymentData.groupName}\n` +
       `💵 Miqdor: ${paymentData.amount} so'm\n` +
       `📅 To'lash muddati: ${paymentData.dueDate.toLocaleDateString('uz-UZ')}\n` +
@@ -1754,16 +2221,16 @@ export class TelegramService {
     for (const studentId of studentIds) {
       try {
         const studentChat = await this.telegramChatRepo.findOne({
-          where: { 
-            user: { id: studentId }, 
-            type: ChatType.PRIVATE 
+          where: {
+            user: { id: studentId },
+            type: ChatType.PRIVATE,
           },
-          relations: ['user']
+          relations: ['user'],
         });
 
         if (studentChat && studentChat.telegramUserId) {
           await this.bot.sendMessage(studentChat.telegramUserId, message, {
-            parse_mode: 'HTML'
+            parse_mode: 'HTML',
           });
           sentCount++;
         } else {
@@ -1773,13 +2240,17 @@ export class TelegramService {
         // Small delay to avoid rate limiting
         await this.delay(200);
       } catch (error) {
-        this.logger.error(`Failed to send monthly payment notification to student ${studentId}:`, error);
+        this.logger.error(
+          `Failed to send monthly payment notification to student ${studentId}:`,
+          error,
+        );
         failedCount++;
       }
     }
 
-    this.logger.log(`Monthly payment notifications sent: ${sentCount} sent, ${failedCount} failed`);
+    this.logger.log(
+      `Monthly payment notifications sent: ${sentCount} sent, ${failedCount} failed`,
+    );
     return { sentCount, failedCount };
   }
-
 }

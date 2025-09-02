@@ -1,4 +1,11 @@
-import { Entity, Column, PrimaryGeneratedColumn, ManyToOne, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import {
+  Entity,
+  Column,
+  PrimaryGeneratedColumn,
+  ManyToOne,
+  CreateDateColumn,
+  UpdateDateColumn,
+} from 'typeorm';
 import { User } from '../../users/entities/user.entity';
 import { Group } from '../../groups/entities/group.entity';
 
@@ -22,13 +29,13 @@ export class Payment {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @ManyToOne(() => User, user => user.id)
+  @ManyToOne(() => User, (user) => user.id)
   student: User;
 
-  @ManyToOne(() => User, user => user.id)
+  @ManyToOne(() => User, (user) => user.id)
   teacher: User;
 
-  @ManyToOne(() => Group, group => group.id, { nullable: true })
+  @ManyToOne(() => Group, (group) => group.id, { nullable: true })
   group: Group;
 
   @Column({ type: 'decimal', precision: 10, scale: 2 })
@@ -40,10 +47,12 @@ export class Payment {
   @Column({ type: 'enum', enum: PaymentType, default: PaymentType.MONTHLY })
   type: PaymentType;
 
-  @Column()
+  @Column({
+    nullable: true,
+  })
   description: string;
 
-  @Column()
+  @Column({ nullable: true })
   dueDate: Date;
 
   @Column({ nullable: true })

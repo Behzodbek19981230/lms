@@ -210,8 +210,8 @@ export default function ExamsPage() {
 	const handleUpdateExamStatus = async (examId: number, status: string) => {
 		try {
 			// Find the exam to get group information
-			const exam = exams.find(e => e.id === examId);
-			
+			const exam = exams.find((e) => e.id === examId);
+
 			// Update the exam status first
 			const response = await request.put(`/exams/${examId}/status`, { status });
 			setExams(exams.map((exam) => (exam.id === examId ? response.data : exam)));
@@ -219,20 +219,22 @@ export default function ExamsPage() {
 			// Send Telegram notifications when exam starts
 			if (status === 'in_progress' && exam && exam.groups.length > 0) {
 				try {
-					const groupIds = exam.groups.map(group => group.id);
+					const groupIds = exam.groups.map((group) => group.id);
 					const notificationResult = await telegramService.notifyExamStart(examId, groupIds);
-					
+
 					if (notificationResult.success) {
 						toast({
 							title: 'Imtihon boshlandi!',
-							description: `Telegram orqali ${notificationResult.sentCount || 0} ta o'quvchiga xabar yuborildi.`,
-							variant: 'default'
+							description: `Telegram orqali ${
+								notificationResult.sentCount || 0
+							} ta o'quvchiga xabar yuborildi.`,
+							variant: 'default',
 						});
 					} else {
 						toast({
 							title: 'Imtihon boshlandi',
 							description: `Telegram xabari yuborishda muammo: ${notificationResult.message}`,
-							variant: 'default'
+							variant: 'default',
 						});
 					}
 				} catch (notificationError: any) {
@@ -241,25 +243,25 @@ export default function ExamsPage() {
 					toast({
 						title: 'Imtihon boshlandi',
 						description: 'Telegram xabari yuborishda xatolik yuz berdi, ammo imtihon boshlandi.',
-						variant: 'default'
+						variant: 'default',
 					});
 				}
 			} else if (status === 'completed' && exam && exam.groups.length > 0) {
 				// Optionally notify when exam ends
 				try {
-					const groupIds = exam.groups.map(group => group.id);
+					const groupIds = exam.groups.map((group) => group.id);
 					await telegramService.notifyExamEnd(examId, groupIds);
 					toast({
 						title: 'Imtihon tugallandi',
 						description: "O'quvchilarga Telegram orqali xabar yuborildi.",
-						variant: 'default'
+						variant: 'default',
 					});
 				} catch (notificationError) {
 					console.error('End notification failed:', notificationError);
 					toast({
 						title: 'Imtihon tugallandi',
 						description: 'Imtihon tugallandi.',
-						variant: 'default'
+						variant: 'default',
 					});
 				}
 			} else {
@@ -267,7 +269,7 @@ export default function ExamsPage() {
 				toast({
 					title: 'Imtihon holati yangilandi',
 					description: `Imtihon holati "${getStatusText(status)}" ga o'zgartirildi.`,
-					variant: 'default'
+					variant: 'default',
 				});
 			}
 		} catch (e: any) {
@@ -275,7 +277,7 @@ export default function ExamsPage() {
 			toast({
 				title: 'Xatolik',
 				description: e?.response?.data?.message || "Imtihon holatini yangilab bo'lmadi",
-				variant: 'destructive'
+				variant: 'destructive',
 			});
 		}
 	};
@@ -580,7 +582,6 @@ export default function ExamsPage() {
 												<Eye className='h-4 w-4 mr-2' />
 												Ko'rish
 											</Button>
-											
 										</div>
 
 										{/* Status Actions */}
@@ -611,7 +612,7 @@ export default function ExamsPage() {
 													<div className='flex items-center justify-center text-xs text-muted-foreground'>
 														<MessageCircle className='h-3 w-3 mr-1' />
 														Telegram orqali xabar yuboriladi
-												</div>
+													</div>
 												)}
 											</div>
 										)}

@@ -24,13 +24,13 @@ export class Payment {
   })
   status: PaymentStatus;
 
-  @Column({ type: 'date' })
+  @Column({ type: 'date', nullable: true })
   dueDate: Date;
 
   @Column({ type: 'timestamp', nullable: true })
   paidDate: Date;
 
-  @Column({ type: 'text' })
+  @Column({ type: 'text', nullable: true })
   description: string;
 
   @Column()

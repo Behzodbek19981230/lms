@@ -141,27 +141,34 @@ export class ExamsController {
     try {
       console.log(`PDF generation requested for variant ${variantId}`);
       const buffer = await this.examsService.generateVariantPDF(+variantId);
-      
-      console.log(`PDF generated successfully. Buffer size: ${buffer.length} bytes`);
-      
+
+      console.log(
+        `PDF generated successfully. Buffer size: ${buffer.length} bytes`,
+      );
+
       // Check if buffer is valid
       if (!buffer || buffer.length === 0) {
         console.error('Empty PDF buffer generated');
         res.status(500).json({ error: 'PDF generation failed - empty buffer' });
         return;
       }
-      
+
       // Check if buffer starts with PDF signature
       const pdfHeader = buffer.slice(0, 4).toString();
       console.log(`PDF header: ${pdfHeader}`);
-      
+
       if (!pdfHeader.startsWith('%PDF')) {
         console.error('Invalid PDF buffer - missing PDF header');
-        console.log('Buffer start (first 100 bytes):', buffer.slice(0, 100).toString());
-        res.status(500).json({ error: 'PDF generation failed - invalid format' });
+        console.log(
+          'Buffer start (first 100 bytes):',
+          buffer.slice(0, 100).toString(),
+        );
+        res
+          .status(500)
+          .json({ error: 'PDF generation failed - invalid format' });
         return;
       }
-      
+
       res.setHeader('Content-Type', 'application/pdf');
       res.setHeader('Content-Length', buffer.length.toString());
       res.setHeader(
@@ -169,14 +176,14 @@ export class ExamsController {
         `attachment; filename="variant-${variantId}.pdf"`,
       );
       res.send(buffer);
-      
+
       console.log(`PDF response sent successfully for variant ${variantId}`);
     } catch (error) {
       console.error(`Error generating PDF for variant ${variantId}:`, error);
-      res.status(500).json({ 
-        error: 'PDF generation failed', 
+      res.status(500).json({
+        error: 'PDF generation failed',
         message: error.message,
-        variantId 
+        variantId,
       });
     }
   }
@@ -230,10 +237,16 @@ export class ExamsController {
   }
 
   @Post('variants/:variantId/send-telegram')
-  @ApiOperation({ summary: 'Generate and send exam variant PDF to student via Telegram' })
-  @ApiResponse({ status: 200, description: 'PDF generated and sent via Telegram' })
+  @ApiOperation({
+    summary: 'Generate and send exam variant PDF to student via Telegram',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'PDF generated and sent via Telegram',
+  })
   async sendVariantPDFToTelegram(@Param('variantId') variantId: string) {
-    const result = await this.examsService.generateAndSendVariantPDF(+variantId);
+    const result =
+      await this.examsService.generateAndSendVariantPDF(+variantId);
     return {
       success: result.telegramSent,
       pdfGenerated: result.pdfGenerated,
@@ -242,8 +255,13 @@ export class ExamsController {
   }
 
   @Post(':id/send-all-telegram')
-  @ApiOperation({ summary: 'Generate and send all exam variant PDFs to students via Telegram' })
-  @ApiResponse({ status: 200, description: 'All PDFs generated and sent via Telegram' })
+  @ApiOperation({
+    summary: 'Generate and send all exam variant PDFs to students via Telegram',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'All PDFs generated and sent via Telegram',
+  })
   async sendAllVariantsPDFsToTelegram(@Param('id') id: string) {
     const result = await this.examsService.generateAndSendAllVariantsPDFs(+id);
     return {
