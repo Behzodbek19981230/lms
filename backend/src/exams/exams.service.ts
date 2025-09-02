@@ -1158,6 +1158,105 @@ export class ExamsService {
   }
 
   /* ------------------------
+       Debug & Troubleshooting
+       ------------------------ */
+
+  async debugVariant(variantId: number): Promise<any> {
+    this.logger.log(`Debugging variant ${variantId}`);
+    
+    try {
+      // Query with all relations
+      const variant = await this.examVariantRepository.findOne({
+        where: { id: variantId },
+        relations: ['student', 'exam', 'exam.subjects', 'questions'],
+        order: { questions: { order: 'ASC' } as any },
+      });
+      
+      if (!variant) {
+        return { error: `Variant ${variantId} not found` };
+      }
+      
+      // Also query questions separately
+      const separateQuestionsQuery = await this.examVariantQuestionRepository.find({
+        where: { variant: { id: variantId } },
+        order: { order: 'ASC' }
+      });
+      
+      return {
+        variantId,
+        found: true,
+        basicInfo: {
+          id: variant.id,
+          variantNumber: variant.variantNumber,
+          status: variant.status,
+          totalPoints: variant.totalPoints,
+          createdAt: variant.createdAt,
+          updatedAt: variant.updatedAt
+        },
+        student: variant.student ? {
+          id: variant.student.id,
+          firstName: variant.student.firstName,
+          lastName: variant.student.lastName,
+          email: variant.student.email
+        } : null,
+        exam: variant.exam ? {
+          id: variant.exam.id,
+          title: variant.exam.title,
+          description: variant.exam.description,
+          status: variant.exam.status,
+          subjectsCount: variant.exam.subjects?.length || 0,
+          subjects: variant.exam.subjects?.map(s => ({ id: s.id, name: s.name })) || []
+        } : null,
+        questions: {
+          fromRelation: {
+            count: variant.questions?.length || 0,
+            questions: variant.questions?.map(q => ({
+              id: q.id,
+              order: q.order,
+              questionText: q.questionText?.substring(0, 100) + '...',
+              type: q.type,
+              points: q.points,
+              answersCount: q.answers?.length || 0,
+              correctAnswerIndex: q.correctAnswerIndex,
+              subjectName: q.subjectName,
+              hasFormula: q.hasFormula,
+              hasImage: !!q.imageBase64
+            })) || []
+          },
+          fromSeparateQuery: {
+            count: separateQuestionsQuery.length,
+            questions: separateQuestionsQuery.map(q => ({
+              id: q.id,
+              order: q.order,
+              questionText: q.questionText?.substring(0, 100) + '...',
+              type: q.type,
+              points: q.points,
+              answersCount: q.answers?.length || 0,
+              correctAnswerIndex: q.correctAnswerIndex,
+              subjectName: q.subjectName,
+              hasFormula: q.hasFormula,
+              hasImage: !!q.imageBase64
+            }))
+          }
+        },
+        relationsLoaded: {
+          student: !!variant.student,
+          exam: !!variant.exam,
+          examSubjects: !!(variant.exam?.subjects),
+          questions: !!(variant.questions)
+        }
+      };
+    } catch (error) {
+      this.logger.error(`Error debugging variant ${variantId}:`, error);
+      return {
+        variantId,
+        error: error.message,
+        found: false
+      };
+    }
+  }
+
+  /* ------------------------
        Public PDF API methods
        ------------------------ */
 
@@ -1175,6 +1274,22 @@ export class ExamsService {
         this.logger.error(`Variant ${variantId} not found`);
         throw new NotFoundException('Variant not found');
       }
+      
+      // Enhanced logging for debugging
+      this.logger.log(`Variant ${variantId} database query result:`, {
+        variantExists: !!variant,
+        studentExists: !!variant.student,
+        examExists: !!variant.exam,
+        questionsExists: !!variant.questions,
+        questionsCount: variant.questions?.length || 0,
+        questionsArray: variant.questions?.map(q => ({
+          id: q.id,
+          order: q.order,
+          questionText: q.questionText?.substring(0, 50),
+          answersCount: q.answers?.length || 0,
+          type: q.type
+        })) || []
+      });
       
       this.logger.log(`Found variant ${variantId}`, {
         hasStudent: !!variant.student,

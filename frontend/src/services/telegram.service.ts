@@ -93,18 +93,18 @@ class TelegramService {
 
   // ==================== Exam Notifications ====================
 
-  async notifyExamStart(examId: number, groupIds: number[]): Promise<{ success: boolean; message: string; sentCount?: number; failedCount?: number }> {
+  async notifyExamStart(examId: number, channelId: string): Promise<{ success: boolean; message: string; sentCount?: number; failedCount?: number }> {
     const response = await request.post(`${this.baseURL}/notify-exam-start`, {
       examId,
-      groupIds
+      channelId
     });
     return response.data;
   }
 
-  async notifyExamEnd(examId: number, groupIds: number[]): Promise<{ success: boolean; message: string }> {
+  async notifyExamEnd(examId: number, channelId: string): Promise<{ success: boolean; message: string }> {
     const response = await request.post(`${this.baseURL}/notify-exam-end`, {
       examId,
-      groupIds
+      channelId
     });
     return response.data;
   }

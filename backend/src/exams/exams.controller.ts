@@ -59,6 +59,13 @@ export class ExamsController {
     return this.examsService.findById(+id);
   }
 
+  @Get('variants/:variantId/debug')
+  @ApiOperation({ summary: 'Debug variant data for PDF generation' })
+  @ApiResponse({ status: 200, description: 'Variant debug info' })
+  async debugVariant(@Param('variantId') variantId: string): Promise<any> {
+    return this.examsService.debugVariant(+variantId);
+  }
+
   @Post(':id/generate-variants')
   @ApiOperation({ summary: 'Generate variants for an exam' })
   @ApiResponse({ status: 201, description: 'Variants generated successfully' })
