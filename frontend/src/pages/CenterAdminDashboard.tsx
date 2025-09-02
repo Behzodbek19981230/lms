@@ -17,6 +17,7 @@ import {
     CheckCircle,
     AlertCircle
 } from "lucide-react";
+import TelegramLinkingCard from '@/components/TelegramLinkingCard';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -342,6 +343,11 @@ const CenterAdminDashboard = () => {
                             </Button>
                         </CardContent>
                     </Card>
+                </div>
+
+                {/* Telegram Integration Management */}
+                <div className="mt-6">
+                    <TelegramLinkingCard />
                 </div>
 
                 {/* Revenue Chart Placeholder */}
