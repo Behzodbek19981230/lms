@@ -293,7 +293,7 @@ export class TelegramController {
 
     // Handle bot commands
     if (message.text) {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call
       const command = message.text.toLowerCase().trim();
 
       switch (command) {
@@ -337,6 +337,7 @@ export class TelegramController {
           return;
         default:
           // Check if it's a group selection for attendance
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-call
           if (command.startsWith('grup_')) {
             await this.handleGroupSelection(message);
             return;

@@ -3,10 +3,12 @@ import { Cron } from '@nestjs/schedule';
 import { TelegramService } from '../telegram/telegram.service';
 import { ExamsService } from '../exams/exams.service';
 import { AttendanceService } from '../attendance/attendance.service';
+import { PaymentsService } from '../payments/payments.service';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Between, MoreThanOrEqual } from 'typeorm';
+import { Repository, Between, MoreThanOrEqual, LessThan } from 'typeorm';
 import { Exam, ExamStatus } from '../exams/entities/exam.entity';
 import { ExamVariant } from '../exams/entities/exam-variant.entity';
+import { Payment, PaymentStatus } from '../payments/payment.entity';
 import { CRON_JOB_CONFIGS } from './cron-jobs.config';
 
 @Injectable()
@@ -17,10 +19,13 @@ export class CronJobsService {
     private readonly telegramService: TelegramService,
     private readonly examsService: ExamsService,
     private readonly attendanceService: AttendanceService,
+    private readonly paymentsService: PaymentsService,
     @InjectRepository(Exam)
     private examRepository: Repository<Exam>,
     @InjectRepository(ExamVariant)
     private examVariantRepository: Repository<ExamVariant>,
+    @InjectRepository(Payment)
+    private paymentRepository: Repository<Payment>,
   ) {}
 
   // Send PDFs to students every day at 8:00 AM for scheduled exams
@@ -246,6 +251,157 @@ export class CronJobsService {
       
     } catch (error) {
       this.logger.error('Health check failed:', error);
+    }
+  }
+
+  // Send payment reminders every day at 10:00 AM for overdue payments
+  @Cron('0 10 * * *', {
+    name: 'dailyPaymentReminders',
+    timeZone: 'Asia/Tashkent',
+  })
+  async sendDailyPaymentReminders() {
+    this.logger.log('Starting daily payment reminders...');
+    
+    try {
+      // Update overdue payments status first
+      await this.paymentsService.updateOverduePayments();
+      
+      // Get overdue payments
+      const overduePayments = await this.paymentsService.getOverduePayments();
+      
+      if (overduePayments.length === 0) {
+        this.logger.log('No overdue payments found');
+        return;
+      }
+
+      this.logger.log(`Found ${overduePayments.length} overdue payments`);
+      
+      let sentCount = 0;
+      let failedCount = 0;
+      
+      for (const payment of overduePayments) {
+        try {
+          // Send individual payment reminder via Telegram
+          await this.telegramService.sendPaymentReminder(payment.studentId, payment);
+          
+          // Also send to channels if configured
+          const relevantChannels = await this.telegramService.getAllChats();
+          const paymentChannels = relevantChannels.filter(channel => 
+            channel.type === 'channel' && 
+            channel.status === 'active' &&
+            (channel.center?.id === payment.group?.center?.id || !channel.center)
+          );
+          
+          for (const channel of paymentChannels) {
+            try {
+              await this.telegramService.sendPaymentReminderToChannel(channel.chatId, payment);
+            } catch (error) {
+              this.logger.warn(`Failed to send payment reminder to channel ${channel.chatId}:`, error.message);
+            }
+          }
+          
+          sentCount++;
+          this.logger.log(`Payment reminder sent for payment ${payment.id} to student ${payment.student?.firstName} ${payment.student?.lastName}`);
+          
+          // Small delay to avoid rate limiting
+          await new Promise(resolve => setTimeout(resolve, 500));
+        } catch (error) {
+          failedCount++;
+          this.logger.error(`Failed to send payment reminder for payment ${payment.id}:`, error);
+        }
+      }
+      
+      // Send summary notification to channels
+      if (sentCount > 0 || failedCount > 0) {
+        const summaryMessage = `💰 <b>Kunlik To'lov Eslatmalari</b>\n\n` +
+          `📊 <b>Jami muddati o'tgan to'lovlar:</b> ${overduePayments.length}\n` +
+          `✅ <b>Eslatma yuborildi:</b> ${sentCount}\n` +
+          `❌ <b>Xatolik:</b> ${failedCount}\n` +
+          `📅 <b>Sana:</b> ${new Date().toLocaleDateString()}\n\n` +
+          `💡 <b>Ota-onalar, iltimos to'lovlarni muddatida amalga oshiring!</b>`;
+        
+        await this.telegramService.sendNotificationToChannelsAndBot(summaryMessage);
+      }
+      
+      this.logger.log(`Payment reminders completed: ${sentCount} sent, ${failedCount} failed`);
+    } catch (error) {
+      this.logger.error('Failed to send payment reminders:', error);
+    }
+  }
+
+  // Send upcoming payment notifications every Monday at 9:00 AM
+  @Cron('0 9 * * 1', {
+    name: 'weeklyUpcomingPayments',
+    timeZone: 'Asia/Tashkent',
+  })
+  async sendUpcomingPaymentNotifications() {
+    this.logger.log('Starting weekly upcoming payment notifications...');
+    
+    try {
+      const today = new Date();
+      const nextWeek = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
+      
+      // Get payments due in the next week
+      const upcomingPayments = await this.paymentRepository.find({
+        where: {
+          status: PaymentStatus.PENDING,
+          dueDate: Between(today, nextWeek),
+        },
+        relations: ['student', 'teacher', 'group'],
+      });
+      
+      if (upcomingPayments.length === 0) {
+        this.logger.log('No upcoming payments found for next week');
+        return;
+      }
+      
+      this.logger.log(`Found ${upcomingPayments.length} payments due in the next week`);
+      
+      let sentCount = 0;
+      let failedCount = 0;
+      
+      for (const payment of upcomingPayments) {
+        try {
+          // Send upcoming payment notification
+          const message = 
+            `📅 To'lov eslatmasi\n\n` +
+            `📚 Guruh: ${payment.group?.name || "Noma'lum"}\n` +
+            `💵 Miqdor: ${payment.amount} so'm\n` +
+            `📅 To'lash muddati: ${new Date(payment.dueDate).toLocaleDateString('uz-UZ')}\n` +
+            `📋 Tavsif: ${payment.description}\n\n` +
+            `💡 To'lovni muddatida amalga oshirishni eslatamiz.\n` +
+            `❓ Savollar bo'lsa o'qituvchingiz bilan bog'laning.`;
+          
+          await this.telegramService.sendPaymentReminder(payment.studentId, {
+            ...payment,
+            message: message
+          });
+          
+          sentCount++;
+          
+          // Small delay to avoid rate limiting
+          await new Promise(resolve => setTimeout(resolve, 300));
+        } catch (error) {
+          failedCount++;
+          this.logger.error(`Failed to send upcoming payment notification for payment ${payment.id}:`, error);
+        }
+      }
+      
+      // Send summary
+      if (sentCount > 0 || failedCount > 0) {
+        const summaryMessage = `📅 <b>Haftalik To'lov Eslatmalari</b>\n\n` +
+          `📊 <b>Kelasi hafta muddati yetadigan to'lovlar:</b> ${upcomingPayments.length}\n` +
+          `✅ <b>Eslatma yuborildi:</b> ${sentCount}\n` +
+          `❌ <b>Xatolik:</b> ${failedCount}\n` +
+          `📅 <b>Sana:</b> ${new Date().toLocaleDateString()}\n\n` +
+          `💰 Muddatini unutmang!`;
+        
+        await this.telegramService.sendNotificationToChannelsAndBot(summaryMessage);
+      }
+      
+      this.logger.log(`Upcoming payment notifications completed: ${sentCount} sent, ${failedCount} failed`);
+    } catch (error) {
+      this.logger.error('Failed to send upcoming payment notifications:', error);
     }
   }
 }

@@ -45,4 +45,22 @@ export class AttendanceController {
   async delete(@Param('id') id: number, @Request() req) {
     return this.attendanceService.delete(id, req.user.id);
   }
+
+  // Get only present students for a specific group and date
+  @Get('present/:groupId/:date')
+  @Roles(UserRole.TEACHER, UserRole.ADMIN, UserRole.SUPERADMIN)
+  async getPresentStudents(
+    @Param('groupId') groupId: number, 
+    @Param('date') date: string, 
+    @Request() req
+  ) {
+    return this.attendanceService.getPresentStudents(groupId, date, req.user.id);
+  }
+
+  // Get present students for today only
+  @Get('present/today/:groupId')
+  @Roles(UserRole.TEACHER, UserRole.ADMIN, UserRole.SUPERADMIN)
+  async getTodayPresentStudents(@Param('groupId') groupId: number, @Request() req) {
+    return this.attendanceService.getTodayPresentStudents(groupId, req.user.id);
+  }
 }

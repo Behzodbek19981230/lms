@@ -1212,15 +1212,24 @@ export class ExamsService {
         relations: ['student', 'exam', 'exam.subjects', 'questions'],
       });
 
-      // If questions are not loaded via relations, load them separately
-      if (variant && (!variant.questions || variant.questions.length === 0)) {
-        this.logger.warn(`No questions loaded via relations for variant ${variantId}, loading separately`);
-        const questions = await this.examVariantQuestionRepository.find({
-          where: { variant: { id: variantId } },
-          order: { order: 'ASC' },
-        });
-        variant.questions = questions;
-        this.logger.log(`Loaded ${questions.length} questions separately for variant ${variantId}`);
+      if (!variant) {
+        this.logger.error(`Variant ${variantId} not found`);
+        throw new NotFoundException('Variant not found');
+      }
+
+      // ALWAYS load questions separately to ensure they are present
+      this.logger.log(`Loading questions separately for variant ${variantId} to ensure they are present`);
+      const questions = await this.examVariantQuestionRepository.find({
+        where: { variant: { id: variantId } },
+        order: { order: 'ASC' },
+      });
+      variant.questions = questions;
+      this.logger.log(`Loaded ${questions.length} questions for variant ${variantId}`);
+
+      // Validate that we have questions
+      if (!variant.questions || variant.questions.length === 0) {
+        this.logger.error(`No questions found for variant ${variantId}`);
+        throw new BadRequestException('No questions found for this variant');
       }
 
       if (!variant) {

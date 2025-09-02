@@ -368,4 +368,85 @@ export class AttendanceService {
 
     await this.attendanceRepo.remove(attendance);
   }
+
+  // Get only present students for a specific group and date
+  async getPresentStudents(groupId: number, date: string, teacherId: number): Promise<{
+    groupName: string;
+    subject: string;
+    presentStudents: Array<{
+      id: number;
+      firstName: string;
+      lastName: string;
+      fullName: string;
+      arrivedAt?: Date;
+      notes?: string;
+    }>;
+    totalPresent: number;
+    date: string;
+  }> {
+    const group = await this.groupRepo.findOne({
+      where: { id: groupId },
+      relations: ['teacher', 'subject']
+    });
+
+    if (!group) {
+      throw new NotFoundException('Guruh topilmadi');
+    }
+
+    if (group.teacher.id !== teacherId) {
+      throw new ForbiddenException('Siz faqat o\'z guruhingiz davomatini ko\'ra olasiz');
+    }
+
+    // Get only present students for the given date
+    const presentAttendance = await this.attendanceRepo.find({
+      where: {
+        group: { id: groupId },
+        date: date,
+        status: AttendanceStatus.PRESENT
+      },
+      relations: ['student'],
+      order: {
+        student: {
+          firstName: 'ASC',
+          lastName: 'ASC'
+        }
+      }
+    });
+
+    const presentStudents = presentAttendance.map(attendance => ({
+      id: attendance.student.id,
+      firstName: attendance.student.firstName,
+      lastName: attendance.student.lastName,
+      fullName: `${attendance.student.firstName} ${attendance.student.lastName}`,
+      arrivedAt: attendance.arrivedAt,
+      notes: attendance.notes
+    }));
+
+    return {
+      groupName: group.name,
+      subject: group.subject?.name || 'Fan belgilanmagan',
+      presentStudents,
+      totalPresent: presentStudents.length,
+      date
+    };
+  }
+
+  // Get attendance summary showing only present students for today
+  async getTodayPresentStudents(groupId: number, teacherId: number): Promise<{
+    groupName: string;
+    subject: string;
+    presentStudents: Array<{
+      id: number;
+      firstName: string;
+      lastName: string;
+      fullName: string;
+      arrivedAt?: Date;
+      notes?: string;
+    }>;
+    totalPresent: number;
+    date: string;
+  }> {
+    const today = new Date().toISOString().split('T')[0];
+    return this.getPresentStudents(groupId, today, teacherId);
+  }
 }

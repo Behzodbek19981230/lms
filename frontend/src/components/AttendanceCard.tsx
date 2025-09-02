@@ -4,7 +4,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { request } from '@/configs/request';
-import { CheckCircle, X, Clock, Users, Calendar, Plus } from 'lucide-react';
+import { attendanceService } from '@/services/attendance.service';
+import { CheckCircle, X, Clock, Users, Calendar, Plus, Eye } from 'lucide-react';
 import AttendanceModal from '@/components/AttendanceModal';
 
 interface AttendanceRecord {
@@ -49,6 +50,7 @@ export default function AttendanceCard() {
   const [selectedGroup, setSelectedGroup] = useState<number | null>(null);
   const [groups, setGroups] = useState<any[]>([]);
   const [showAttendanceModal, setShowAttendanceModal] = useState(false);
+  const [showOnlyPresent, setShowOnlyPresent] = useState(false);
 
   useEffect(() => {
     loadGroupsAndAttendance();
