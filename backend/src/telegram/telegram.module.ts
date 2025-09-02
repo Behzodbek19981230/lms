@@ -13,6 +13,7 @@ import { Test } from '../tests/entities/test.entity';
 import { Question } from '../questions/entities/question.entity';
 import { Answer } from '../questions/entities/answer.entity';
 import { Exam } from '../exams/entities/exam.entity';
+import { Group } from '../groups/entities/group.entity';
 import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
@@ -28,6 +29,7 @@ import { NotificationsModule } from '../notifications/notifications.module';
       Question,
       Answer,
       Exam,
+      Group,
     ]),
     ConfigModule,
     forwardRef(() => NotificationsModule),

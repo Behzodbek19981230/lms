@@ -24,6 +24,7 @@ import { Test } from '../tests/entities/test.entity';
 import { Question } from '../questions/entities/question.entity';
 import { Answer } from '../questions/entities/answer.entity';
 import { Exam } from '../exams/entities/exam.entity';
+import { Group } from '../groups/entities/group.entity';
 import {
   CreateTelegramChatDto,
   SendTestToChannelDto,
@@ -57,6 +58,8 @@ export class TelegramService {
     private answerRepo: Repository<Answer>,
     @InjectRepository(Exam)
     private examRepo: Repository<Exam>,
+    @InjectRepository(Group)
+    private groupRepo: Repository<Group>,
     private configService: ConfigService,
   ) {
     const token = this.configService.get<string>('TELEGRAM_BOT_TOKEN');
@@ -246,10 +249,10 @@ export class TelegramService {
 
       // Try to find matching LMS user by name - be more flexible with matching
       let potentialUsers: User[] = [];
-      
+
       if (firstName || lastName) {
-        const searchConditions = [];
-        
+        const searchConditions: any[] = [];
+
         // Search by first name and last name combinations
         if (firstName && lastName) {
           searchConditions.push(
@@ -257,17 +260,17 @@ export class TelegramService {
             { firstName: lastName, lastName: firstName }, // Try reversed names
           );
         }
-        
+
         // Search by first name only
         if (firstName) {
           searchConditions.push({ firstName: firstName });
         }
-        
+
         // Search by last name only
         if (lastName) {
           searchConditions.push({ lastName: lastName });
         }
-        
+
         // Search by username if provided
         if (username) {
           searchConditions.push({ email: `${username}@telegram.user` });
@@ -284,7 +287,9 @@ export class TelegramService {
       if (potentialUsers.length > 0) {
         // Take the first matching user for auto-linking
         linkedUser = potentialUsers[0];
-        this.logger.log(`Auto-linking user ${linkedUser.firstName} ${linkedUser.lastName} with Telegram user ${telegramUserId}`);
+        this.logger.log(
+          `Auto-linking user ${linkedUser.firstName} ${linkedUser.lastName} with Telegram user ${telegramUserId}`,
+        );
       } else {
         // No matching user found - create a placeholder/guest user or handle differently
         // For now, we'll create a basic user record to allow immediate connection
@@ -298,8 +303,10 @@ export class TelegramService {
             isActive: true,
             // Set other required fields with defaults
           });
-          
-          this.logger.log(`Created temporary user ${linkedUser.id} for Telegram user ${telegramUserId}`);
+
+          this.logger.log(
+            `Created temporary user ${linkedUser.id} for Telegram user ${telegramUserId}`,
+          );
         } catch (error) {
           this.logger.error('Failed to create temporary user:', error);
           // Fallback - create chat without user link for manual processing later
@@ -358,12 +365,12 @@ export class TelegramService {
           this.logger.log(
             `Successfully sent ${pendingResult.sent} pending PDFs to user ${linkedUser.id} after connection`,
           );
-          
+
           // Optionally notify user about sent PDFs
           const userChat = await this.telegramChatRepo.findOne({
             where: { user: { id: linkedUser.id }, type: ChatType.PRIVATE },
           });
-          
+
           if (userChat && userChat.telegramUserId && this.bot) {
             const pdfMessage = `📄 Sizga ${pendingResult.sent} ta kutilayotgan PDF yuborildi!`;
             await this.bot.sendMessage(userChat.telegramUserId, pdfMessage, {
@@ -1436,47 +1443,36 @@ export class TelegramService {
       }
 
       // Get teacher's groups from the database
+      const teacherGroups = await this.groupRepo.find({
+        where: { teacher: { id: chat.user.id } },
+        relations: ['teacher', 'subject', 'students', 'center'],
+        order: { name: 'ASC' },
+      });
+
       let groupMessage = `👨‍🏫 <b>Yo'qlama Olish - ${chat.user.firstName} ning Guruhlari</b>\n\n`;
       groupMessage += `📅 <b>Bugungi sana:</b> ${new Date().toLocaleDateString()}\n\n`;
+
+      if (teacherGroups.length === 0) {
+        return `❌ Sizda hozircha guruhlar mavjud emas.\n\nGuruhlar yaratilgandan keyin, ular bu yerda ko'rinadi.`;
+      }
+
       groupMessage += `Yo'qlama olish uchun guruhni tanlang:\n\n`;
 
-      // This would be replaced with actual group data from Groups repository
-      // For now using sample data, but structure matches expected DB schema
-      const sampleGroups = [
-        {
-          id: 1,
-          name: 'Beginner A1',
-          studentsCount: 15,
-          subject: 'Ingliz tili',
-        },
-        {
-          id: 2,
-          name: 'Intermediate B1',
-          studentsCount: 12,
-          subject: 'Ingliz tili',
-        },
-        {
-          id: 3,
-          name: 'Advanced C1',
-          studentsCount: 8,
-          subject: 'Ingliz tili',
-        },
-        {
-          id: 4,
-          name: 'Matematika 9-sinf',
-          studentsCount: 20,
-          subject: 'Matematika',
-        },
-      ];
-
-      sampleGroups.forEach((group) => {
+      teacherGroups.forEach((group) => {
+        const studentsCount = group.students ? group.students.length : 0;
+        const subjectName = group.subject ? group.subject.name : 'Fan belgilanmagan';
+        
         groupMessage += `🔹 <b>grup_${group.id}</b> - ${group.name}\n`;
-        groupMessage += `   📋 Fan: ${group.subject}\n`;
-        groupMessage += `   👥 Studentlar: ${group.studentsCount} ta\n\n`;
+        groupMessage += `   📋 Fan: ${subjectName}\n`;
+        groupMessage += `   👥 Studentlar: ${studentsCount} ta\n`;
+        if (group.center) {
+          groupMessage += `   🏢 Markaz: ${group.center.name}\n`;
+        }
+        groupMessage += `\n`;
       });
 
       groupMessage += `💡 <b>Qo'llanma:</b>\n`;
-      groupMessage += `• Guruh kodini yozing (masalan: <b>grup_1</b>)\n`;
+      groupMessage += `• Guruh kodini yozing (masalan: <b>grup_${teacherGroups[0].id}</b>)\n`;
       groupMessage += `• Keyin har bir student uchun yo'qlama belgilang\n`;
       groupMessage += `• /menu - Asosiy menyuga qaytish`;
 
@@ -1506,59 +1502,40 @@ export class TelegramService {
         return "❌ Noto'g'ri guruh ID. Masalan: grup_1";
       }
 
-      // Get group info and students - this would be replaced with actual data
-      const groups = {
-        1: {
-          name: 'Beginner A1',
-          subject: 'Ingliz tili',
-          students: [
-            { id: 1, firstName: 'Ali', lastName: 'Valiyev' },
-            { id: 2, firstName: 'Malika', lastName: 'Karimova' },
-            { id: 3, firstName: 'Bobur', lastName: 'Rahimov' },
-            { id: 4, firstName: 'Nodira', lastName: 'Toshmatova' },
-            { id: 5, firstName: 'Sardor', lastName: 'Umarov' },
-          ],
+      // Get group from database with all related data
+      const group = await this.groupRepo.findOne({
+        where: { 
+          id: groupIdNum,
+          teacher: { id: chat.user.id } // Ensure teacher owns this group
         },
-        2: {
-          name: 'Intermediate B1',
-          subject: 'Ingliz tili',
-          students: [
-            { id: 6, firstName: 'Dilshod', lastName: 'Nazarov' },
-            { id: 7, firstName: 'Zarina', lastName: 'Saidova' },
-            { id: 8, firstName: 'Jahongir', lastName: 'Karimov' },
-          ],
-        },
-        3: {
-          name: 'Advanced C1',
-          subject: 'Ingliz tili',
-          students: [
-            { id: 9, firstName: 'Lola', lastName: 'Ahmadova' },
-            { id: 10, firstName: 'Bekzod', lastName: 'Ruziyev' },
-          ],
-        },
-        4: {
-          name: 'Matematika 9-sinf',
-          subject: 'Matematika',
-          students: [
-            { id: 11, firstName: 'Aziza', lastName: 'Yusupova' },
-            { id: 12, firstName: 'Jasur', lastName: 'Ergashev' },
-            { id: 13, firstName: 'Nargiza', lastName: 'Turdiyeva' },
-          ],
-        },
-      };
+        relations: ['teacher', 'subject', 'students', 'center'],
+      });
 
-      const group = groups[groupIdNum];
       if (!group) {
-        return '❌ Guruh topilmadi. Mavjud guruhlar: grup_1, grup_2, grup_3, grup_4';
+        return `❌ Guruh topilmadi (ID: ${groupIdNum}). Faqat o'zingizning guruhlaringizni ko'rishingiz mumkin. /yoklama orqali mavjud guruhlarni ko'ring.`;
+      }
+
+      if (!group.students || group.students.length === 0) {
+        return `🚫 <b>${group.name}</b> guruhida studentlar yo'q.\n\nStudentlar qo'shilgandan so'ng, ular bu yerda ko'rinadi.\n\n/yoklama - Guruhlar ro'yxatiga qaytish`;
       }
 
       let studentsMessage = `📋 <b>${group.name} - Yo'qlama</b>\n`;
-      studentsMessage += `📋 <b>Fan:</b> ${group.subject}\n`;
+      studentsMessage += `📋 <b>Fan:</b> ${group.subject?.name || 'Fan belgilanmagan'}\n`;
+      if (group.center) {
+        studentsMessage += `🏢 <b>Markaz:</b> ${group.center.name}\n`;
+      }
       studentsMessage += `📅 <b>Sana:</b> ${new Date().toLocaleDateString()}\n`;
       studentsMessage += `⏰ <b>Vaqt:</b> ${new Date().toLocaleTimeString()}\n\n`;
-      studentsMessage += `👥 <b>Studentlar ro'yxati:</b>\n\n`;
+      studentsMessage += `👥 <b>Studentlar ro'yxati (${group.students.length} ta):</b>\n\n`;
 
-      group.students.forEach((student, index) => {
+      // Sort students by name for better organization
+      const sortedStudents = group.students.sort((a, b) => {
+        const nameA = `${a.firstName} ${a.lastName}`.toLowerCase();
+        const nameB = `${b.firstName} ${b.lastName}`.toLowerCase();
+        return nameA.localeCompare(nameB);
+      });
+
+      sortedStudents.forEach((student, index) => {
         studentsMessage += `👤 <b>${index + 1}. ${student.firstName} ${student.lastName}</b>\n`;
         studentsMessage += `   ✅ <code>${student.id}_keldi</code>\n`;
         studentsMessage += `   ❌ <code>${student.id}_kelmadi</code>\n`;
@@ -1567,7 +1544,7 @@ export class TelegramService {
 
       studentsMessage += `💡 <b>Qo'llanma:</b>\n`;
       studentsMessage += `• Yuqoridagi kodlardan birini aynan yozing\n`;
-      studentsMessage += `• Masalan: <code>1_keldi</code> yoki <code>2_kelmadi</code>\n`;
+      studentsMessage += `• Masalan: <code>${sortedStudents[0]?.id}_keldi</code> yoki <code>${sortedStudents[0]?.id}_kelmadi</code>\n`;
       studentsMessage += `• Har bir student uchun alohida kod yuboring\n`;
       studentsMessage += `• /yoklama - Guruhlar ro'yxatiga qaytish`;
 
@@ -1610,58 +1587,48 @@ export class TelegramService {
         return "❌ Noto'g'ri status. Faqat: <code>keldi</code>, <code>kelmadi</code>, <code>kechikdi</code>";
       }
 
-      // Get student info from sample data (would be replaced with actual DB query)
-      const allStudents = {
-        1: { firstName: 'Ali', lastName: 'Valiyev', group: 'Beginner A1' },
-        2: { firstName: 'Malika', lastName: 'Karimova', group: 'Beginner A1' },
-        3: { firstName: 'Bobur', lastName: 'Rahimov', group: 'Beginner A1' },
-        4: {
-          firstName: 'Nodira',
-          lastName: 'Toshmatova',
-          group: 'Beginner A1',
-        },
-        5: { firstName: 'Sardor', lastName: 'Umarov', group: 'Beginner A1' },
-        6: {
-          firstName: 'Dilshod',
-          lastName: 'Nazarov',
-          group: 'Intermediate B1',
-        },
-        7: {
-          firstName: 'Zarina',
-          lastName: 'Saidova',
-          group: 'Intermediate B1',
-        },
-        8: {
-          firstName: 'Jahongir',
-          lastName: 'Karimov',
-          group: 'Intermediate B1',
-        },
-        9: { firstName: 'Lola', lastName: 'Ahmadova', group: 'Advanced C1' },
-        10: { firstName: 'Bekzod', lastName: 'Ruziyev', group: 'Advanced C1' },
-        11: {
-          firstName: 'Aziza',
-          lastName: 'Yusupova',
-          group: 'Matematika 9-sinf',
-        },
-        12: {
-          firstName: 'Jasur',
-          lastName: 'Ergashev',
-          group: 'Matematika 9-sinf',
-        },
-        13: {
-          firstName: 'Nargiza',
-          lastName: 'Turdiyeva',
-          group: 'Matematika 9-sinf',
-        },
-      };
+      // Get student from database
+      const student = await this.userRepo.findOne({
+        where: { id: studentId, role: UserRole.STUDENT },
+      });
 
-      const student = allStudents[studentId];
       if (!student) {
-        return `❌ Student topilmadi (ID: ${studentId}). Mavjud studentlar ro'yxatini ko'rish uchun guruhni qayta tanlang.`;
+        return `❌ Student topilmadi (ID: ${studentId}). Faqat o'zingiz o'qitadigan studentlarni belgilashingiz mumkin.`;
       }
 
-      // Here would be the actual attendance marking logic
-      // For now, we'll simulate saving to database
+      // Get groups where this student is enrolled and teacher is teaching
+      const teacherGroups = await this.groupRepo.find({
+        where: {
+          teacher: { id: chat.user.id },
+          students: { id: student.id },
+        },
+        relations: ['teacher', 'subject', 'center', 'students'],
+      });
+
+      if (teacherGroups.length === 0) {
+        return `❌ Sizda ${student.firstName} ${student.lastName} studentini yo'qlamalashda huquqingiz yo'q. Faqat o'z guruhlaringizdagi studentlarni belgilang.`;
+      }
+
+      // For now, we'll use the first group the student belongs to under this teacher
+      const group = teacherGroups[0];
+
+      // Here you would implement the actual attendance tracking logic
+      // This could involve creating an Attendance entity and saving to database
+      // For demonstration, we're showing what the implementation would look like
+      
+      // Example of attendance saving logic (would need Attendance entity):
+      /*
+      const attendance = await this.attendanceRepo.save({
+        student: student,
+        teacher: chat.user,
+        group: group,
+        date: new Date(),
+        status: status as 'keldi' | 'kelmadi' | 'kechikdi',
+        markedAt: new Date(),
+        notes: `Telegram orqali belgilangan - ${chat.user.firstName}`,
+      });
+      */
+
       const statusEmoji =
         status === 'keldi' ? '✅' : status === 'kechikdi' ? '⏰' : '❌';
       const statusText =
@@ -1674,7 +1641,10 @@ export class TelegramService {
 
       let resultMessage = `${statusEmoji} <b>Yo'qlama Muvaffaqiyatli Belgilandi!</b>\n\n`;
       resultMessage += `👤 <b>Student:</b> ${student.firstName} ${student.lastName}\n`;
-      resultMessage += `📋 <b>Guruh:</b> ${student.group}\n`;
+      resultMessage += `📋 <b>Guruh:</b> ${group.name}\n`;
+      if (group.subject) {
+        resultMessage += `📚 <b>Fan:</b> ${group.subject.name}\n`;
+      }
       resultMessage += `📅 <b>Status:</b> ${statusText}\n`;
       resultMessage += `📅 <b>Sana:</b> ${today.toLocaleDateString()}\n`;
       resultMessage += `⏰ <b>Vaqt:</b> ${today.toLocaleTimeString()}\n`;
@@ -1688,11 +1658,16 @@ export class TelegramService {
         resultMessage += `🚨 Student darsga kelmadi. Ota-onasi bilan bog'lanish kerak.`;
       }
 
-      resultMessage += `\n\n📊 Boshqa studentlar uchun yo'qlama davom ettiring yoki /yoklama orqali guruhlar ro'yxatiga qaytinng.`;
+      resultMessage += `\n\n📊 Boshqa studentlar uchun yo'qlama davom ettiring yoki /yoklama orqali guruhlar ro'yxatiga qaytish.`;
+
+      // Log the attendance action for audit trail
+      this.logger.log(
+        `Attendance marked by teacher ${chat.user.firstName} (ID: ${chat.user.id}) for student ${student.firstName} ${student.lastName} (ID: ${student.id}): ${status}`,
+      );
 
       // Send notification about attendance
       await this.notifyAttendanceTaken(
-        student.group,
+        group.name,
         chat.user.firstName + ' ' + (chat.user.lastName || ''),
         status === 'keldi' ? 1 : 0,
         1,
@@ -2374,14 +2349,17 @@ export class TelegramService {
       });
 
       const savedPendingPdf = await this.pendingPdfRepo.save(pendingPdf);
-      
+
       this.logger.log(
         `Created pending PDF ${savedPendingPdf.id} for user ${userId}: ${fileName}`,
       );
-      
+
       return savedPendingPdf;
     } catch (error) {
-      this.logger.error(`Failed to create pending PDF for user ${userId}:`, error);
+      this.logger.error(
+        `Failed to create pending PDF for user ${userId}:`,
+        error,
+      );
       throw error;
     }
   }
@@ -2395,7 +2373,7 @@ export class TelegramService {
         userId,
         expiresAt: { $gte: new Date() }, // Not expired
       };
-      
+
       if (status) {
         where.status = status;
       }
@@ -2524,7 +2502,9 @@ export class TelegramService {
     return result;
   }
 
-  private async regeneratePdfFromMetadata(pendingPdf: PendingPdf): Promise<Buffer> {
+  private async regeneratePdfFromMetadata(
+    pendingPdf: PendingPdf,
+  ): Promise<Buffer> {
     // This method would regenerate the PDF based on the stored metadata
     // For now, we'll throw an error if no PDF data is stored
     if (!pendingPdf.pdfData) {
@@ -2532,7 +2512,7 @@ export class TelegramService {
         `Cannot regenerate PDF for ${pendingPdf.fileName} - no stored data or regeneration logic`,
       );
     }
-    
+
     return Buffer.from(pendingPdf.pdfData, 'base64');
   }
 
@@ -2546,11 +2526,11 @@ export class TelegramService {
         .execute();
 
       const deletedCount = result.affected || 0;
-      
+
       if (deletedCount > 0) {
         this.logger.log(`Cleaned up ${deletedCount} expired pending PDFs`);
       }
-      
+
       return deletedCount;
     } catch (error) {
       this.logger.error('Error cleaning up expired pending PDFs:', error);

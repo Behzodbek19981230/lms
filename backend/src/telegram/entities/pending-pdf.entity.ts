@@ -65,8 +65,8 @@ export class PendingPdf {
   };
 
   // Store the PDF buffer as base64 or file path
-  @Column('longtext', { nullable: true })
-  pdfData: string;
+  @Column('text', { nullable: true })
+  pdfData: string | null;
 
   @Column({ type: 'timestamp', nullable: true })
   sentAt: Date;
