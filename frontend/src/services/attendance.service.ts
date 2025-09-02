@@ -13,7 +13,7 @@ export interface AttendanceRecord {
     id: number;
     firstName: string;
     lastName: string;
-    email: string;
+    username: string;
   };
   group: {
     id: number;

@@ -27,14 +27,14 @@ import { useToast } from "@/components/ui/use-toast";
 import { Link, useNavigate } from "react-router-dom";
 const TeacherStudentCreate = ({ label = "Yangi foydalanuvchi", defaultRole = "teacher", variant = "hero" as "hero" | "outline" }) => {
     const [open, setOpen] = useState(false);
-    const [form, setForm] = useState({ role: defaultRole, firstName: "", lastName: "", email: "", phone: "", password: "" });
+    const [form, setForm] = useState({ role: defaultRole, firstName: "", lastName: "", username: "", phone: "", password: "" });
     const { toast } = useToast();
 
     const submit = async () => {
         try {
             await request.post(`/users/members`, { ...form, role: form.role });
             setOpen(false);
-            setForm({ role: "teacher", firstName: "", lastName: "", email: "", phone: "", password: "" });
+            setForm({ role: "teacher", firstName: "", lastName: "", username: "", phone: "", password: "" });
             toast({ title: 'Foydalanuvchi yaratildi' });
         } catch (e: any) {
             toast({ title: 'Xatolik', description: e?.response?.data?.message || 'Yaratib bo\'lmadi', variant: 'destructive' });
@@ -77,8 +77,8 @@ const TeacherStudentCreate = ({ label = "Yangi foydalanuvchi", defaultRole = "te
                         </div>
                     </div>
                     <div>
-                        <Label>Email</Label>
-                        <Input type="email" value={form.email} onChange={(e) => setForm(p => ({ ...p, email: e.target.value }))} />
+                        <Label>Foydalanuvchi nomi</Label>
+                        <Input value={form.username} onChange={(e) => setForm(p => ({ ...p, username: e.target.value }))} />
                     </div>
                     <div>
                         <Label>Telefon</Label>

@@ -33,7 +33,7 @@ export interface GroupWithStudents extends Group {
     firstName: string;
     lastName: string;
     phoneNumber?: string;
-    email?: string;
+    username?: string;
     isActive: boolean;
   }>;
 }

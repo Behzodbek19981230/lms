@@ -4,7 +4,7 @@ import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { AuthResponseDto } from './dto/auth-response.dto';
-import { TelegramAuthDto, TelegramLoginDto } from './dto/telegram-auth.dto';
+import { TelegramAuthDto, TelegramLoginDto, TelegramRegisterDto } from './dto/telegram-auth.dto';
 
 @ApiTags('Authentication')
 @Controller('auth')
@@ -64,5 +64,18 @@ export class AuthController {
   @ApiBody({ type: TelegramAuthDto })
   async telegramAuth(@Body() telegramAuthDto: TelegramAuthDto): Promise<AuthResponseDto> {
     return this.authService.telegramAuth(telegramAuthDto);
+  }
+
+  @Post('telegram/register')
+  @ApiOperation({ summary: "Telegram orqali ro'yxatdan o'tish" })
+  @ApiResponse({
+    status: 201,
+    description: "Muvaffaqiyatli Telegram orqali ro'yxatdan o'tdi",
+    type: AuthResponseDto,
+  })
+  @ApiResponse({ status: 409, description: 'Telegram hisobi allaqachon bog\'langan' })
+  @ApiBody({ type: TelegramRegisterDto })
+  async telegramRegister(@Body() telegramRegisterDto: TelegramRegisterDto): Promise<AuthResponseDto> {
+    return this.authService.telegramRegister(telegramRegisterDto);
   }
 }

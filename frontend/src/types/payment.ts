@@ -10,7 +10,7 @@ export interface Payment {
     id: string;
     firstName: string;
     lastName: string;
-    email: string;
+    username: string;
   };
   groupId: string;
   group: {

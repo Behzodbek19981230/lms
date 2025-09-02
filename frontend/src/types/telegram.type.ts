@@ -33,7 +33,7 @@ export interface TelegramChat {
     id: number;
     firstName: string;
     lastName?: string;
-    email: string;
+    username: string;
     role: string;
   };
   center?: {

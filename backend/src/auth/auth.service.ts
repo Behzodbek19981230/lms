@@ -6,13 +6,13 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import { Repository } from 'typeorm';
 import * as bcrypt from 'bcryptjs';
-import { User } from '../users/entities/user.entity';
+import { User, UserRole } from '../users/entities/user.entity';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { AuthResponseDto } from './dto/auth-response.dto';
 import { InjectRepository } from '@nestjs/typeorm';
-import { TelegramChat } from '../telegram/entities/telegram-chat.entity';
-import { TelegramAuthDto, TelegramLoginDto } from './dto/telegram-auth.dto';
+import { TelegramChat, ChatType, ChatStatus } from '../telegram/entities/telegram-chat.entity';
+import { TelegramAuthDto, TelegramLoginDto, TelegramRegisterDto } from './dto/telegram-auth.dto';
 
 @Injectable()
 export class AuthService {
@@ -195,6 +195,94 @@ export class AuthService {
         lastName: userData.lastName,
         fullName: userData.fullName,
         role: userData.role,
+      },
+    };
+  }
+
+  async telegramRegister(telegramRegisterDto: TelegramRegisterDto): Promise<AuthResponseDto> {
+    const { telegramUserId, telegramUsername, firstName, lastName } = telegramRegisterDto;
+
+    // Check if telegram user already exists
+    const existingTelegramChat = await this.telegramChatRepository.findOne({
+      where: { telegramUserId },
+      relations: ['user'],
+    });
+
+    if (existingTelegramChat && existingTelegramChat.user) {
+      throw new ConflictException(
+        'Bu Telegram hisobi allaqachon boshqa foydalanuvchi bilan bog\'langan',
+      );
+    }
+
+    // Check if username already exists
+    const existingUser = await this.userRepository.findOne({
+      where: { username: telegramUsername },
+    });
+
+    if (existingUser) {
+      throw new ConflictException(
+        'Bu foydalanuvchi nomi allaqachon band',
+      );
+    }
+
+    // Generate a secure random password for Telegram users
+    const hashedPassword = await bcrypt.hash(
+      `telegram_${telegramUserId}_${Date.now()}`,
+      12
+    );
+
+    // Create new user with telegram username
+    const user = this.userRepository.create({
+      username: telegramUsername,
+      password: hashedPassword,
+      firstName,
+      lastName,
+      role: UserRole.STUDENT, // Default role for telegram registration
+      isActive: true,
+    });
+
+    const savedUser = await this.userRepository.save(user);
+
+    // Create or update telegram chat
+    let telegramChat;
+    if (existingTelegramChat) {
+      existingTelegramChat.user = savedUser;
+      existingTelegramChat.firstName = firstName;
+      existingTelegramChat.lastName = lastName || '';
+      existingTelegramChat.telegramUsername = telegramUsername;
+      telegramChat = await this.telegramChatRepository.save(existingTelegramChat);
+    } else {
+      telegramChat = this.telegramChatRepository.create({
+        chatId: telegramUserId,
+        type: ChatType.PRIVATE,
+        telegramUserId,
+        telegramUsername,
+        firstName,
+        lastName,
+        status: ChatStatus.ACTIVE,
+        user: savedUser,
+        lastActivity: new Date(),
+      });
+      await this.telegramChatRepository.save(telegramChat);
+    }
+
+    // Generate JWT token
+    const payload = {
+      sub: savedUser.id,
+      username: savedUser.username,
+      role: savedUser.role,
+    };
+    const access_token = this.jwtService.sign(payload);
+
+    return {
+      access_token,
+      user: {
+        id: savedUser.id,
+        username: savedUser.username,
+        firstName: savedUser.firstName,
+        lastName: savedUser.lastName,
+        fullName: savedUser.firstName + ' ' + (savedUser.lastName || ''),
+        role: savedUser.role,
       },
     };
   }

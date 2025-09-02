@@ -4,10 +4,11 @@ import {Card, CardContent, CardHeader, CardTitle} from "@/components/ui/card";
 import {Input} from "@/components/ui/input";
 import {Label} from "@/components/ui/label";
 import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from "@/components/ui/select";
-import {BookOpen, Eye, EyeOff, Lock, Mail, Phone, User} from "lucide-react";
-import {Link} from "react-router-dom";
+import {BookOpen, Eye, EyeOff, Lock, Mail, Phone, User, MessageSquare} from "lucide-react";
+import {Link, useNavigate} from "react-router-dom";
 import {useToast} from "@/hooks/use-toast.ts";
 import {request} from "@/configs/request.ts";
+import TelegramRegister from "@/components/TelegramRegister";
 
 const Register = () => {
     const [formData, setFormData] = useState({
@@ -20,7 +21,9 @@ const Register = () => {
     });
     const [showPassword, setShowPassword] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
+    const [showTelegramRegister, setShowTelegramRegister] = useState(false);
     const {toast} = useToast();
+    const navigate = useNavigate();
 
     const handleInputChange = (field: string, value: string) => {
         setFormData(prev => ({...prev, [field]: value}));
@@ -58,7 +61,7 @@ const Register = () => {
             });
             setIsLoading(false);
             // Redirect to login page after successful registration
-            window.location.href = "/login";
+            navigate('/login');
         } catch (error) {
             console.error("Ro'yxatdan o'tishda xatolik:", error);
             toast({
@@ -72,6 +75,48 @@ const Register = () => {
 
 
     };
+
+    const handleTelegramSuccess = (token: string, user: any) => {
+        toast({
+            title: "Muvaffaqiyatli!",
+            description: `Salom ${user.firstName}! Telegram orqali ro'yxatdan o'tdingiz.`,
+        });
+        // Redirect to dashboard based on user role
+        const dashboardRoute = user.role === 'student' ? '/student/dashboard' : '/dashboard';
+        navigate(dashboardRoute);
+    };
+
+    const handleTelegramError = (error: string) => {
+        toast({
+            title: 'Xatolik',
+            description: error,
+            variant: 'destructive',
+        });
+        setShowTelegramRegister(false);
+    };
+
+    // Show Telegram register if requested
+    if (showTelegramRegister) {
+        return (
+            <div className="min-h-screen bg-gradient-subtle flex items-center justify-center p-4">
+                <div className="w-full max-w-md space-y-4">
+                    <div className="text-center">
+                        <Button
+                            variant="ghost"
+                            onClick={() => setShowTelegramRegister(false)}
+                            className="mb-4"
+                        >
+                            ← Oddiy ro'yxatdan o'tishga qaytish
+                        </Button>
+                    </div>
+                    <TelegramRegister
+                        onSuccess={handleTelegramSuccess}
+                        onError={handleTelegramError}
+                    />
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="min-h-screen bg-gradient-subtle flex items-center justify-center p-4">
@@ -220,6 +265,30 @@ const Register = () => {
                                 {isLoading ? "Yaratilmoqda..." : "Hisob yaratish"}
                             </Button>
                         </form>
+
+                        {/* Telegram Register Option */}
+                        <div className="mt-6">
+                            <div className="relative">
+                                <div className="absolute inset-0 flex items-center">
+                                    <span className="w-full border-t border-border" />
+                                </div>
+                                <div className="relative flex justify-center text-xs uppercase">
+                                    <span className="bg-card px-2 text-muted-foreground">yoki</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="mt-6">
+                            <Button
+                                type="button"
+                                variant="outline"
+                                className="w-full"
+                                onClick={() => setShowTelegramRegister(true)}
+                            >
+                                <MessageSquare className="mr-2 h-4 w-4" />
+                                Telegram orqali ro'yxatdan o'tish
+                            </Button>
+                        </div>
 
                         <div className="mt-6 text-center">
                             <p className="text-sm text-muted-foreground">
