@@ -106,7 +106,7 @@ const Features = () => {
                       {/* Animated pulse ring */}
                       <div className={`absolute inset-0 rounded-xl ${
                         feature.color === 'text-primary' ? 'bg-primary/10' : 'bg-accent/10'
-                      } animate-ping opacity-75 group-hover:animate-pulse"></div>
+                      } animate-ping opacity-75 group-hover:animate-pulse`}></div>
                     </div>
                     
                     <h3 className="text-xl font-bold text-card-foreground group-hover:text-primary transition-colors duration-300">
@@ -120,9 +120,11 @@ const Features = () => {
                     {/* Progress indicator */}
                     <div className="pt-2">
                       <div className="w-full h-1 bg-border/30 rounded-full overflow-hidden">
-                        <div className={`h-full rounded-full transition-all duration-1000 group-hover:w-full ${
-                          feature.color === 'text-primary' ? 'bg-gradient-primary' : 'bg-gradient-accent'
-                        } w-0`}></div>
+                        <div 
+                          className={`h-full rounded-full transition-all duration-1000 group-hover:w-full w-0 ${
+                            feature.color === 'text-primary' ? 'bg-gradient-primary' : 'bg-gradient-accent'
+                          }`}
+                        ></div>
                       </div>
                     </div>
                   </div>

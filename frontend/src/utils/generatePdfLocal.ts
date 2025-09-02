@@ -56,7 +56,7 @@ export const generateExamPDF = (examData: ExamData): void => {
     // Student info
     doc.setFontSize(12);
     doc.setFont('helvetica', 'bold');
-    doc.text('Student ma\\'lumotlari:', margin, yPos);
+    doc.text('Student ma\'lumotlari:', margin, yPos);
     yPos += 7;
     
     doc.setFontSize(10);
@@ -71,7 +71,7 @@ export const generateExamPDF = (examData: ExamData): void => {
     // Instructions
     doc.setFontSize(12);
     doc.setFont('helvetica', 'bold');
-    doc.text('Ko\\'rsatmalar:', margin, yPos);
+    doc.text('Ko\'rsatmalar:', margin, yPos);
     yPos += 7;
     
     const instructions = [

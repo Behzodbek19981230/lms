@@ -144,15 +144,17 @@ const CenterAdminDashboard = () => {
     }));
 
     return (
-        <div className="min-h-screen bg-gradient-subtle">
+        <div className="min-h-screen bg-gradient-to-br from-background via-background/95 to-accent/5">
             {/* Header */}
-            <header className="bg-card border-b border-border p-6">
+            <header className="bg-gradient-to-r from-card/90 via-card to-card/90 backdrop-blur-md border-b border-border/60 p-6 animate-fade-in">
                 <div className="flex justify-between items-center">
-                    <div>
-                        <h1 className="text-3xl font-bold text-foreground">Markaz boshqaruvi</h1>
-                        <p className="text-muted-foreground">Najot Ta'lim Toshkent</p>
+                    <div className="animate-slide-up">
+                        <h1 className="text-3xl font-bold bg-gradient-to-r from-accent via-primary to-accent bg-clip-text text-transparent">
+                            Markaz boshqaruvi
+                        </h1>
+                        <p className="text-muted-foreground animate-fade-in" style={{animationDelay: '0.2s'}}>Najot Ta'lim Toshkent</p>
                     </div>
-                    <div className="flex items-center space-x-4">
+                    <div className="flex items-center space-x-4 animate-slide-up" style={{animationDelay: '0.3s'}}>
                         <Button variant="outline" size="sm">
                             <Bell className="h-4 w-4 mr-2" />
                             Bildirishnomalar
@@ -167,19 +169,28 @@ const CenterAdminDashboard = () => {
             <div className="p-6">
                 {/* Stats Grid */}
                 <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-6 mb-8">
-                    <Card className="border-border">
-                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-sm font-medium text-muted-foreground">
+                    <Card className="group hover:shadow-glow transition-all duration-500 hover:-translate-y-2 bg-gradient-card border-border/50 backdrop-blur-sm animate-slide-up relative overflow-hidden">
+                        <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 bg-gradient-shimmer opacity-20"></div>
+                        
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative z-10">
+                            <CardTitle className="text-sm font-medium text-muted-foreground group-hover:text-foreground/80 transition-colors">
                                 Studentlar
                             </CardTitle>
-                            <GraduationCap className="h-4 w-4 text-primary" />
+                            <div className="p-2 rounded-xl bg-gradient-to-br from-primary/20 to-primary-glow/20 group-hover:scale-110 transition-transform duration-300">
+                                <GraduationCap className="h-4 w-4 text-primary group-hover:scale-110 transition-transform duration-300" />
+                            </div>
                         </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-bold text-foreground">{centerStats.totalStudents}</div>
-                            <p className="text-xs text-accent">
-                                <TrendingUp className="h-3 w-3 inline mr-1" />
+                        <CardContent className="relative z-10">
+                            <div className="text-2xl font-bold text-foreground group-hover:text-primary transition-colors duration-300">{centerStats.totalStudents}</div>
+                            <p className="text-xs text-accent flex items-center mt-2">
+                                <TrendingUp className="h-3 w-3 mr-1 animate-pulse-glow" />
                                 +5 yangi
                             </p>
+                            <div className="mt-3">
+                                <div className="w-full h-1 bg-border/30 rounded-full overflow-hidden">
+                                    <div className="h-full rounded-full transition-all duration-1000 group-hover:w-full w-0 bg-gradient-primary"></div>
+                                </div>
+                            </div>
                         </CardContent>
                     </Card>
 

@@ -175,16 +175,18 @@ const StudentDashboard = () => {
     date: moment(grade.date).format('YYYY-MM-DD'),
   }));
 
-  return (
-    <div className="min-h-screen bg-gradient-subtle">
-      {/* Header */}
-      <header className="bg-card border-b border-border p-6">
-        <div className="flex justify-between items-center">
-          <div>
-            <h1 className="text-3xl font-bold text-foreground">Student paneli</h1>
-            <p className="text-muted-foreground">{studentInfo?.fullName || user?.fullName}</p>
-          </div>
-          <div className="flex items-center space-x-4">
+    return (
+        <div className="min-h-screen bg-gradient-to-br from-background via-background/95 to-primary/5">
+            {/* Header */}
+            <header className="bg-gradient-to-r from-card/90 via-card to-card/90 backdrop-blur-md border-b border-border/60 p-6 animate-fade-in">
+                <div className="flex justify-between items-center">
+                    <div className="animate-slide-up">
+                        <h1 className="text-3xl font-bold bg-gradient-to-r from-primary via-accent to-primary bg-clip-text text-transparent">
+                            Student paneli
+                        </h1>
+                        <p className="text-muted-foreground animate-fade-in" style={{animationDelay: '0.2s'}}>{studentInfo?.fullName || user?.fullName}</p>
+                    </div>
+                    <div className="flex items-center space-x-4 animate-slide-up" style={{animationDelay: '0.3s'}}>
             <Button variant="outline" size="sm">
               <Bell className="h-4 w-4 mr-2" />
               Bildirishnomalar
