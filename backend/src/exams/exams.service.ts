@@ -425,11 +425,25 @@ export class ExamsService {
        ------------------------ */
 
   async getExamVariants(examId: number): Promise<ExamVariant[]> {
-    return this.examVariantRepository.find({
+    const variants = await this.examVariantRepository.find({
       where: { exam: { id: examId } },
       relations: ['student', 'questions'],
       order: { variantNumber: 'ASC' },
     });
+
+    // Ensure questions are loaded for each variant
+    for (const variant of variants) {
+      if (!variant.questions || variant.questions.length === 0) {
+        this.logger.warn(`Loading questions separately for variant ${variant.id} in getExamVariants`);
+        const questions = await this.examVariantQuestionRepository.find({
+          where: { variant: { id: variant.id } },
+          order: { order: 'ASC' },
+        });
+        variant.questions = questions;
+      }
+    }
+
+    return variants;
   }
 
   /* ------------------------
@@ -1192,11 +1206,22 @@ export class ExamsService {
     try {
       this.logger.log(`Generating PDF for variant ${variantId}`);
 
+      // First, try to load the variant with relations
       const variant = await this.examVariantRepository.findOne({
         where: { id: variantId },
         relations: ['student', 'exam', 'exam.subjects', 'questions'],
-        order: { questions: { order: 'ASC' } as any },
       });
+
+      // If questions are not loaded via relations, load them separately
+      if (variant && (!variant.questions || variant.questions.length === 0)) {
+        this.logger.warn(`No questions loaded via relations for variant ${variantId}, loading separately`);
+        const questions = await this.examVariantQuestionRepository.find({
+          where: { variant: { id: variantId } },
+          order: { order: 'ASC' },
+        });
+        variant.questions = questions;
+        this.logger.log(`Loaded ${questions.length} questions separately for variant ${variantId}`);
+      }
 
       if (!variant) {
         this.logger.error(`Variant ${variantId} not found`);
@@ -1305,9 +1330,20 @@ export class ExamsService {
     const variant = await this.examVariantRepository.findOne({
       where: { id: variantId },
       relations: ['student', 'exam', 'exam.subjects', 'questions'],
-      order: { questions: { order: 'ASC' } as any },
     });
+
     if (!variant) throw new NotFoundException('Variant not found');
+
+    // If questions are not loaded via relations, load them separately
+    if (!variant.questions || variant.questions.length === 0) {
+      this.logger.warn(`No questions loaded via relations for answer key variant ${variantId}, loading separately`);
+      const questions = await this.examVariantQuestionRepository.find({
+        where: { variant: { id: variantId } },
+        order: { order: 'ASC' },
+      });
+      variant.questions = questions;
+      this.logger.log(`Loaded ${questions.length} questions separately for answer key variant ${variantId}`);
+    }
 
     // Get student's group information
     const studentGroups = await this.groupRepository.find({

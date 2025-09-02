@@ -20,6 +20,9 @@ async function bootstrap() {
     }),
   );
 
+  // Set global prefix
+  app.setGlobalPrefix('api');
+
   // Enable CORS for frontend
   app.enableCors({
     origin: '*',

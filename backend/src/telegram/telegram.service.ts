@@ -850,18 +850,84 @@ export class TelegramService {
       throw new BadRequestException('Test topilmadi');
     }
 
-    const channel = await this.telegramChatRepo.findOne({
-      where: { chatId: dto.channelId, type: ChatType.CHANNEL },
+    // Try to find channel by chatId or username
+    let channel = await this.telegramChatRepo.findOne({
+      where: [
+        { chatId: dto.channelId, type: ChatType.CHANNEL },
+        { username: dto.channelId, type: ChatType.CHANNEL },
+      ],
     });
 
+    // If channel not found in database, try to resolve the channel ID first
+    let targetChannelId = dto.channelId;
     if (!channel) {
-      throw new BadRequestException('Kanal topilmadi');
+      try {
+        // If it's a username (@channel_name), try to get chat info
+        if (dto.channelId.startsWith('@')) {
+          const chatInfo = await this.bot.getChat(dto.channelId);
+          targetChannelId = chatInfo.id.toString();
+
+          // Create channel record in database for future use
+          const newChannelData = {
+            chatId: targetChannelId,
+            type: ChatType.CHANNEL,
+            status: ChatStatus.ACTIVE,
+            username: dto.channelId,
+            title: chatInfo.title || dto.channelId,
+            lastActivity: new Date(),
+          };
+
+          channel = this.telegramChatRepo.create(newChannelData);
+          await this.telegramChatRepo.save(channel);
+
+          this.logger.log(
+            `Auto-registered channel: ${dto.channelId} (ID: ${targetChannelId})`,
+          );
+        } else {
+          // Use the channelId as-is and try to get chat info
+          try {
+            const chatInfo = await this.bot.getChat(dto.channelId);
+            targetChannelId = dto.channelId;
+
+            // Create channel record
+            const newChannelData = {
+              chatId: targetChannelId,
+              type: ChatType.CHANNEL,
+              status: ChatStatus.ACTIVE,
+              username: chatInfo.username ? `@${chatInfo.username}` : undefined,
+              title: chatInfo.title || dto.channelId,
+              lastActivity: new Date(),
+            };
+
+            channel = this.telegramChatRepo.create(newChannelData);
+            await this.telegramChatRepo.save(channel);
+
+            this.logger.log(
+              `Auto-registered channel: ${dto.channelId} (Title: ${chatInfo.title})`,
+            );
+          } catch (error) {
+            this.logger.warn(
+              `Could not get chat info for ${dto.channelId}:`,
+              error.message,
+            );
+            // Continue anyway - maybe bot doesn't have access yet
+            targetChannelId = dto.channelId;
+          }
+        }
+      } catch (error) {
+        this.logger.warn(
+          `Could not resolve channel ${dto.channelId}:`,
+          error.message,
+        );
+        // Use original channelId and try to send anyway
+        targetChannelId = dto.channelId;
+      }
     }
 
     try {
       const message = this.formatTestMessage(test, dto.customMessage);
 
-      await this.bot.sendMessage(dto.channelId, message, {
+      await this.bot.sendMessage(targetChannelId, message, {
         parse_mode: 'HTML',
         disable_web_page_preview: true,
       });
@@ -875,7 +941,7 @@ export class TelegramService {
           dto.testId,
         );
 
-        await this.bot.sendMessage(dto.channelId, questionMessage, {
+        await this.bot.sendMessage(targetChannelId, questionMessage, {
           parse_mode: 'HTML',
         });
 
@@ -885,15 +951,18 @@ export class TelegramService {
 
       // Send instructions for answering
       const instructionsMessage = this.getAnswerInstructions(dto.testId);
-      await this.bot.sendMessage(dto.channelId, instructionsMessage, {
+      await this.bot.sendMessage(targetChannelId, instructionsMessage, {
         parse_mode: 'HTML',
       });
 
+      this.logger.log(
+        `Test ${dto.testId} sent successfully to channel ${targetChannelId} (requested: ${dto.channelId})`,
+      );
       return true;
     } catch (error) {
       this.logger.error('Failed to send test to channel:', error);
       throw new BadRequestException(
-        'Testni Telegram kanaliga yuborishda xatolik',
+        `Testni Telegram kanaliga yuborishda xatolik: ${error.message}`,
       );
     }
   }
@@ -1460,8 +1529,10 @@ export class TelegramService {
 
       teacherGroups.forEach((group) => {
         const studentsCount = group.students ? group.students.length : 0;
-        const subjectName = group.subject ? group.subject.name : 'Fan belgilanmagan';
-        
+        const subjectName = group.subject
+          ? group.subject.name
+          : 'Fan belgilanmagan';
+
         groupMessage += `🔹 <b>grup_${group.id}</b> - ${group.name}\n`;
         groupMessage += `   📋 Fan: ${subjectName}\n`;
         groupMessage += `   👥 Studentlar: ${studentsCount} ta\n`;
@@ -1504,9 +1575,9 @@ export class TelegramService {
 
       // Get group from database with all related data
       const group = await this.groupRepo.findOne({
-        where: { 
+        where: {
           id: groupIdNum,
-          teacher: { id: chat.user.id } // Ensure teacher owns this group
+          teacher: { id: chat.user.id }, // Ensure teacher owns this group
         },
         relations: ['teacher', 'subject', 'students', 'center'],
       });
@@ -1615,7 +1686,7 @@ export class TelegramService {
       // Here you would implement the actual attendance tracking logic
       // This could involve creating an Attendance entity and saving to database
       // For demonstration, we're showing what the implementation would look like
-      
+
       // Example of attendance saving logic (would need Attendance entity):
       /*
       const attendance = await this.attendanceRepo.save({
