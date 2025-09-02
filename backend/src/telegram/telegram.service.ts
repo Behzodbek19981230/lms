@@ -11,7 +11,8 @@ import { Subject } from '../subjects/entities/subject.entity';
 import { Test } from '../tests/entities/test.entity';
 import { Question } from '../questions/entities/question.entity';
 import { Answer } from '../questions/entities/answer.entity';
-import { CreateTelegramChatDto, SendTestToChannelDto, SubmitAnswerDto } from './dto/telegram.dto';
+import { Exam } from '../exams/entities/exam.entity';
+import { CreateTelegramChatDto, SendTestToChannelDto, SubmitAnswerDto, NotifyExamStartDto } from './dto/telegram.dto';
 
 @Injectable()
 export class TelegramService {
@@ -35,6 +36,8 @@ export class TelegramService {
     private questionRepo: Repository<Question>,
     @InjectRepository(Answer)
     private answerRepo: Repository<Answer>,
+    @InjectRepository(Exam)
+    private examRepo: Repository<Exam>,
     private configService: ConfigService,
   ) {
     const token = this.configService.get<string>('TELEGRAM_BOT_TOKEN');
@@ -951,6 +954,36 @@ export class TelegramService {
     return new Promise(resolve => setTimeout(resolve, ms));
   }
 
+  // ==================== Exam Helper Methods ====================
+
+  private formatExamStartMessage(exam: Exam, customMessage?: string): string {
+    const header = '🎯 <b>IMTIHON BOSHLANDI!</b>\n\n';
+    const subjectNames = exam.subjects?.map(s => s.name).join(', ') || 'Aniqlanmagan';
+    const examInfo = `<b>📚 Fan:</b> ${subjectNames}\n`;
+    const title = `<b>📝 Imtihon:</b> ${exam.title}\n`;
+    const description = exam.description ? `<b>📖 Tavsif:</b> ${exam.description}\n` : '';
+    const duration = `<b>⏱ Davomiyligi:</b> ${exam.duration} daqiqa\n`;
+    const variants = `<b>🔢 Variantlar:</b> ${exam.variants?.length || 0}\n`;
+    const startTime = `<b>🕐 Boshlanish vaqti:</b> ${exam.startTime ? new Date(exam.startTime).toLocaleString() : 'Hozir'}\n`;
+    const endTime = `<b>🕕 Tugash vaqti:</b> ${exam.endTime ? new Date(exam.endTime).toLocaleString() : 'Belgilanmagan'}\n\n`;
+    
+    const custom = customMessage ? `${customMessage}\n\n` : '';
+    
+    return header + examInfo + title + description + duration + variants + startTime + endTime + custom;
+  }
+
+  private getExamInstructions(exam: Exam): string {
+    return `📋 <b>IMTIHON QOIDALARI</b>\n\n` +
+           `⚠️ <b>Muhim ko'rsatmalar:</b>\n` +
+           `• Imtihon ${exam.duration} daqiqa davom etadi\n` +
+           `• Har bir variant uchun alohida javob varaqasi beriladi\n` +
+           `• Vaqt tugagach, javob varaqlari yig'ib olinadi\n` +
+           `• Imtihon davomida telefondan foydalanish taqiqlanadi\n` +
+           `• Nusxa ko'chirish va gaplashish taqiqlanadi\n\n` +
+           `🎯 <b>Muvaffaqiyat tilaymiz!</b>\n\n` +
+           `📞 Savollar bo'lsa, nazoratchi bilan bog'laning.`;
+  }
+
   // ==================== Public Methods for Statistics ====================
 
   async getTestStatistics(testId: number): Promise<any> {
@@ -1492,6 +1525,52 @@ export class TelegramService {
     await this.sendNotificationToChannelsAndBot(message, undefined, UserRole.ADMIN);
   }
 
+  // ==================== Exam Notifications ====================
+
+  async notifyExamStart(dto: NotifyExamStartDto): Promise<boolean> {
+    if (!this.bot) {
+      throw new BadRequestException('Telegram bot sozlanmagan');
+    }
+
+    const exam = await this.examRepo.findOne({
+      where: { id: dto.examId },
+      relations: ['subjects', 'teacher', 'variants'],
+    });
+
+    if (!exam) {
+      throw new BadRequestException('Imtihon topilmadi');
+    }
+
+    const channel = await this.telegramChatRepo.findOne({
+      where: { chatId: dto.channelId, type: ChatType.CHANNEL },
+    });
+
+    if (!channel) {
+      throw new BadRequestException('Kanal topilmadi');
+    }
+
+    try {
+      const message = this.formatExamStartMessage(exam, dto.customMessage);
+      
+      await this.bot.sendMessage(dto.channelId, message, {
+        parse_mode: 'HTML',
+        disable_web_page_preview: true,
+      });
+
+      // Also send additional instructions if needed
+      const instructionsMessage = this.getExamInstructions(exam);
+      await this.bot.sendMessage(dto.channelId, instructionsMessage, {
+        parse_mode: 'HTML',
+      });
+
+      this.logger.log(`Exam start notification sent to channel ${dto.channelId} for exam ${dto.examId}`);
+      return true;
+    } catch (error) {
+      this.logger.error('Failed to send exam start notification:', error);
+      throw new BadRequestException('Imtihon boshlanishi haqida xabarni yuborishda xatolik');
+    }
+  }
+
   async sendPDFToUser(userId: number, pdfBuffer: Buffer, fileName: string, caption?: string): Promise<{ success: boolean; message: string }> {
     try {
       // Find user's Telegram chat
@@ -1585,6 +1664,122 @@ export class TelegramService {
       this.logger.error('Telegram connection test failed:', error);
       return false;
     }
+  }
+
+  // ==================== Payment Reminders ====================
+
+  async sendPaymentReminder(studentId: number, payment: any): Promise<void> {
+    if (!this.bot) {
+      this.logger.warn('Telegram bot not configured - cannot send payment reminder');
+      return;
+    }
+
+    try {
+      // Find student's private chat
+      const studentChat = await this.telegramChatRepo.findOne({
+        where: { 
+          user: { id: studentId }, 
+          type: ChatType.PRIVATE 
+        },
+        relations: ['user']
+      });
+
+      if (!studentChat || !studentChat.telegramUserId) {
+        this.logger.warn(`Student ${studentId} does not have Telegram connected`);
+        return;
+      }
+
+      const message = `💰 To'lov eslatmasi\n\n` +
+        `📚 Guruh: ${payment.group?.name || 'Noma\'lum'}\n` +
+        `💵 Miqdor: ${payment.amount} so'm\n` +
+        `📅 Muddat: ${new Date(payment.dueDate).toLocaleDateString('uz-UZ')}\n` +
+        `📋 Tavsif: ${payment.description}\n\n` +
+        `⚠️ Iltimos, to'lovingizni muddatida amalga oshiring.\n` +
+        `❓ Savollar bo'lsa o'qituvchingiz bilan bog'laning.`;
+
+      await this.bot.sendMessage(studentChat.telegramUserId, message, {
+        parse_mode: 'HTML'
+      });
+
+      this.logger.log(`Payment reminder sent to student ${studentId}`);
+    } catch (error) {
+      this.logger.error(`Failed to send payment reminder to student ${studentId}:`, error);
+      throw error;
+    }
+  }
+
+  async sendPaymentReminderToChannel(channelId: string, payment: any): Promise<void> {
+    if (!this.bot) {
+      this.logger.warn('Telegram bot not configured - cannot send payment reminder to channel');
+      return;
+    }
+
+    try {
+      const message = `💰 To'lov eslatmasi\n\n` +
+        `👤 O'quvchi: ${payment.student?.firstName} ${payment.student?.lastName}\n` +
+        `📚 Guruh: ${payment.group?.name || 'Noma\'lum'}\n` +
+        `💵 Miqdor: ${payment.amount} so'm\n` +
+        `📅 Muddat: ${new Date(payment.dueDate).toLocaleDateString('uz-UZ')}\n` +
+        `📋 Tavsif: ${payment.description}\n\n` +
+        `⚠️ To'lov muddati yetib keldi!`;
+
+      await this.bot.sendMessage(channelId, message, {
+        parse_mode: 'HTML'
+      });
+
+      this.logger.log(`Payment reminder sent to channel ${channelId}`);
+    } catch (error) {
+      this.logger.error(`Failed to send payment reminder to channel ${channelId}:`, error);
+      throw error;
+    }
+  }
+
+  async sendMonthlyPaymentNotifications(studentIds: number[], paymentData: { amount: number; description: string; dueDate: Date; groupName: string }): Promise<{ sentCount: number; failedCount: number }> {
+    if (!this.bot) {
+      this.logger.warn('Telegram bot not configured - cannot send monthly payment notifications');
+      return { sentCount: 0, failedCount: studentIds.length };
+    }
+
+    let sentCount = 0;
+    let failedCount = 0;
+
+    const message = `🗓️ Yangi oylik to'lov\n\n` +
+      `📚 Guruh: ${paymentData.groupName}\n` +
+      `💵 Miqdor: ${paymentData.amount} so'm\n` +
+      `📅 To'lash muddati: ${paymentData.dueDate.toLocaleDateString('uz-UZ')}\n` +
+      `📋 Tavsif: ${paymentData.description}\n\n` +
+      `💡 To'lovingizni muddatida amalga oshiring.\n` +
+      `❓ Savollar bo'lsa o'qituvchingiz bilan bog'laning.`;
+
+    for (const studentId of studentIds) {
+      try {
+        const studentChat = await this.telegramChatRepo.findOne({
+          where: { 
+            user: { id: studentId }, 
+            type: ChatType.PRIVATE 
+          },
+          relations: ['user']
+        });
+
+        if (studentChat && studentChat.telegramUserId) {
+          await this.bot.sendMessage(studentChat.telegramUserId, message, {
+            parse_mode: 'HTML'
+          });
+          sentCount++;
+        } else {
+          failedCount++;
+        }
+
+        // Small delay to avoid rate limiting
+        await this.delay(200);
+      } catch (error) {
+        this.logger.error(`Failed to send monthly payment notification to student ${studentId}:`, error);
+        failedCount++;
+      }
+    }
+
+    this.logger.log(`Monthly payment notifications sent: ${sentCount} sent, ${failedCount} failed`);
+    return { sentCount, failedCount };
   }
 
 }

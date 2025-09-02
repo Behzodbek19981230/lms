@@ -131,13 +131,47 @@ export class ExamsController {
     @Param('variantId') variantId: string,
     @Res() res: Response,
   ): Promise<void> {
-    const buffer = await this.examsService.generateVariantPDF(+variantId);
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader(
-      'Content-Disposition',
-      `attachment; filename="variant-${variantId}.pdf"`,
-    );
-    res.send(buffer);
+    try {
+      console.log(`PDF generation requested for variant ${variantId}`);
+      const buffer = await this.examsService.generateVariantPDF(+variantId);
+      
+      console.log(`PDF generated successfully. Buffer size: ${buffer.length} bytes`);
+      
+      // Check if buffer is valid
+      if (!buffer || buffer.length === 0) {
+        console.error('Empty PDF buffer generated');
+        res.status(500).json({ error: 'PDF generation failed - empty buffer' });
+        return;
+      }
+      
+      // Check if buffer starts with PDF signature
+      const pdfHeader = buffer.slice(0, 4).toString();
+      console.log(`PDF header: ${pdfHeader}`);
+      
+      if (!pdfHeader.startsWith('%PDF')) {
+        console.error('Invalid PDF buffer - missing PDF header');
+        console.log('Buffer start (first 100 bytes):', buffer.slice(0, 100).toString());
+        res.status(500).json({ error: 'PDF generation failed - invalid format' });
+        return;
+      }
+      
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Length', buffer.length.toString());
+      res.setHeader(
+        'Content-Disposition',
+        `attachment; filename="variant-${variantId}.pdf"`,
+      );
+      res.send(buffer);
+      
+      console.log(`PDF response sent successfully for variant ${variantId}`);
+    } catch (error) {
+      console.error(`Error generating PDF for variant ${variantId}:`, error);
+      res.status(500).json({ 
+        error: 'PDF generation failed', 
+        message: error.message,
+        variantId 
+      });
+    }
   }
 
   @Get('variants/:variantId/answer-key')

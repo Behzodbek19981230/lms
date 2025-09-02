@@ -8,7 +8,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as puppeteer from 'puppeteer';
-import * as PDFDocument from 'pdfkit';
+const PDFDocument = require('pdfkit');
 import { createWriteStream, writeFileSync, readFileSync, unlinkSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
@@ -1546,186 +1546,165 @@ export class ExamsService {
     html: string,
     title = 'Document',
   ): Promise<Buffer> {
-    this.logger.warn(`Using fallback PDF generation for: ${title}`);
+    this.logger.warn(`Using fallback PDF generation with PDFKit for: ${title}`);
     
-    // For environments where Puppeteer cannot run due to missing system libraries,
-    // we'll create a structured text representation that's more useful than plain text
-    
-    try {
-      // Attempt to parse basic information from HTML
-      let examTitle = title;
-      let variantNumber = '';
-      let studentName = '';
-      
-      // Extract title from HTML if possible
-      const titleMatch = html.match(/<title>([^<]+)<\/title>/i);
-      if (titleMatch && titleMatch[1]) {
-        examTitle = titleMatch[1];
-      }
-      
-      // Extract variant information
-      const variantMatch = html.match(/Variant:\s*([^\n<]+)/i);
-      if (variantMatch && variantMatch[1]) {
-        variantNumber = variantMatch[1].trim();
-      }
-      
-      // Extract student name
-      const studentMatch = html.match(/O'quvchi:\s*([^\n<]+)/i);
-      if (studentMatch && studentMatch[1]) {
-        studentName = studentMatch[1].trim();
-      }
-      
-      // Create a structured document
-      let documentContent = `====================\n`;
-      documentContent += `PDF DOCUMENT (FALLBACK MODE)\n`;
-      documentContent += `====================\n\n`;
-      
-      documentContent += `Document Title: ${examTitle}\n`;
-      if (variantNumber) {
-        documentContent += `Variant Number: ${variantNumber}\n`;
-      }
-      if (studentName) {
-        documentContent += `Student Name: ${studentName}\n`;
-      }
-      documentContent += `Generated on: ${new Date().toLocaleString()}\n`;
-      documentContent += `Status: Generated in fallback mode due to system limitations\n\n`;
-      
-      documentContent += `====================\n`;
-      documentContent += `DOCUMENT CONTENT\n`;
-      documentContent += `====================\n\n`;
-      
-      // Extract questions section if it exists
-      const questionsStart = html.indexOf('Savollar');
-      if (questionsStart > 0) {
-        // Try to extract questions in a structured way
-        const questionsSection = html.substring(questionsStart);
-        const questionMatches = questionsSection.match(/<div class="question">[\s\S]*?<\/div>\s*<\/div>/g);
+    return new Promise((resolve, reject) => {
+      try {
+        // Create a new PDFDocument
+        const doc = new PDFDocument({
+          size: 'A4',
+          margin: 50,
+          info: {
+            Title: title,
+            Author: 'Universal LMS',
+            Subject: 'Exam Document',
+            Creator: 'Universal LMS System'
+          }
+        });
         
-        if (questionMatches && questionMatches.length > 0) {
-          documentContent += `Total Questions: ${questionMatches.length}\n\n`;
-          
-          questionMatches.forEach((questionHtml, index) => {
-            documentContent += `Question ${index + 1}:\n`;
-            
-            // Extract question text
-            const textMatch = questionHtml.match(/<div class="q-text">([\s\S]*?)<\/div>/);
-            if (textMatch && textMatch[1]) {
-              // Basic HTML tag removal
-              let questionText = textMatch[1]
-                .replace(/<[^>]*>/g, ' ')
-                .replace(/\s+/g, ' ')
-                .trim();
-              
-              // Decode basic HTML entities
-              questionText = questionText
-                .replace(/&nbsp;/g, ' ')
-                .replace(/&amp;/g, '&')
-                .replace(/&lt;/g, '<')
-                .replace(/&gt;/g, '>')
-                .replace(/&quot;/g, '"')
-                .replace(/&#039;/g, "'");
-              
-              documentContent += `  Text: ${questionText}\n`;
-            }
-            
-            // Extract answers if they exist
-            const answerMatches = questionHtml.match(/<div class="answer">([\s\S]*?)<\/div>/g);
-            if (answerMatches && answerMatches.length > 0) {
-              documentContent += `  Answers:\n`;
-              answerMatches.forEach((answerHtml, ansIndex) => {
-                // Basic HTML tag removal
-                let answerText = answerHtml
-                  .replace(/<[^>]*>/g, ' ')
-                  .replace(/\s+/g, ' ')
-                  .trim();
-                
-                // Decode basic HTML entities
-                answerText = answerText
-                  .replace(/&nbsp;/g, ' ')
-                  .replace(/&amp;/g, '&')
-                  .replace(/&lt;/g, '<')
-                  .replace(/&gt;/g, '>')
-                  .replace(/&quot;/g, '"')
-                  .replace(/&#039;/g, "'");
-                
-                documentContent += `    ${String.fromCharCode(65 + ansIndex)}) ${answerText}\n`;
-              });
-            }
-            
-            documentContent += `\n`;
-          });
-        } else {
-          documentContent += `Questions section found but could not parse individual questions.\n\n`;
+        const buffers: Buffer[] = [];
+        
+        // Collect PDF data
+        doc.on('data', (chunk) => {
+          buffers.push(chunk);
+        });
+        
+        doc.on('end', () => {
+          const finalBuffer = Buffer.concat(buffers);
+          this.logger.log(`Fallback PDF generated successfully. Size: ${finalBuffer.length} bytes`);
+          resolve(finalBuffer);
+        });
+        
+        doc.on('error', (error) => {
+          this.logger.error('PDFKit error:', error);
+          reject(new InternalServerErrorException(`PDF generation failed: ${error.message}`));
+        });
+        
+        // Extract basic information from HTML
+        let examTitle = title;
+        let variantNumber = '';
+        let studentName = '';
+        let subjectName = '';
+        let questionsText = '';
+        
+        // Extract title from HTML if possible
+        const titleMatch = html.match(/<title>([^<]+)<\/title>/i);
+        if (titleMatch && titleMatch[1]) {
+          examTitle = titleMatch[1];
         }
-      } else {
-        documentContent += `Questions section not found in document.\n\n`;
+        
+        // Extract variant information
+        const variantMatch = html.match(/Variant[:\s]*([^\n<]+)/i);
+        if (variantMatch && variantMatch[1]) {
+          variantNumber = variantMatch[1].trim();
+        }
+        
+        // Extract student name  
+        const studentMatch = html.match(/(?:Talaba|O'quvchi)[:\s]*([^\n<]+)/i);
+        if (studentMatch && studentMatch[1]) {
+          studentName = studentMatch[1].trim();
+        }
+        
+        // Extract subject name
+        const subjectMatch = html.match(/(?:Fan|Subject)[:\s]*([^\n<]+)/i);
+        if (subjectMatch && subjectMatch[1]) {
+          subjectName = subjectMatch[1].trim();
+        }
+        
+        // Extract questions
+        const questionsMatches = html.match(/<div class="question">([\s\S]*?)<\/div>/g);
+        if (questionsMatches) {
+          questionsText = questionsMatches.map((q, i) => {
+            // Simple HTML to text conversion
+            const cleanText = q
+              .replace(/<[^>]*>/g, ' ')
+              .replace(/\s+/g, ' ')
+              .trim();
+            return `${i + 1}. ${cleanText}`;
+          }).join('\n\n');
+        }
+        
+        // Set up fonts and styles
+        doc.fontSize(20)
+           .font('Helvetica-Bold')
+           .text(examTitle || 'IMTIHON', { align: 'center' })
+           .moveDown(2);
+        
+        if (subjectName) {
+          doc.fontSize(16)
+             .font('Helvetica-Bold')
+             .text(`Fan: ${subjectName}`, { align: 'center' })
+             .moveDown(1);
+        }
+        
+        if (variantNumber) {
+          doc.fontSize(14)
+             .font('Helvetica')
+             .text(`Variant: ${variantNumber}`, { align: 'center' })
+             .moveDown(1);
+        }
+        
+        if (studentName) {
+          doc.fontSize(12)
+             .font('Helvetica')
+             .text(`Talaba: ${studentName}`, { align: 'center' })
+             .moveDown(1);
+        }
+        
+        doc.fontSize(10)
+           .font('Helvetica')
+           .text(`Sana: ${new Date().toLocaleDateString('uz-UZ')}`, { align: 'center' })
+           .moveDown(2);
+        
+        // Add a line separator
+        doc.moveTo(50, doc.y)
+           .lineTo(545, doc.y)
+           .stroke()
+           .moveDown(1);
+        
+        // Add questions section
+        if (questionsText) {
+          doc.fontSize(14)
+             .font('Helvetica-Bold')
+             .text('SAVOLLAR:', { align: 'left' })
+             .moveDown(1);
+          
+          doc.fontSize(10)
+             .font('Helvetica')
+             .text(questionsText, {
+               align: 'left',
+               width: 495,
+               lineGap: 5
+             });
+        } else {
+          doc.fontSize(12)
+             .font('Helvetica')
+             .text('PDF fallback mode: Savollar HTML formatidan chiqarib bo\'lmadi.', {
+               align: 'center'
+             })
+             .moveDown(2)
+             .text('Ushbu PDF tizim imkoniyatlari cheklanganligi sababli soddalashtirilgan formatda yaratildi.', {
+               align: 'center',
+               fontSize: 10
+             });
+        }
+        
+        // Footer
+        doc.fontSize(8)
+           .font('Helvetica')
+           .text('Universal LMS - PDF Fallback Mode', 50, doc.page.height - 50, {
+             align: 'center',
+             width: doc.page.width - 100
+           });
+        
+        // Finalize the PDF
+        doc.end();
+        
+      } catch (error) {
+        this.logger.error('Error in PDF fallback generation:', error);
+        reject(new InternalServerErrorException(`PDF fallback generation failed: ${error.message}`));
       }
-      
-      // Add a note about the limitation
-      documentContent += `====================\n`;
-      documentContent += `SYSTEM INFORMATION\n`;
-      documentContent += `====================\n\n`;
-      documentContent += `This document was generated in fallback mode because the system is missing required libraries\n`;
-      documentContent += `for full PDF generation (e.g., libnspr4.so).\n\n`;
-      documentContent += `For full PDF functionality, please ensure all required system libraries are installed.\n`;
-      documentContent += `See: https://pptr.dev/troubleshooting\n\n`;
-      
-      // Add raw content as last resort
-      documentContent += `====================\n`;
-      documentContent += `RAW CONTENT (TRUNCATED)\n`;
-      documentContent += `====================\n\n`;
-      
-      // Remove most HTML tags and clean up
-      let rawContent = html
-        .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '') // Remove style tags
-        .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '') // Remove script tags
-        .replace(/<[^>]*>/g, ' ') // Remove other HTML tags
-        .replace(/\s+/g, ' ') // Collapse whitespace
-        .trim();
-      
-      // Truncate if too long
-      if (rawContent.length > 10000) {
-        rawContent = rawContent.substring(0, 10000) + '\n\n... (content truncated)';
-      }
-      
-      documentContent += rawContent;
-      
-      // Convert to Buffer
-      return Buffer.from(documentContent, 'utf-8');
-    } catch (error) {
-      // If our structured approach fails, fall back to simple text extraction
-      this.logger.error('Structured fallback failed, using basic text extraction:', error);
-      
-      // Extract text content from HTML (very basic extraction)
-      let textContent = html;
-      
-      // Remove HTML tags
-      textContent = textContent.replace(/<[^>]*>/g, ' ');
-      
-      // Decode HTML entities
-      textContent = textContent
-        .replace(/&amp;/g, '&')
-        .replace(/&lt;/g, '<')
-        .replace(/&gt;/g, '>')
-        .replace(/&quot;/g, '"')
-        .replace(/&#039;/g, "'");
-      
-      // Clean up extra whitespace
-      textContent = textContent.replace(/\s+/g, ' ').trim();
-      
-      // Create a simple text-based PDF representation
-      const pdfContent = `PDF Document: ${title}
-
-Generated on: ${new Date().toISOString()}
-Generated in fallback mode due to system limitations
-
-Content:
-
-${textContent.substring(0, 10000)}${textContent.length > 10000 ? '\n\n... (content truncated)' : ''}`;
-      
-      // Convert to Buffer
-      return Buffer.from(pdfContent, 'utf-8');
-    }
+    });
   }
 }
 

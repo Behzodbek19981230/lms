@@ -13,6 +13,7 @@ import { AssignedTestsModule } from './assigned-tests/assigned-tests.module';
 import { ExamsModule } from './exams/exams.module';
 import { StudentsModule } from './students/students.module';
 import { TelegramModule } from './telegram/telegram.module';
+import { PaymentsModule } from './payments/payments.module';
 import { AttendanceModule } from './attendance/attendance.module';
 import { CronJobsModule } from './cron-jobs/cron-jobs.module';
 
@@ -49,6 +50,7 @@ import { CronJobsModule } from './cron-jobs/cron-jobs.module';
     ExamsModule,
     StudentsModule,
     TelegramModule,
+    PaymentsModule,
     AttendanceModule,
     CronJobsModule,
   ],

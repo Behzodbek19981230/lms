@@ -20,7 +20,7 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { UserRole } from '../users/entities/user.entity';
 import { TelegramService } from './telegram.service';
-import { CreateTelegramChatDto, SendTestToChannelDto, SubmitAnswerDto, AuthenticateUserDto } from './dto/telegram.dto';
+import { CreateTelegramChatDto, SendTestToChannelDto, SubmitAnswerDto, AuthenticateUserDto, NotifyExamStartDto } from './dto/telegram.dto';
 
 @ApiTags('Telegram')
 @Controller('telegram')
@@ -211,6 +211,17 @@ export class TelegramController {
   @ApiResponse({ status: 201, description: 'Answer submitted successfully' })
   async submitAnswer(@Body() dto: SubmitAnswerDto) {
     return this.telegramService.processAnswer(dto);
+  }
+
+  @Post('notify-exam-start')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.TEACHER, UserRole.ADMIN, UserRole.SUPERADMIN)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Notify exam start to a Telegram channel' })
+  @ApiResponse({ status: 200, description: 'Exam start notification sent successfully' })
+  async notifyExamStart(@Body() dto: NotifyExamStartDto) {
+    const success = await this.telegramService.notifyExamStart(dto);
+    return { success, message: 'Imtihon boshlanishi haqida xabar yuborildi' };
   }
 
   // ==================== Results Management ====================

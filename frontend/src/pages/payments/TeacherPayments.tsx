@@ -1,628 +1,339 @@
 import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { useToast } from '@/hooks/use-toast';
+import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
+import { Button } from '../../components/ui/button';
+import { Input } from '../../components/ui/input';
+import { Badge } from '../../components/ui/badge';
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
-import {
-  CreditCard,
-  Plus,
-  Bell,
-  BarChart3,
-  Users,
-  Calendar,
-  AlertTriangle,
-  Clock
-} from 'lucide-react';
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../../components/ui/select';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
+import { Plus, Search, Filter, DollarSign, Users, Clock, AlertTriangle } from 'lucide-react';
+import { Payment, PaymentStats, PaymentStatus, CreatePaymentDto } from '../../types/payment';
+import { Group } from '../../types/group';
+import { paymentService } from '../../services/payment.service';
+import { groupService } from '../../services/group.service';
+import PaymentTable from '../../components/payments/PaymentTable';
+import CreatePaymentForm from '../../components/payments/CreatePaymentForm';
+import { toast } from 'sonner';
 
-import PaymentList from '@/components/payments/PaymentList';
-import PaymentForm from '@/components/payments/PaymentForm';
-import { 
-  PaymentStatsOverview, 
-  PaymentTypeChart, 
-  MonthlyTrendChart 
-} from '@/components/payments/PaymentStats';
-import { PaymentService } from '@/services/payment.service';
-import { 
-  Payment, 
-  PaymentStats, 
-  CreatePaymentDto, 
-  UpdatePaymentDto,
-  StudentPaymentSummary 
-} from '@/types/payment';
-
-export const TeacherPayments: React.FC = () => {
-  const { toast } = useToast();
-  
-  // State management
+const TeacherPayments: React.FC = () => {
   const [payments, setPayments] = useState<Payment[]>([]);
+  const [filteredPayments, setFilteredPayments] = useState<Payment[]>([]);
   const [stats, setStats] = useState<PaymentStats | null>(null);
-  const [studentSummaries, setStudentSummaries] = useState<StudentPaymentSummary[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [statsLoading, setStatsLoading] = useState(false);
+  const [groups, setGroups] = useState<Group[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [selectedGroup, setSelectedGroup] = useState<Group | undefined>();
   
-  // Form state
-  const [showPaymentForm, setShowPaymentForm] = useState(false);
-  const [editingPayment, setEditingPayment] = useState<Payment | null>(null);
-  const [selectedGroupId, setSelectedGroupId] = useState<number | null>(null);
-  
-  // Dialog state
-  const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; payment: Payment | null }>({
-    open: false,
-    payment: null
-  });
-  const [reminderDialog, setReminderDialog] = useState<{ open: boolean; payment: Payment | null }>({
-    open: false,
-    payment: null
-  });
+  // Filters
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [groupFilter, setGroupFilter] = useState<string>('all');
+  const [activeTab, setActiveTab] = useState<string>('all');
 
-  // Mock data - these would come from API calls
-  const [students] = useState([
-    { id: 1, firstName: 'Ali', lastName: 'Valiyev', email: 'ali@example.com' },
-    { id: 2, firstName: 'Malika', lastName: 'Karimova', email: 'malika@example.com' },
-    { id: 3, firstName: 'Bobur', lastName: 'Rahimov', email: 'bobur@example.com' }
-  ]);
-  
-  const [teachers] = useState([
-    { id: 1, firstName: 'Nodira', lastName: 'Toshmatova', email: 'nodira@example.com' }
-  ]);
-  
-  const [groups] = useState([
-    { id: 1, name: 'Beginner A1', center: { id: 1, name: 'Navoiy filiali' } },
-    { id: 2, name: 'Intermediate B1', center: { id: 1, name: 'Navoiy filiali' } },
-    { id: 3, name: 'Advanced C1', center: { id: 1, name: 'Navoiy filiali' } }
-  ]);
-
-  // Load initial data
   useEffect(() => {
-    loadPayments();
-    loadStats();
+    fetchData();
   }, []);
 
-  const loadPayments = async () => {
+  useEffect(() => {
+    applyFilters();
+  }, [payments, searchTerm, statusFilter, groupFilter, activeTab]);
+
+  const fetchData = async () => {
     setLoading(true);
     try {
-      const response = await PaymentService.getTeacherPayments();
-      setPayments(response.payments);
+      const [paymentsResponse, statsResponse, groupsResponse] = await Promise.all([
+        paymentService.getTeacherPayments(),
+        paymentService.getTeacherPaymentStats(),
+        groupService.getMyGroups()
+      ]);
+
+      if (paymentsResponse.success) {
+        setPayments(paymentsResponse.data);
+      }
+      
+      if (statsResponse.success) {
+        setStats(statsResponse.data);
+      }
+      
+      if (groupsResponse.success) {
+        setGroups(groupsResponse.data);
+      }
     } catch (error) {
-      console.error('Failed to load payments:', error);
-      toast({
-        title: "Xatolik",
-        description: "To'lovlarni yuklashda xatolik yuz berdi",
-        variant: "destructive"
-      });
+      console.error('Error fetching data:', error);
+      toast.error('Ma\'lumotlarni yuklashda xatolik yuz berdi');
     } finally {
       setLoading(false);
     }
   };
 
-  const loadStats = async () => {
-    setStatsLoading(true);
+  const applyFilters = () => {
+    let filtered = [...payments];
+
+    // Search filter
+    if (searchTerm) {
+      filtered = filtered.filter(payment =>
+        payment.student.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        payment.student.lastName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        payment.description.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+
+    // Status filter
+    if (statusFilter !== 'all') {
+      filtered = filtered.filter(payment => payment.status === statusFilter);
+    }
+
+    // Group filter
+    if (groupFilter !== 'all') {
+      filtered = filtered.filter(payment => payment.groupId === groupFilter);
+    }
+
+    // Tab filter
+    switch (activeTab) {
+      case 'pending':
+        filtered = filtered.filter(payment => payment.status === PaymentStatus.PENDING);
+        break;
+      case 'overdue':
+        filtered = filtered.filter(payment => payment.status === PaymentStatus.OVERDUE);
+        break;
+      case 'paid':
+        filtered = filtered.filter(payment => payment.status === PaymentStatus.PAID);
+        break;
+    }
+
+    setFilteredPayments(filtered);
+  };
+
+  const handleCreatePayment = async (paymentData: CreatePaymentDto) => {
     try {
-      const [statsData, dashboardData] = await Promise.all([
-        PaymentService.getTeacherPaymentStats(),
-        PaymentService.getTeacherDashboardData()
-      ]);
-      setStats(statsData);
-      setStudentSummaries(dashboardData.studentSummaries);
+      const response = await paymentService.createPayment(paymentData);
+      if (response.success) {
+        toast.success('To\'lov muvaffaqiyatli yaratildi');
+        fetchData();
+      }
     } catch (error) {
-      console.error('Failed to load stats:', error);
-      toast({
-        title: "Xatolik",
-        description: "Statistikalarni yuklashda xatolik yuz berdi",
-        variant: "destructive"
-      });
-    } finally {
-      setStatsLoading(false);
+      console.error('Error creating payment:', error);
+      toast.error('To\'lov yaratishda xatolik yuz berdi');
     }
   };
 
-  const loadGroupSummary = async (groupId: number) => {
+  const handleMarkPaid = async (paymentId: string) => {
     try {
-      const summaries = await PaymentService.getGroupPaymentSummary(groupId);
-      setStudentSummaries(summaries);
+      const response = await paymentService.markPaymentAsPaid(paymentId);
+      if (response.success) {
+        toast.success('To\'lov to\'landi deb belgilandi');
+        fetchData();
+      }
     } catch (error) {
-      console.error('Failed to load group summary:', error);
-      toast({
-        title: "Xatolik",
-        description: "Guruh ma'lumotlarini yuklashda xatolik",
-        variant: "destructive"
-      });
+      console.error('Error marking payment as paid:', error);
+      toast.error('To\'lovni belgilashda xatolik yuz berdi');
     }
   };
 
-  // CRUD Operations
-  const handleCreatePayment = async (data: CreatePaymentDto) => {
+  const handleSendReminder = async (paymentId: string) => {
     try {
-      await PaymentService.createPayment(data);
-      toast({
-        title: "Muvaffaqiyat",
-        description: "To'lov muvaffaqiyatli yaratildi"
-      });
-      loadPayments();
-      loadStats();
+      const response = await paymentService.sendPaymentReminders([paymentId]);
+      if (response.success) {
+        toast.success('Eslatma yuborildi');
+      }
     } catch (error) {
-      console.error('Failed to create payment:', error);
-      toast({
-        title: "Xatolik",
-        description: "To'lov yaratishda xatolik yuz berdi",
-        variant: "destructive"
-      });
+      console.error('Error sending reminder:', error);
+      toast.error('Eslatma yuborishda xatolik yuz berdi');
     }
   };
 
-  const handleUpdatePayment = async (data: UpdatePaymentDto) => {
-    if (!editingPayment) return;
+  const handleDeletePayment = async (paymentId: string) => {
+    if (!confirm('Haqiqatan ham bu to\'lovni o\'chirmoqchimisiz?')) return;
     
     try {
-      await PaymentService.updatePayment(editingPayment.id, data);
-      toast({
-        title: "Muvaffaqiyat",
-        description: "To'lov muvaffaqiyatli yangilandi"
-      });
-      loadPayments();
-      loadStats();
-      setEditingPayment(null);
+      const response = await paymentService.deletePayment(paymentId);
+      if (response.success) {
+        toast.success('To\'lov o\'chirildi');
+        fetchData();
+      }
     } catch (error) {
-      console.error('Failed to update payment:', error);
-      toast({
-        title: "Xatolik",
-        description: "To'lovni yangilashda xatolik yuz berdi",
-        variant: "destructive"
-      });
+      console.error('Error deleting payment:', error);
+      toast.error('To\'lovni o\'chirishda xatolik yuz berdi');
     }
   };
 
-  const handleMarkAsPaid = async (payment: Payment) => {
-    try {
-      await PaymentService.markPaymentAsPaid(payment.id);
-      toast({
-        title: "Muvaffaqiyat",
-        description: `${payment.student.firstName}ning to'lovi belgilandi`
-      });
-      loadPayments();
-      loadStats();
-    } catch (error) {
-      console.error('Failed to mark payment as paid:', error);
-      toast({
-        title: "Xatolik",
-        description: "To'lovni belgilashda xatolik yuz berdi",
-        variant: "destructive"
-      });
-    }
+  const formatAmount = (amount: number) => {
+    return new Intl.NumberFormat('uz-UZ', {
+      style: 'currency',
+      currency: 'UZS',
+      minimumFractionDigits: 0,
+    }).format(amount);
   };
 
-  const handleSendReminder = async (payment: Payment) => {
-    try {
-      await PaymentService.sendPaymentReminder(payment.id);
-      toast({
-        title: "Muvaffaqiyat",
-        description: `${payment.student.firstName}ga eslatma yuborildi`
-      });
-      setReminderDialog({ open: false, payment: null });
-      loadPayments();
-    } catch (error) {
-      console.error('Failed to send reminder:', error);
-      toast({
-        title: "Xatolik",
-        description: "Eslatma yuborishda xatolik yuz berdi",
-        variant: "destructive"
-      });
-    }
-  };
-
-  const handleDeletePayment = async () => {
-    if (!deleteDialog.payment) return;
-    
-    try {
-      await PaymentService.deletePayment(deleteDialog.payment.id);
-      toast({
-        title: "Muvaffaqiyat",
-        description: "To'lov muvaffaqiyatli o'chirildi"
-      });
-      setDeleteDialog({ open: false, payment: null });
-      loadPayments();
-      loadStats();
-    } catch (error) {
-      console.error('Failed to delete payment:', error);
-      toast({
-        title: "Xatolik",
-        description: "To'lovni o'chirishda xatolik yuz berdi",
-        variant: "destructive"
-      });
-    }
-  };
-
-  const handleSendGroupReminders = async (groupId: number) => {
-    try {
-      const result = await PaymentService.sendGroupPaymentReminders(groupId);
-      toast({
-        title: "Muvaffaqiyat",
-        description: `${result.sent} ta eslatma yuborildi, ${result.failed} ta xatolik`
-      });
-    } catch (error) {
-      console.error('Failed to send group reminders:', error);
-      toast({
-        title: "Xatolik",
-        description: "Guruh eslatmalarini yuborishda xatolik",
-        variant: "destructive"
-      });
-    }
-  };
-
-  const overduePayments = payments.filter(p => 
-    p.status === 'pending' && PaymentService.isPaymentOverdue(p.dueDate)
-  );
-  const upcomingPayments = payments.filter(p => 
-    p.status === 'pending' && PaymentService.isPaymentDueSoon(p.dueDate, 7)
-  );
+  if (loading) {
+    return (
+      <div className="container mx-auto py-6">
+        <div className="text-center py-8">Yuklanmoqda...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto py-6 space-y-6">
-      {/* Page Header */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">To'lovlar boshqaruvi</h1>
-          <p className="text-gray-600">O'quvchilar to'lovlarini boshqaring va kuzating</p>
-        </div>
-        <Button onClick={() => setShowPaymentForm(true)} className="flex items-center space-x-2">
-          <Plus className="h-4 w-4" />
-          <span>Yangi to'lov</span>
+      <div className="flex items-center justify-between">
+        <h1 className="text-3xl font-bold">To'lovlarni boshqarish</h1>
+        <Button onClick={() => setShowCreateForm(true)}>
+          <Plus className="w-4 h-4 mr-2" />
+          Yangi to'lov
         </Button>
       </div>
 
-      {/* Alert for overdue payments */}
-      {overduePayments.length > 0 && (
-        <Alert className="border-red-200 bg-red-50">
-          <AlertTriangle className="h-4 w-4 text-red-600" />
-          <AlertDescription className="text-red-800">
-            <strong>{overduePayments.length} ta to'lov muddati o'tgan!</strong>
-            {' '}Studentlarga eslatma yuborish tavsiya etiladi.
-          </AlertDescription>
-        </Alert>
+      {/* Statistics Cards */}
+      {stats && (
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center">
+                <Clock className="w-4 h-4 text-yellow-500" />
+                <div className="ml-4">
+                  <p className="text-sm font-medium text-muted-foreground">Kutilayotgan</p>
+                  <p className="text-2xl font-bold">{stats.totalPending}</p>
+                  <p className="text-sm text-muted-foreground">{formatAmount(stats.pendingAmount)}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center">
+                <AlertTriangle className="w-4 h-4 text-red-500" />
+                <div className="ml-4">
+                  <p className="text-sm font-medium text-muted-foreground">Kechikkan</p>
+                  <p className="text-2xl font-bold">{stats.totalOverdue}</p>
+                  <p className="text-sm text-muted-foreground">{formatAmount(stats.overdueAmount)}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center">
+                <DollarSign className="w-4 h-4 text-green-500" />
+                <div className="ml-4">
+                  <p className="text-sm font-medium text-muted-foreground">To'langan</p>
+                  <p className="text-2xl font-bold">{stats.totalPaid}</p>
+                  <p className="text-sm text-muted-foreground">Bu oy</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center">
+                <Users className="w-4 h-4 text-blue-500" />
+                <div className="ml-4">
+                  <p className="text-sm font-medium text-muted-foreground">Oylik daromad</p>
+                  <p className="text-2xl font-bold">{formatAmount(stats.monthlyRevenue)}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       )}
 
-      <Tabs defaultValue="overview" className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="overview" className="flex items-center space-x-2">
-            <BarChart3 className="h-4 w-4" />
-            <span>Umumiy ko'rinish</span>
-          </TabsTrigger>
-          <TabsTrigger value="payments" className="flex items-center space-x-2">
-            <CreditCard className="h-4 w-4" />
-            <span>To'lovlar</span>
-          </TabsTrigger>
-          <TabsTrigger value="students" className="flex items-center space-x-2">
-            <Users className="h-4 w-4" />
-            <span>Studentlar</span>
-          </TabsTrigger>
-          <TabsTrigger value="reminders" className="flex items-center space-x-2">
-            <Bell className="h-4 w-4" />
-            <span>Eslatmalar</span>
-          </TabsTrigger>
-        </TabsList>
-
-        {/* Overview Tab */}
-        <TabsContent value="overview" className="space-y-6">
-          {stats && (
-            <>
-              <PaymentStatsOverview stats={stats} loading={statsLoading} />
-              
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <PaymentTypeChart stats={stats} loading={statsLoading} />
-                <MonthlyTrendChart stats={stats} loading={statsLoading} />
+      {/* Filters */}
+      <Card>
+        <CardContent className="p-6">
+          <div className="flex flex-wrap gap-4">
+            <div className="flex-1 min-w-[200px]">
+              <div className="relative">
+                <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="O'quvchi yoki tavsif bo'yicha qidirish..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-8"
+                />
               </div>
-            </>
-          )}
-        </TabsContent>
-
-        {/* Payments Tab */}
-        <TabsContent value="payments">
-          <PaymentList
-            payments={payments}
-            loading={loading}
-            endpoint="teacher"
-            showStudentInfo={true}
-            showTeacherInfo={false}
-            onCreatePayment={() => setShowPaymentForm(true)}
-            onMarkAsPaid={handleMarkAsPaid}
-            onSendReminder={(payment) => setReminderDialog({ open: true, payment })}
-            onEdit={(payment) => {
-              setEditingPayment(payment);
-              setShowPaymentForm(true);
-            }}
-            onDelete={(payment) => setDeleteDialog({ open: true, payment })}
-          />
-        </TabsContent>
-
-        {/* Students Tab */}
-        <TabsContent value="students" className="space-y-6">
-          <div className="flex justify-between items-center">
-            <h2 className="text-xl font-bold">Studentlar bo'yicha to'lovlar</h2>
-            <Select
-              value={selectedGroupId?.toString() || 'all'}
-              onValueChange={(value) => {
-                const groupId = value === 'all' ? null : parseInt(value);
-                setSelectedGroupId(groupId);
-                if (groupId) {
-                  loadGroupSummary(groupId);
-                }
-              }}
-            >
-              <SelectTrigger className="w-[200px]">
-                <SelectValue placeholder="Guruh tanlang" />
+            </div>
+            
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-[150px]">
+                <SelectValue placeholder="Holat" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Barcha holatlar</SelectItem>
+                <SelectItem value={PaymentStatus.PENDING}>Kutilmoqda</SelectItem>
+                <SelectItem value={PaymentStatus.PAID}>To'langan</SelectItem>
+                <SelectItem value={PaymentStatus.OVERDUE}>Kechikkan</SelectItem>
+              </SelectContent>
+            </Select>
+            
+            <Select value={groupFilter} onValueChange={setGroupFilter}>
+              <SelectTrigger className="w-[150px]">
+                <SelectValue placeholder="Guruh" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Barcha guruhlar</SelectItem>
                 {groups.map((group) => (
-                  <SelectItem key={group.id} value={group.id.toString()}>
+                  <SelectItem key={group.id} value={group.id}>
                     {group.name}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
+        </CardContent>
+      </Card>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {studentSummaries.map((summary) => (
-              <Card key={summary.studentId} className="border-l-4 border-l-blue-500">
-                <CardContent className="p-4">
-                  <div className="flex justify-between items-start mb-3">
-                    <h3 className="font-semibold">{summary.studentName}</h3>
-                    <div className="text-right">
-                      <p className="text-sm text-gray-600">Jami</p>
-                      <p className="font-bold">
-                        {PaymentService.formatCurrency(summary.totalAmount)}
-                      </p>
-                    </div>
-                  </div>
+      {/* Payment Table with Tabs */}
+      <Card>
+        <CardHeader>
+          <CardTitle>To'lovlar ro'yxati</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Tabs value={activeTab} onValueChange={setActiveTab}>
+            <TabsList className="grid w-full grid-cols-4">
+              <TabsTrigger value="all">
+                Barchasi ({payments.length})
+              </TabsTrigger>
+              <TabsTrigger value="pending">
+                Kutilayotgan ({stats?.totalPending || 0})
+              </TabsTrigger>
+              <TabsTrigger value="overdue">
+                Kechikkan ({stats?.totalOverdue || 0})
+              </TabsTrigger>
+              <TabsTrigger value="paid">
+                To'langan ({stats?.totalPaid || 0})
+              </TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value={activeTab} className="mt-4">
+              <PaymentTable
+                payments={filteredPayments}
+                onMarkPaid={handleMarkPaid}
+                onSendReminder={handleSendReminder}
+                onDelete={handleDeletePayment}
+                role="teacher"
+              />
+            </TabsContent>
+          </Tabs>
+        </CardContent>
+      </Card>
 
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-green-600">To'langan:</span>
-                      <span className="font-medium text-green-600">
-                        {PaymentService.formatCurrency(summary.paidAmount)}
-                      </span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-yellow-600">Kutilayotgan:</span>
-                      <span className="font-medium text-yellow-600">
-                        {PaymentService.formatCurrency(summary.pendingAmount)}
-                      </span>
-                    </div>
-                    {summary.overdueAmount > 0 && (
-                      <div className="flex justify-between text-sm">
-                        <span className="text-red-600">Kechikkan:</span>
-                        <span className="font-medium text-red-600">
-                          {PaymentService.formatCurrency(summary.overdueAmount)}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-
-                  {summary.nextDueDate && (
-                    <div className="mt-3 pt-3 border-t">
-                      <div className="flex items-center text-xs text-gray-500">
-                        <Calendar className="h-3 w-3 mr-1" />
-                        Keyingi to'lov: {new Date(summary.nextDueDate).toLocaleDateString('uz-UZ')}
-                      </div>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </TabsContent>
-
-        {/* Reminders Tab */}
-        <TabsContent value="reminders" className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Overdue Payments */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center text-red-600">
-                  <AlertTriangle className="h-5 w-5 mr-2" />
-                  Muddati o'tgan to'lovlar ({overduePayments.length})
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {overduePayments.length === 0 ? (
-                  <p className="text-gray-500 text-center py-4">
-                    Muddati o'tgan to'lovlar yo'q
-                  </p>
-                ) : (
-                  <div className="space-y-3">
-                    {overduePayments.slice(0, 5).map((payment) => (
-                      <div key={payment.id} className="flex justify-between items-center p-3 bg-red-50 rounded">
-                        <div>
-                          <p className="font-medium">{payment.student.firstName} {payment.student.lastName}</p>
-                          <p className="text-sm text-gray-600">
-                            {PaymentService.formatCurrency(payment.amount)}
-                          </p>
-                        </div>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => setReminderDialog({ open: true, payment })}
-                        >
-                          Eslatma
-                        </Button>
-                      </div>
-                    ))}
-                    {overduePayments.length > 5 && (
-                      <p className="text-sm text-gray-500 text-center">
-                        +{overduePayments.length - 5} ta ko'proq
-                      </p>
-                    )}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Upcoming Payments */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center text-yellow-600">
-                  <Clock className="h-5 w-5 mr-2" />
-                  Yaqinlashayotgan to'lovlar ({upcomingPayments.length})
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {upcomingPayments.length === 0 ? (
-                  <p className="text-gray-500 text-center py-4">
-                    Yaqinlashayotgan to'lovlar yo'q
-                  </p>
-                ) : (
-                  <div className="space-y-3">
-                    {upcomingPayments.slice(0, 5).map((payment) => {
-                      const daysLeft = PaymentService.getDaysUntilDue(payment.dueDate);
-                      return (
-                        <div key={payment.id} className="flex justify-between items-center p-3 bg-yellow-50 rounded">
-                          <div>
-                            <p className="font-medium">{payment.student.firstName} {payment.student.lastName}</p>
-                            <p className="text-sm text-gray-600">
-                              {PaymentService.formatCurrency(payment.amount)} • {daysLeft} kun qoldi
-                            </p>
-                          </div>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => setReminderDialog({ open: true, payment })}
-                          >
-                            Eslatma
-                          </Button>
-                        </div>
-                      );
-                    })}
-                    {upcomingPayments.length > 5 && (
-                      <p className="text-sm text-gray-500 text-center">
-                        +{upcomingPayments.length - 5} ta ko'proq
-                      </p>
-                    )}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Group Reminders */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Guruh bo'yicha eslatmalar</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {groups.map((group) => {
-                  const groupPayments = payments.filter(p => p.group.id === group.id);
-                  const groupOverdue = groupPayments.filter(p => 
-                    p.status === 'pending' && PaymentService.isPaymentOverdue(p.dueDate)
-                  );
-                  
-                  return (
-                    <div key={group.id} className="border rounded-lg p-4">
-                      <h4 className="font-medium mb-2">{group.name}</h4>
-                      <div className="space-y-2 text-sm">
-                        <div className="flex justify-between">
-                          <span>Jami to'lovlar:</span>
-                          <span>{groupPayments.length}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-red-600">Kechikkan:</span>
-                          <span className="text-red-600">{groupOverdue.length}</span>
-                        </div>
-                      </div>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="w-full mt-3"
-                        onClick={() => handleSendGroupReminders(group.id)}
-                        disabled={groupOverdue.length === 0}
-                      >
-                        <Bell className="h-4 w-4 mr-1" />
-                        Eslatma yuborish
-                      </Button>
-                    </div>
-                  );
-                })}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
-
-      {/* Payment Form Dialog */}
-      <PaymentForm
-        open={showPaymentForm}
-        onOpenChange={setShowPaymentForm}
-        payment={editingPayment}
-        onSubmit={editingPayment ? handleUpdatePayment : handleCreatePayment}
-        students={students}
-        teachers={teachers}
-        groups={groups}
+      {/* Create Payment Form */}
+      <CreatePaymentForm
+        open={showCreateForm}
+        onClose={() => {
+          setShowCreateForm(false);
+          setSelectedGroup(undefined);
+        }}
+        onSubmit={handleCreatePayment}
+        selectedGroup={selectedGroup}
       />
-
-      {/* Delete Confirmation Dialog */}
-      <AlertDialog open={deleteDialog.open} onOpenChange={(open) => setDeleteDialog({ open, payment: null })}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>To'lovni o'chirish</AlertDialogTitle>
-            <AlertDialogDescription>
-              {deleteDialog.payment && (
-                <>
-                  <strong>{deleteDialog.payment.student.firstName} {deleteDialog.payment.student.lastName}</strong>
-                  ning {PaymentService.formatCurrency(deleteDialog.payment.amount)} 
-                  miqdoridagi to'lovini o'chirishni xohlaysizmi?
-                  <br /><br />
-                  Bu amalni qaytarib bo'lmaydi.
-                </>
-              )}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Bekor qilish</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeletePayment} className="bg-red-600 hover:bg-red-700">
-              O'chirish
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {/* Reminder Confirmation Dialog */}
-      <AlertDialog open={reminderDialog.open} onOpenChange={(open) => setReminderDialog({ open, payment: null })}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Eslatma yuborish</AlertDialogTitle>
-            <AlertDialogDescription>
-              {reminderDialog.payment && (
-                <>
-                  <strong>{reminderDialog.payment.student.firstName} {reminderDialog.payment.student.lastName}</strong>
-                  ga {PaymentService.formatCurrency(reminderDialog.payment.amount)} 
-                  miqdoridagi to'lov haqida eslatma yuborilsinmi?
-                  <br /><br />
-                  Eslatma Telegram va dashboard orqali yuboriladi.
-                </>
-              )}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Bekor qilish</AlertDialogCancel>
-            <AlertDialogAction onClick={() => reminderDialog.payment && handleSendReminder(reminderDialog.payment)}>
-              Eslatma yuborish
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 };

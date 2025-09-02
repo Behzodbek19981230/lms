@@ -123,12 +123,10 @@ const CenterAdminDashboard = () => {
         totalTeachers: users.filter((u: any) => u.role === 'teacher').length,
         totalGroups: 12,
         monthlyRevenue: 125000000, // so'm
-        pendingPayments: 15,
         activeClasses: 8,
     };
 
     const recentActivities = [
-        { id: 1, type: "payment", message: "Ahmadjonov Ali to'lov qildi", time: "10 daqiqa oldin", amount: "350,000 so'm" },
         { id: 2, type: "attendance", message: "Ingliz tili guruhida yo'qlama olindi", time: "1 soat oldin" },
         { id: 3, type: "test", message: "Matematika fanidan yangi test yaratildi", time: "2 soat oldin" },
         { id: 4, type: "enrollment", message: "Yangi student qo'shildi", time: "3 soat oldin" }
@@ -235,18 +233,6 @@ const CenterAdminDashboard = () => {
                         </CardContent>
                     </Card>
 
-                    <Card className="border-border">
-                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-sm font-medium text-muted-foreground">
-                                Kutilayotgan to'lovlar
-                            </CardTitle>
-                            <AlertCircle className="h-4 w-4 text-destructive" />
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-bold text-foreground">{centerStats.pendingPayments}</div>
-                            <p className="text-xs text-destructive">Muddati o'tgan</p>
-                        </CardContent>
-                    </Card>
 
                     <Card className="border-border">
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">

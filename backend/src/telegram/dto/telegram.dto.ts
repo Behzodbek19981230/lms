@@ -119,3 +119,18 @@ export class SubmitAnswerDto {
   @IsString()
   telegramUserId?: string;
 }
+
+export class NotifyExamStartDto {
+  @ApiProperty()
+  @IsNumber()
+  examId: number;
+
+  @ApiProperty()
+  @IsString()
+  channelId: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  customMessage?: string;
+}

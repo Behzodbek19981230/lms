@@ -21,6 +21,7 @@ import { request } from '@/configs/request';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/ui/use-toast';
 import TelegramConnectCard from '@/components/TelegramConnectCard';
+import PaymentStatsWidget from '@/components/payments/PaymentStatsWidget';
 import moment from 'moment';
 
 const StudentDashboard = () => {
@@ -344,6 +345,9 @@ const StudentDashboard = () => {
             {/* Telegram Connection */}
             <TelegramConnectCard />
             
+            {/* Payment Widget */}
+            <PaymentStatsWidget />
+            
             {/* Upcoming Lessons */}
             <Card className="border-border">
               <CardHeader>
@@ -489,9 +493,8 @@ const StudentDashboard = () => {
                     <div className="p-2 bg-primary/10 rounded-full">
                       {notification.type === "exam" && <FileText className="h-4 w-4 text-primary" />}
                       {notification.type === "test" && <FileText className="h-4 w-4 text-primary" />}
-                      {notification.type === "payment" && <AlertCircle className="h-4 w-4 text-destructive" />}
                       {notification.type === "grade" && <CheckCircle className="h-4 w-4 text-accent" />}
-                      {!['exam', 'test', 'payment', 'grade'].includes(notification.type) && <Bell className="h-4 w-4 text-muted-foreground" />}
+                      {!['exam', 'test', 'grade'].includes(notification.type) && <Bell className="h-4 w-4 text-muted-foreground" />}
                     </div>
                     <div>
                       <p className="text-sm text-foreground">{notification.message || notification.title}</p>

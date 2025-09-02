@@ -139,6 +139,26 @@ All colors MUST be HSL.
     }
 }
 
+/* Select dropdown z-index fix for modals */
+[data-radix-popper-content-wrapper] {
+    z-index: 9999 !important;
+}
+
+/* Ensure select content appears above modal backdrop */
+[data-radix-select-content] {
+    z-index: 9999 !important;
+}
+
+/* Dialog overlay z-index */
+[data-radix-dialog-overlay] {
+    z-index: 50 !important;
+}
+
+/* Dialog content z-index */
+[data-radix-dialog-content] {
+    z-index: 51 !important;
+}
+
 /* Telegram iframe styles */
 iframe[src*="oauth.telegram.org"] {
     min-height: 40px !important;

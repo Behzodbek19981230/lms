@@ -11,6 +11,7 @@ import { Subject } from '../subjects/entities/subject.entity';
 import { Test } from '../tests/entities/test.entity';
 import { Question } from '../questions/entities/question.entity';
 import { Answer } from '../questions/entities/answer.entity';
+import { Exam } from '../exams/entities/exam.entity';
 import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
@@ -24,6 +25,7 @@ import { NotificationsModule } from '../notifications/notifications.module';
       Test,
       Question,
       Answer,
+      Exam,
     ]),
     ConfigModule,
     forwardRef(() => NotificationsModule),
