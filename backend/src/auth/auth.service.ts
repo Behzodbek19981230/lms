@@ -2,6 +2,7 @@ import {
   ConflictException,
   Injectable,
   UnauthorizedException,
+  BadRequestException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { Repository } from 'typeorm';
@@ -13,6 +14,7 @@ import { AuthResponseDto } from './dto/auth-response.dto';
 import { InjectRepository } from '@nestjs/typeorm';
 import { TelegramChat, ChatType, ChatStatus } from '../telegram/entities/telegram-chat.entity';
 import { TelegramAuthDto, TelegramLoginDto, TelegramRegisterDto } from './dto/telegram-auth.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
 
 @Injectable()
 export class AuthService {
@@ -281,6 +283,48 @@ export class AuthService {
         fullName: savedUser.firstName + ' ' + (savedUser.lastName || ''),
         role: savedUser.role,
       },
+    };
+  }
+
+  async changePassword(
+    userId: number,
+    changePasswordDto: ChangePasswordDto,
+  ): Promise<{ message: string }> {
+    const { currentPassword, newPassword, confirmPassword } = changePasswordDto;
+
+    // Check if new password and confirm password match
+    if (newPassword !== confirmPassword) {
+      throw new BadRequestException('Yangi parol va tasdiqlash paroli mos kelmaydi');
+    }
+
+    // Find user
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw new UnauthorizedException('Foydalanuvchi topilmadi');
+    }
+
+    // Verify current password
+    const isCurrentPasswordValid = await bcrypt.compare(
+      currentPassword,
+      user.password,
+    );
+
+    if (!isCurrentPasswordValid) {
+      throw new UnauthorizedException('Joriy parol noto\'g\'ri');
+    }
+
+    // Hash new password
+    const hashedNewPassword = await bcrypt.hash(newPassword, 12);
+
+    // Update user password
+    user.password = hashedNewPassword;
+    await this.userRepository.save(user);
+
+    return {
+      message: 'Parol muvaffaqiyatli o\'zgartirildi',
     };
   }
 }

@@ -30,6 +30,7 @@ import TelegramUserDashboard from './pages/TelegramUserDashboard';
 import CenterUsersManagement from './pages/CenterUsersManagement';
 import TeacherPayments from './pages/payments/TeacherPayments';
 import StudentPayments from './pages/payments/StudentPayments';
+import Profile from './pages/Profile';
 
 const queryClient = new QueryClient();
 
@@ -74,6 +75,7 @@ const App = () => (
 							<Route path='center-users' element={<CenterUsersManagement />} />
 							<Route path='teacher-payments' element={<TeacherPayments />} />
 							<Route path='student-payments' element={<StudentPayments />} />
+							<Route path='profile' element={<Profile />} />
 						</Route>
 
 						<Route path='*' element={<NotFound />} />

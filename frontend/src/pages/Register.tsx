@@ -8,7 +8,7 @@ import {BookOpen, Eye, EyeOff, Lock, Mail, Phone, User, MessageSquare} from "luc
 import {Link, useNavigate} from "react-router-dom";
 import {useToast} from "@/hooks/use-toast.ts";
 import {request} from "@/configs/request.ts";
-import TelegramRegister from "@/components/TelegramRegister";
+import TelegramRegisterSimple from "@/components/TelegramRegisterSimple";
 
 const Register = () => {
     const [formData, setFormData] = useState({
@@ -109,7 +109,7 @@ const Register = () => {
                             ← Oddiy ro'yxatdan o'tishga qaytish
                         </Button>
                     </div>
-                    <TelegramRegister
+                    <TelegramRegisterSimple
                         onSuccess={handleTelegramSuccess}
                         onError={handleTelegramError}
                     />

@@ -1,10 +1,12 @@
-import { Body, Controller, HttpCode, HttpStatus, Post } from '@nestjs/common';
+import { Body, Controller, HttpCode, HttpStatus, Post, Patch, UseGuards, Req } from '@nestjs/common';
 import { ApiBody, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { AuthResponseDto } from './dto/auth-response.dto';
 import { TelegramAuthDto, TelegramLoginDto, TelegramRegisterDto } from './dto/telegram-auth.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
+import { JwtAuthGuard } from './guards/jwt-auth.guard';
 
 @ApiTags('Authentication')
 @Controller('auth')
@@ -77,5 +79,32 @@ export class AuthController {
   @ApiBody({ type: TelegramRegisterDto })
   async telegramRegister(@Body() telegramRegisterDto: TelegramRegisterDto): Promise<AuthResponseDto> {
     return this.authService.telegramRegister(telegramRegisterDto);
+  }
+
+  @Patch('change-password')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Parolni o\'zgartirish' })
+  @ApiResponse({
+    status: 200,
+    description: 'Parol muvaffaqiyatli o\'zgartirildi',
+    schema: {
+      type: 'object',
+      properties: {
+        message: {
+          type: 'string',
+          example: 'Parol muvaffaqiyatli o\'zgartirildi'
+        }
+      }
+    }
+  })
+  @ApiResponse({ status: 400, description: 'Parollar mos kelmaydi' })
+  @ApiResponse({ status: 401, description: 'Joriy parol noto\'g\'ri yoki foydalanuvchi topilmadi' })
+  @ApiBody({ type: ChangePasswordDto })
+  async changePassword(
+    @Req() req: any,
+    @Body() changePasswordDto: ChangePasswordDto,
+  ): Promise<{ message: string }> {
+    return this.authService.changePassword(req.user.id, changePasswordDto);
   }
 }

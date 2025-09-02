@@ -26,6 +26,38 @@ interface TelegramLoginWidgetProps {
   usePic?: boolean;
 }
 
+// Telegram Login Widget Component
+const TelegramLoginWidget: React.FC<TelegramLoginWidgetProps> = ({
+  botName,
+  onAuth,
+  size = 'large',
+  requestAccess = 'write'
+}) => {
+  const widgetRef = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    if (!widgetRef.current || !window.TelegramLoginWidget) return;
+
+    // Clear any existing content
+    widgetRef.current.innerHTML = '';
+
+    // Create the widget script element
+    const script = document.createElement('script');
+    script.async = true;
+    script.src = 'https://telegram.org/js/telegram-widget.js?22';
+    script.setAttribute('data-telegram-login', botName);
+    script.setAttribute('data-size', size);
+    script.setAttribute('data-onauth', 'TelegramLoginWidget.dataOnauth(user)');
+    if (requestAccess) {
+      script.setAttribute('data-request-access', requestAccess);
+    }
+
+    widgetRef.current.appendChild(script);
+  }, [botName, size, requestAccess]);
+
+  return <div ref={widgetRef} className="telegram-widget-container" />;
+};
+
 declare global {
   interface Window {
     TelegramLoginWidget: {
@@ -49,20 +81,56 @@ const TelegramRegister: React.FC<Props> = ({ onSuccess, onError }) => {
   const TELEGRAM_BOT_USERNAME = import.meta.env.VITE_TELEGRAM_BOT_USERNAME || 'your_bot_username';
 
   useEffect(() => {
-    // Load Telegram Login Widget script
-    const script = document.createElement('script');
-    script.src = 'https://telegram.org/js/telegram-widget.js?22';
-    script.async = true;
-    script.onload = () => setScriptLoaded(true);
-    document.body.appendChild(script);
-
-    // Set up global callback for Telegram auth
+    // Set up global callback for Telegram auth first
     window.TelegramLoginWidget = {
       dataOnauth: handleTelegramAuth,
     };
 
+    // Check if script already exists
+    const existingScript = document.querySelector('script[src*="telegram-widget.js"]');
+    if (existingScript) {
+      setScriptLoaded(true);
+      return;
+    }
+
+    // Load Telegram Login Widget script
+    const script = document.createElement('script');
+    script.src = 'https://telegram.org/js/telegram-widget.js?22';
+    script.async = true;
+    script.onload = () => {
+      console.log('Telegram widget script loaded');
+      setScriptLoaded(true);
+      
+      // Inject the widget after script loads
+      setTimeout(() => {
+        const container = document.getElementById('telegram-login-widget-container');
+        if (container) {
+          container.innerHTML = '';
+          
+          const widgetScript = document.createElement('script');
+          widgetScript.async = true;
+          widgetScript.src = 'https://telegram.org/js/telegram-widget.js?22';
+          widgetScript.setAttribute('data-telegram-login', TELEGRAM_BOT_USERNAME);
+          widgetScript.setAttribute('data-size', 'large');
+          widgetScript.setAttribute('data-onauth', 'TelegramLoginWidget.dataOnauth(user)');
+          widgetScript.setAttribute('data-request-access', 'write');
+          
+          container.appendChild(widgetScript);
+        }
+      }, 100);
+    };
+    script.onerror = () => {
+      console.error('Failed to load Telegram widget script');
+      toast({
+        title: 'Xatolik',
+        description: 'Telegram widget yuklanmadi. Internetga ulanishni tekshiring.',
+        variant: 'destructive',
+      });
+    };
+    document.head.appendChild(script);
+
     return () => {
-      document.body.removeChild(script);
+      // Clean up global callback but keep script
       delete window.TelegramLoginWidget;
     };
   }, []);
@@ -183,27 +251,36 @@ const TelegramRegister: React.FC<Props> = ({ onSuccess, onError }) => {
         </div>
 
         {/* Telegram Login Button */}
-        <div className="flex justify-center">
+        <div className="flex justify-center flex-col items-center space-y-2">
+          <p className="text-xs text-gray-500 mb-2">
+            Bot username: <code className="bg-gray-100 px-1 rounded">{TELEGRAM_BOT_USERNAME}</code>
+          </p>
+          <p className="text-xs text-gray-500 mb-2">
+            Script loaded: <code className="bg-gray-100 px-1 rounded">{scriptLoaded ? 'Yes' : 'No'}</code>
+          </p>
+          
           {scriptLoaded ? (
-            <div
-              dangerouslySetInnerHTML={{
-                __html: `
-                  <script
-                    async
-                    src="https://telegram.org/js/telegram-widget.js?22"
-                    data-telegram-login="${TELEGRAM_BOT_USERNAME}"
-                    data-size="large"
-                    data-onauth="TelegramLoginWidget.dataOnauth(user)"
-                    data-request-access="write">
-                  </script>
-                `
-              }}
-            />
+            <div className="bg-blue-50 p-4 rounded border border-blue-200">
+              <div id="telegram-login-widget-container" className="text-center">
+                <p className="text-sm text-blue-600 mb-2">Widget container ready</p>
+                {/* Manual widget injection for debugging */}
+                <script 
+                  async
+                  src="https://telegram.org/js/telegram-widget.js?22"
+                  data-telegram-login={TELEGRAM_BOT_USERNAME}
+                  data-size="large"
+                  data-onauth="TelegramLoginWidget.dataOnauth(user)"
+                  data-request-access="write"
+                ></script>
+              </div>
+            </div>
           ) : (
-            <Button disabled className="w-full">
-              <MessageSquare className="mr-2 h-4 w-4" />
-              Telegram widget yuklanmoqda...
-            </Button>
+            <div className="text-center">
+              <Button disabled className="w-full mb-2">
+                <MessageSquare className="mr-2 h-4 w-4" />
+                Telegram widget yuklanmoqda...
+              </Button>
+            </div>
           )}
         </div>
 
