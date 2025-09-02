@@ -25,7 +25,6 @@ import {
   SendTestToChannelDto,
   SubmitAnswerDto,
   AuthenticateUserDto,
-  NotifyExamStartDto,
 } from './dto/telegram.dto';
 
 @ApiTags('Telegram')
@@ -58,6 +57,7 @@ export class TelegramController {
       return { ok: true };
     } catch (error) {
       this.logger.error('Error processing webhook:', error);
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       return { ok: false, error: error.message };
     }
   }
@@ -168,12 +168,13 @@ export class TelegramController {
   @Get('test-auth')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
-  async testAuth(@Request() req) {
+  testAuth(@Request() req) {
     this.logger.log(
       `Test auth endpoint hit. User: ${JSON.stringify(req.user)}`,
     );
     return {
       message: 'Authentication successful',
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       user: req.user,
       timestamp: new Date().toISOString(),
     };
@@ -183,12 +184,13 @@ export class TelegramController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.TEACHER, UserRole.ADMIN, UserRole.SUPERADMIN)
   @ApiBearerAuth()
-  async testRoles(@Request() req) {
+  testRoles(@Request() req) {
     this.logger.log(
       `Test roles endpoint hit. User: ${JSON.stringify(req.user)}`,
     );
     return {
       message: 'Role authorization successful',
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       user: req.user,
       timestamp: new Date().toISOString(),
     };
@@ -343,11 +345,13 @@ export class TelegramController {
             return;
           }
           // Check if it's attendance marking (new format: studentId_status)
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-call
           if (command.match(/^\d+_(keldi|kelmadi|kechikdi)$/)) {
             await this.handleAttendanceMarking(message);
             return;
           }
           // Check if it's old format attendance marking
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-call
           if (command.includes('_yoklama_')) {
             await this.handleAttendanceMarking(message);
             return;

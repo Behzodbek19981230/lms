@@ -50,9 +50,9 @@ const TelegramRegisterSimple: React.FC<Props> = ({ onSuccess, onError }) => {
     
     try {
       const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
-      console.log('Sending registration request to:', `${API_BASE_URL}/auth/telegram/register`);
+      console.log('Sending registration request to:', `${API_BASE_URL}/api/auth/telegram/register`);
       
-      const response = await fetch(`${API_BASE_URL}/auth/telegram/register`, {
+      const response = await fetch(`${API_BASE_URL}/api/auth/telegram/register`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
