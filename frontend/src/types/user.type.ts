@@ -2,7 +2,7 @@ import { CenterType } from './center.type';
 
 export type UserType = {
 	id: number;
-	email: string;
+	username: string;
 	firstName: string;
 	lastName: string;
 	fullName: string;

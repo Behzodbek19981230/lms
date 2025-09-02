@@ -419,7 +419,7 @@ export class TelegramController {
       let welcomeMessage = `🎓 <b>Assalomu alaykum, Universal LMS botiga xush kelibsiz!</b>\n\n`;
 
       if (result.autoConnected) {
-        welcomeMessage += `✅ Hisobingiz avtomatik ulandi.\n\n📋 <b>Mavjud buyruqlar:</b>\n`;
+        welcomeMessage += result.message;
       } else {
         welcomeMessage += `📝 Ro'yxatdan o'tish muvaffaqiyatli!\n\n📋 <b>Asosiy buyruqlar:</b>\n`;
       }

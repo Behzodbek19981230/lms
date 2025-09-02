@@ -4,6 +4,7 @@ import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { AuthResponseDto } from './dto/auth-response.dto';
+import { TelegramAuthDto, TelegramLoginDto } from './dto/telegram-auth.dto';
 
 @ApiTags('Authentication')
 @Controller('auth')
@@ -31,9 +32,37 @@ export class AuthController {
     description: 'Muvaffaqiyatli tizimga kirdi',
     type: AuthResponseDto,
   })
-  @ApiResponse({ status: 401, description: "Email yoki parol noto'g'ri" })
-  @ApiBody({ type: LoginDto }) // 🔥 Majburiy qilamiz
+  @ApiResponse({ status: 401, description: "Foydalanuvchi nomi yoki parol noto'g'ri" })
+  @ApiBody({ type: LoginDto })
   async login(@Body() loginDto: LoginDto): Promise<AuthResponseDto> {
     return this.authService.login(loginDto);
+  }
+
+  @Post('telegram/login')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Telegram orqali tizimga kirish' })
+  @ApiResponse({
+    status: 200,
+    description: 'Muvaffaqiyatli Telegram orqali tizimga kirdi',
+    type: AuthResponseDto,
+  })
+  @ApiResponse({ status: 401, description: 'Telegram hisobi bog\'lanmagan' })
+  @ApiBody({ type: TelegramLoginDto })
+  async telegramLogin(@Body() telegramLoginDto: TelegramLoginDto): Promise<AuthResponseDto> {
+    return this.authService.telegramLogin(telegramLoginDto);
+  }
+
+  @Post('telegram/auth')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Telegram hisobini tasdiqlash' })
+  @ApiResponse({
+    status: 200,
+    description: 'Muvaffaqiyatli Telegram hisobi tasdiqlandi',
+    type: AuthResponseDto,
+  })
+  @ApiResponse({ status: 401, description: 'Telegram hisobi bog\'lanmagan' })
+  @ApiBody({ type: TelegramAuthDto })
+  async telegramAuth(@Body() telegramAuthDto: TelegramAuthDto): Promise<AuthResponseDto> {
+    return this.authService.telegramAuth(telegramAuthDto);
   }
 }

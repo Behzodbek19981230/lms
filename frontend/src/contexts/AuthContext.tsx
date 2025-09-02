@@ -4,7 +4,8 @@ import { request } from '@/configs/request.ts';
 
 interface AuthContextType {
 	user: UserType | null;
-	login: (email: string, password: string) => Promise<UserType>;
+	login: (username: string, password: string) => Promise<UserType>;
+	telegramLogin: (telegramUserId: string) => Promise<UserType>;
 	logout: () => void;
 	isLoading: boolean;
 }
@@ -36,13 +37,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 		setIsLoading(false);
 	}, []);
 
-	const login = async (email: string, password: string): Promise<UserType> => {
+	const login = async (username: string, password: string): Promise<UserType> => {
 		setIsLoading(true);
 
-		// Mock authentication - simple validation
-		if (email && password.length >= 6) {
+		// Authentication with username
+		if (username && password.length >= 6) {
 			const { data } = await request.post('/auth/login', {
-				email,
+				username,
 				password,
 			});
 			console.log('Login response:', data);
@@ -50,7 +51,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 				setIsLoading(false);
 				return null;
 			}
-			localStorage.setItem('e_token', data.access_token); // Mock token for demonstration
+			localStorage.setItem('e_token', data.access_token);
 			localStorage.setItem('edunimbus_user', JSON.stringify(data.user));
 
 			setUser({
@@ -65,10 +66,39 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 		return null;
 	};
 
+	const telegramLogin = async (telegramUserId: string): Promise<UserType> => {
+		setIsLoading(true);
+
+		try {
+			const { data } = await request.post('/auth/telegram/login', {
+				telegramUserId,
+			});
+			console.log('Telegram login response:', data);
+			if (!data.access_token) {
+				setIsLoading(false);
+				return null;
+			}
+			localStorage.setItem('e_token', data.access_token);
+			localStorage.setItem('edunimbus_user', JSON.stringify(data.user));
+
+			setUser({
+				...data.user,
+			});
+
+			setIsLoading(false);
+			return data.user;
+		} catch (error) {
+			console.error('Telegram login error:', error);
+			setIsLoading(false);
+			return null;
+		}
+	};
+
 	const logout = () => {
 		setUser(null);
 		localStorage.removeItem('edunimbus_user');
+		localStorage.removeItem('e_token');
 	};
 
-	return <AuthContext.Provider value={{ user, login, logout, isLoading }}>{children}</AuthContext.Provider>;
+	return <AuthContext.Provider value={{ user, login, telegramLogin, logout, isLoading }}>{children}</AuthContext.Provider>;
 };

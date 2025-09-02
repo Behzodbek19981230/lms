@@ -1,6 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
 import {
-  IsEmail,
   IsEnum,
   IsNotEmpty,
   IsOptional,
@@ -11,12 +10,12 @@ import { UserRole } from '../../users/entities/user.entity';
 
 export class RegisterDto {
   @ApiProperty({
-    example: 'teacher@example.com',
-    description: 'O‘qituvchining email manzili',
+    example: 'teacher123',
+    description: 'O'qituvchining foydalanuvchi nomi',
   })
-  @IsEmail()
+  @IsString()
   @IsNotEmpty()
-  email: string;
+  username: string;
 
   @ApiProperty({ example: 'password123', minLength: 6 })
   @IsString()

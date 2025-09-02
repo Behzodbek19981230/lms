@@ -1,5 +1,4 @@
 import {
-  IsEmail,
   IsEnum,
   IsNotEmpty,
   IsOptional,
@@ -9,9 +8,10 @@ import { UserRole } from '../entities/user.entity';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class CreateUserDto {
-  @ApiProperty({ example: 'user@example.com' })
-  @IsEmail()
-  email: string;
+  @ApiProperty({ example: 'user123' })
+  @IsString()
+  @IsNotEmpty()
+  username: string;
 
   @ApiProperty({ example: 'password123' })
   @IsString()

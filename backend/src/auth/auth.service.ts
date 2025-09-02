@@ -11,33 +11,38 @@ import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { AuthResponseDto } from './dto/auth-response.dto';
 import { InjectRepository } from '@nestjs/typeorm';
+import { TelegramChat } from '../telegram/entities/telegram-chat.entity';
+import { TelegramAuthDto, TelegramLoginDto } from './dto/telegram-auth.dto';
 
 @Injectable()
 export class AuthService {
   constructor(
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
+    
+    @InjectRepository(TelegramChat)
+    private readonly telegramChatRepository: Repository<TelegramChat>,
 
-    private readonly jwtService: JwtService, // faqat shu
+    private readonly jwtService: JwtService,
   ) {}
 
   async register(registerDto: RegisterDto): Promise<AuthResponseDto> {
-    const { email, password, firstName, lastName, phone, role } = registerDto;
+    const { username, password, firstName, lastName, phone, role } = registerDto;
 
     const existingUser = await this.userRepository.findOne({
-      where: { email },
+      where: { username },
     });
 
     if (existingUser) {
       throw new ConflictException(
-        "Bu email manzil allaqachon ro'yxatdan o'tgan",
+        "Bu foydalanuvchi nomi allaqachon ro'yxatdan o'tgan",
       );
     }
 
     const hashedPassword = await bcrypt.hash(password, 12);
 
     const user = this.userRepository.create({
-      email,
+      username,
       password: hashedPassword,
       firstName,
       lastName,
@@ -49,7 +54,7 @@ export class AuthService {
 
     const payload = {
       sub: savedUser.id,
-      email: savedUser.email,
+      username: savedUser.username,
       role: savedUser.role,
     };
     const access_token = this.jwtService.sign(payload);
@@ -58,7 +63,7 @@ export class AuthService {
       access_token,
       user: {
         id: savedUser.id,
-        email: savedUser.email,
+        username: savedUser.username,
         firstName: savedUser.firstName,
         lastName: savedUser.lastName,
         fullName: savedUser.firstName + ' ' + savedUser.lastName,
@@ -68,26 +73,26 @@ export class AuthService {
   }
 
   async login(loginDto: LoginDto): Promise<AuthResponseDto> {
-    const { email, password } = loginDto;
+    const { username, password } = loginDto;
 
     const user = await this.userRepository.findOne({
-      where: { email },
+      where: { username },
       relations: ['subjects'],
     });
 
     if (!user) {
-      throw new UnauthorizedException("Email yoki parol noto'g'ri");
+      throw new UnauthorizedException("Foydalanuvchi nomi yoki parol noto'g'ri");
     }
 
     const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
-      throw new UnauthorizedException("Email yoki parol noto'g'ri");
+      throw new UnauthorizedException("Foydalanuvchi nomi yoki parol noto'g'ri");
     }
 
     user.lastLoginAt = new Date();
     await this.userRepository.save(user);
 
-    const payload = { sub: user.id, email: user.email, role: user.role };
+    const payload = { sub: user.id, username: user.username, role: user.role };
     const access_token = this.jwtService.sign(payload);
     const userData = await this.userRepository.findOne({
       where: { id: user.id },
@@ -114,5 +119,73 @@ export class AuthService {
     }
 
     return user;
+  }
+
+  async telegramAuth(telegramAuthDto: TelegramAuthDto): Promise<AuthResponseDto> {
+    const { telegramUserId, telegramUsername, firstName, lastName } = telegramAuthDto;
+
+    // Find existing telegram chat to link with user
+    const telegramChat = await this.telegramChatRepository.findOne({
+      where: { telegramUserId },
+      relations: ['user'],
+    });
+
+    if (!telegramChat || !telegramChat.user) {
+      throw new UnauthorizedException(
+        'Telegram hisobi LMS foydalanuvchisi bilan bog\'lanmagan',
+      );
+    }
+
+    const user = telegramChat.user;
+    user.lastLoginAt = new Date();
+    await this.userRepository.save(user);
+
+    const payload = { sub: user.id, username: user.username, role: user.role };
+    const access_token = this.jwtService.sign(payload);
+
+    return {
+      access_token,
+      user: {
+        id: user.id,
+        username: user.username,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        fullName: user.fullName,
+        role: user.role,
+      },
+    };
+  }
+
+  async telegramLogin(telegramLoginDto: TelegramLoginDto): Promise<AuthResponseDto> {
+    const { telegramUserId } = telegramLoginDto;
+
+    // Find telegram chat linked to user
+    const telegramChat = await this.telegramChatRepository.findOne({
+      where: { telegramUserId },
+      relations: ['user'],
+    });
+
+    if (!telegramChat || !telegramChat.user) {
+      throw new UnauthorizedException(
+        'Telegram hisobi LMS foydalanuvchisi bilan bog\'lanmagan',
+      );
+    }
+
+    const user = telegramChat.user;
+    user.lastLoginAt = new Date();
+    await this.userRepository.save(user);
+
+    const payload = { sub: user.id, username: user.username, role: user.role };
+    const access_token = this.jwtService.sign(payload);
+
+    const userData = await this.userRepository.findOne({
+      where: { id: user.id },
+      relations: ['subjects', 'center'],
+    });
+
+    return {
+      access_token,
+      user: userData,
+    };
   }
 }

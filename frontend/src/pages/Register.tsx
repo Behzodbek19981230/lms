@@ -11,7 +11,7 @@ import {request} from "@/configs/request.ts";
 
 const Register = () => {
     const [formData, setFormData] = useState({
-        email: "",
+        username: "",
         password: "",
         confirmPassword: "",
         full_name: "",
@@ -43,7 +43,7 @@ const Register = () => {
         }
         try {
             const {data: response} = await request.post('/auth/register', {
-                email: formData.email,
+                username: formData.username,
                 password: formData.password,
                 firstName: formData.full_name,
                 lastName: '',
@@ -116,17 +116,17 @@ const Register = () => {
                             </div>
 
                             <div className="space-y-2">
-                                <Label htmlFor="email" className="text-card-foreground">
-                                    Email manzil
+                                <Label htmlFor="username" className="text-card-foreground">
+                                    Foydalanuvchi nomi
                                 </Label>
                                 <div className="relative">
-                                    <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground"/>
+                                    <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground"/>
                                     <Input
-                                        id="email"
-                                        type="email"
-                                        placeholder="email@misol.uz"
-                                        value={formData.email}
-                                        onChange={(e) => handleInputChange("email", e.target.value)}
+                                        id="username"
+                                        type="text"
+                                        placeholder="teacher123"
+                                        value={formData.username}
+                                        onChange={(e) => handleInputChange("username", e.target.value)}
                                         className="pl-10"
                                         required
                                     />

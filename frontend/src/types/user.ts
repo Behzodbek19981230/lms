@@ -7,7 +7,7 @@ export enum UserRole {
 
 export interface User {
   id: string;
-  email: string;
+  username: string;
   firstName: string;
   lastName: string;
   phone?: string;
@@ -19,7 +19,7 @@ export interface User {
 }
 
 export interface CreateUserDto {
-  email: string;
+  username: string;
   password: string;
   firstName: string;
   lastName: string;
@@ -28,7 +28,7 @@ export interface CreateUserDto {
 }
 
 export interface UpdateUserDto {
-  email?: string;
+  username?: string;
   firstName?: string;
   lastName?: string;
   phone?: string;

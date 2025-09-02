@@ -11,7 +11,7 @@ export class StudentDto {
   lastName: string;
 
   @ApiProperty()
-  email: string;
+  username: string;
 
   @ApiProperty()
   role: string;

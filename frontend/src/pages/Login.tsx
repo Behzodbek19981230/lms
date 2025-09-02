@@ -3,13 +3,14 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { BookOpen, Eye, EyeOff, Lock, Mail } from 'lucide-react';
+import { BookOpen, Eye, EyeOff, Lock, User } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast.ts';
 import { useAuth } from '@/contexts/AuthContext.tsx';
+import TelegramAuthButton from '@/components/TelegramAuthButton.tsx';
 
 const Login = () => {
-	const [email, setEmail] = useState('teacher@gmail.com');
+	const [username, setUsername] = useState('teacher123');
 	const [password, setPassword] = useState('123456');
 	const [showPassword, setShowPassword] = useState(false);
 	const [isLoading, setIsLoading] = useState(false);
@@ -20,7 +21,7 @@ const Login = () => {
 		e.preventDefault();
 		setIsLoading(true);
 
-		const user = await login(email, password);
+		const user = await login(username, password);
 		console.log(user);
 
 		if (user) {
@@ -58,8 +59,8 @@ const Login = () => {
 			}
 		} else {
 			toast({
-				title: 'Login failed',
-				description: 'Please check your email and password.',
+				title: 'Xatolik',
+				description: 'Foydalanuvchi nomi yoki parolni tekshiring.',
 				variant: 'destructive',
 			});
 		}
@@ -90,17 +91,17 @@ const Login = () => {
 					<CardContent>
 						<form onSubmit={handleSubmit} className='space-y-6'>
 							<div className='space-y-2'>
-								<Label htmlFor='email' className='text-card-foreground'>
-									Email manzil
+								<Label htmlFor='username' className='text-card-foreground'>
+									Foydalanuvchi nomi
 								</Label>
 								<div className='relative'>
-									<Mail className='absolute left-3 top-3 h-4 w-4 text-muted-foreground' />
+									<User className='absolute left-3 top-3 h-4 w-4 text-muted-foreground' />
 									<Input
-										id='email'
-										type='email'
-										placeholder='email@misol.uz'
-										value={email}
-										onChange={(e) => setEmail(e.target.value)}
+										id='username'
+										type='text'
+										placeholder='teacher123'
+										value={username}
+										onChange={(e) => setUsername(e.target.value)}
 										className='pl-10'
 										required
 									/>
@@ -149,6 +150,41 @@ const Login = () => {
 								{isLoading ? 'Tekshirilmoqda...' : 'Kirish'}
 							</Button>
 						</form>
+
+						{/* Telegram Login */}
+						<div className='mt-6'>
+							<div className='relative'>
+								<div className='absolute inset-0 flex items-center'>
+									<span className='w-full border-t border-border' />
+								</div>
+								<div className='relative flex justify-center text-xs uppercase'>
+									<span className='bg-background px-2 text-muted-foreground'>yoki</span>
+								</div>
+							</div>
+							<div className='mt-6'>
+								<TelegramAuthButton 
+									size="lg"
+									className="w-full"
+									onSuccess={(telegramUser) => {
+										console.log('Telegram login successful:', telegramUser);
+										// Navigate based on user role after successful Telegram auth
+										toast({
+											title: 'Muvaffaqiyat!',
+											description: 'Telegram orqali muvaffaqiyatli kirildi.',
+										});
+										// Here you would typically get user role from the response and navigate accordingly
+										navigate('/account/teacher'); // Default navigation, should be based on actual user role
+									}}
+									onError={(error) => {
+										toast({
+											title: 'Xatolik',
+											description: error || 'Telegram orqali kirishda xatolik yuz berdi.',
+											variant: 'destructive',
+										});
+									}}
+								/>
+							</div>
+						</div>
 
 						<div className='mt-6 text-center'>
 							<p className='text-sm text-muted-foreground'>

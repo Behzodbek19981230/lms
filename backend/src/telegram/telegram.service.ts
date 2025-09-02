@@ -294,18 +294,8 @@ export class TelegramService {
           `Auto-linking user ${linkedUser.firstName} ${linkedUser.lastName} with Telegram user ${telegramUserId}`,
         );
       } else {
-        // No matching user found - create a placeholder/guest user or handle differently
-        // For now, we'll create a basic user record to allow immediate connection
         try {
-          linkedUser = await this.userRepo.save({
-            firstName: firstName || 'Telegram',
-            lastName: lastName || 'User',
-            email: `telegram_${telegramUserId}@temp.universal-lms.uz`,
-            password: 'temp_telegram_user', // This should be hashed in real implementation
-            role: UserRole.STUDENT,
-            isActive: true,
-            // Set other required fields with defaults
-          });
+          linkedUser = await this.userRepo.update({});
 
           this.logger.log(
             `Created temporary user ${linkedUser.id} for Telegram user ${telegramUserId}`,
