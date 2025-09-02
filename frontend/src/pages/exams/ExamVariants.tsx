@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useAuth } from '@/contexts/AuthContext';
 import { ArrowLeft, Download, Search, Filter, FileText, Users, CheckCircle, Clock, AlertCircle } from 'lucide-react';
 import moment from 'moment';
+import { request } from '@/configs/request';
 
 interface ExamVariant {
 	id: number;
@@ -78,33 +79,14 @@ const ExamVariants: React.FC = () => {
 		try {
 			setLoading(true);
 
-			// Fetch exam details
-			const examResponse = await fetch(`/api/exams/${examId}`, {
-				headers: {
-					Authorization: `Bearer ${user?.token}`,
-				},
-			});
+			// Fetch exam details and variants using request
+			const [examResponse, variantsResponse] = await Promise.all([
+				request.get(`/exams/${examId}`),
+				request.get(`/exams/${examId}/variants`)
+			]);
 
-			if (!examResponse.ok) {
-				throw new Error('Failed to fetch exam');
-			}
-
-			const examData = await examResponse.json();
-			setExam(examData);
-
-			// Fetch variants
-			const variantsResponse = await fetch(`/api/exams/${examId}/variants`, {
-				headers: {
-					Authorization: `Bearer ${user?.token}`,
-				},
-			});
-
-			if (!variantsResponse.ok) {
-				throw new Error('Failed to fetch variants');
-			}
-
-			const variantsData = await variantsResponse.json();
-			setVariants(variantsData);
+			setExam(examResponse.data);
+			setVariants(variantsResponse.data);
 		} catch (err) {
 			setError(err instanceof Error ? err.message : 'An error occurred');
 		} finally {
@@ -114,17 +96,8 @@ const ExamVariants: React.FC = () => {
 
 	const downloadVariantPDF = async (variantId: number) => {
 		try {
-			const response = await fetch(`/api/exams/variants/${variantId}/pdf`, {
-				headers: {
-					Authorization: `Bearer ${user?.token}`,
-				},
-			});
-
-			if (!response.ok) {
-				throw new Error('Failed to download PDF');
-			}
-
-			const blob = await response.blob();
+			const response = await request.get(`/exams/variants/${variantId}/pdf`, { responseType: 'blob' });
+			const blob = response.data as Blob;
 			const url = window.URL.createObjectURL(blob);
 			const a = document.createElement('a');
 			a.href = url;
@@ -140,17 +113,8 @@ const ExamVariants: React.FC = () => {
 
 	const downloadAnswerKeyPDF = async (variantId: number) => {
 		try {
-			const response = await fetch(`/api/exams/variants/${variantId}/answer-key`, {
-				headers: {
-					Authorization: `Bearer ${user?.token}`,
-				},
-			});
-
-			if (!response.ok) {
-				throw new Error('Failed to download answer key');
-			}
-
-			const blob = await response.blob();
+			const response = await request.get(`/exams/variants/${variantId}/answer-key`, { responseType: 'blob' });
+			const blob = response.data as Blob;
 			const url = window.URL.createObjectURL(blob);
 			const a = document.createElement('a');
 			a.href = url;
@@ -166,17 +130,8 @@ const ExamVariants: React.FC = () => {
 
 	const downloadAllVariantsPDF = async () => {
 		try {
-			const response = await fetch(`/api/exams/${examId}/variants/pdf`, {
-				headers: {
-					Authorization: `Bearer ${user?.token}`,
-				},
-			});
-
-			if (!response.ok) {
-				throw new Error('Failed to download all variants');
-			}
-
-			const blob = await response.blob();
+			const response = await request.get(`/exams/${examId}/variants/pdf`, { responseType: 'blob' });
+			const blob = response.data as Blob;
 			const url = window.URL.createObjectURL(blob);
 			const a = document.createElement('a');
 			a.href = url;
@@ -192,17 +147,8 @@ const ExamVariants: React.FC = () => {
 
 	const downloadAllAnswerKeysPDF = async () => {
 		try {
-			const response = await fetch(`/api/exams/${examId}/variants/answer-keys`, {
-				headers: {
-					Authorization: `Bearer ${user?.token}`,
-				},
-			});
-
-			if (!response.ok) {
-				throw new Error('Failed to download all answer keys');
-			}
-
-			const blob = await response.blob();
+			const response = await request.get(`/exams/${examId}/variants/answer-keys`, { responseType: 'blob' });
+			const blob = response.data as Blob;
 			const url = window.URL.createObjectURL(blob);
 			const a = document.createElement('a');
 			a.href = url;

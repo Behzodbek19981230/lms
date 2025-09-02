@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { MathRenderer } from '@/components/math-renderer';
 import { Edit, Trash2, ImageIcon, Plus, Calculator } from 'lucide-react';
 import { MathPopup } from '@/components/math-popup';
+import { request } from '@/configs/request';
 
 interface MathFormula {
 	id: number;
@@ -429,8 +430,10 @@ export function MathQuestionEditor({ questionId, mode = 'create' }: MathQuestion
 			for (let i = 0; i < uploadedImages.length; i++) {
 				const image = uploadedImages[i];
 				try {
-					const response = await fetch(image.url);
-					const blob = await response.blob();
+					const response = await request.get(image.url, {
+						responseType: 'blob',
+					});
+					const blob = response.data;
 					const file = new File([blob], image.name, { type: blob.type });
 					formData.append(`images[${i}]`, file);
 				} catch (error) {

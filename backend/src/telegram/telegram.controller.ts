@@ -285,6 +285,7 @@ export class TelegramController {
     );
 
     // Check if this is an answer submission
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
     if (message.text && message.text.startsWith('#T')) {
       await this.processAnswerSubmission(message);
       return;
@@ -292,6 +293,7 @@ export class TelegramController {
 
     // Handle bot commands
     if (message.text) {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       const command = message.text.toLowerCase().trim();
 
       switch (command) {
