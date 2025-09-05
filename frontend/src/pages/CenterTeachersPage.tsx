@@ -53,7 +53,7 @@ interface Teacher {
   id: number;
   firstName: string;
   lastName: string;
-  email: string;
+  username: string;
   phone?: string;
   isActive: boolean;
   createdAt: string;
@@ -82,7 +82,7 @@ export default function CenterTeachersPage() {
     const matchesSearch = 
       teacher.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       teacher.lastName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      teacher.email.toLowerCase().includes(searchTerm.toLowerCase());
+      teacher.username.toLowerCase().includes(searchTerm.toLowerCase());
     
     const matchesStatus = 
       statusFilter === 'all' ||
@@ -160,11 +160,11 @@ export default function CenterTeachersPage() {
 
   const handleExport = () => {
     const csvContent = [
-      ['Ism', 'Familiya', 'Email', 'Telefon', 'Holat', 'Fanlar', 'Guruhlar soni', 'Ro\'yxatdan o\'tgan sana'],
+      ['Ism', 'Familiya', 'username', 'Telefon', 'Holat', 'Fanlar', 'Guruhlar soni', 'Ro\'yxatdan o\'tgan sana'],
       ...filteredTeachers.map(teacher => [
         teacher.firstName,
         teacher.lastName,
-        teacher.email,
+        teacher.username,
         teacher.phone || '',
         teacher.isActive ? 'Faol' : 'Nofaol',
         teacher.subjects?.map(s => s.name).join('; ') || '',
@@ -288,7 +288,7 @@ export default function CenterTeachersPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>O'qituvchi</TableHead>
-                  <TableHead>Email</TableHead>
+                  <TableHead>username</TableHead>
                   <TableHead>Telefon</TableHead>
                   <TableHead>Fanlar</TableHead>
                   <TableHead>Guruhlar</TableHead>
@@ -318,7 +318,7 @@ export default function CenterTeachersPage() {
                           {teacher.firstName} {teacher.lastName}
                         </div>
                       </TableCell>
-                      <TableCell>{teacher.email}</TableCell>
+                      <TableCell>{teacher.username}</TableCell>
                       <TableCell>{teacher.phone || '—'}</TableCell>
                       <TableCell>
                         <div className="flex flex-wrap gap-1">
@@ -429,8 +429,8 @@ export default function CenterTeachersPage() {
                   <p className="text-sm text-muted-foreground">{selectedTeacher.lastName}</p>
                 </div>
                 <div>
-                  <label className="text-sm font-medium">Email</label>
-                  <p className="text-sm text-muted-foreground">{selectedTeacher.email}</p>
+                  <label className="text-sm font-medium">username</label>
+                  <p className="text-sm text-muted-foreground">{selectedTeacher.username}</p>
                 </div>
                 <div>
                   <label className="text-sm font-medium">Telefon</label>

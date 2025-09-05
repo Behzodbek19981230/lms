@@ -20,7 +20,7 @@ interface LMSUser {
   id: number;
   firstName: string;
   lastName: string;
-  email: string;
+  username: string;
   role: string;
 }
 
@@ -105,7 +105,7 @@ export default function TelegramLinkingCard() {
   };
 
   const getLMSDisplayName = (user: LMSUser) => {
-    return `${user.firstName} ${user.lastName} (${user.email})`;
+    return `${user.firstName} ${user.lastName} (${user.username})`;
   };
 
   if (loading) {

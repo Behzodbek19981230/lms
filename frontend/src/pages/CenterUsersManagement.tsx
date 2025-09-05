@@ -580,10 +580,7 @@ const CenterUsersManagement = () => {
                                                                             <Eye className="h-4 w-4 mr-2" />
                                                                             Ko'rish
                                                                         </DropdownMenuItem>
-                                                                        <DropdownMenuItem>
-                                                                            <Mail className="h-4 w-4 mr-2" />
-                                                                            Email yuborish
-                                                                        </DropdownMenuItem>
+                                                                        
                                                                     </DropdownMenuContent>
                                                                 </DropdownMenu>
                                                             </TableCell>

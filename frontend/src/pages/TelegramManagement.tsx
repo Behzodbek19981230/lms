@@ -547,7 +547,7 @@ const TelegramManagement: React.FC = () => {
                     <SelectContent>
                       {users.map((user) => (
                         <SelectItem key={user.id} value={user.id.toString()}>
-                          {user.firstName} {user.lastName} ({user.email})
+                          {user.firstName} {user.lastName} ({user.username})
                         </SelectItem>
                       ))}
                     </SelectContent>

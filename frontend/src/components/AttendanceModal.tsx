@@ -13,7 +13,7 @@ interface Student {
   id: number;
   firstName: string;
   lastName: string;
-  email: string;
+  username: string;
 }
 
 interface Group {
@@ -274,7 +274,7 @@ export default function AttendanceModal({ isOpen, onClose, onSuccess, groups }: 
                                   {student.firstName} {student.lastName}
                                 </h4>
                                 <p className="text-sm text-muted-foreground">
-                                  {student.email}
+                                  {student.username}
                                 </p>
                               </div>
                             </div>

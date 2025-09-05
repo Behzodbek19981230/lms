@@ -32,7 +32,7 @@ const SuperAdminDashboard = () => {
     const [createCenterOpen, setCreateCenterOpen] = useState(false);
     const [assignAdminOpen, setAssignAdminOpen] = useState(false);
     const [newCenter, setNewCenter] = useState({ name: "", description: "", phone: "", address: "" });
-    const [adminForm, setAdminForm] = useState({ centerId: "", email: "", password: "", firstName: "", lastName: "", phone: "" });
+    const [adminForm, setAdminForm] = useState({ centerId: "", username: "", password: "", firstName: "", lastName: "", phone: "" });
     const { toast } = useToast();
 
     const loadCenters = async () => {
@@ -157,8 +157,8 @@ const SuperAdminDashboard = () => {
                                         </div>
                                     </div>
                                     <div>
-                                        <Label>Email</Label>
-                                        <Input type="email" value={adminForm.email} onChange={(e) => setAdminForm(p => ({ ...p, email: e.target.value }))} />
+                                        <Label>Username</Label>
+                                        <Input type="text" value={adminForm.username} onChange={(e) => setAdminForm(p => ({ ...p, username: e.target.value }))} />
                                     </div>
                                     <div>
                                         <Label>Telefon</Label>
@@ -172,7 +172,7 @@ const SuperAdminDashboard = () => {
                                         try {
                                             if (!adminForm.centerId) return;
                                             await request.post(`/users/centers/${adminForm.centerId}/admin`, {
-                                                email: adminForm.email,
+                                                username: adminForm.username,
                                                 password: adminForm.password,
                                                 firstName: adminForm.firstName,
                                                 lastName: adminForm.lastName,
@@ -180,7 +180,7 @@ const SuperAdminDashboard = () => {
                                                 role: 'admin'
                                             });
                                             setAssignAdminOpen(false);
-                                            setAdminForm({ centerId: '', email: '', password: '', firstName: '', lastName: '', phone: '' });
+                                            setAdminForm({ centerId: '', username: '', password: '', firstName: '', lastName: '', phone: '' });
                                             toast({ title: 'Admin yaratildi' });
                                         } catch (e: any) {
                                             toast({ title: 'Xatolik', description: e?.response?.data?.message || 'Admin tayinlab bo\'lmadi', variant: 'destructive' });
