@@ -48,6 +48,14 @@ export class ExamVariantQuestion extends BaseEntity {
     hasFormula?: boolean;
   }>;
 
+  // Javob variantlari (backward compatibility)
+  @Column({ type: 'json', nullable: true })
+  options: string[];
+
+  // To'g'ri javob (backward compatibility)
+  @Column({ nullable: true })
+  correctAnswer: string;
+
   // O'quvchining javobi
   @Column({ type: 'json', nullable: true })
   studentAnswer: {

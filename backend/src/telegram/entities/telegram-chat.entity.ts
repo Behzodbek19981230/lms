@@ -12,8 +12,9 @@ export enum ChatType {
 
 export enum ChatStatus {
   ACTIVE = 'active',
+  BLOCKED = 'blocked',
   INACTIVE = 'inactive',
-  BLOCKED = 'blocked'
+  PENDING = 'pending',
 }
 
 @Entity('telegram_chats')

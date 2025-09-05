@@ -120,16 +120,14 @@ export class AnswerProcessorService {
       } else {
         // Create new answer
         const newAnswer = this.telegramAnswerRepo.create({
-          testId,
+          messageId,
           questionNumber,
           answerText,
-          messageId,
           status: AnswerStatus.PENDING,
           student: chat.user,
-          chat,
-          submittedAt: new Date(),
+          chat: chat,
         });
-
+        newAnswer.testId = testId;
         const savedAnswer = await this.telegramAnswerRepo.save(newAnswer);
         await this.checkAnswer(savedAnswer.id);
 

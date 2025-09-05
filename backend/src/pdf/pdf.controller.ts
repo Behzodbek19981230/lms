@@ -16,7 +16,7 @@ import {
   ApiBearerAuth,
   ApiQuery,
 } from '@nestjs/swagger';
-import { Response } from 'express';
+import type { Response } from 'express';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -46,11 +46,11 @@ export class PdfController {
   @ApiQuery({ name: 'studentName', type: 'string', required: false })
   async generateTestPDF(
     @Param('testId') testId: string,
+    @Res() res: Response,
     @Query('method') method: 'pdfkit' | 'puppeteer' = 'pdfkit',
     @Query('isAnswerKey') isAnswerKey: boolean = false,
     @Query('variantNumber') variantNumber?: string,
     @Query('studentName') studentName?: string,
-    @Res() res: Response,
   ) {
     try {
       const pdfBuffer = await this.improvedExamsService.generateTestPDF(
@@ -123,10 +123,10 @@ export class PdfController {
   @ApiResponse({ status: 200, description: 'HTML preview generated' })
   async generateHTMLPreview(
     @Param('testId') testId: string,
+    @Res() res: Response,
     @Query('isAnswerKey') isAnswerKey: boolean = false,
     @Query('variantNumber') variantNumber?: string,
     @Query('studentName') studentName?: string,
-    @Res() res: Response,
   ) {
     try {
       // Test ma'lumotlarini olish

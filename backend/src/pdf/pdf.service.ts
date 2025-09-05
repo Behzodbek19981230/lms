@@ -359,7 +359,7 @@ export class PdfService {
             updatedAt: new Date()
           }));
 
-          this.addQuestionsToPDF(doc, questions as Question[], options, 210);
+          this.addQuestionsToPDF(doc, questions as any as Question[], options, 210);
         }
 
         doc.end();

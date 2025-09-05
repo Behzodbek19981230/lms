@@ -16,7 +16,7 @@ interface TelegramAuthData {
   hash: string;
 }
 
-interface TelegramConnectionResult {
+export interface TelegramConnectionResult {
   success: boolean;
   message: string;
   userId?: number;
@@ -96,9 +96,9 @@ export class TelegramAuthService {
       if (existingUserChat) {
         // Update existing connection
         existingUserChat.telegramUserId = authData.telegramUserId;
-        existingUserChat.telegramUsername = authData.username;
-        existingUserChat.firstName = authData.firstName;
-        existingUserChat.lastName = authData.lastName;
+        existingUserChat.telegramUsername = authData.username || '';
+        existingUserChat.firstName = authData.firstName || '';
+        existingUserChat.lastName = authData.lastName || '';
         existingUserChat.chatId = authData.telegramUserId; // Use telegramUserId as chatId for private chats
         existingUserChat.status = ChatStatus.ACTIVE;
         existingUserChat.lastActivity = new Date();
@@ -396,9 +396,9 @@ export class TelegramAuthService {
 
     if (existingChat) {
       // Update existing unlinked chat
-      existingChat.telegramUsername = authData.username;
-      existingChat.firstName = authData.firstName;
-      existingChat.lastName = authData.lastName;
+      existingChat.telegramUsername = authData.username || '';
+      existingChat.firstName = authData.firstName || '';
+      existingChat.lastName = authData.lastName || '';
       existingChat.lastActivity = new Date();
       await this.telegramChatRepo.save(existingChat);
     } else {

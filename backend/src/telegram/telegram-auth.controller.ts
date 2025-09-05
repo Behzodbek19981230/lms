@@ -15,7 +15,7 @@ import {
   ApiBearerAuth,
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { TelegramAuthService } from './telegram-auth.service';
+import { TelegramAuthService, TelegramConnectionResult } from './telegram-auth.service';
 import { TelegramAuthDto } from '../auth/dto/telegram-auth.dto';
 
 @ApiTags('Telegram Auth')

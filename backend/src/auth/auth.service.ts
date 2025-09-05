@@ -67,20 +67,17 @@ export class AuthService {
       relations: ['center', 'subjects'],
     });
 
-    return {
-      access_token,
-      user: {
-        id: userWithCenter.id,
-        username: userWithCenter.username,
-        firstName: userWithCenter.firstName,
-        lastName: userWithCenter.lastName,
-        fullName: userWithCenter.firstName + ' ' + (userWithCenter.lastName || ''),
-        role: userWithCenter.role,
-        center: userWithCenter.center,
-        hasCenterAssigned: !!userWithCenter.center,
-        needsCenterAssignment: !userWithCenter.center,
-      },
-    };
+      return {
+        access_token,
+        user: {
+        id: userWithCenter!.id,
+        username: userWithCenter!.username,
+        firstName: userWithCenter!.firstName,
+        lastName: userWithCenter!.lastName,
+        fullName: userWithCenter!.firstName + ' ' + (userWithCenter!.lastName || ''),
+        role: userWithCenter!.role,
+        },
+      };
   }
 
   async login(loginDto: LoginDto): Promise<AuthResponseDto> {
@@ -116,7 +113,12 @@ export class AuthService {
     return {
       access_token,
       user: {
-        ...userData,
+        id: userData.id,
+        username: userData.username,
+        firstName: userData.firstName,
+        lastName: userData.lastName,
+        fullName: userData.firstName + ' ' + (userData.lastName || ''),
+        role: userData.role,
         hasCenterAssigned: !!userData.center,
         needsCenterAssignment: !userData.center,
       },

@@ -13,5 +13,7 @@ export class AuthResponseDto {
     lastName: string;
     fullName: string;
     role: UserRole;
+    hasCenterAssigned?: boolean;
+    needsCenterAssignment?: boolean;
   };
 }

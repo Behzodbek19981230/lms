@@ -44,6 +44,9 @@ export class TelegramAnswer extends BaseEntity {
   @Column({ type: 'timestamp', nullable: true })
   checkedAt: Date;
 
+  @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
+  submittedAt: Date;
+
   @Column({ type: 'json', nullable: true })
   metadata: any; // Additional data from Telegram message
 
