@@ -2642,4 +2642,26 @@ export class TelegramService {
       return { total: 0, pending: 0, sent: 0, failed: 0, expired: 0 };
     }
   }
+
+  /**
+   * Send message to Telegram user
+   */
+  async sendMessage(
+    chatId: string,
+    message: string,
+    options: any = {},
+  ): Promise<void> {
+    if (!this.bot) {
+      this.logger.warn('Telegram bot not configured');
+      return;
+    }
+
+    try {
+      await this.bot.sendMessage(chatId, message, options);
+      this.logger.log(`Message sent to ${chatId}`);
+    } catch (error) {
+      this.logger.error(`Failed to send message to ${chatId}:`, error);
+      throw error;
+    }
+  }
 }

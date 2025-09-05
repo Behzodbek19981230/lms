@@ -2,20 +2,21 @@ import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthModule } from './auth/auth.module';
-import { SubjectsModule } from './subjects/subjects.module';
+import { TelegramModule } from './telegram/telegram.module';
 import { TestsModule } from './tests/tests.module';
 import { QuestionsModule } from './questions/questions.module';
 import { UsersModule } from './users/users.module';
+import { SubjectsModule } from './subjects/subjects.module';
 import { CentersModule } from './centers/centers.module';
-import { NotificationsModule } from './notifications/notifications.module';
 import { GroupsModule } from './groups/groups.module';
-import { AssignedTestsModule } from './assigned-tests/assigned-tests.module';
 import { ExamsModule } from './exams/exams.module';
 import { StudentsModule } from './students/students.module';
-import { TelegramModule } from './telegram/telegram.module';
-import { PaymentsModule } from './payments/payments.module';
-import { AttendanceModule } from './attendance/attendance.module';
 import { CronJobsModule } from './cron-jobs/cron-jobs.module';
+import { AttendanceModule } from './attendance/attendance.module';
+import { PaymentsModule } from './payments/payments.module';
+import { AssignedTestsModule } from './assigned-tests/assigned-tests.module';
+import { NotificationsModule } from './notifications/notifications.module';
+import { PdfModule } from './pdf/pdf.module';
 
 @Module({
   imports: [
@@ -53,6 +54,7 @@ import { CronJobsModule } from './cron-jobs/cron-jobs.module';
     PaymentsModule,
     AttendanceModule,
     CronJobsModule,
+    PdfModule,
   ],
 })
 export class AppModule {}
