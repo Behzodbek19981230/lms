@@ -19,7 +19,9 @@ import {
     ChevronUp,
     UserPlus,
     Eye,
-    MoreHorizontal
+    MoreHorizontal,
+    AlertTriangle,
+    Plus
 } from "lucide-react";
 import { request } from "@/configs/request";
 import { useToast } from "@/hooks/use-toast";
@@ -65,10 +67,12 @@ interface Center {
 
 const CenterUsersManagement = () => {
     const [centers, setCenters] = useState<Center[]>([]);
+    const [unassignedUsers, setUnassignedUsers] = useState<User[]>([]);
     const [loading, setLoading] = useState(false);
     const [searchTerm, setSearchTerm] = useState("");
     const [roleFilter, setRoleFilter] = useState("all");
     const [expandedCenters, setExpandedCenters] = useState<Set<number>>(new Set());
+    const [showUnassigned, setShowUnassigned] = useState(false);
     const { toast } = useToast();
 
     const loadCentersWithUsers = async () => {
@@ -78,6 +82,10 @@ const CenterUsersManagement = () => {
             // Get all centers
             const centersResponse = await request.get('/centers');
             const centersData = centersResponse.data;
+
+            // Get unassigned users (users without center)
+            const unassignedResponse = await request.get('/users?unassigned=true');
+            setUnassignedUsers(unassignedResponse.data || []);
 
             // For each center, get its users
             const centersWithUsers = await Promise.all(
@@ -151,10 +159,30 @@ const CenterUsersManagement = () => {
         };
     });
 
-    const totalUsers = centers.reduce((sum, center) => sum + center.users.length, 0);
-    const totalStudents = centers.reduce((sum, center) => sum + center.users.filter(u => u.role === 'student').length, 0);
-    const totalTeachers = centers.reduce((sum, center) => sum + center.users.filter(u => u.role === 'teacher').length, 0);
-    const totalAdmins = centers.reduce((sum, center) => sum + center.users.filter(u => u.role === 'admin').length, 0);
+    const assignUserToCenter = async (userId: number, centerId: number) => {
+        try {
+            await request.patch(`/users/${userId}/assign-center`, { centerId });
+            toast({
+                title: 'Muvaffaqiyat!',
+                description: 'Foydalanuvchi markazga muvaffaqiyatli biriktirildi',
+                variant: 'default',
+            });
+            // Reload data
+            loadCentersWithUsers();
+        } catch (error) {
+            console.error('Failed to assign user to center:', error);
+            toast({
+                title: 'Xato',
+                description: 'Foydalanuvchini markazga biriktirishda xatolik',
+                variant: 'destructive',
+            });
+        }
+    };
+
+    const totalUsers = centers.reduce((sum, center) => sum + center.users.length, 0) + unassignedUsers.length;
+    const totalStudents = centers.reduce((sum, center) => sum + center.users.filter(u => u.role === 'student').length, 0) + unassignedUsers.filter(u => u.role === 'student').length;
+    const totalTeachers = centers.reduce((sum, center) => sum + center.users.filter(u => u.role === 'teacher').length, 0) + unassignedUsers.filter(u => u.role === 'teacher').length;
+    const totalAdmins = centers.reduce((sum, center) => sum + center.users.filter(u => u.role === 'admin').length, 0) + unassignedUsers.filter(u => u.role === 'admin').length;
 
     const getRoleBadge = (role: string) => {
         switch (role) {
@@ -343,6 +371,103 @@ const CenterUsersManagement = () => {
                         </div>
                     </CardContent>
                 </Card>
+
+                {/* Unassigned Users Alert */}
+                {unassignedUsers.length > 0 && (
+                    <Card className="mb-6 border-yellow-200 bg-yellow-50">
+                        <CardHeader>
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center space-x-3">
+                                    <AlertTriangle className="h-5 w-5 text-yellow-600" />
+                                    <CardTitle className="text-yellow-800">
+                                        Markaz biriktirilmagan foydalanuvchilar ({unassignedUsers.length})
+                                    </CardTitle>
+                                </div>
+                                <Button 
+                                    variant="outline" 
+                                    size="sm"
+                                    onClick={() => setShowUnassigned(!showUnassigned)}
+                                >
+                                    {showUnassigned ? 'Yashirish' : 'Ko\'rsatish'}
+                                </Button>
+                            </div>
+                        </CardHeader>
+                        {showUnassigned && (
+                            <CardContent>
+                                <p className="text-yellow-700 mb-4">
+                                    Bu foydalanuvchilar hali hech qanday markazga biriktirilmagan. 
+                                    Ularni tegishli markazlarga biriktiring.
+                                </p>
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow>
+                                            <TableHead>Foydalanuvchi</TableHead>
+                                            <TableHead>Foydalanuvchi nomi</TableHead>
+                                            <TableHead>Telefon</TableHead>
+                                            <TableHead>Rol</TableHead>
+                                            <TableHead>Holat</TableHead>
+                                            <TableHead>Amallar</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {unassignedUsers.map((user) => (
+                                            <TableRow key={user.id}>
+                                                <TableCell>
+                                                    <div className="font-medium">
+                                                        {user.firstName} {user.lastName}
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell>
+                                                    <div className="flex items-center">
+                                                        <UserIcon className="h-4 w-4 mr-2 text-muted-foreground" />
+                                                        {user.username}
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell>
+                                                    {user.phone ? (
+                                                        <div className="flex items-center">
+                                                            <Phone className="h-4 w-4 mr-2 text-muted-foreground" />
+                                                            {user.phone}
+                                                        </div>
+                                                    ) : (
+                                                        <span className="text-muted-foreground">—</span>
+                                                    )}
+                                                </TableCell>
+                                                <TableCell>
+                                                    {getRoleBadge(user.role)}
+                                                </TableCell>
+                                                <TableCell>
+                                                    {getStatusBadge(user.isActive)}
+                                                </TableCell>
+                                                <TableCell>
+                                                    <DropdownMenu>
+                                                        <DropdownMenuTrigger asChild>
+                                                            <Button variant="outline" size="sm">
+                                                                <Plus className="h-4 w-4 mr-2" />
+                                                                Biriktirish
+                                                            </Button>
+                                                        </DropdownMenuTrigger>
+                                                        <DropdownMenuContent align="end">
+                                                            {centers.map((center) => (
+                                                                <DropdownMenuItem
+                                                                    key={center.id}
+                                                                    onClick={() => assignUserToCenter(user.id, center.id)}
+                                                                >
+                                                                    <Building className="h-4 w-4 mr-2" />
+                                                                    {center.name}
+                                                                </DropdownMenuItem>
+                                                            ))}
+                                                        </DropdownMenuContent>
+                                                    </DropdownMenu>
+                                                </TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                            </CardContent>
+                        )}
+                    </Card>
+                )}
 
                 {/* Centers with Users */}
                 <div className="space-y-4">

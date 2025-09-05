@@ -61,15 +61,24 @@ export class AuthService {
     };
     const access_token = this.jwtService.sign(payload);
 
+    // Get user with center relationship
+    const userWithCenter = await this.userRepository.findOne({
+      where: { id: savedUser.id },
+      relations: ['center', 'subjects'],
+    });
+
     return {
       access_token,
       user: {
-        id: savedUser.id,
-        username: savedUser.username,
-        firstName: savedUser.firstName,
-        lastName: savedUser.lastName,
-        fullName: savedUser.firstName + ' ' + savedUser.lastName,
-        role: savedUser.role,
+        id: userWithCenter.id,
+        username: userWithCenter.username,
+        firstName: userWithCenter.firstName,
+        lastName: userWithCenter.lastName,
+        fullName: userWithCenter.firstName + ' ' + (userWithCenter.lastName || ''),
+        role: userWithCenter.role,
+        center: userWithCenter.center,
+        hasCenterAssigned: !!userWithCenter.center,
+        needsCenterAssignment: !userWithCenter.center,
       },
     };
   }
@@ -106,7 +115,11 @@ export class AuthService {
 
     return {
       access_token,
-      user: userData,
+      user: {
+        ...userData,
+        hasCenterAssigned: !!userData.center,
+        needsCenterAssignment: !userData.center,
+      },
     };
   }
 

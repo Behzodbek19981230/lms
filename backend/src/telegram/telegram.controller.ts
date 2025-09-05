@@ -20,6 +20,8 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { UserRole } from '../users/entities/user.entity';
 import { TelegramService } from './telegram.service';
+import { TestPDFGeneratorService } from './test-pdf-generator.service';
+import { AnswerProcessorService } from './answer-processor.service';
 import {
   CreateTelegramChatDto,
   SendTestToChannelDto,
@@ -32,7 +34,11 @@ import {
 export class TelegramController {
   private readonly logger = new Logger(TelegramController.name);
 
-  constructor(private readonly telegramService: TelegramService) {}
+  constructor(
+    private readonly telegramService: TelegramService,
+    private readonly pdfGeneratorService: TestPDFGeneratorService,
+    private readonly answerProcessorService: AnswerProcessorService,
+  ) {}
 
   // ==================== Webhook Endpoint ====================
 
@@ -277,6 +283,80 @@ export class TelegramController {
   @ApiResponse({ status: 200, description: 'Statistics retrieved' })
   async getTestStatistics(@Param('testId') testId: string) {
     return this.telegramService.getTestStatistics(+testId);
+  }
+
+  // ==================== PDF Generation ====================
+
+  @Post('send-test-pdf/:testId')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.TEACHER, UserRole.ADMIN, UserRole.SUPERADMIN)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Generate and send test PDF to users' })
+  @ApiResponse({ status: 200, description: 'Test PDF sent successfully' })
+  async sendTestPDF(
+    @Param('testId') testId: string,
+    @Body() body: { userIds: number[] },
+  ) {
+    const pdfBuffer = await this.pdfGeneratorService.generateTestPDF(
+      +testId,
+      0, // userId not needed for generation
+    );
+
+    const results = await this.telegramService.sendPDFToMultipleUsers(
+      body.userIds,
+      pdfBuffer,
+      `Test_${testId}.pdf`,
+      `📄 Test #${testId} PDF fayli`,
+    );
+
+    return {
+      success: results.success,
+      sentCount: results.sentCount,
+      failedCount: results.failedCount,
+      message: `PDF yuborish jarayoni tugallandi. Muvaffaqiyatli: ${results.sentCount}, Xato: ${results.failedCount}`,
+    };
+  }
+
+  @Post('process-answer-message')
+  @ApiOperation({ summary: 'Process answer message from Telegram webhook' })
+  @ApiResponse({ status: 200, description: 'Answer processed successfully' })
+  async processAnswerMessage(
+    @Body() body: {
+      messageText: string;
+      telegramUserId: string;
+      messageId: string;
+    },
+  ) {
+    return this.answerProcessorService.processAnswerFromMessage(
+      body.messageText,
+      body.telegramUserId,
+      body.messageId,
+    );
+  }
+
+  @Get('user-results/:telegramUserId')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.TEACHER, UserRole.ADMIN, UserRole.SUPERADMIN)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get user test results by telegram ID' })
+  @ApiResponse({ status: 200, description: 'User results retrieved' })
+  async getUserResultsByTelegramId(
+    @Param('telegramUserId') telegramUserId: string,
+  ) {
+    const results = await this.answerProcessorService.getUserTestResults(
+      telegramUserId,
+    );
+    return { results };
+  }
+
+  @Get('test-stats/:testId')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.TEACHER, UserRole.ADMIN, UserRole.SUPERADMIN)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get detailed test statistics' })
+  @ApiResponse({ status: 200, description: 'Test statistics retrieved' })
+  async getDetailedTestStatistics(@Param('testId') testId: string) {
+    return this.answerProcessorService.getTestStatistics(+testId);
   }
 
   // ==================== Private Helper Methods ====================

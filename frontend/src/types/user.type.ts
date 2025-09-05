@@ -8,5 +8,9 @@ export type UserType = {
 	fullName: string;
 	role: RolesType;
 	center: CenterType | null;
+	telegramId?: string;
+	telegramConnected?: boolean;
+	hasCenterAssigned?: boolean;
+	needsCenterAssignment?: boolean;
 };
 export type RolesType = 'superadmin' | 'admin' | 'teacher' | 'student';

@@ -48,6 +48,12 @@ export class User extends BaseEntity {
   @Column({ type: 'timestamp', nullable: true })
   lastLoginAt: Date;
 
+  @Column({ nullable: true })
+  telegramId: string;
+
+  @Column({ default: false })
+  telegramConnected: boolean;
+
   @ManyToOne(() => Center, (center) => center.users, {
     nullable: true,
     onDelete: 'CASCADE',

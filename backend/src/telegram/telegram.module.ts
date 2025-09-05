@@ -3,8 +3,10 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule } from '@nestjs/config';
 import { TelegramService } from './telegram.service';
 import { TelegramController } from './telegram.controller';
-import { TelegramAuthService } from './telegram-auth.service';
 import { TelegramAuthController } from './telegram-auth.controller';
+import { TelegramAuthService } from './telegram-auth.service';
+import { TestPDFGeneratorService } from './test-pdf-generator.service';
+import { AnswerProcessorService } from './answer-processor.service';
 import { TelegramChat } from './entities/telegram-chat.entity';
 import { TelegramAnswer } from './entities/telegram-answer.entity';
 import { PendingPdf } from './entities/pending-pdf.entity';
@@ -37,7 +39,17 @@ import { NotificationsModule } from '../notifications/notifications.module';
     forwardRef(() => NotificationsModule),
   ],
   controllers: [TelegramController, TelegramAuthController],
-  providers: [TelegramService, TelegramAuthService],
-  exports: [TelegramService, TelegramAuthService],
+  providers: [
+    TelegramService, 
+    TelegramAuthService,
+    TestPDFGeneratorService,
+    AnswerProcessorService,
+  ],
+  exports: [
+    TelegramService, 
+    TelegramAuthService,
+    TestPDFGeneratorService,
+    AnswerProcessorService,
+  ],
 })
 export class TelegramModule {}

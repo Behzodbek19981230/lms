@@ -31,6 +31,8 @@ import CenterUsersManagement from './pages/CenterUsersManagement';
 import TeacherPayments from './pages/payments/TeacherPayments';
 import StudentPayments from './pages/payments/StudentPayments';
 import Profile from './pages/Profile';
+import NoCenterAssigned from './pages/NoCenterAssigned';
+import TelegramConnect from './pages/TelegramConnect';
 
 const queryClient = new QueryClient();
 
@@ -45,6 +47,8 @@ const App = () => (
 						<Route path='/' element={<Index />} />
 						<Route path='/login' element={<Login />} />
 						<Route path='/register' element={<Register />} />
+						<Route path='/no-center' element={<NoCenterAssigned />} />
+						<Route path='/telegram-connect' element={<TelegramConnect />} />
 
 						{/* Dashboard routes */}
 						<Route

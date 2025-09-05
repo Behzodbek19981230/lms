@@ -104,11 +104,12 @@ export class UsersController {
     @Query('centerId') centerId?: string,
     @Query('includeGroups') includeGroups?: string,
     @Query('includeSubjects') includeSubjects?: string,
+    @Query('unassigned') unassigned?: string,
     @Request() req?,
   ) {
-    // For center admins and teachers, automatically filter by their center
+    // For center admins and teachers, automatically filter by their center (unless unassigned is requested)
     let effectiveCenterId = centerId;
-    if ((req.user.role === UserRole.ADMIN || req.user.role === UserRole.TEACHER) && req.user.center?.id) {
+    if ((req.user.role === UserRole.ADMIN || req.user.role === UserRole.TEACHER) && req.user.center?.id && unassigned !== 'true') {
       effectiveCenterId = req.user.center.id.toString();
     }
     
@@ -116,7 +117,8 @@ export class UsersController {
       effectiveCenterId, 
       role, 
       includeGroups === 'true',
-      includeSubjects === 'true'
+      includeSubjects === 'true',
+      unassigned === 'true'
     );
   }
 
@@ -138,6 +140,42 @@ export class UsersController {
     }
     
     return this.usersService.update(Number(id), updateData);
+  }
+
+  @Patch(':id/assign-center')
+  @Roles(UserRole.ADMIN, UserRole.SUPERADMIN)
+  @ApiOperation({ summary: 'Assign user to center' })
+  @ApiResponse({ status: 200, description: 'User assigned to center successfully' })
+  async assignUserToCenter(
+    @Param('id') userId: string,
+    @Body('centerId') centerId: number,
+    @Request() req,
+  ): Promise<User> {
+    // For center admins, ensure they can only assign users to their center
+    if (req.user.role === UserRole.ADMIN) {
+      if (centerId !== req.user.center?.id) {
+        throw new BadRequestException('Siz faqat o\'z markazingizga foydalanuvchi biriktira olasiz');
+      }
+    }
+    
+    return this.usersService.assignUserToCenter(Number(userId), centerId);
+  }
+
+  @Get('me/telegram-status')
+  @ApiOperation({ summary: 'Get current user telegram status' })
+  @ApiResponse({ status: 200, description: 'Telegram status' })
+  async getMyTelegramStatus(@Request() req) {
+    return this.usersService.getTelegramStatus(req.user.id);
+  }
+
+  @Post('me/connect-telegram')
+  @ApiOperation({ summary: 'Connect telegram to current user' })
+  @ApiResponse({ status: 200, description: 'Telegram connection initiated' })
+  async connectMyTelegram(
+    @Request() req,
+    @Body('telegramUsername') telegramUsername: string,
+  ) {
+    return this.usersService.connectTelegram(req.user.id, telegramUsername);
   }
 
   @Get('me')
