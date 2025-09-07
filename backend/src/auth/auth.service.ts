@@ -12,8 +12,16 @@ import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { AuthResponseDto } from './dto/auth-response.dto';
 import { InjectRepository } from '@nestjs/typeorm';
-import { TelegramChat, ChatType, ChatStatus } from '../telegram/entities/telegram-chat.entity';
-import { TelegramAuthDto, TelegramLoginDto, TelegramRegisterDto } from './dto/telegram-auth.dto';
+import {
+  TelegramChat,
+  ChatType,
+  ChatStatus,
+} from '../telegram/entities/telegram-chat.entity';
+import {
+  TelegramAuthDto,
+  TelegramLoginDto,
+  TelegramRegisterDto,
+} from './dto/telegram-auth.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 
 @Injectable()
@@ -21,7 +29,7 @@ export class AuthService {
   constructor(
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
-    
+
     @InjectRepository(TelegramChat)
     private readonly telegramChatRepository: Repository<TelegramChat>,
 
@@ -29,7 +37,8 @@ export class AuthService {
   ) {}
 
   async register(registerDto: RegisterDto): Promise<AuthResponseDto> {
-    const { username, password, firstName, lastName, phone, role } = registerDto;
+    const { username, password, firstName, lastName, phone, role } =
+      registerDto;
 
     const existingUser = await this.userRepository.findOne({
       where: { username },
@@ -67,17 +76,18 @@ export class AuthService {
       relations: ['center', 'subjects'],
     });
 
-      return {
-        access_token,
-        user: {
+    return {
+      access_token,
+      user: {
         id: userWithCenter!.id,
         username: userWithCenter!.username,
         firstName: userWithCenter!.firstName,
         lastName: userWithCenter!.lastName,
-        fullName: userWithCenter!.firstName + ' ' + (userWithCenter!.lastName || ''),
+        fullName:
+          userWithCenter!.firstName + ' ' + (userWithCenter!.lastName || ''),
         role: userWithCenter!.role,
-        },
-      };
+      },
+    };
   }
 
   async login(loginDto: LoginDto): Promise<AuthResponseDto> {
@@ -85,16 +95,16 @@ export class AuthService {
 
     const user = await this.userRepository.findOne({
       where: { username },
-      relations: ['subjects'],
+      relations: ['subjects', 'center'],
     });
 
     if (!user) {
-      throw new UnauthorizedException("Foydalanuvchi nomi yoki parol noto'g'ri");
+      throw new BadRequestException("Foydalanuvchi nomi yoki parol noto'g'ri");
     }
 
     const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
-      throw new UnauthorizedException("Foydalanuvchi nomi yoki parol noto'g'ri");
+      throw new BadRequestException("Foydalanuvchi nomi yoki parol noto'g'ri");
     }
 
     user.lastLoginAt = new Date();
@@ -107,7 +117,7 @@ export class AuthService {
       relations: ['subjects', 'center'],
     });
     if (!userData) {
-      throw new UnauthorizedException('Foydalanuvchi topilmadi');
+      throw new BadRequestException('Foydalanuvchi topilmadi');
     }
 
     return {
@@ -121,6 +131,12 @@ export class AuthService {
         role: userData.role,
         hasCenterAssigned: !!userData.center,
         needsCenterAssignment: !userData.center,
+        center: userData.center
+          ? {
+              id: userData.center.id,
+              name: userData.center.name,
+            }
+          : null,
       },
     };
   }
@@ -138,8 +154,11 @@ export class AuthService {
     return user;
   }
 
-  async telegramAuth(telegramAuthDto: TelegramAuthDto): Promise<AuthResponseDto> {
-    const { telegramUserId, telegramUsername, firstName, lastName } = telegramAuthDto;
+  async telegramAuth(
+    telegramAuthDto: TelegramAuthDto,
+  ): Promise<AuthResponseDto> {
+    const { telegramUserId, telegramUsername, firstName, lastName } =
+      telegramAuthDto;
 
     // Find existing telegram chat to link with user
     const telegramChat = await this.telegramChatRepository.findOne({
@@ -149,7 +168,7 @@ export class AuthService {
 
     if (!telegramChat || !telegramChat.user) {
       throw new UnauthorizedException(
-        'Telegram hisobi LMS foydalanuvchisi bilan bog\'lanmagan',
+        "Telegram hisobi LMS foydalanuvchisi bilan bog'lanmagan",
       );
     }
 
@@ -173,7 +192,9 @@ export class AuthService {
     };
   }
 
-  async telegramLogin(telegramLoginDto: TelegramLoginDto): Promise<AuthResponseDto> {
+  async telegramLogin(
+    telegramLoginDto: TelegramLoginDto,
+  ): Promise<AuthResponseDto> {
     const { telegramUserId } = telegramLoginDto;
 
     // Find telegram chat linked to user
@@ -184,7 +205,7 @@ export class AuthService {
 
     if (!telegramChat || !telegramChat.user) {
       throw new UnauthorizedException(
-        'Telegram hisobi LMS foydalanuvchisi bilan bog\'lanmagan',
+        "Telegram hisobi LMS foydalanuvchisi bilan bog'lanmagan",
       );
     }
 
@@ -216,8 +237,11 @@ export class AuthService {
     };
   }
 
-  async telegramRegister(telegramRegisterDto: TelegramRegisterDto): Promise<AuthResponseDto> {
-    const { telegramUserId, telegramUsername, firstName, lastName } = telegramRegisterDto;
+  async telegramRegister(
+    telegramRegisterDto: TelegramRegisterDto,
+  ): Promise<AuthResponseDto> {
+    const { telegramUserId, telegramUsername, firstName, lastName } =
+      telegramRegisterDto;
 
     // Check if telegram user already exists
     const existingTelegramChat = await this.telegramChatRepository.findOne({
@@ -227,7 +251,7 @@ export class AuthService {
 
     if (existingTelegramChat && existingTelegramChat.user) {
       throw new ConflictException(
-        'Bu Telegram hisobi allaqachon boshqa foydalanuvchi bilan bog\'langan',
+        "Bu Telegram hisobi allaqachon boshqa foydalanuvchi bilan bog'langan",
       );
     }
 
@@ -237,9 +261,7 @@ export class AuthService {
     });
 
     if (existingUser) {
-      throw new ConflictException(
-        'Bu foydalanuvchi nomi allaqachon band',
-      );
+      throw new ConflictException('Bu foydalanuvchi nomi allaqachon band');
     }
 
     // Use default password for Telegram users
@@ -264,7 +286,8 @@ export class AuthService {
       existingTelegramChat.firstName = firstName;
       existingTelegramChat.lastName = lastName || '';
       existingTelegramChat.telegramUsername = telegramUsername;
-      telegramChat = await this.telegramChatRepository.save(existingTelegramChat);
+      telegramChat =
+        await this.telegramChatRepository.save(existingTelegramChat);
     } else {
       telegramChat = this.telegramChatRepository.create({
         chatId: telegramUserId,
@@ -309,7 +332,9 @@ export class AuthService {
 
     // Check if new password and confirm password match
     if (newPassword !== confirmPassword) {
-      throw new BadRequestException('Yangi parol va tasdiqlash paroli mos kelmaydi');
+      throw new BadRequestException(
+        'Yangi parol va tasdiqlash paroli mos kelmaydi',
+      );
     }
 
     // Find user
@@ -328,7 +353,7 @@ export class AuthService {
     );
 
     if (!isCurrentPasswordValid) {
-      throw new UnauthorizedException('Joriy parol noto\'g\'ri');
+      throw new UnauthorizedException("Joriy parol noto'g'ri");
     }
 
     // Hash new password
@@ -339,7 +364,7 @@ export class AuthService {
     await this.userRepository.save(user);
 
     return {
-      message: 'Parol muvaffaqiyatli o\'zgartirildi',
+      message: "Parol muvaffaqiyatli o'zgartirildi",
     };
   }
 }

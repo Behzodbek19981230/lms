@@ -22,6 +22,8 @@ import { UserRole } from '../users/entities/user.entity';
 import { TelegramService } from './telegram.service';
 import { TestPDFGeneratorService } from './test-pdf-generator.service';
 import { AnswerProcessorService } from './answer-processor.service';
+import { TestsService } from '../tests/tests.service';
+// Import DTOs
 import {
   CreateTelegramChatDto,
   SendTestToChannelDto,
@@ -38,6 +40,7 @@ export class TelegramController {
     private readonly telegramService: TelegramService,
     private readonly pdfGeneratorService: TestPDFGeneratorService,
     private readonly answerProcessorService: AnswerProcessorService,
+    private readonly testsService: TestsService,
   ) {}
 
   // ==================== Webhook Endpoint ====================
@@ -317,11 +320,65 @@ export class TelegramController {
     };
   }
 
+  // Add this new method to send all tests as PDFs
+  @Post('send-all-tests-pdfs')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.TEACHER, UserRole.ADMIN, UserRole.SUPERADMIN)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Generate and send all tests PDFs to users' })
+  @ApiResponse({ status: 200, description: 'All tests PDFs sent successfully' })
+  async sendAllTestsPDFs(
+    @Body() body: { userIds: number[] },
+  ) {
+    // Get all tests
+    const tests = await this.testsService.findAll();
+    
+    let totalSent = 0;
+    let totalFailed = 0;
+    const details: string[] = [];
+
+    // Generate and send PDF for each test
+    for (const test of tests) {
+      try {
+        const pdfBuffer = await this.pdfGeneratorService.generateTestPDF(
+          test.id,
+          0, // userId not needed for generation
+        );
+
+        const results = await this.telegramService.sendPDFToMultipleUsers(
+          body.userIds,
+          pdfBuffer,
+          `Test_${test.id}_${test.title.replace(/\s+/g, '_')}.pdf`,
+          `📄 Test "${test.title}" (#${test.id}) PDF fayli`,
+        );
+
+        totalSent += results.sentCount;
+        totalFailed += results.failedCount;
+        details.push(`Test #${test.id} "${test.title}": ${results.sentCount} sent, ${results.failedCount} failed`);
+      } catch (error) {
+        totalFailed += body.userIds.length;
+        details.push(`Test #${test.id} "${test.title}": Failed to generate/send - ${error.message}`);
+      }
+
+      // Small delay to avoid overwhelming the system
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    }
+
+    return {
+      success: totalFailed === 0,
+      totalSent,
+      totalFailed,
+      details,
+      message: `Barcha testlar PDF ko'rinishida yuborildi. Muvaffaqiyatli: ${totalSent}, Xato: ${totalFailed}`,
+    };
+  }
+
   @Post('process-answer-message')
   @ApiOperation({ summary: 'Process answer message from Telegram webhook' })
   @ApiResponse({ status: 200, description: 'Answer processed successfully' })
   async processAnswerMessage(
-    @Body() body: {
+    @Body()
+    body: {
       messageText: string;
       telegramUserId: string;
       messageId: string;
@@ -343,9 +400,8 @@ export class TelegramController {
   async getUserResultsByTelegramId(
     @Param('telegramUserId') telegramUserId: string,
   ) {
-    const results = await this.answerProcessorService.getUserTestResults(
-      telegramUserId,
-    );
+    const results =
+      await this.answerProcessorService.getUserTestResults(telegramUserId);
     return { results };
   }
 

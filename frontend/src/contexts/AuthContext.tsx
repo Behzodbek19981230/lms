@@ -42,6 +42,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
 		// Authentication with username
 		if (username && password.length >= 6) {
+            try{
 			const { data } = await request.post('/auth/login', {
 				username,
 				password,
@@ -60,6 +61,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
 			setIsLoading(false);
 			return data.user;
+        }
+        catch(err){
+            return null
+            
+
+        }
 		}
 
 		setIsLoading(false);

@@ -19,11 +19,11 @@ const Login = () => {
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
 		setIsLoading(true);
+        try{
 
 		const user = await login(username, password);
 		console.log(user);
-
-		if (user) {
+        if (user) {
 			toast({
 				title: 'Welcome back!',
 				description: 'You have successfully logged in.',
@@ -71,7 +71,19 @@ const Login = () => {
 			});
 		}
 
+        }
+        catch(err){
+            toast({
+                title:err,
+                variant:'destructive'
+            })
+            
+        }
+        finally{
+
+		
 		setIsLoading(false);
+        }
 	};
 
 	return (

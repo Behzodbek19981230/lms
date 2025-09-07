@@ -20,7 +20,7 @@ export class TestPDFGeneratorService {
   async generateTestPDF(
     testId: number,
     userId: number,
-    variant?: number
+    variant?: number,
   ): Promise<Buffer> {
     const test = await this.testRepository.findOne({
       where: { id: testId },
@@ -43,7 +43,9 @@ export class TestPDFGeneratorService {
         doc.on('end', () => resolve(Buffer.concat(chunks)));
 
         // Header
-        doc.fontSize(20).text('EduNimbus Test Platformasi', { align: 'center' });
+        doc
+          .fontSize(20)
+          .text('EduNimbus Test Platformasi', { align: 'center' });
         doc.moveDown();
 
         // Test Info
@@ -52,24 +54,30 @@ export class TestPDFGeneratorService {
           doc.text(`Fan: ${test.subject.name}`);
         }
         if (test.teacher) {
-          doc.text(`O'qituvchi: ${test.teacher.firstName} ${test.teacher.lastName}`);
+          doc.text(
+            `O'qituvchi: ${test.teacher.firstName} ${test.teacher.lastName}`,
+          );
         }
         doc.text(`Davomiyligi: ${test.duration} daqiqa`);
         doc.text(`Jami ball: ${test.totalPoints}`);
         doc.text(`Savollar soni: ${test.questions?.length || 0}`);
-        
+
         if (variant) {
           doc.text(`Variant: ${variant}`, { align: 'right' });
         }
-        
+
         doc.text(`Test ID: #T${testId}`, { align: 'right' });
-        doc.text(`Sana: ${new Date().toLocaleDateString('uz-UZ')}`, { align: 'right' });
+        doc.text(`Sana: ${new Date().toLocaleDateString('uz-UZ')}`, {
+          align: 'right',
+        });
         doc.moveDown(2);
 
         // Instructions
-        doc.fontSize(12).text('Ko\'rsatmalar:', { underline: true });
-        doc.text('• Har bir savol uchun to\'g\'ri javob variantini belgilang');
-        doc.text('• Telegram botga javoblarni yuborish uchun quyidagi formatdan foydalaning:');
+        doc.fontSize(12).text("Ko'rsatmalar:", { underline: true });
+        doc.text("• Har bir savol uchun to'g'ri javob variantini belgilang");
+        doc.text(
+          '• Telegram botga javoblarni yuborish uchun quyidagi formatdan foydalaning:',
+        );
         doc.text(`  #T${testId}Q1 A (1-savol uchun A javobi)`);
         doc.text(`  #T${testId}Q2 B (2-savol uchun B javobi)`);
         doc.text('• Har bir savol uchun alohida xabar yuboring');
@@ -79,14 +87,16 @@ export class TestPDFGeneratorService {
         if (test.questions && test.questions.length > 0) {
           test.questions.forEach((question, index) => {
             const questionNumber = index + 1;
-            
+
             // Question header
-            doc.fontSize(14).text(`${questionNumber}. ${question.text}`, { 
-              continued: false 
+            doc.fontSize(14).text(`${questionNumber}. ${question.text}`, {
+              continued: false,
             });
-            
+
             // Question points
-            doc.fontSize(10).text(`(${question.points} ball)`, { align: 'right' });
+            doc
+              .fontSize(10)
+              .text(`(${question.points} ball)`, { align: 'right' });
             doc.moveDown(0.5);
 
             // Answer options
@@ -100,7 +110,11 @@ export class TestPDFGeneratorService {
 
             // Space for manual answer
             doc.moveDown(0.5);
-            doc.fontSize(10).text(`Javob: _____ (Telegram: #T${testId}Q${questionNumber} ___)`);
+            doc
+              .fontSize(10)
+              .text(
+                `Javob: _____ (Telegram: #T${testId}Q${questionNumber} ___)`,
+              );
             doc.moveDown(1);
 
             // Check if we need a new page
@@ -111,12 +125,14 @@ export class TestPDFGeneratorService {
         }
 
         // Footer
-        doc.fontSize(8).text(
-          'Bu test EduNimbus platformasi orqali yaratilgan',
-          50,
-          doc.page.height - 50,
-          { align: 'center' }
-        );
+        doc
+          .fontSize(8)
+          .text(
+            'Bu test EduNimbus platformasi orqali yaratilgan',
+            50,
+            doc.page.height - 50,
+            { align: 'center' },
+          );
 
         doc.end();
       } catch (error) {
@@ -148,7 +164,7 @@ export class TestPDFGeneratorService {
         doc.on('end', () => resolve(Buffer.concat(chunks)));
 
         // Header
-        doc.fontSize(18).text('JAVOB VARAG\'I', { align: 'center' });
+        doc.fontSize(18).text("JAVOB VARAG'I", { align: 'center' });
         doc.moveDown();
 
         doc.fontSize(14).text(`Test: ${test.title}`);
@@ -157,7 +173,7 @@ export class TestPDFGeneratorService {
         doc.moveDown();
 
         // Student info section
-        doc.text('Talaba ma\'lumotlari:');
+        doc.text("Talaba ma'lumotlari:");
         doc.text('Ism: ________________________');
         doc.text('Familiya: ________________________');
         doc.text('Guruh: ________________________');
@@ -174,7 +190,10 @@ export class TestPDFGeneratorService {
 
           for (let row = 0; row < rows; row++) {
             const startQuestion = row * questionsPerRow + 1;
-            const endQuestion = Math.min((row + 1) * questionsPerRow, test.questions.length);
+            const endQuestion = Math.min(
+              (row + 1) * questionsPerRow,
+              test.questions.length,
+            );
 
             let rowText = '';
             for (let q = startQuestion; q <= endQuestion; q++) {
@@ -188,7 +207,9 @@ export class TestPDFGeneratorService {
 
         // Telegram instructions
         doc.moveDown(2);
-        doc.fontSize(10).text('Telegram orqali javob yuborish:', { underline: true });
+        doc
+          .fontSize(10)
+          .text('Telegram orqali javob yuborish:', { underline: true });
         doc.text('Har bir savol uchun alohida xabar yuboring:');
         doc.text(`Masalan: #T${testId}Q1 A`);
         doc.text(`         #T${testId}Q2 B`);

@@ -59,6 +59,7 @@ export default function CreateTestPage() {
 	const [searchParams, setSearchParams] = useSearchParams();
 	const subjectId = searchParams.get('subject');
 	const { toast } = useToast();
+    const [isLoading, setIsLoading] = useState(false);
 
 	const [selectedSubject, setSelectedSubject] = useState<Subject | null>(null);
 	const [testTitle, setTestTitle] = useState('');
@@ -152,6 +153,7 @@ export default function CreateTestPage() {
 			});
 			return;
 		}
+        setIsLoading(true);
 
 		try {
 			// 1) Create test
@@ -201,6 +203,9 @@ export default function CreateTestPage() {
 				variant: 'destructive',
 			});
 		}
+        finally{
+            setIsLoading(false);
+        }
 	};
 
 	const downloadExcelTemplate = () => {
@@ -486,9 +491,8 @@ export default function CreateTestPage() {
 						<Eye className='h-4 w-4 mr-2' />
 						Ko'rib chiqish
 					</Button>
-					<Button onClick={saveTest} className='bg-primary hover:bg-primary/90'>
-						<Save className='h-4 w-4 mr-2' />
-						Saqlash
+					<Button onClick={saveTest} className='bg-primary hover:bg-primary/90' disabled={isLoading}>
+					{isLoading ? "Yuklanmoqda..." : "Saqlash"}
 					</Button>
 				</div>
 			</div>

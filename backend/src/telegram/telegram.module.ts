@@ -19,6 +19,7 @@ import { Answer } from '../questions/entities/answer.entity';
 import { Exam } from '../exams/entities/exam.entity';
 import { Group } from '../groups/entities/group.entity';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { TestsModule } from '../tests/tests.module'; // Add this import
 
 @Module({
   imports: [
@@ -37,6 +38,7 @@ import { NotificationsModule } from '../notifications/notifications.module';
     ]),
     ConfigModule,
     forwardRef(() => NotificationsModule),
+    TestsModule, // Add this module import
   ],
   controllers: [TelegramController, TelegramAuthController],
   providers: [

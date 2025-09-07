@@ -1,10 +1,23 @@
-import { Body, Controller, HttpCode, HttpStatus, Post, Patch, UseGuards, Req } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  HttpCode,
+  HttpStatus,
+  Post,
+  Patch,
+  UseGuards,
+  Req,
+} from '@nestjs/common';
 import { ApiBody, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { AuthResponseDto } from './dto/auth-response.dto';
-import { TelegramAuthDto, TelegramLoginDto, TelegramRegisterDto } from './dto/telegram-auth.dto';
+import {
+  TelegramAuthDto,
+  TelegramLoginDto,
+  TelegramRegisterDto,
+} from './dto/telegram-auth.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 
@@ -34,7 +47,10 @@ export class AuthController {
     description: 'Muvaffaqiyatli tizimga kirdi',
     type: AuthResponseDto,
   })
-  @ApiResponse({ status: 401, description: "Foydalanuvchi nomi yoki parol noto'g'ri" })
+  @ApiResponse({
+    status: 400,
+    description: "Foydalanuvchi nomi yoki parol noto'g'ri",
+  })
   @ApiBody({ type: LoginDto })
   async login(@Body() loginDto: LoginDto): Promise<AuthResponseDto> {
     return this.authService.login(loginDto);
@@ -48,9 +64,11 @@ export class AuthController {
     description: 'Muvaffaqiyatli Telegram orqali tizimga kirdi',
     type: AuthResponseDto,
   })
-  @ApiResponse({ status: 401, description: 'Telegram hisobi bog\'lanmagan' })
+  @ApiResponse({ status: 401, description: "Telegram hisobi bog'lanmagan" })
   @ApiBody({ type: TelegramLoginDto })
-  async telegramLogin(@Body() telegramLoginDto: TelegramLoginDto): Promise<AuthResponseDto> {
+  async telegramLogin(
+    @Body() telegramLoginDto: TelegramLoginDto,
+  ): Promise<AuthResponseDto> {
     return this.authService.telegramLogin(telegramLoginDto);
   }
 
@@ -62,9 +80,11 @@ export class AuthController {
     description: 'Muvaffaqiyatli Telegram hisobi tasdiqlandi',
     type: AuthResponseDto,
   })
-  @ApiResponse({ status: 401, description: 'Telegram hisobi bog\'lanmagan' })
+  @ApiResponse({ status: 401, description: "Telegram hisobi bog'lanmagan" })
   @ApiBody({ type: TelegramAuthDto })
-  async telegramAuth(@Body() telegramAuthDto: TelegramAuthDto): Promise<AuthResponseDto> {
+  async telegramAuth(
+    @Body() telegramAuthDto: TelegramAuthDto,
+  ): Promise<AuthResponseDto> {
     return this.authService.telegramAuth(telegramAuthDto);
   }
 
@@ -75,31 +95,39 @@ export class AuthController {
     description: "Muvaffaqiyatli Telegram orqali ro'yxatdan o'tdi",
     type: AuthResponseDto,
   })
-  @ApiResponse({ status: 409, description: 'Telegram hisobi allaqachon bog\'langan' })
+  @ApiResponse({
+    status: 409,
+    description: "Telegram hisobi allaqachon bog'langan",
+  })
   @ApiBody({ type: TelegramRegisterDto })
-  async telegramRegister(@Body() telegramRegisterDto: TelegramRegisterDto): Promise<AuthResponseDto> {
+  async telegramRegister(
+    @Body() telegramRegisterDto: TelegramRegisterDto,
+  ): Promise<AuthResponseDto> {
     return this.authService.telegramRegister(telegramRegisterDto);
   }
 
   @Patch('change-password')
   @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Parolni o\'zgartirish' })
+  @ApiOperation({ summary: "Parolni o'zgartirish" })
   @ApiResponse({
     status: 200,
-    description: 'Parol muvaffaqiyatli o\'zgartirildi',
+    description: "Parol muvaffaqiyatli o'zgartirildi",
     schema: {
       type: 'object',
       properties: {
         message: {
           type: 'string',
-          example: 'Parol muvaffaqiyatli o\'zgartirildi'
-        }
-      }
-    }
+          example: "Parol muvaffaqiyatli o'zgartirildi",
+        },
+      },
+    },
   })
   @ApiResponse({ status: 400, description: 'Parollar mos kelmaydi' })
-  @ApiResponse({ status: 401, description: 'Joriy parol noto\'g\'ri yoki foydalanuvchi topilmadi' })
+  @ApiResponse({
+    status: 401,
+    description: "Joriy parol noto'g'ri yoki foydalanuvchi topilmadi",
+  })
   @ApiBody({ type: ChangePasswordDto })
   async changePassword(
     @Req() req: any,

@@ -207,13 +207,6 @@ export class TestsService {
       throw new ForbiddenException("Bu testga ruxsatingiz yo'q");
     }
 
-    // Check if test can be deleted (only drafts can be deleted)
-    if (test.status !== TestStatus.DRAFT) {
-      throw new BadRequestException(
-        "Faqat qoralama testlarni o'chirish mumkin",
-      );
-    }
-
     // Update subject tests count
     test.subject.testsCount = Math.max(0, (test.subject.testsCount || 1) - 1);
     await this.subjectRepository.save(test.subject);
@@ -221,86 +214,12 @@ export class TestsService {
     await this.testRepository.remove(test);
   }
 
-  async duplicate(id: number, teacherid: number): Promise<TestResponseDto> {
-    const originalTest = await this.testRepository.findOne({
-      where: { id },
-      relations: ['subject', 'teacher', 'questions'],
+  // Add this new method to get all tests
+  async findAll(): Promise<Test[]> {
+    return this.testRepository.find({
+      relations: ['subject', 'teacher', 'questions', 'questions.answers'],
+      order: { updatedAt: 'DESC' },
     });
-
-    if (!originalTest) {
-      throw new NotFoundException('Test topilmadi');
-    }
-
-    // Check if teacher owns this test
-    if (originalTest.teacher.id !== teacherid) {
-      throw new ForbiddenException("Bu testga ruxsatingiz yo'q");
-    }
-
-    // Create duplicate
-    const duplicateTest = this.testRepository.create({
-      title: `${originalTest.title} (nusxa)`,
-      description: originalTest.description,
-      type: originalTest.type,
-      duration: originalTest.duration,
-      shuffleQuestions: originalTest.shuffleQuestions,
-      showResults: originalTest.showResults,
-      teacher: originalTest.teacher,
-      subject: originalTest.subject,
-      status: TestStatus.DRAFT,
-    });
-
-    const savedTest = await this.testRepository.save(duplicateTest);
-
-    // Update subject tests count
-    originalTest.subject.testsCount =
-      (originalTest.subject.testsCount || 0) + 1;
-    await this.subjectRepository.save(originalTest.subject);
-
-    return this.mapToResponseDto(savedTest);
-  }
-
-  async getTestStats(teacherid: number): Promise<TestStatsDto> {
-    const tests = await this.testRepository.find({
-      where: { teacher: { id: teacherid } },
-      relations: ['subject', 'questions'],
-    });
-
-    const stats: TestStatsDto = {
-      totalTests: tests.length,
-      draftTests: tests.filter((t) => t.status === TestStatus.DRAFT).length,
-      publishedTests: tests.filter((t) => t.status === TestStatus.PUBLISHED)
-        .length,
-      archivedTests: tests.filter((t) => t.status === TestStatus.ARCHIVED)
-        .length,
-      openTests: tests.filter((t) => t.type === TestType.OPEN).length,
-      closedTests: tests.filter((t) => t.type === TestType.CLOSED).length,
-      mixedTests: tests.filter((t) => t.type === TestType.MIXED).length,
-      totalQuestions: tests.reduce(
-        (sum, test) => sum + (test.questions?.length || 0),
-        0,
-      ),
-      averageQuestionsPerTest:
-        tests.length > 0
-          ? Math.round(
-              (tests.reduce(
-                (sum, test) => sum + (test.questions?.length || 0),
-                0,
-              ) /
-                tests.length) *
-                100,
-            ) / 100
-          : 0,
-      testsBySubject: {},
-    };
-
-    // Count tests by subject
-    tests.forEach((test) => {
-      const subjectName = test.subject.name;
-      stats.testsBySubject[subjectName] =
-        (stats.testsBySubject[subjectName] || 0) + 1;
-    });
-
-    return stats;
   }
 
   private mapToResponseDto(test: Test): TestResponseDto {

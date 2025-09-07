@@ -15,5 +15,9 @@ export class AuthResponseDto {
     role: UserRole;
     hasCenterAssigned?: boolean;
     needsCenterAssignment?: boolean;
+    center?: {
+      id: number;
+      name: string;
+    } | null;
   };
 }

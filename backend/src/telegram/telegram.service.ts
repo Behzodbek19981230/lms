@@ -31,6 +31,7 @@ import {
   SubmitAnswerDto,
   NotifyExamStartDto,
 } from './dto/telegram.dto';
+import { TestPDFGeneratorService } from './test-pdf-generator.service'; // Add this import
 
 @Injectable()
 export class TelegramService {
@@ -61,6 +62,7 @@ export class TelegramService {
     @InjectRepository(Group)
     private groupRepo: Repository<Group>,
     private configService: ConfigService,
+    private readonly testPDFGeneratorService: TestPDFGeneratorService, // Add this injection
   ) {
     const token = this.configService.get<string>('TELEGRAM_BOT_TOKEN');
     if (token) {
@@ -882,10 +884,6 @@ export class TelegramService {
 
           channel = this.telegramChatRepo.create(newChannelData);
           await this.telegramChatRepo.save(channel);
-
-          this.logger.log(
-            `Auto-registered channel: ${dto.channelId} (ID: ${targetChannelId})`,
-          );
         } else {
           // Use the channelId as-is and try to get chat info
           try {
@@ -904,15 +902,7 @@ export class TelegramService {
 
             channel = this.telegramChatRepo.create(newChannelData);
             await this.telegramChatRepo.save(channel);
-
-            this.logger.log(
-              `Auto-registered channel: ${dto.channelId} (Title: ${chatInfo.title})`,
-            );
           } catch (error) {
-            this.logger.warn(
-              `Could not get chat info for ${dto.channelId}:`,
-              error.message,
-            );
             // Continue anyway - maybe bot doesn't have access yet
             targetChannelId = dto.channelId;
           }
@@ -928,44 +918,38 @@ export class TelegramService {
     }
 
     try {
-      const message = this.formatTestMessage(test, dto.customMessage);
+      // Generate test PDF
+      const pdfBuffer = await this.testPDFGeneratorService.generateTestPDF(
+        dto.testId,
+        0, // userId not needed for generation
+      );
 
-      await this.bot.sendMessage(targetChannelId, message, {
-        parse_mode: 'HTML',
-        disable_web_page_preview: true,
-      });
+      // Send PDF document with a descriptive caption
+      const caption = dto.customMessage
+        ? `${dto.customMessage}\n\n📄 Test #${dto.testId}: ${test.title}`
+        : `📄 Test #${dto.testId}: ${test.title}\n\nFan: ${test.subject?.name || "Noma'lum"}\nSavollar soni: ${test.questions?.length || 0} ta`;
 
-      // Send questions one by one
-      for (let i = 0; i < test.questions.length; i++) {
-        const question = test.questions[i];
-        const questionMessage = this.formatQuestionMessage(
-          question,
-          i + 1,
-          dto.testId,
-        );
-
-        await this.bot.sendMessage(targetChannelId, questionMessage, {
+      await this.bot.sendDocument(
+        targetChannelId,
+        pdfBuffer,
+        {
+          caption,
           parse_mode: 'HTML',
-        });
-
-        // Small delay between messages
-        await this.delay(500);
-      }
-
-      // Send instructions for answering
-      const instructionsMessage = this.getAnswerInstructions(dto.testId);
-      await this.bot.sendMessage(targetChannelId, instructionsMessage, {
-        parse_mode: 'HTML',
-      });
+        },
+        {
+          filename: `test-${dto.testId}.pdf`,
+          contentType: 'application/pdf',
+        },
+      );
 
       this.logger.log(
-        `Test ${dto.testId} sent successfully to channel ${targetChannelId} (requested: ${dto.channelId})`,
+        `Test ${dto.testId} PDF sent successfully to channel ${targetChannelId} (requested: ${dto.channelId})`,
       );
       return true;
     } catch (error) {
-      this.logger.error('Failed to send test to channel:', error);
+      this.logger.error('Failed to send test PDF to channel:', error);
       throw new BadRequestException(
-        `Testni Telegram kanaliga yuborishda xatolik: ${error.message}`,
+        `Test PDFni Telegram kanaliga yuborishda xatolik: ${error.message}`,
       );
     }
   }
