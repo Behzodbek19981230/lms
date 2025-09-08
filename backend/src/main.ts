@@ -10,11 +10,9 @@ async function bootstrap() {
     logger: false, // Disable default logger
   });
 
-  // Get custom logger instance
   const customLogger = app.get(CustomLogger);
   app.useLogger(customLogger);
 
-  // 🔥 Body size limitini oshirish (10mb qilib qo'ydim)
   app.use(bodyParser.json({ limit: '10mb' }));
   app.use(bodyParser.urlencoded({ limit: '10mb', extended: true }));
 
@@ -31,7 +29,7 @@ async function bootstrap() {
   app.setGlobalPrefix('api');
 
   app.enableCors({
-    origin: ['http://localhost:3000', 'https://lms.universal-uz.uz'],
+    origin: ['http://localhost:8080', 'https://lms.universal-uz.uz'],
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
     allowedHeaders: 'Content-Type, Authorization',
     credentials: true,
