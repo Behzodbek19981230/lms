@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, IsNull } from 'typeorm';
 import TelegramBot from 'node-telegram-bot-api';
 import { ConfigService } from '@nestjs/config';
+import { LogsService } from '../logs/logs.service';
 import {
   TelegramChat,
   ChatType,
@@ -29,7 +30,6 @@ import {
   CreateTelegramChatDto,
   SendTestToChannelDto,
   SubmitAnswerDto,
-  NotifyExamStartDto,
 } from './dto/telegram.dto';
 import { TestPDFGeneratorService } from './test-pdf-generator.service'; // Add this import
 
@@ -62,14 +62,18 @@ export class TelegramService {
     @InjectRepository(Group)
     private groupRepo: Repository<Group>,
     private configService: ConfigService,
-    private readonly testPDFGeneratorService: TestPDFGeneratorService, // Add this injection
+    private readonly testPDFGeneratorService: TestPDFGeneratorService,
+    private readonly logsService: LogsService,
   ) {
     const token = this.configService.get<string>('TELEGRAM_BOT_TOKEN');
     if (token) {
       this.bot = new TelegramBot(token, { polling: false });
-      this.logger.log('Telegram bot initialized');
+      this.logsService.log('Telegram bot initialized', 'TelegramService');
     } else {
-      this.logger.warn('Telegram bot token not configured');
+      this.logsService.warn(
+        'Telegram bot token not configured',
+        'TelegramService',
+      );
     }
   }
 
@@ -211,7 +215,11 @@ export class TelegramService {
         dto.lastName,
       );
     } catch (error) {
-      this.logger.error('Failed to authenticate user:', error);
+      this.logsService.error(
+        `Failed to authenticate user: ${error.message}`,
+        error.stack,
+        'TelegramService',
+      );
       return {
         success: false,
         message: "Autentifikatsiyada xatolik. Keyinroq qayta urinib ko'ring.",
@@ -232,7 +240,10 @@ export class TelegramService {
     autoConnected?: boolean;
   }> {
     try {
-      console.log(`Authenticating Telegram user ${telegramUserId}`);
+      this.logsService.log(
+        `Authenticating Telegram user ${telegramUserId}`,
+        'TelegramService',
+      );
       // Check if this Telegram user is already registered
       const existingChat = await this.telegramChatRepo.findOne({
         where: { telegramUserId },
@@ -243,7 +254,10 @@ export class TelegramService {
         // User already connected, send updated channel list
         await this.sendUserChannelsAndInvitation(existingChat.user.id);
 
-        console.log(`User ${existingChat.user.id} is already connected.`);
+        this.logsService.log(
+          `User ${existingChat.user.id} is already connected`,
+          'TelegramService',
+        );
         return {
           success: true,
           message: `Qaytib kelganingiz bilan, ${existingChat.user.firstName}! Sizning hisobingiz allaqachon ulangan.`,
@@ -292,8 +306,9 @@ export class TelegramService {
       if (potentialUsers.length > 0) {
         // Take the first matching user for auto-linking
         linkedUser = potentialUsers[0];
-        this.logger.log(
+        this.logsService.log(
           `Auto-linking user ${linkedUser.firstName} ${linkedUser.lastName} with Telegram user ${telegramUserId}`,
+          'TelegramService',
         );
       } else {
         try {
@@ -309,11 +324,16 @@ export class TelegramService {
             }),
           );
 
-          this.logger.log(
+          this.logsService.log(
             `Created temporary user ${linkedUser.id} for Telegram user ${telegramUserId}`,
+            'TelegramService',
           );
         } catch (error) {
-          this.logger.error('Failed to create temporary user:', error);
+          this.logsService.error(
+            `Failed to create temporary user: ${error.message}`,
+            error.stack,
+            'TelegramService',
+          );
           // Fallback - create chat without user link for manual processing later
           const chatData = {
             chatId: telegramUserId,
@@ -355,6 +375,7 @@ export class TelegramService {
           firstName,
           lastName,
           status: ChatStatus.ACTIVE,
+          
         });
 
       chat.user = linkedUser;
@@ -367,8 +388,9 @@ export class TelegramService {
       try {
         const pendingResult = await this.sendAllPendingPdfs(linkedUser.id);
         if (pendingResult.sent > 0) {
-          this.logger.log(
+          this.logsService.log(
             `Successfully sent ${pendingResult.sent} pending PDFs to user ${linkedUser.id} after connection`,
+            'TelegramService',
           );
 
           // Optionally notify user about sent PDFs
@@ -384,9 +406,10 @@ export class TelegramService {
           }
         }
       } catch (error) {
-        this.logger.error(
-          `Failed to send pending PDFs to user ${linkedUser.id} after connection:`,
-          error,
+        this.logsService.error(
+          `Failed to send pending PDFs to user ${linkedUser.id} after connection: ${error.message}`,
+          error.stack,
+          'TelegramService',
         );
       }
 
@@ -397,7 +420,11 @@ export class TelegramService {
         autoConnected: true,
       };
     } catch (error) {
-      this.logger.error('Failed to authenticate and connect user:', error);
+      this.logsService.error(
+        `Failed to authenticate and connect user: ${error.message}`,
+        error.stack,
+        'TelegramService',
+      );
       return {
         success: false,
         message: "Autentifikatsiyada xatolik. Keyinroq qayta urinib ko'ring.",
@@ -506,9 +533,9 @@ export class TelegramService {
                 );
               }
             } catch (error) {
-              this.logger.warn(
-                `Failed to generate invite for channel ${channel.chatId}:`,
-                error,
+              this.logsService.warn(
+                `Failed to generate invite for channel ${channel.chatId}: ${error.message}`,
+                'TelegramService',
               );
             }
           }
@@ -617,9 +644,9 @@ export class TelegramService {
           };
         }
       } catch (permissionError) {
-        this.logger.warn(
-          'Could not check bot permissions, proceeding anyway:',
-          permissionError,
+        this.logsService.warn(
+          `Could not check bot permissions, proceeding anyway: ${permissionError.message}`,
+          'TelegramService',
         );
       }
 
@@ -641,7 +668,11 @@ export class TelegramService {
         message: 'Invite link generated successfully',
       };
     } catch (error) {
-      this.logger.error('Failed to generate invite link:', error);
+      this.logsService.error(
+        `Failed to generate invite link: ${error.message}`,
+        error.stack,
+        'TelegramService',
+      );
 
       // Provide more specific error messages
       if (error.code === 400) {
@@ -718,7 +749,11 @@ export class TelegramService {
         availableChannels,
       };
     } catch (error) {
-      this.logger.error('Failed to get user Telegram status:', error);
+      this.logsService.error(
+        `Failed to get user Telegram status: ${error.message}`,
+        error.stack,
+        'TelegramService',
+      );
       return {
         isLinked: false,
         availableChannels: [],
@@ -749,7 +784,11 @@ export class TelegramService {
         message: `Bot @${botInfo.username} status in channel: ${chatMember.status}`,
       };
     } catch (error) {
-      this.logger.error('Failed to check bot status in channel:', error);
+      this.logsService.error(
+        `Failed to check bot status in channel: ${error.message}`,
+        error.stack,
+        'TelegramService',
+      );
       return {
         success: false,
         message: `Failed to check bot status: ${error.message}`,
@@ -830,7 +869,11 @@ export class TelegramService {
         ),
       };
     } catch (error) {
-      this.logger.error('Failed to send user invitations:', error);
+      this.logsService.error(
+        `Failed to send user invitations: ${error.message}`,
+        error.stack,
+        'TelegramService',
+      );
       return {
         success: false,
         message: 'Taklifnomalarni yuborishda xatolik',
@@ -942,12 +985,17 @@ export class TelegramService {
         },
       );
 
-      this.logger.log(
+      this.logsService.log(
         `Test ${dto.testId} PDF sent successfully to channel ${targetChannelId} (requested: ${dto.channelId})`,
+        'TelegramService',
       );
       return true;
     } catch (error) {
-      this.logger.error('Failed to send test PDF to channel:', error);
+      this.logsService.error(
+        `Failed to send test PDF to channel: ${error.message}`,
+        error.stack,
+        'TelegramService',
+      );
       throw new BadRequestException(
         `Test PDFni Telegram kanaliga yuborishda xatolik: ${error.message}`,
       );
@@ -1024,15 +1072,19 @@ export class TelegramService {
       });
 
       if (!question) {
-        this.logger.warn(
+        this.logsService.warn(
           `Question not found for test ${answer.testId}, question ${answer.questionNumber}`,
+          'TelegramService',
         );
         return;
       }
 
       const correctAnswer = question.answers.find((a) => a.isCorrect);
       if (!correctAnswer) {
-        this.logger.warn(`No correct answer found for question ${question.id}`);
+        this.logsService.warn(
+          `No correct answer found for question ${question.id}`,
+          'TelegramService',
+        );
         return;
       }
 
@@ -1055,7 +1107,11 @@ export class TelegramService {
       // Send result back to the student
       await this.sendAnswerResult(answer);
     } catch (error) {
-      this.logger.error('Failed to check answer:', error);
+      this.logsService.error(
+        `Failed to check answer: ${error.message}`,
+        error.stack,
+        'TelegramService',
+      );
       answer.status = AnswerStatus.INVALID;
       await this.telegramAnswerRepo.save(answer);
     }
@@ -1095,7 +1151,11 @@ export class TelegramService {
         parse_mode: 'HTML',
       });
     } catch (error) {
-      this.logger.error('Failed to publish results:', error);
+      this.logsService.error(
+        `Failed to publish results: ${error.message}`,
+        error.stack,
+        'TelegramService',
+      );
       throw new BadRequestException(
         "Natijalarni kanalga e'lon qilishda xatolik",
       );
@@ -2072,8 +2132,9 @@ export class TelegramService {
         );
 
         sentCount++;
-        this.logger.log(
+        this.logsService.log(
           `Exam start notification sent to student ${student.firstName} ${student.lastName} (${studentChat.telegramUserId}) for exam ${examId}`,
+          'TelegramService',
         );
 
         // Small delay to avoid rate limiting
@@ -2083,9 +2144,10 @@ export class TelegramService {
         errors.push(
           `${student.firstName} ${student.lastName}: ${error.message}`,
         );
-        this.logger.error(
-          `Failed to send exam start notification to student ${student.id}:`,
-          error,
+        this.logsService.error(
+          `Failed to send exam start notification to student ${student.id}: ${error.message}`,
+          error.stack,
+          'TelegramService',
         );
       }
     }
@@ -2117,8 +2179,9 @@ export class TelegramService {
       });
 
       if (!userChat || !userChat.telegramUserId) {
-        this.logger.warn(
+        this.logsService.warn(
           `User ${userId} does not have a connected Telegram account`,
+          'TelegramService',
         );
         return {
           success: false,
@@ -2127,7 +2190,11 @@ export class TelegramService {
       }
 
       if (!this.bot) {
-        this.logger.error('Telegram bot not configured');
+        this.logsService.error(
+          'Telegram bot not configured',
+          undefined,
+          'TelegramService',
+        );
         return {
           success: false,
           message: 'Telegram bot sozlanmagan',
@@ -2140,15 +2207,20 @@ export class TelegramService {
         parse_mode: 'HTML',
       });
 
-      this.logger.log(
+      this.logsService.log(
         `PDF sent successfully to user ${userId} (${userChat.telegramUserId})`,
+        'TelegramService',
       );
       return {
         success: true,
         message: 'PDF muvaffaqiyatli yuborildi',
       };
     } catch (error) {
-      this.logger.error(`Failed to send PDF to user ${userId}:`, error);
+      this.logsService.error(
+        `Failed to send PDF to user ${userId}: ${error.message}`,
+        error.stack,
+        'TelegramService',
+      );
       return {
         success: false,
         message: `PDF yuborishda xatolik: ${error.message}`,
@@ -2228,8 +2300,9 @@ export class TelegramService {
 
   async sendPaymentReminder(studentId: number, payment: any): Promise<void> {
     if (!this.bot) {
-      this.logger.warn(
+      this.logsService.warn(
         'Telegram bot not configured - cannot send payment reminder',
+        'TelegramService',
       );
       return;
     }
@@ -2245,8 +2318,9 @@ export class TelegramService {
       });
 
       if (!studentChat || !studentChat.telegramUserId) {
-        this.logger.warn(
+        this.logsService.warn(
           `Student ${studentId} does not have Telegram connected`,
+          'TelegramService',
         );
         return;
       }
@@ -2264,11 +2338,15 @@ export class TelegramService {
         parse_mode: 'HTML',
       });
 
-      this.logger.log(`Payment reminder sent to student ${studentId}`);
+      this.logsService.log(
+        `Payment reminder sent to student ${studentId}`,
+        'TelegramService',
+      );
     } catch (error) {
-      this.logger.error(
-        `Failed to send payment reminder to student ${studentId}:`,
-        error,
+      this.logsService.error(
+        `Failed to send payment reminder to student ${studentId}: ${error.message}`,
+        error.stack,
+        'TelegramService',
       );
       throw error;
     }
@@ -2279,8 +2357,9 @@ export class TelegramService {
     payment: any,
   ): Promise<void> {
     if (!this.bot) {
-      this.logger.warn(
+      this.logsService.warn(
         'Telegram bot not configured - cannot send payment reminder to channel',
+        'TelegramService',
       );
       return;
     }
@@ -2299,11 +2378,15 @@ export class TelegramService {
         parse_mode: 'HTML',
       });
 
-      this.logger.log(`Payment reminder sent to channel ${channelId}`);
+      this.logsService.log(
+        `Payment reminder sent to channel ${channelId}`,
+        'TelegramService',
+      );
     } catch (error) {
-      this.logger.error(
-        `Failed to send payment reminder to channel ${channelId}:`,
-        error,
+      this.logsService.error(
+        `Failed to send payment reminder to channel ${channelId}: ${error.message}`,
+        error.stack,
+        'TelegramService',
       );
       throw error;
     }
@@ -2319,8 +2402,9 @@ export class TelegramService {
     },
   ): Promise<{ sentCount: number; failedCount: number }> {
     if (!this.bot) {
-      this.logger.warn(
+      this.logsService.warn(
         'Telegram bot not configured - cannot send monthly payment notifications',
+        'TelegramService',
       );
       return { sentCount: 0, failedCount: studentIds.length };
     }
@@ -2367,8 +2451,9 @@ export class TelegramService {
       }
     }
 
-    this.logger.log(
+    this.logsService.log(
       `Monthly payment notifications sent: ${sentCount} sent, ${failedCount} failed`,
+      'TelegramService',
     );
     return { sentCount, failedCount };
   }
@@ -2408,15 +2493,17 @@ export class TelegramService {
 
       const savedPendingPdf = await this.pendingPdfRepo.save(pendingPdf);
 
-      this.logger.log(
+      this.logsService.log(
         `Created pending PDF ${savedPendingPdf.id} for user ${userId}: ${fileName}`,
+        'TelegramService',
       );
 
       return savedPendingPdf;
     } catch (error) {
-      this.logger.error(
-        `Failed to create pending PDF for user ${userId}:`,
-        error,
+      this.logsService.error(
+        `Failed to create pending PDF for user ${userId}: ${error.message}`,
+        error.stack,
+        'TelegramService',
       );
       throw error;
     }
@@ -2442,9 +2529,10 @@ export class TelegramService {
         order: { createdAt: 'DESC' },
       });
     } catch (error) {
-      this.logger.error(
-        `Failed to get pending PDFs for user ${userId}:`,
-        error,
+      this.logsService.error(
+        `Failed to get pending PDFs for user ${userId}: ${error.message}`,
+        error.stack,
+        'TelegramService',
       );
       return [];
     }
@@ -2469,12 +2557,16 @@ export class TelegramService {
       );
 
       if (pendingPdfs.length === 0) {
-        this.logger.log(`No pending PDFs found for user ${userId}`);
+        this.logsService.log(
+          `No pending PDFs found for user ${userId}`,
+          'TelegramService',
+        );
         return result;
       }
 
-      this.logger.log(
+      this.logsService.log(
         `Found ${pendingPdfs.length} pending PDFs for user ${userId}`,
+        'TelegramService',
       );
 
       for (const pendingPdf of pendingPdfs) {
@@ -2508,8 +2600,9 @@ export class TelegramService {
               `✅ ${pendingPdf.fileName}: ${sendResult.message}`,
             );
 
-            this.logger.log(
+            this.logsService.log(
               `Successfully sent pending PDF ${pendingPdf.id} to user ${userId}`,
+              'TelegramService',
             );
           } else {
             // Mark as failed
@@ -2522,8 +2615,9 @@ export class TelegramService {
               `❌ ${pendingPdf.fileName}: ${sendResult.message}`,
             );
 
-            this.logger.warn(
+            this.logsService.warn(
               `Failed to send pending PDF ${pendingPdf.id} to user ${userId}: ${sendResult.message}`,
+              'TelegramService',
             );
           }
 
@@ -2540,20 +2634,23 @@ export class TelegramService {
             `❌ ${pendingPdf.fileName}: Error - ${error.message}`,
           );
 
-          this.logger.error(
-            `Error sending pending PDF ${pendingPdf.id} to user ${userId}:`,
-            error,
+          this.logsService.error(
+            `Error sending pending PDF ${pendingPdf.id} to user ${userId}: ${error.message}`,
+            error.stack,
+            'TelegramService',
           );
         }
       }
 
-      this.logger.log(
+      this.logsService.log(
         `Completed sending pending PDFs for user ${userId}: ${result.sent} sent, ${result.failed} failed`,
+        'TelegramService',
       );
     } catch (error) {
-      this.logger.error(
-        `Error processing pending PDFs for user ${userId}:`,
-        error,
+      this.logsService.error(
+        `Error processing pending PDFs for user ${userId}: ${error.message}`,
+        error.stack,
+        'TelegramService',
       );
     }
 
@@ -2586,12 +2683,19 @@ export class TelegramService {
       const deletedCount = result.affected || 0;
 
       if (deletedCount > 0) {
-        this.logger.log(`Cleaned up ${deletedCount} expired pending PDFs`);
+        this.logsService.log(
+          `Cleaned up ${deletedCount} expired pending PDFs`,
+          'TelegramService',
+        );
       }
 
       return deletedCount;
     } catch (error) {
-      this.logger.error('Error cleaning up expired pending PDFs:', error);
+      this.logsService.error(
+        `Error cleaning up expired pending PDFs: ${error.message}`,
+        error.stack,
+        'TelegramService',
+      );
       return 0;
     }
   }
@@ -2622,7 +2726,11 @@ export class TelegramService {
 
       return { total, pending, sent, failed, expired };
     } catch (error) {
-      this.logger.error('Error getting pending PDF stats:', error);
+      this.logsService.error(
+        `Error getting pending PDF stats: ${error.message}`,
+        error.stack,
+        'TelegramService',
+      );
       return { total: 0, pending: 0, sent: 0, failed: 0, expired: 0 };
     }
   }
@@ -2642,9 +2750,13 @@ export class TelegramService {
 
     try {
       await this.bot.sendMessage(chatId, message, options);
-      this.logger.log(`Message sent to ${chatId}`);
+      this.logsService.log(`Message sent to ${chatId}`, 'TelegramService');
     } catch (error) {
-      this.logger.error(`Failed to send message to ${chatId}:`, error);
+      this.logsService.error(
+        `Failed to send message to ${chatId}: ${error.message}`,
+        error.stack,
+        'TelegramService',
+      );
       throw error;
     }
   }

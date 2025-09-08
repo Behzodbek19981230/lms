@@ -157,8 +157,7 @@ export class AuthService {
   async telegramAuth(
     telegramAuthDto: TelegramAuthDto,
   ): Promise<AuthResponseDto> {
-    const { telegramUserId, telegramUsername, firstName, lastName } =
-      telegramAuthDto;
+    const { telegramUserId } = telegramAuthDto;
 
     // Find existing telegram chat to link with user
     const telegramChat = await this.telegramChatRepository.findOne({
@@ -275,6 +274,8 @@ export class AuthService {
       lastName,
       role: UserRole.STUDENT, // Default role for telegram registration
       isActive: true,
+      telegramConnected: true,
+      telegramId: telegramUserId,
     });
 
     const savedUser = await this.userRepository.save(user);

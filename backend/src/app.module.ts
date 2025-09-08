@@ -17,6 +17,7 @@ import { PaymentsModule } from './payments/payments.module';
 import { AssignedTestsModule } from './assigned-tests/assigned-tests.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { PdfModule } from './pdf/pdf.module';
+import { LogsModule } from './logs/logs.module';
 
 @Module({
   imports: [
@@ -55,6 +56,7 @@ import { PdfModule } from './pdf/pdf.module';
     AttendanceModule,
     CronJobsModule,
     PdfModule,
+    LogsModule,
   ],
 })
 export class AppModule {}

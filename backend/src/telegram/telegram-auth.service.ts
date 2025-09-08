@@ -1,8 +1,12 @@
-import { Injectable, Logger, BadRequestException } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { TelegramChat, ChatType, ChatStatus } from './entities/telegram-chat.entity';
-import { User, UserRole } from '../users/entities/user.entity';
+import {
+  TelegramChat,
+  ChatType,
+  ChatStatus,
+} from './entities/telegram-chat.entity';
+import { User } from '../users/entities/user.entity';
 import { Center } from '../centers/entities/center.entity';
 import { TelegramService } from './telegram.service';
 
@@ -52,7 +56,9 @@ export class TelegramAuthService {
     authData: TelegramAuthData,
   ): Promise<TelegramConnectionResult> {
     try {
-      this.logger.log(`Connecting user ${userId} to Telegram ${authData.telegramUserId}`);
+      this.logger.log(
+        `Connecting user ${userId} to Telegram ${authData.telegramUserId}`,
+      );
 
       // Get current user with center
       const user = await this.userRepo.findOne({
@@ -69,14 +75,18 @@ export class TelegramAuthService {
 
       // Check if this Telegram account is already linked to someone else
       const existingTelegramChat = await this.telegramChatRepo.findOne({
-        where: { 
+        where: {
           telegramUserId: authData.telegramUserId,
-          type: ChatType.PRIVATE 
+          type: ChatType.PRIVATE,
         },
         relations: ['user'],
       });
 
-      if (existingTelegramChat && existingTelegramChat.user && existingTelegramChat.user.id !== userId) {
+      if (
+        existingTelegramChat &&
+        existingTelegramChat.user &&
+        existingTelegramChat.user.id !== userId
+      ) {
         return {
           success: false,
           message: `Bu Telegram hisobi boshqa foydalanuvchi (${existingTelegramChat.user.firstName} ${existingTelegramChat.user.lastName}) ga ulangan`,
@@ -85,9 +95,9 @@ export class TelegramAuthService {
 
       // Check if user is already connected to Telegram
       const existingUserChat = await this.telegramChatRepo.findOne({
-        where: { 
+        where: {
           user: { id: userId },
-          type: ChatType.PRIVATE 
+          type: ChatType.PRIVATE,
         },
       });
 
@@ -102,16 +112,18 @@ export class TelegramAuthService {
         existingUserChat.chatId = authData.telegramUserId; // Use telegramUserId as chatId for private chats
         existingUserChat.status = ChatStatus.ACTIVE;
         existingUserChat.lastActivity = new Date();
-        
+
         telegramChat = await this.telegramChatRepo.save(existingUserChat);
-        this.logger.log(`Updated existing Telegram connection for user ${userId}`);
+        this.logger.log(
+          `Updated existing Telegram connection for user ${userId}`,
+        );
       } else if (existingTelegramChat) {
         // Link existing Telegram chat to new user
         existingTelegramChat.user = user;
         existingTelegramChat.center = user.center;
         existingTelegramChat.status = ChatStatus.ACTIVE;
         existingTelegramChat.lastActivity = new Date();
-        
+
         telegramChat = await this.telegramChatRepo.save(existingTelegramChat);
         this.logger.log(`Linked existing Telegram chat to user ${userId}`);
       } else {
@@ -128,22 +140,33 @@ export class TelegramAuthService {
           status: ChatStatus.ACTIVE,
           lastActivity: new Date(),
         });
-        
+
         telegramChat = await this.telegramChatRepo.save(telegramChat);
         this.logger.log(`Created new Telegram connection for user ${userId}`);
       }
+
+      // Update user's telegram fields
+      user.telegramConnected = true;
+      user.telegramId = authData.telegramUserId;
+      await this.userRepo.save(user);
 
       // Send welcome message and channel invitations
       await this.sendWelcomeAndChannelInvitations(user);
 
       // Send pending PDFs if any
       try {
-        const pendingResult = await this.telegramService.sendAllPendingPdfs(userId);
+        const pendingResult =
+          await this.telegramService.sendAllPendingPdfs(userId);
         if (pendingResult.sent > 0) {
-          this.logger.log(`Sent ${pendingResult.sent} pending PDFs to user ${userId}`);
+          this.logger.log(
+            `Sent ${pendingResult.sent} pending PDFs to user ${userId}`,
+          );
         }
       } catch (pdfError) {
-        this.logger.warn(`Failed to send pending PDFs to user ${userId}:`, pdfError);
+        this.logger.warn(
+          `Failed to send pending PDFs to user ${userId}:`,
+          pdfError,
+        );
       }
 
       return {
@@ -159,12 +182,12 @@ export class TelegramAuthService {
           telegramUserId: telegramChat.telegramUserId,
         },
       };
-
     } catch (error) {
       this.logger.error(`Failed to connect user ${userId} to Telegram:`, error);
       return {
         success: false,
-        message: 'Telegram ga ulanishda xatolik yuz berdi. Keyinroq qayta urinib ko\'ring.',
+        message:
+          "Telegram ga ulanishda xatolik yuz berdi. Keyinroq qayta urinib ko'ring.",
       };
     }
   }
@@ -184,9 +207,9 @@ export class TelegramAuthService {
     try {
       // Get user's Telegram connection
       const userChat = await this.telegramChatRepo.findOne({
-        where: { 
-          user: { id: userId }, 
-          type: ChatType.PRIVATE 
+        where: {
+          user: { id: userId },
+          type: ChatType.PRIVATE,
         },
         relations: ['user', 'center'],
       });
@@ -198,7 +221,7 @@ export class TelegramAuthService {
 
       // Get available channels for this user's center
       let availableChannels: any[] = [];
-      
+
       if (user && user.center) {
         const centerChannels = await this.telegramChatRepo.find({
           where: {
@@ -210,7 +233,7 @@ export class TelegramAuthService {
           order: { title: 'ASC' },
         });
 
-        availableChannels = centerChannels.map(channel => ({
+        availableChannels = centerChannels.map((channel) => ({
           id: channel.id,
           title: channel.title,
           chatId: channel.chatId,
@@ -228,7 +251,6 @@ export class TelegramAuthService {
         centerName: user?.center?.name,
         availableChannels,
       };
-
     } catch (error) {
       this.logger.error(`Failed to get user ${userId} Telegram status:`, error);
       return {
@@ -248,9 +270,9 @@ export class TelegramAuthService {
     try {
       // Find and remove user's Telegram connection
       const userChat = await this.telegramChatRepo.findOne({
-        where: { 
-          user: { id: userId }, 
-          type: ChatType.PRIVATE 
+        where: {
+          user: { id: userId },
+          type: ChatType.PRIVATE,
         },
       });
 
@@ -261,17 +283,30 @@ export class TelegramAuthService {
         };
       }
 
+      // Get user to update telegram fields
+      const user = await this.userRepo.findOne({
+        where: { id: userId },
+      });
+
+      if (user) {
+        user.telegramConnected = false;
+        user.telegramId = null;
+        await this.userRepo.save(user);
+      }
+
       await this.telegramChatRepo.remove(userChat);
-      
+
       this.logger.log(`Disconnected user ${userId} from Telegram`);
 
       return {
         success: true,
         message: 'Telegram hisobingiz muvaffaqiyatli uzildi',
       };
-
     } catch (error) {
-      this.logger.error(`Failed to disconnect user ${userId} from Telegram:`, error);
+      this.logger.error(
+        `Failed to disconnect user ${userId} from Telegram:`,
+        error,
+      );
       return {
         success: false,
         message: 'Telegram hisobni uzishda xatolik yuz berdi',
@@ -282,15 +317,17 @@ export class TelegramAuthService {
   /**
    * Telegram bot authentication (from widget)
    */
-  async authenticateFromWidget(authData: TelegramAuthData): Promise<TelegramConnectionResult> {
+  async authenticateFromWidget(
+    authData: TelegramAuthData,
+  ): Promise<TelegramConnectionResult> {
     try {
       // Verify Telegram auth hash (implement hash verification if needed)
-      
+
       // Check if this Telegram user exists
       const existingChat = await this.telegramChatRepo.findOne({
-        where: { 
+        where: {
           telegramUserId: authData.telegramUserId,
-          type: ChatType.PRIVATE 
+          type: ChatType.PRIVATE,
         },
         relations: ['user', 'center'],
       });
@@ -327,17 +364,18 @@ export class TelegramAuthService {
         await this.storeUnlinkedTelegramUser(authData);
         return {
           success: false,
-          message: 'Bir nechta mos foydalanuvchi topildi. Admin bilan bog\'laning.',
+          message:
+            "Bir nechta mos foydalanuvchi topildi. Admin bilan bog'laning.",
         };
       } else {
         // No matches - store for manual linking
         await this.storeUnlinkedTelegramUser(authData);
         return {
           success: false,
-          message: 'Telegram hisobingizni LMS hisobiga ulash uchun admin bilan bog\'laning.',
+          message:
+            "Telegram hisobingizni LMS hisobiga ulash uchun admin bilan bog'laning.",
         };
       }
-
     } catch (error) {
       this.logger.error('Failed to authenticate from Telegram widget:', error);
       return {
@@ -389,7 +427,9 @@ export class TelegramAuthService {
   /**
    * Ulanmagan Telegram foydalanuvchini saqlash
    */
-  private async storeUnlinkedTelegramUser(authData: TelegramAuthData): Promise<void> {
+  private async storeUnlinkedTelegramUser(
+    authData: TelegramAuthData,
+  ): Promise<void> {
     const existingChat = await this.telegramChatRepo.findOne({
       where: { telegramUserId: authData.telegramUserId },
     });
@@ -413,7 +453,7 @@ export class TelegramAuthService {
         status: ChatStatus.PENDING, // Pending manual linking
         lastActivity: new Date(),
       });
-      
+
       await this.telegramChatRepo.save(unlinkedChat);
     }
   }
@@ -430,9 +470,9 @@ export class TelegramAuthService {
 
       // Get user's Telegram chat
       const userChat = await this.telegramChatRepo.findOne({
-        where: { 
-          user: { id: user.id }, 
-          type: ChatType.PRIVATE 
+        where: {
+          user: { id: user.id },
+          type: ChatType.PRIVATE,
         },
       });
 
@@ -454,15 +494,18 @@ export class TelegramAuthService {
       if (centerChannels.length === 0) {
         // Send basic welcome message
         const welcomeMessage = `🎓 Salom ${user.firstName}!\n\nSizning Telegram hisobingiz ${user.center.name} markaziga muvaffaqiyatli ulandi.\n\nTez orada test va ma'lumotlar bu yerga yuboriladi.`;
-        
-        await this.telegramService.sendMessage(userChat.telegramUserId, welcomeMessage);
+
+        await this.telegramService.sendMessage(
+          userChat.telegramUserId,
+          welcomeMessage,
+        );
         return;
       }
 
       // Send welcome message with channel invitations
       const channelsList = centerChannels
-        .map(channel => {
-          const inviteText = channel.inviteLink 
+        .map((channel) => {
+          const inviteText = channel.inviteLink
             ? `[${channel.title || channel.username || 'Kanal'}](${channel.inviteLink})`
             : `${channel.title || channel.username || 'Kanal'}`;
           return `📚 ${inviteText}`;
@@ -471,15 +514,23 @@ export class TelegramAuthService {
 
       const welcomeMessage = `🎓 Salom ${user.firstName}!\n\nSizning Telegram hisobingiz ${user.center.name} markaziga muvaffaqiyatli ulandi.\n\n📢 Markazning Telegram kanallari:\n\n${channelsList}\n\n💡 Bu kanallarga qo'shilib, testlar va muhim ma'lumotlarni birinchi bo'lib oling!\n\n📝 Test javob berish formati: #T123Q1 A\n(Test 123, Savol 1, Javob A)`;
 
-      await this.telegramService.sendMessage(userChat.telegramUserId, welcomeMessage, {
-        parse_mode: 'Markdown',
-        disable_web_page_preview: true,
-      });
+      await this.telegramService.sendMessage(
+        userChat.telegramUserId,
+        welcomeMessage,
+        {
+          parse_mode: 'Markdown',
+          disable_web_page_preview: true,
+        },
+      );
 
-      this.logger.log(`Sent welcome message and channel invitations to user ${user.id}`);
-
+      this.logger.log(
+        `Sent welcome message and channel invitations to user ${user.id}`,
+      );
     } catch (error) {
-      this.logger.error(`Failed to send welcome message to user ${user.id}:`, error);
+      this.logger.error(
+        `Failed to send welcome message to user ${user.id}:`,
+        error,
+      );
     }
   }
 }

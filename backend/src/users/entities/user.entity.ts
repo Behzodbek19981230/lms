@@ -49,7 +49,7 @@ export class User extends BaseEntity {
   lastLoginAt: Date;
 
   @Column({ nullable: true })
-  telegramId: string;
+  telegramId: string | null;
 
   @Column({ default: false })
   telegramConnected: boolean;

@@ -33,6 +33,7 @@ import StudentPayments from './pages/payments/StudentPayments';
 import Profile from './pages/Profile';
 import NoCenterAssigned from './pages/NoCenterAssigned';
 import TelegramConnect from './pages/TelegramConnect';
+import Logs from './pages/Logs';
 
 const queryClient = new QueryClient();
 
@@ -80,6 +81,7 @@ const App = () => (
 							<Route path='teacher-payments' element={<TeacherPayments />} />
 							<Route path='student-payments' element={<StudentPayments />} />
 							<Route path='profile' element={<Profile />} />
+							<Route path='logs' element={<Logs />} />
 						</Route>
 
 						<Route path='*' element={<NotFound />} />

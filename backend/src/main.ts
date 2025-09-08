@@ -3,9 +3,16 @@ import { ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import * as bodyParser from 'body-parser';
+import { CustomLogger } from './logs/custom-logger';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, {
+    logger: false, // Disable default logger
+  });
+
+  // Get custom logger instance
+  const customLogger = app.get(CustomLogger);
+  app.useLogger(customLogger);
 
   // 🔥 Body size limitini oshirish (10mb qilib qo'ydim)
   app.use(bodyParser.json({ limit: '10mb' }));
@@ -44,7 +51,7 @@ async function bootstrap() {
 
   const port = process.env.PORT || 3003;
   await app.listen(port);
-  console.log(`🚀 EduNimbus Backend running on http://localhost:${port}`);
-  console.log(`📚 API Documentation: http://localhost:${port}/api/docs`);
+  customLogger.log(`🚀 EduNimbus Backend running on http://localhost:${port}`, 'Bootstrap');
+  customLogger.log(`📚 API Documentation: http://localhost:${port}/api/docs`, 'Bootstrap');
 }
 bootstrap();
