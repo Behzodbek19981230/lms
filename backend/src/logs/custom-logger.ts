@@ -1,4 +1,8 @@
-import { Injectable, LoggerService as NestLoggerService } from '@nestjs/common';
+import {
+  Injectable,
+  LoggerService as NestLoggerService,
+  LogLevel,
+} from '@nestjs/common';
 import { LogsService } from './logs.service';
 
 @Injectable()
@@ -28,5 +32,9 @@ export class CustomLogger implements NestLoggerService {
   verbose(message: any, context?: string) {
     console.log(`[VERBOSE] [${context || 'Application'}] ${message}`);
     this.logsService.verbose(message, context).catch(() => {});
+  }
+
+  setLogLevels?(levels: LogLevel[]) {
+    // Optional: implement if needed
   }
 }

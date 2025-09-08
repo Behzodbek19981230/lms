@@ -2509,6 +2509,7 @@ export class TelegramService {
 
       return savedPendingPdf;
     } catch (error) {
+      // eslint-disable-next-line @typescript-eslint/no-floating-promises
       this.logsService.error(
         `Failed to create pending PDF for user ${userId}: ${error.message}`,
         error.stack,

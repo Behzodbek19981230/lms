@@ -20,6 +20,7 @@ import { Exam } from '../exams/entities/exam.entity';
 import { Group } from '../groups/entities/group.entity';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { TestsModule } from '../tests/tests.module'; // Add this import
+import { LogsModule } from '../logs/logs.module';
 
 @Module({
   imports: [
@@ -39,16 +40,17 @@ import { TestsModule } from '../tests/tests.module'; // Add this import
     ConfigModule,
     forwardRef(() => NotificationsModule),
     TestsModule, // Add this module import
+    LogsModule,
   ],
   controllers: [TelegramController, TelegramAuthController],
   providers: [
-    TelegramService, 
+    TelegramService,
     TelegramAuthService,
     TestPDFGeneratorService,
     AnswerProcessorService,
   ],
   exports: [
-    TelegramService, 
+    TelegramService,
     TelegramAuthService,
     TestPDFGeneratorService,
     AnswerProcessorService,

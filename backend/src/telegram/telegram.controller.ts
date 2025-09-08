@@ -501,7 +501,7 @@ export class TelegramController {
     this.logger.log(`Unhandled message: ${message.text}`);
   }
 
-  private async processChannelPost(channelPost: any) {
+  private processChannelPost(channelPost: any) {
     this.logger.log(
       'Processing channel post:',
       channelPost.text?.substring(0, 100),
