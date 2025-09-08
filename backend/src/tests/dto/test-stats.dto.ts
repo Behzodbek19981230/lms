@@ -1,33 +1,33 @@
-import { ApiProperty } from "@nestjs/swagger"
+import { ApiProperty } from '@nestjs/swagger';
 
 export class TestStatsDto {
   @ApiProperty()
-  totalTests: number
+  totalTests: number;
 
   @ApiProperty()
-  draftTests: number
+  draftTests: number;
 
   @ApiProperty()
-  publishedTests: number
+  publishedTests: number;
 
   @ApiProperty()
-  archivedTests: number
+  archivedTests: number;
 
   @ApiProperty()
-  openTests: number
+  openTests: number;
 
   @ApiProperty()
-  closedTests: number
+  closedTests: number;
 
   @ApiProperty()
-  mixedTests: number
+  mixedTests: number;
 
   @ApiProperty()
-  totalQuestions: number
+  totalQuestions: number;
 
   @ApiProperty()
-  averageQuestionsPerTest: number
+  averageQuestionsPerTest: number;
 
   @ApiProperty()
-  testsBySubject: Record<string, number>
+  testsBySubject: Record<string, number>;
 }

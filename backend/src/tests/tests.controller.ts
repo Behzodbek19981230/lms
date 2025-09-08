@@ -106,20 +106,6 @@ export class TestsController {
     return this.testsService.findOne(id, req.user.id);
   }
 
-  @Post(':id/duplicate')
-  @ApiOperation({ summary: 'Testni nusxalash' })
-  @ApiResponse({
-    status: 201,
-    description: 'Test muvaffaqiyatli nusxalandi',
-    type: TestResponseDto,
-  })
-  async duplicate(
-    @Param('id') id: number,
-    @Request() req,
-  ): Promise<TestResponseDto> {
-    return this.testsService.duplicate(id, req.user.id);
-  }
-
   @Patch(':id')
   @ApiOperation({ summary: 'Testni yangilash' })
   @ApiResponse({

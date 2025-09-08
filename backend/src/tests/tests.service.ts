@@ -1,11 +1,10 @@
 import {
-  BadRequestException,
   ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import type { Repository } from 'typeorm';
-import { Test, TestStatus, TestType } from './entities/test.entity';
+import { Test, TestStatus } from './entities/test.entity';
 import { Subject } from '../subjects/entities/subject.entity';
 import type { CreateTestDto } from './dto/create-test.dto';
 import type { UpdateTestDto } from './dto/update-test.dto';
@@ -76,6 +75,31 @@ export class TestsService {
     });
 
     return tests.map((test) => this.mapToResponseDto(test));
+  }
+
+  async getTestStats(teacherid: number): Promise<TestStatsDto> {
+    const [totalTests, draftTests, publishedTests] = await Promise.all([
+      this.testRepository.count({ where: { teacher: { id: teacherid } } }),
+      this.testRepository.count({
+        where: { teacher: { id: teacherid }, status: TestStatus.DRAFT },
+      }),
+      this.testRepository.count({
+        where: { teacher: { id: teacherid }, status: TestStatus.PUBLISHED },
+      }),
+    ]);
+
+    return {
+      totalTests,
+      draftTests,
+      publishedTests,
+      archivedTests: 0,
+      openTests: 0,
+      closedTests: 0,
+      mixedTests: 0,
+      totalQuestions: 0,
+      averageQuestionsPerTest: 0,
+      testsBySubject: {},
+    };
   }
 
   async findBySubject(
