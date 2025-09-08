@@ -1,7 +1,7 @@
 import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, IsNull } from 'typeorm';
-import TelegramBot from 'node-telegram-bot-api';
+import TelegramBot, { User as TelegramUser } from 'node-telegram-bot-api';
 import { ConfigService } from '@nestjs/config';
 import { LogsService } from '../logs/logs.service';
 import {
@@ -350,6 +350,7 @@ export class TelegramService {
             Object.assign(existingChat, chatData);
             chat = await this.telegramChatRepo.save(existingChat);
           } else {
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
             chat = await this.telegramChatRepo.save(
               this.telegramChatRepo.create(chatData),
             );
@@ -615,7 +616,7 @@ export class TelegramService {
 
     try {
       // First, try to get bot information to check if it's in the channel
-      let botInfo;
+      let botInfo: TelegramUser;
       try {
         botInfo = await this.bot.getMe();
         const chatMember = await this.bot.getChatMember(channelId, botInfo.id);
@@ -626,7 +627,7 @@ export class TelegramService {
             message: `Bot is not an admin in the channel. Bot status: ${chatMember.status}. Please add @${botInfo.username} as an admin with "can_invite_users" permission.`,
             errorDetails: {
               botStatus: chatMember.status,
-              botUsername: botInfo.username,
+              botUsername: botInfo.username!,
             },
           };
         }
@@ -638,7 +639,7 @@ export class TelegramService {
         ) {
           return {
             success: false,
-            message: `Bot is admin but lacks "can_invite_users" permission. Please grant this permission to @${botInfo.username}.`,
+            message: `Bot is admin but lacks "can_invite_users" permission. Please grant this permission to @${botInfo.username!}.`,
             errorDetails: { permissions: chatMember },
           };
         }
@@ -675,25 +676,31 @@ export class TelegramService {
 
       // Provide more specific error messages
       if (error.code === 400) {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-call
         if (error.description?.includes('not enough rights')) {
           return {
             success: false,
             message:
               'Bot does not have sufficient permissions. Please ensure the bot is an admin with "can_invite_users" permission.',
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
             errorDetails: error,
           };
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-call
         } else if (error.description?.includes('chat not found')) {
           return {
             success: false,
             message:
               'Channel not found. Please check the channel ID or username.',
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
             errorDetails: error,
           };
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-call
         } else if (error.description?.includes('CHAT_ADMIN_REQUIRED')) {
           return {
             success: false,
             message:
               'Bot must be an admin in the channel to generate invite links.',
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
             errorDetails: error,
           };
         }
@@ -702,6 +709,7 @@ export class TelegramService {
       return {
         success: false,
         message: `Failed to generate invite link: ${error.message || 'Unknown error'}. Make sure the bot is admin in the channel with invite permissions.`,
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
         errorDetails: error,
       };
     }
@@ -945,6 +953,8 @@ export class TelegramService {
             channel = this.telegramChatRepo.create(newChannelData);
             await this.telegramChatRepo.save(channel);
           } catch (error) {
+            console.log(error);
+
             // Continue anyway - maybe bot doesn't have access yet
             targetChannelId = dto.channelId;
           }
@@ -1458,13 +1468,13 @@ export class TelegramService {
           groups[answer.testId].push(answer);
           return groups;
         },
-        {} as Record<number, typeof answers>,
+        {} as Record<number, TelegramAnswer[]>,
       );
 
       let resultMessage = `📊 <b>${chat.user.firstName} ning Test Natijalari</b>\n\n`;
 
       Object.keys(testGroups).forEach((testId, index) => {
-        const testAnswers = testGroups[testId];
+        const testAnswers = testGroups[parseInt(testId)];
         const correctAnswers = testAnswers.filter((a) => a.isCorrect).length;
         const totalQuestions = testAnswers.length;
         const percentage =
