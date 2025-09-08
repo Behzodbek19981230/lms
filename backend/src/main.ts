@@ -33,17 +33,17 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api/docs', app, document);
 
-  const port = process.env.PORT || 3004;
+  const port = process.env.PORT || 3003;
   await app.listen(port);
   console.log(`🚀 EduNimbus Backend running on http://localhost:${port}`);
 
-  //   customLogger.log(
-  //     `🚀 EduNimbus Backend running on http://localhost:${port}`,
-  //     'Bootstrap',
-  //   );
-  //   customLogger.log(
-  //     `📚 API Documentation: http://localhost:${port}/api/docs`,
-  //     'Bootstrap',
-  //   );
+  customLogger.log(
+    `🚀 EduNimbus Backend running on http://localhost:${port}`,
+    'Bootstrap',
+  );
+  customLogger.log(
+    `📚 API Documentation: http://localhost:${port}/api/docs`,
+    'Bootstrap',
+  );
 }
 bootstrap();
