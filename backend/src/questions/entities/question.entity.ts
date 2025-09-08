@@ -1,58 +1,50 @@
-import { Entity, Column, ManyToOne, OneToMany, JoinColumn } from "typeorm"
-import { BaseEntity } from "../../common/entities/base.entity"
-import { Test } from "../../tests/entities/test.entity"
-import { Answer } from "./answer.entity"
+import { Entity, Column, ManyToOne, OneToMany, JoinColumn } from 'typeorm';
+import { BaseEntity } from '../../common/entities/base.entity';
+import { Test } from '../../tests/entities/test.entity';
+import { Answer } from './answer.entity';
 
 export enum QuestionType {
-  MULTIPLE_CHOICE = "multiple_choice",
-  TRUE_FALSE = "true_false",
-  ESSAY = "essay",
-  SHORT_ANSWER = "short_answer",
-  FILL_BLANK = "fill_blank",
+  MULTIPLE_CHOICE = 'multiple_choice',
+  TRUE_FALSE = 'true_false',
+  ESSAY = 'essay',
+  SHORT_ANSWER = 'short_answer',
+  FILL_BLANK = 'fill_blank',
 }
 
-@Entity("questions")
+@Entity('questions')
 export class Question extends BaseEntity {
   @Column()
-  text: string
+  text: string;
 
   @Column({ nullable: true })
-  explanation: string
+  explanation: string;
 
   @Column({
-    type: "enum",
+    type: 'enum',
     enum: QuestionType,
     default: QuestionType.MULTIPLE_CHOICE,
   })
-  type: QuestionType
+  type: QuestionType;
 
   @Column({ default: 1 })
-  points: number
+  points: number;
 
   @Column({ default: 0 })
-  order: number
+  order: number;
 
   @Column({ default: false })
-  hasFormula: boolean
+  hasFormula: boolean;
 
-  @Column({ type: "text", nullable: true })
-  imageBase64: string
+  @Column({ type: 'text', nullable: true })
+  imageBase64: string;
 
-  @Column({ type: "json", nullable: true })
-  metadata: Record<string, any>
+  @Column({ type: 'json', nullable: true })
+  metadata: Record<string, any>;
 
-  @ManyToOne(
-    () => Test,
-    (test) => test.questions,
-    { onDelete: "CASCADE" },
-  )
-  @JoinColumn({ name: "testId" })
-  test: Test
+  @ManyToOne(() => Test, (test) => test.questions, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'testId' })
+  test: Test;
 
-  @OneToMany(
-    () => Answer,
-    (answer) => answer.question,
-    { cascade: false },
-  )
-  answers: Answer[]
+  @OneToMany(() => Answer, (answer) => answer.question, { cascade: false })
+  answers: Answer[];
 }

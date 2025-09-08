@@ -1,11 +1,20 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Between } from 'typeorm';
 import { Attendance, AttendanceStatus } from './entities/attendance.entity';
 import { User, UserRole } from '../users/entities/user.entity';
 import { Group } from '../groups/entities/group.entity';
 import { TelegramService } from '../telegram/telegram.service';
-import { CreateAttendanceDto, BulkAttendanceDto, AttendanceQueryDto, UpdateAttendanceDto } from './dto/attendance.dto';
+import {
+  CreateAttendanceDto,
+  BulkAttendanceDto,
+  AttendanceQueryDto,
+  UpdateAttendanceDto,
+} from './dto/attendance.dto';
 
 @Injectable()
 export class AttendanceService {
@@ -19,18 +28,21 @@ export class AttendanceService {
     private telegramService: TelegramService,
   ) {}
 
-  async create(dto: CreateAttendanceDto, teacherId: number): Promise<Attendance> {
+  async create(
+    dto: CreateAttendanceDto,
+    teacherId: number,
+  ): Promise<Attendance> {
     const teacher = await this.userRepo.findOne({
       where: { id: teacherId },
-      relations: ['center']
+      relations: ['center'],
     });
 
     if (!teacher || teacher.role !== UserRole.TEACHER) {
-      throw new ForbiddenException('Faqat o\'qituvchi davomat qo\'sha oladi');
+      throw new ForbiddenException("Faqat o'qituvchi davomat qo'sha oladi");
     }
 
     const student = await this.userRepo.findOne({
-      where: { id: dto.studentId, role: UserRole.STUDENT }
+      where: { id: dto.studentId, role: UserRole.STUDENT },
     });
 
     if (!student) {
@@ -39,7 +51,7 @@ export class AttendanceService {
 
     const group = await this.groupRepo.findOne({
       where: { id: dto.groupId },
-      relations: ['teacher', 'students']
+      relations: ['teacher', 'students'],
     });
 
     if (!group) {
@@ -47,10 +59,12 @@ export class AttendanceService {
     }
 
     if (group.teacher.id !== teacherId) {
-      throw new ForbiddenException('Siz faqat o\'z guruhingiz uchun davomat qo\'sha olasiz');
+      throw new ForbiddenException(
+        "Siz faqat o'z guruhingiz uchun davomat qo'sha olasiz",
+      );
     }
 
-    const isStudentInGroup = group.students.some(s => s.id === dto.studentId);
+    const isStudentInGroup = group.students.some((s) => s.id === dto.studentId);
     if (!isStudentInGroup) {
       throw new ForbiddenException('Student bu guruhda emas');
     }
@@ -60,8 +74,8 @@ export class AttendanceService {
       where: {
         student: { id: dto.studentId },
         group: { id: dto.groupId },
-        date: dto.date
-      }
+        date: dto.date,
+      },
     });
 
     if (existingAttendance) {
@@ -76,7 +90,7 @@ export class AttendanceService {
       status: dto.status,
       notes: dto.notes,
       arrivedAt: dto.arrivedAt,
-      leftAt: dto.leftAt
+      leftAt: dto.leftAt,
     });
 
     const savedAttendance = await this.attendanceRepo.save(attendance);
@@ -87,28 +101,34 @@ export class AttendanceService {
         group.name,
         `${teacher.firstName} ${teacher.lastName}`,
         dto.status === AttendanceStatus.PRESENT ? 1 : 0,
-        1
+        1,
       );
     } catch (error) {
-      console.warn('Failed to send attendance notification to Telegram:', error);
+      console.warn(
+        'Failed to send attendance notification to Telegram:',
+        error,
+      );
     }
 
     return savedAttendance;
   }
 
-  async createBulk(dto: BulkAttendanceDto, teacherId: number): Promise<Attendance[]> {
+  async createBulk(
+    dto: BulkAttendanceDto,
+    teacherId: number,
+  ): Promise<Attendance[]> {
     const teacher = await this.userRepo.findOne({
       where: { id: teacherId },
-      relations: ['center']
+      relations: ['center'],
     });
 
     if (!teacher || teacher.role !== UserRole.TEACHER) {
-      throw new ForbiddenException('Faqat o\'qituvchi davomat qo\'sha oladi');
+      throw new ForbiddenException("Faqat o'qituvchi davomat qo'sha oladi");
     }
 
     const group = await this.groupRepo.findOne({
       where: { id: dto.groupId },
-      relations: ['teacher', 'students']
+      relations: ['teacher', 'students'],
     });
 
     if (!group) {
@@ -116,19 +136,21 @@ export class AttendanceService {
     }
 
     if (group.teacher.id !== teacherId) {
-      throw new ForbiddenException('Siz faqat o\'z guruhingiz uchun davomat qo\'sha olasiz');
+      throw new ForbiddenException(
+        "Siz faqat o'z guruhingiz uchun davomat qo'sha olasiz",
+      );
     }
 
     // Delete existing attendance for this group and date
     await this.attendanceRepo.delete({
       group: { id: dto.groupId },
-      date: dto.date
+      date: dto.date,
     });
 
     const attendanceRecords: Attendance[] = [];
 
     for (const record of dto.attendanceRecords) {
-      const student = group.students.find(s => s.id === record.studentId);
+      const student = group.students.find((s) => s.id === record.studentId);
       if (!student) {
         continue; // Skip invalid students
       }
@@ -141,7 +163,7 @@ export class AttendanceService {
         status: record.status,
         notes: record.notes,
         arrivedAt: record.arrivedAt,
-        leftAt: record.leftAt
+        leftAt: record.leftAt,
       });
 
       attendanceRecords.push(attendance);
@@ -151,33 +173,43 @@ export class AttendanceService {
 
     // Send bulk notification to Telegram channels
     try {
-      const presentCount = attendanceRecords.filter(record => record.status === AttendanceStatus.PRESENT).length;
+      const presentCount = attendanceRecords.filter(
+        (record) => record.status === AttendanceStatus.PRESENT,
+      ).length;
       const totalCount = attendanceRecords.length;
-      
+
       await this.telegramService.notifyAttendanceTaken(
         group.name,
         `${teacher.firstName} ${teacher.lastName}`,
         presentCount,
-        totalCount
+        totalCount,
       );
     } catch (error) {
-      console.warn('Failed to send bulk attendance notification to Telegram:', error);
+      console.warn(
+        'Failed to send bulk attendance notification to Telegram:',
+        error,
+      );
     }
 
     return savedAttendances;
   }
 
-  async findAll(query: AttendanceQueryDto, userId: number, userRole: UserRole): Promise<Attendance[]> {
+  async findAll(
+    query: AttendanceQueryDto,
+    userId: number,
+    userRole: UserRole,
+  ): Promise<Attendance[]> {
     const user = await this.userRepo.findOne({
       where: { id: userId },
-      relations: ['center']
+      relations: ['center'],
     });
 
     if (!user) {
       throw new NotFoundException('Foydalanuvchi topilmadi');
     }
 
-    const queryBuilder = this.attendanceRepo.createQueryBuilder('attendance')
+    const queryBuilder = this.attendanceRepo
+      .createQueryBuilder('attendance')
       .leftJoinAndSelect('attendance.student', 'student')
       .leftJoinAndSelect('attendance.group', 'group')
       .leftJoinAndSelect('attendance.teacher', 'teacher')
@@ -189,7 +221,9 @@ export class AttendanceService {
     } else if (userRole === UserRole.STUDENT) {
       queryBuilder.where('student.id = :studentId', { studentId: userId });
     } else if (userRole === UserRole.ADMIN) {
-      queryBuilder.where('student.center = :centerId', { centerId: user.center.id });
+      queryBuilder.where('student.center = :centerId', {
+        centerId: user.center.id,
+      });
     }
 
     // Apply filters
@@ -198,13 +232,15 @@ export class AttendanceService {
     }
 
     if (query.studentId) {
-      queryBuilder.andWhere('student.id = :studentId', { studentId: query.studentId });
+      queryBuilder.andWhere('student.id = :studentId', {
+        studentId: query.studentId,
+      });
     }
 
     if (query.startDate && query.endDate) {
       queryBuilder.andWhere('attendance.date BETWEEN :startDate AND :endDate', {
         startDate: query.startDate,
-        endDate: query.endDate
+        endDate: query.endDate,
       });
     } else if (query.period) {
       const today = new Date();
@@ -214,19 +250,19 @@ export class AttendanceService {
         case 'today':
           startDate = new Date(today.setHours(0, 0, 0, 0));
           queryBuilder.andWhere('attendance.date = :date', {
-            date: startDate.toISOString().split('T')[0]
+            date: startDate.toISOString().split('T')[0],
           });
           break;
         case 'week':
           startDate = new Date(today.setDate(today.getDate() - 7));
           queryBuilder.andWhere('attendance.date >= :startDate', {
-            startDate: startDate.toISOString().split('T')[0]
+            startDate: startDate.toISOString().split('T')[0],
           });
           break;
         case 'month':
           startDate = new Date(today.setMonth(today.getMonth() - 1));
           queryBuilder.andWhere('attendance.date >= :startDate', {
-            startDate: startDate.toISOString().split('T')[0]
+            startDate: startDate.toISOString().split('T')[0],
           });
           break;
       }
@@ -237,10 +273,14 @@ export class AttendanceService {
     return queryBuilder.getMany();
   }
 
-  async update(id: number, dto: UpdateAttendanceDto, userId: number): Promise<Attendance> {
+  async update(
+    id: number,
+    dto: UpdateAttendanceDto,
+    userId: number,
+  ): Promise<Attendance> {
     const attendance = await this.attendanceRepo.findOne({
       where: { id },
-      relations: ['teacher', 'student', 'group']
+      relations: ['teacher', 'student', 'group'],
     });
 
     if (!attendance) {
@@ -248,7 +288,7 @@ export class AttendanceService {
     }
 
     const user = await this.userRepo.findOne({
-      where: { id: userId }
+      where: { id: userId },
     });
 
     if (!user) {
@@ -257,14 +297,18 @@ export class AttendanceService {
 
     // Check permissions
     if (user.role === UserRole.TEACHER && attendance.teacher.id !== userId) {
-      throw new ForbiddenException('Siz faqat o\'z davomat yozuvlaringizni o\'zgartira olasiz');
+      throw new ForbiddenException(
+        "Siz faqat o'z davomat yozuvlaringizni o'zgartira olasiz",
+      );
     } else if (user.role === UserRole.ADMIN) {
       // Center admin can modify attendance for their center
       if (attendance.student.center?.id !== user.center?.id) {
-        throw new ForbiddenException('Siz faqat o\'z markazingiz davomatini o\'zgartira olasiz');
+        throw new ForbiddenException(
+          "Siz faqat o'z markazingiz davomatini o'zgartira olasiz",
+        );
       }
     } else if (user.role !== UserRole.SUPERADMIN) {
-      throw new ForbiddenException('Sizda davomat o\'zgartirish huquqi yo\'q');
+      throw new ForbiddenException("Sizda davomat o'zgartirish huquqi yo'q");
     }
 
     Object.assign(attendance, dto);
@@ -274,7 +318,7 @@ export class AttendanceService {
   async getAttendanceStats(groupId: number, userId: number): Promise<any> {
     const group = await this.groupRepo.findOne({
       where: { id: groupId },
-      relations: ['teacher', 'students', 'subject']
+      relations: ['teacher', 'students', 'subject'],
     });
 
     if (!group) {
@@ -283,7 +327,7 @@ export class AttendanceService {
 
     const user = await this.userRepo.findOne({
       where: { id: userId },
-      relations: ['center']
+      relations: ['center'],
     });
 
     if (!user) {
@@ -292,7 +336,9 @@ export class AttendanceService {
 
     // Check permissions
     if (user.role === UserRole.TEACHER && group.teacher.id !== userId) {
-      throw new ForbiddenException('Siz faqat o\'z guruhingiz statistikasini ko\'ra olasiz');
+      throw new ForbiddenException(
+        "Siz faqat o'z guruhingiz statistikasini ko'ra olasiz",
+      );
     }
 
     const totalStudents = group.students.length;
@@ -302,14 +348,20 @@ export class AttendanceService {
     const todayAttendance = await this.attendanceRepo.find({
       where: {
         group: { id: groupId },
-        date: today
+        date: today,
       },
-      relations: ['student']
+      relations: ['student'],
     });
 
-    const presentToday = todayAttendance.filter(a => a.status === AttendanceStatus.PRESENT).length;
-    const absentToday = todayAttendance.filter(a => a.status === AttendanceStatus.ABSENT).length;
-    const lateToday = todayAttendance.filter(a => a.status === AttendanceStatus.LATE).length;
+    const presentToday = todayAttendance.filter(
+      (a) => a.status === AttendanceStatus.PRESENT,
+    ).length;
+    const absentToday = todayAttendance.filter(
+      (a) => a.status === AttendanceStatus.ABSENT,
+    ).length;
+    const lateToday = todayAttendance.filter(
+      (a) => a.status === AttendanceStatus.LATE,
+    ).length;
 
     // Get weekly stats
     const weekStart = new Date();
@@ -317,13 +369,17 @@ export class AttendanceService {
     const weeklyAttendance = await this.attendanceRepo.find({
       where: {
         group: { id: groupId },
-        date: Between(weekStart.toISOString().split('T')[0], today)
-      }
+        date: Between(weekStart.toISOString().split('T')[0], today),
+      },
     });
 
-    const weeklyPresentRate = weeklyAttendance.length > 0 
-      ? (weeklyAttendance.filter(a => a.status === AttendanceStatus.PRESENT).length / weeklyAttendance.length) * 100
-      : 0;
+    const weeklyPresentRate =
+      weeklyAttendance.length > 0
+        ? (weeklyAttendance.filter((a) => a.status === AttendanceStatus.PRESENT)
+            .length /
+            weeklyAttendance.length) *
+          100
+        : 0;
 
     return {
       totalStudents,
@@ -331,21 +387,21 @@ export class AttendanceService {
         present: presentToday,
         absent: absentToday,
         late: lateToday,
-        total: todayAttendance.length
+        total: todayAttendance.length,
       },
       weeklyPresentRate: Math.round(weeklyPresentRate),
       group: {
         id: group.id,
         name: group.name,
-        subject: group.subject?.name || null
-      }
+        subject: group.subject?.name || null,
+      },
     };
   }
 
   async delete(id: number, userId: number): Promise<void> {
     const attendance = await this.attendanceRepo.findOne({
       where: { id },
-      relations: ['teacher']
+      relations: ['teacher'],
     });
 
     if (!attendance) {
@@ -353,7 +409,7 @@ export class AttendanceService {
     }
 
     const user = await this.userRepo.findOne({
-      where: { id: userId }
+      where: { id: userId },
     });
 
     if (!user) {
@@ -361,16 +417,25 @@ export class AttendanceService {
     }
 
     if (user.role === UserRole.TEACHER && attendance.teacher.id !== userId) {
-      throw new ForbiddenException('Siz faqat o\'z davomat yozuvlaringizni o\'chira olasiz');
-    } else if (user.role !== UserRole.SUPERADMIN && user.role !== UserRole.ADMIN) {
-      throw new ForbiddenException('Sizda davomat o\'chirish huquqi yo\'q');
+      throw new ForbiddenException(
+        "Siz faqat o'z davomat yozuvlaringizni o'chira olasiz",
+      );
+    } else if (
+      user.role !== UserRole.SUPERADMIN &&
+      user.role !== UserRole.ADMIN
+    ) {
+      throw new ForbiddenException("Sizda davomat o'chirish huquqi yo'q");
     }
 
     await this.attendanceRepo.remove(attendance);
   }
 
   // Get only present students for a specific group and date
-  async getPresentStudents(groupId: number, date: string, teacherId: number): Promise<{
+  async getPresentStudents(
+    groupId: number,
+    date: string,
+    teacherId: number,
+  ): Promise<{
     groupName: string;
     subject: string;
     presentStudents: Array<{
@@ -386,7 +451,7 @@ export class AttendanceService {
   }> {
     const group = await this.groupRepo.findOne({
       where: { id: groupId },
-      relations: ['teacher', 'subject']
+      relations: ['teacher', 'subject'],
     });
 
     if (!group) {
@@ -394,7 +459,9 @@ export class AttendanceService {
     }
 
     if (group.teacher.id !== teacherId) {
-      throw new ForbiddenException('Siz faqat o\'z guruhingiz davomatini ko\'ra olasiz');
+      throw new ForbiddenException(
+        "Siz faqat o'z guruhingiz davomatini ko'ra olasiz",
+      );
     }
 
     // Get only present students for the given date
@@ -402,24 +469,24 @@ export class AttendanceService {
       where: {
         group: { id: groupId },
         date: date,
-        status: AttendanceStatus.PRESENT
+        status: AttendanceStatus.PRESENT,
       },
       relations: ['student'],
       order: {
         student: {
           firstName: 'ASC',
-          lastName: 'ASC'
-        }
-      }
+          lastName: 'ASC',
+        },
+      },
     });
 
-    const presentStudents = presentAttendance.map(attendance => ({
+    const presentStudents = presentAttendance.map((attendance) => ({
       id: attendance.student.id,
       firstName: attendance.student.firstName,
       lastName: attendance.student.lastName,
       fullName: `${attendance.student.firstName} ${attendance.student.lastName}`,
       arrivedAt: attendance.arrivedAt,
-      notes: attendance.notes
+      notes: attendance.notes,
     }));
 
     return {
@@ -427,12 +494,15 @@ export class AttendanceService {
       subject: group.subject?.name || 'Fan belgilanmagan',
       presentStudents,
       totalPresent: presentStudents.length,
-      date
+      date,
     };
   }
 
   // Get attendance summary showing only present students for today
-  async getTodayPresentStudents(groupId: number, teacherId: number): Promise<{
+  async getTodayPresentStudents(
+    groupId: number,
+    teacherId: number,
+  ): Promise<{
     groupName: string;
     subject: string;
     presentStudents: Array<{

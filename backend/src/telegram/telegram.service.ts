@@ -209,7 +209,7 @@ export class TelegramService {
     try {
       // Use the enhanced authentication method
       return await this.authenticateAndConnectUser(
-        dto.telegramUserId.toString(),
+        String(dto.telegramUserId),
         dto.username,
         dto.firstName,
         dto.lastName,
@@ -375,7 +375,6 @@ export class TelegramService {
           firstName,
           lastName,
           status: ChatStatus.ACTIVE,
-          
         });
 
       chat.user = linkedUser;
