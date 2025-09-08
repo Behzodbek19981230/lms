@@ -48,7 +48,7 @@ export class User extends BaseEntity {
   @Column({ type: 'timestamp', nullable: true })
   lastLoginAt: Date;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   telegramId: string | null;
 
   @Column({ default: false })

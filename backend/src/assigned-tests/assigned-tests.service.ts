@@ -163,8 +163,7 @@ export class AssignedTestsService {
         savedAssigned.title,
         studentIds,
       );
-    } catch (error) {
-      console.log('Notification creation failed:', error);
+    } catch {
       // Don't fail the test creation if notification fails
     }
 

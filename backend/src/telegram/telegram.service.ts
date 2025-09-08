@@ -550,7 +550,7 @@ export class TelegramService {
         ),
       };
     } catch (error) {
-      this.logger.error('Failed to send user channels and invitation:', error);
+      console.error('Failed to send user channels and invitation:', error);
       return {
         success: false,
         message: 'Taklifnomalarni yuborishda xatolik',
@@ -589,7 +589,7 @@ export class TelegramService {
         message: `${user.firstName} ${user.lastName} muvaffaqiyatli Telegram hisobiga ulandi`,
       };
     } catch (error) {
-      this.logger.error('Failed to link Telegram user to LMS user:', error);
+      console.error('Failed to link Telegram user to LMS user:', error);
       return {
         success: false,
         message: "Ulanishda xatolik. Qayta urinib ko'ring.",
@@ -960,7 +960,7 @@ export class TelegramService {
           }
         }
       } catch (error) {
-        this.logger.warn(
+        console.warn(
           `Could not resolve channel ${dto.channelId}:`,
           error.message,
         );
@@ -1258,7 +1258,7 @@ export class TelegramService {
         parse_mode: 'HTML',
       });
     } catch (error) {
-      this.logger.error('Failed to send answer result:', error);
+      console.error('Failed to send answer result:', error);
     }
   }
 
@@ -1492,7 +1492,7 @@ export class TelegramService {
 
       return resultMessage;
     } catch (error) {
-      this.logger.error('Error getting user test results:', error);
+      console.error('Error getting user test results:', error);
       return "Natijalarni yuklab olishda xatolik yuz berdi. Keyinroq qayta urinib ko'ring.";
     }
   }
@@ -1512,7 +1512,7 @@ export class TelegramService {
       // For now, return a placeholder message
       return `📅 <b>${chat.user.firstName} ning Davomat Hisoboti</b>\n\n⏰ Davomat tizimi hali ishga tushirilmagan.\n\n📋 Tez orada quyidagi ma'lumotlar mavjud bo'ladi:\n• Darsga kelish statistikasi\n• Kechikishlar hisoboti\n• Oylik davomat foizi\n\n👨‍🏫 Batafsil ma'lumot uchun o'qituvchingiz bilan bog'laning.`;
     } catch (error) {
-      this.logger.error('Error getting user attendance:', error);
+      console.error('Error getting user attendance:', error);
       return "Davomat ma'lumotlarini yuklab olishda xatolik yuz berdi.";
     }
   }
@@ -1547,7 +1547,7 @@ export class TelegramService {
 
       return accountMessage;
     } catch (error) {
-      this.logger.error('Error getting user account info:', error);
+      console.error('Error getting user account info:', error);
       return "Hisob ma'lumotlarini yuklab olishda xatolik yuz berdi.";
     }
   }
@@ -1605,7 +1605,7 @@ export class TelegramService {
 
       return groupMessage;
     } catch (error) {
-      this.logger.error('Error getting teacher groups:', error);
+      console.error('Error getting teacher groups:', error);
       return "Guruhlar ro'yxatini yuklab olishda xatolik yuz berdi.";
     }
   }
@@ -1677,7 +1677,7 @@ export class TelegramService {
 
       return studentsMessage;
     } catch (error) {
-      this.logger.error('Error getting group students:', error);
+      console.error('Error getting group students:', error);
       return "Guruh ma'lumotlarini yuklab olishda xatolik yuz berdi.";
     }
   }
@@ -1788,7 +1788,7 @@ export class TelegramService {
       resultMessage += `\n\n📊 Boshqa studentlar uchun yo'qlama davom ettiring yoki /yoklama orqali guruhlar ro'yxatiga qaytish.`;
 
       // Log the attendance action for audit trail
-      this.logger.log(
+      console.log(
         `Attendance marked by teacher ${chat.user.firstName} (ID: ${chat.user.id}) for student ${student.firstName} ${student.lastName} (ID: ${student.id}): ${status}`,
       );
 
@@ -1802,7 +1802,7 @@ export class TelegramService {
 
       return resultMessage;
     } catch (error) {
-      this.logger.error('Error marking attendance:', error);
+      console.error('Error marking attendance:', error);
       return "Yo'qlama belgilashda xatolik yuz berdi. Qaytadan urinib ko'ring.";
     }
   }
@@ -1843,10 +1843,10 @@ export class TelegramService {
         await this.bot.setMyCommands(commands, {
           scope: { type: 'chat', chat_id: chatId },
         });
-        this.logger.log(`Bot commands set for chat ${chatId}`);
+        console.log(`Bot commands set for chat ${chatId}`);
       }
     } catch (error) {
-      this.logger.error('Error setting bot commands:', error);
+      console.error('Error setting bot commands:', error);
     }
   }
 
@@ -1885,7 +1885,7 @@ export class TelegramService {
 
       return announcementsMessage;
     } catch (error) {
-      this.logger.error('Error getting user announcements:', error);
+      console.error('Error getting user announcements:', error);
       return "E'lonlarni yuklab olishda xatolik yuz berdi.";
     }
   }
@@ -1931,7 +1931,7 @@ export class TelegramService {
 
       return testsMessage;
     } catch (error) {
-      this.logger.error('Error getting user active tests:', error);
+      console.error('Error getting user active tests:', error);
       return 'Aktiv testlarni yuklab olishda xatolik yuz berdi.';
     }
   }
@@ -1963,10 +1963,7 @@ export class TelegramService {
             await this.delay(100); // Small delay to avoid rate limiting
           }
         } catch (error) {
-          this.logger.error(
-            `Failed to send to channel ${channel.chatId}:`,
-            error,
-          );
+          console.error(`Failed to send to channel ${channel.chatId}:`, error);
         }
       }
 
@@ -1989,7 +1986,7 @@ export class TelegramService {
               await this.delay(100);
             }
           } catch (error) {
-            this.logger.error(
+            console.error(
               `Failed to send to user ${userChat.telegramUserId}:`,
               error,
             );
@@ -1997,11 +1994,9 @@ export class TelegramService {
         }
       }
 
-      this.logger.log(
-        `Notification sent to ${channels.length} channels and users`,
-      );
+      console.log(`Notification sent to ${channels.length} channels and users`);
     } catch (error) {
-      this.logger.error('Error sending notifications:', error);
+      console.error('Error sending notifications:', error);
     }
   }
 
@@ -2283,7 +2278,7 @@ export class TelegramService {
       results.success = false;
     }
 
-    this.logger.log(
+    console.log(
       `PDF batch send completed: ${results.sentCount} sent, ${results.failedCount} failed`,
     );
     return results;
@@ -2292,15 +2287,15 @@ export class TelegramService {
   async testTelegramConnection(): Promise<boolean> {
     try {
       if (!this.bot) {
-        this.logger.warn('Telegram bot not configured');
+        console.warn('Telegram bot not configured');
         return false;
       }
 
       const botInfo = await this.bot.getMe();
-      this.logger.log(`Telegram bot connected: @${botInfo.username}`);
+      console.log(`Telegram bot connected: @${botInfo.username}`);
       return true;
     } catch (error) {
-      this.logger.error('Telegram connection test failed:', error);
+      console.error('Telegram connection test failed:', error);
       return false;
     }
   }
@@ -2452,7 +2447,7 @@ export class TelegramService {
         // Small delay to avoid rate limiting
         await this.delay(200);
       } catch (error) {
-        this.logger.error(
+        console.error(
           `Failed to send monthly payment notification to student ${studentId}:`,
           error,
         );
@@ -2755,7 +2750,7 @@ export class TelegramService {
     options: any = {},
   ): Promise<void> {
     if (!this.bot) {
-      this.logger.warn('Telegram bot not configured');
+      console.warn('Telegram bot not configured');
       return;
     }
 

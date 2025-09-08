@@ -1,4 +1,8 @@
-import { Injectable, Logger, InternalServerErrorException } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  InternalServerErrorException,
+} from '@nestjs/common';
 import * as puppeteer from 'puppeteer';
 
 @Injectable()
@@ -10,9 +14,9 @@ export class PuppeteerPdfService {
    */
   async generatePDFFromHTML(html: string, options: any = {}): Promise<Buffer> {
     let browser: puppeteer.Browser | null = null;
-    
+
     try {
-      this.logger.log('Starting Puppeteer PDF generation');
+      console.log('Starting Puppeteer PDF generation');
 
       // Puppeteer browser ochish
       browser = await puppeteer.launch({
@@ -25,16 +29,16 @@ export class PuppeteerPdfService {
           '--no-first-run',
           '--no-zygote',
           '--single-process',
-          '--disable-gpu'
+          '--disable-gpu',
         ],
       });
 
       const page = await browser.newPage();
-      
+
       // HTML kontentni sahifaga yuklash
-      await page.setContent(html, { 
+      await page.setContent(html, {
         waitUntil: 'networkidle0',
-        timeout: 30000 
+        timeout: 30000,
       });
 
       // PDF yaratish
@@ -44,18 +48,22 @@ export class PuppeteerPdfService {
           top: '20mm',
           right: '15mm',
           bottom: '20mm',
-          left: '15mm'
+          left: '15mm',
         },
         printBackground: true,
-        ...options
+        ...options,
       });
 
-      this.logger.log(`Puppeteer PDF generated successfully. Size: ${pdfBuffer.length} bytes`);
-      
-      return pdfBuffer as Buffer;
+      console.log(
+        `Puppeteer PDF generated successfully. Size: ${pdfBuffer.length} bytes`,
+      );
+
+      return pdfBuffer;
     } catch (error) {
-      this.logger.error('Puppeteer PDF generation failed:', error);
-      throw new InternalServerErrorException(`PDF yaratishda xatolik: ${error.message}`);
+      console.error('Puppeteer PDF generation failed:', error);
+      throw new InternalServerErrorException(
+        `PDF yaratishda xatolik: ${error.message}`,
+      );
     } finally {
       if (browser) {
         await browser.close();
@@ -67,15 +75,15 @@ export class PuppeteerPdfService {
    * Test HTML template yaratish
    */
   generateTestHTML(testData: any, options: any = {}): string {
-    const { 
-      title, 
-      subject, 
-      questions = [], 
-      variantNumber, 
+    const {
+      title,
+      subject,
+      questions = [],
+      variantNumber,
       studentName,
       duration,
       totalPoints,
-      isAnswerKey = false 
+      isAnswerKey = false,
     } = testData;
 
     return `
@@ -265,7 +273,11 @@ export class PuppeteerPdfService {
   /**
    * Savol uchun HTML yaratish
    */
-  private generateQuestionHTML(question: any, number: number, isAnswerKey: boolean): string {
+  private generateQuestionHTML(
+    question: any,
+    number: number,
+    isAnswerKey: boolean,
+  ): string {
     const { text, type, points, answers = [], imageBase64 } = question;
 
     let questionHTML = `
@@ -281,7 +293,9 @@ export class PuppeteerPdfService {
 
     // Rasm qo'shish
     if (imageBase64) {
-      const imageSrc = imageBase64.startsWith('data:') ? imageBase64 : `data:image/png;base64,${imageBase64}`;
+      const imageSrc = imageBase64.startsWith('data:')
+        ? imageBase64
+        : `data:image/png;base64,${imageBase64}`;
       questionHTML += `
         <div>
           <img src="${imageSrc}" alt="Savol rasmi" class="question-image" />
@@ -310,14 +324,14 @@ export class PuppeteerPdfService {
         <div class="answers">
           <div class="answer">
             <span class="answer-letter">A)</span>
-            <span class="answer-text ${isAnswerKey && answers.find((a: any) => a.isCorrect && a.text.toLowerCase().includes('to\'g\'ri')) ? 'correct-answer' : ''}">
-              To'g'ri ${isAnswerKey && answers.find((a: any) => a.isCorrect && a.text.toLowerCase().includes('to\'g\'ri')) ? '✓' : ''}
+            <span class="answer-text ${isAnswerKey && answers.find((a: any) => a.isCorrect && a.text.toLowerCase().includes("to'g'ri")) ? 'correct-answer' : ''}">
+              To'g'ri ${isAnswerKey && answers.find((a: any) => a.isCorrect && a.text.toLowerCase().includes("to'g'ri")) ? '✓' : ''}
             </span>
           </div>
           <div class="answer">
             <span class="answer-letter">B)</span>
-            <span class="answer-text ${isAnswerKey && answers.find((a: any) => a.isCorrect && a.text.toLowerCase().includes('noto\'g\'ri')) ? 'correct-answer' : ''}">
-              Noto'g'ri ${isAnswerKey && answers.find((a: any) => a.isCorrect && a.text.toLowerCase().includes('noto\'g\'ri')) ? '✓' : ''}
+            <span class="answer-text ${isAnswerKey && answers.find((a: any) => a.isCorrect && a.text.toLowerCase().includes("noto'g'ri")) ? 'correct-answer' : ''}">
+              Noto'g'ri ${isAnswerKey && answers.find((a: any) => a.isCorrect && a.text.toLowerCase().includes("noto'g'ri")) ? '✓' : ''}
             </span>
           </div>
         </div>
@@ -344,12 +358,21 @@ export class PuppeteerPdfService {
     let formattedText = text;
 
     // LaTeX formulalarni formatlash
-    formattedText = formattedText.replace(/\$\$(.*?)\$\$/g, '<span class="formula">[$1]</span>');
-    formattedText = formattedText.replace(/\$(.*?)\$/g, '<span class="formula">[$1]</span>');
+    formattedText = formattedText.replace(
+      /\$\$(.*?)\$\$/g,
+      '<span class="formula">[$1]</span>',
+    );
+    formattedText = formattedText.replace(
+      /\$(.*?)\$/g,
+      '<span class="formula">[$1]</span>',
+    );
 
     // HTML taglarni tozalash (xavfsizlik uchun)
-    formattedText = formattedText.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
-    
+    formattedText = formattedText.replace(
+      /<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi,
+      '',
+    );
+
     return formattedText;
   }
 }

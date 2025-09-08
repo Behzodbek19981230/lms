@@ -136,7 +136,7 @@ export class TestPDFGeneratorService {
 
         doc.end();
       } catch (error) {
-        this.logger.error('Error generating PDF:', error);
+        console.error('Error generating PDF:', error);
         reject(error);
       }
     });
@@ -216,7 +216,7 @@ export class TestPDFGeneratorService {
 
         doc.end();
       } catch (error) {
-        this.logger.error('Error generating answer sheet:', error);
+        console.error('Error generating answer sheet:', error);
         reject(error);
       }
     });

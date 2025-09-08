@@ -3,7 +3,10 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import TelegramBot from 'node-telegram-bot-api';
 import { ConfigService } from '@nestjs/config';
-import { TelegramAnswer, AnswerStatus } from './entities/telegram-answer.entity';
+import {
+  TelegramAnswer,
+  AnswerStatus,
+} from './entities/telegram-answer.entity';
 import { TelegramChat } from './entities/telegram-chat.entity';
 import { Test } from '../tests/entities/test.entity';
 import { Question } from '../questions/entities/question.entity';
@@ -48,7 +51,7 @@ export class AnswerProcessorService {
     try {
       // Parse answer format: #T123Q1 A
       const answerMatch = messageText.match(/#T(\d+)Q(\d+)\s+([A-Za-z0-9]+)/);
-      
+
       if (!answerMatch) {
         return {
           success: false,
@@ -109,10 +112,10 @@ export class AnswerProcessorService {
         existingAnswer.messageId = messageId;
         existingAnswer.status = AnswerStatus.PENDING;
         existingAnswer.submittedAt = new Date();
-        
+
         const savedAnswer = await this.telegramAnswerRepo.save(existingAnswer);
         await this.checkAnswer(savedAnswer.id);
-        
+
         return {
           success: true,
           message: `✏️ Javob yangilandi: Test #T${testId}, Savol ${questionNumber} = ${answerText}`,
@@ -137,10 +140,11 @@ export class AnswerProcessorService {
         };
       }
     } catch (error) {
-      this.logger.error('Error processing answer:', error);
+      console.error('Error processing answer:', error);
       return {
         success: false,
-        message: "❌ Javob qayta ishlashda xatolik yuz berdi. Qaytadan urinib ko'ring.",
+        message:
+          "❌ Javob qayta ishlashda xatolik yuz berdi. Qaytadan urinib ko'ring.",
       };
     }
   }
@@ -155,7 +159,7 @@ export class AnswerProcessorService {
     });
 
     if (!answer) {
-      this.logger.error(`Answer ${answerId} not found`);
+      console.error(`Answer ${answerId} not found`);
       return;
     }
 
@@ -167,28 +171,35 @@ export class AnswerProcessorService {
       });
 
       if (!test) {
-        this.logger.error(`Test ${answer.testId} not found`);
+        console.error(`Test ${answer.testId} not found`);
         return;
       }
 
       // Find the specific question
-      const question = test.questions.find((q, index) => index + 1 === answer.questionNumber);
-      
+      const question = test.questions.find(
+        (q, index) => index + 1 === answer.questionNumber,
+      );
+
       if (!question) {
-        this.logger.error(`Question ${answer.questionNumber} not found in test ${answer.testId}`);
+        console.error(
+          `Question ${answer.questionNumber} not found in test ${answer.testId}`,
+        );
         return;
       }
 
       // Find correct answer
-      const correctAnswer = question.answers.find(a => a.isCorrect);
-      
+      const correctAnswer = question.answers.find((a) => a.isCorrect);
+
       if (!correctAnswer) {
-        this.logger.error(`No correct answer found for question ${question.id}`);
+        console.error(`No correct answer found for question ${question.id}`);
         return;
       }
 
       // Check if answer is correct
-      const isCorrect = this.compareAnswers(answer.answerText, correctAnswer.text);
+      const isCorrect = this.compareAnswers(
+        answer.answerText,
+        correctAnswer.text,
+      );
       const points = isCorrect ? question.points : 0;
 
       // Update answer with results
@@ -202,9 +213,8 @@ export class AnswerProcessorService {
 
       // Send result back to student
       await this.sendAnswerResult(answer);
-
     } catch (error) {
-      this.logger.error(`Error checking answer ${answerId}:`, error);
+      console.error(`Error checking answer ${answerId}:`, error);
       answer.status = AnswerStatus.INVALID;
       await this.telegramAnswerRepo.save(answer);
     }
@@ -221,31 +231,33 @@ export class AnswerProcessorService {
     try {
       const emoji = answer.isCorrect ? '✅' : '❌';
       const status = answer.isCorrect ? "To'g'ri" : "Noto'g'ri";
-      
+
       let message = `${emoji} <b>Test #T${answer.testId} - Savol ${answer.questionNumber}</b>\n\n`;
       message += `<b>Sizning javobingiz:</b> ${answer.answerText}\n`;
       message += `<b>Natija:</b> ${status}\n`;
-      
+
       if (!answer.isCorrect && answer.correctAnswer) {
         message += `<b>To'g'ri javob:</b> ${answer.correctAnswer}\n`;
       }
-      
+
       message += `<b>Olingan ball:</b> ${answer.points || 0}\n\n`;
       message += `<i>Test #T${answer.testId} uchun boshqa savollar javoblarini ham yuboring!</i>`;
 
       await this.bot.sendMessage(answer.chat.telegramUserId, message, {
         parse_mode: 'HTML',
       });
-
     } catch (error) {
-      this.logger.error('Error sending answer result:', error);
+      console.error('Error sending answer result:', error);
     }
   }
 
   /**
    * Compare student answer with correct answer
    */
-  private compareAnswers(studentAnswer: string, correctAnswer: string): boolean {
+  private compareAnswers(
+    studentAnswer: string,
+    correctAnswer: string,
+  ): boolean {
     // For multiple choice questions, we compare the letter (A, B, C, D)
     if (studentAnswer.length === 1 && /[A-Za-z]/.test(studentAnswer)) {
       // Extract first letter from correct answer if it's in format "A) Text"
@@ -253,7 +265,7 @@ export class AnswerProcessorService {
       if (correctLetter) {
         return studentAnswer.toUpperCase() === correctLetter.toUpperCase();
       }
-      
+
       // If correct answer is just the letter
       return studentAnswer.toUpperCase() === correctAnswer.toUpperCase();
     }
@@ -284,7 +296,7 @@ export class AnswerProcessorService {
       }
 
       const answers = await this.telegramAnswerRepo.find({
-        where: { 
+        where: {
           student: { id: chat.user.id },
           status: AnswerStatus.CHECKED,
         },
@@ -298,7 +310,7 @@ export class AnswerProcessorService {
 
       // Group by test
       const testGroups = new Map<number, TelegramAnswer[]>();
-      answers.forEach(answer => {
+      answers.forEach((answer) => {
         if (!testGroups.has(answer.testId)) {
           testGroups.set(answer.testId, []);
         }
@@ -308,13 +320,19 @@ export class AnswerProcessorService {
       let resultMessage = `📊 <b>${chat.user.firstName} ning Test Natijalari</b>\n\n`;
 
       for (const [testId, testAnswers] of testGroups) {
-        const correctCount = testAnswers.filter(a => a.isCorrect).length;
+        const correctCount = testAnswers.filter((a) => a.isCorrect).length;
         const totalQuestions = testAnswers.length;
-        const totalPoints = testAnswers.reduce((sum, a) => sum + (a.points || 0), 0);
-        const percentage = totalQuestions > 0 ? Math.round((correctCount / totalQuestions) * 100) : 0;
-        
+        const totalPoints = testAnswers.reduce(
+          (sum, a) => sum + (a.points || 0),
+          0,
+        );
+        const percentage =
+          totalQuestions > 0
+            ? Math.round((correctCount / totalQuestions) * 100)
+            : 0;
+
         const emoji = percentage >= 80 ? '🟢' : percentage >= 60 ? '🟡' : '🔴';
-        
+
         resultMessage += `${emoji} <b>Test #T${testId}</b>\n`;
         resultMessage += `   ✅ To'g'ri: ${correctCount}/${totalQuestions} (${percentage}%)\n`;
         resultMessage += `   🎯 Ball: ${totalPoints}\n`;
@@ -322,12 +340,11 @@ export class AnswerProcessorService {
       }
 
       resultMessage += `💡 <b>Ko'rsatma:</b> Yanada yaxshi natijalar uchun testlarni takrorlang!`;
-      
-      return resultMessage;
 
+      return resultMessage;
     } catch (error) {
-      this.logger.error('Error getting user test results:', error);
-      return "❌ Natijalarni olishda xatolik yuz berdi.";
+      console.error('Error getting user test results:', error);
+      return '❌ Natijalarni olishda xatolik yuz berdi.';
     }
   }
 
@@ -342,7 +359,7 @@ export class AnswerProcessorService {
     completionRate: number;
   }> {
     const answers = await this.telegramAnswerRepo.find({
-      where: { 
+      where: {
         testId,
         status: AnswerStatus.CHECKED,
       },
@@ -350,7 +367,7 @@ export class AnswerProcessorService {
     });
 
     const studentAnswers = new Map<number, TelegramAnswer[]>();
-    answers.forEach(answer => {
+    answers.forEach((answer) => {
       if (!studentAnswers.has(answer.student.id)) {
         studentAnswers.set(answer.student.id, []);
       }
@@ -365,22 +382,26 @@ export class AnswerProcessorService {
     const totalQuestions = test?.questions?.length || 0;
     const totalStudents = studentAnswers.size;
     const totalAnswers = answers.length;
-    const correctAnswers = answers.filter(a => a.isCorrect).length;
-    
+    const correctAnswers = answers.filter((a) => a.isCorrect).length;
+
     // Calculate average score and completion rate
     let totalScore = 0;
     let completedTests = 0;
-    
-    studentAnswers.forEach(studentAnswerList => {
+
+    studentAnswers.forEach((studentAnswerList) => {
       if (studentAnswerList.length >= totalQuestions) {
         completedTests++;
       }
-      const studentScore = studentAnswerList.reduce((sum, a) => sum + (a.points || 0), 0);
+      const studentScore = studentAnswerList.reduce(
+        (sum, a) => sum + (a.points || 0),
+        0,
+      );
       totalScore += studentScore;
     });
 
     const averageScore = totalStudents > 0 ? totalScore / totalStudents : 0;
-    const completionRate = totalStudents > 0 ? (completedTests / totalStudents) * 100 : 0;
+    const completionRate =
+      totalStudents > 0 ? (completedTests / totalStudents) * 100 : 0;
 
     return {
       totalStudents,

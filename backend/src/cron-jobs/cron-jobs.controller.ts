@@ -1,10 +1,4 @@
-import {
-  Controller,
-  Post,
-  Get,
-  UseGuards,
-  Request,
-} from '@nestjs/common';
+import { Controller, Post, Get, UseGuards, Request } from '@nestjs/common';
 import {
   ApiTags,
   ApiOperation,
@@ -31,9 +25,9 @@ export class CronJobsController {
   @ApiResponse({ status: 200, description: 'PDF sending triggered' })
   async triggerScheduledPDFs() {
     await this.cronJobsService.sendScheduledExamPDFs();
-    return { 
-      success: true, 
-      message: 'Scheduled PDF sending triggered' 
+    return {
+      success: true,
+      message: 'Scheduled PDF sending triggered',
     };
   }
 
@@ -42,9 +36,9 @@ export class CronJobsController {
   @ApiResponse({ status: 200, description: 'Exam reminders triggered' })
   async triggerExamReminders() {
     await this.cronJobsService.sendExamReminders();
-    return { 
-      success: true, 
-      message: 'Exam reminders triggered' 
+    return {
+      success: true,
+      message: 'Exam reminders triggered',
     };
   }
 
@@ -53,9 +47,9 @@ export class CronJobsController {
   @ApiResponse({ status: 200, description: 'Missing PDF check triggered' })
   async triggerMissingPDFCheck() {
     await this.cronJobsService.checkAndSendMissingPDFs();
-    return { 
-      success: true, 
-      message: 'Missing PDF check triggered' 
+    return {
+      success: true,
+      message: 'Missing PDF check triggered',
     };
   }
 
@@ -64,9 +58,9 @@ export class CronJobsController {
   @ApiResponse({ status: 200, description: 'Attendance summary triggered' })
   async triggerAttendanceSummary() {
     await this.cronJobsService.sendWeeklyAttendanceSummary();
-    return { 
-      success: true, 
-      message: 'Weekly attendance summary triggered' 
+    return {
+      success: true,
+      message: 'Weekly attendance summary triggered',
     };
   }
 
@@ -75,9 +69,9 @@ export class CronJobsController {
   @ApiResponse({ status: 200, description: 'Health check completed' })
   async triggerHealthCheck() {
     await this.cronJobsService.performDailyHealthCheck();
-    return { 
-      success: true, 
-      message: 'Health check completed' 
+    return {
+      success: true,
+      message: 'Health check completed',
     };
   }
 

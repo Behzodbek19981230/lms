@@ -5,7 +5,7 @@ import { ExamsService } from '../exams/exams.service';
 import { AttendanceService } from '../attendance/attendance.service';
 import { PaymentsService } from '../payments/payments.service';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Between, MoreThanOrEqual, LessThan } from 'typeorm';
+import { Repository, Between, MoreThanOrEqual } from 'typeorm';
 import { Exam, ExamStatus } from '../exams/entities/exam.entity';
 import { ExamVariant } from '../exams/entities/exam-variant.entity';
 import { Payment, PaymentStatus } from '../payments/payment.entity';
@@ -34,13 +34,19 @@ export class CronJobsService {
     timeZone: CRON_JOB_CONFIGS.DAILY_PDF_SENDER.timeZone,
   })
   async sendScheduledExamPDFs() {
-    this.logger.log('Starting daily PDF sending for scheduled exams...');
-    
     try {
       // Find all scheduled exams for today
       const today = new Date();
-      const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-      const todayEnd = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
+      const todayStart = new Date(
+        today.getFullYear(),
+        today.getMonth(),
+        today.getDate(),
+      );
+      const todayEnd = new Date(
+        today.getFullYear(),
+        today.getMonth(),
+        today.getDate() + 1,
+      );
 
       const scheduledExams = await this.examRepository.find({
         where: {
@@ -51,7 +57,6 @@ export class CronJobsService {
       });
 
       if (scheduledExams.length === 0) {
-        this.logger.log('No scheduled exams found for today');
         return;
       }
 
@@ -60,34 +65,27 @@ export class CronJobsService {
 
       for (const exam of scheduledExams) {
         try {
-          this.logger.log(`Processing exam: ${exam.title} (${exam.variants?.length || 0} variants)`);
-          
           if (exam.variants && exam.variants.length > 0) {
-            const result = await this.examsService.generateAndSendAllVariantsPDFs(exam.id);
+            const result =
+              await this.examsService.generateAndSendAllVariantsPDFs(exam.id);
             totalSent += result.sent;
             totalFailed += result.failed;
-            
-            this.logger.log(`Exam ${exam.title}: ${result.sent} sent, ${result.failed} failed`);
-            
+
             // Send summary notification to Telegram channels
-            const message = `📚 <b>Bugungi Test PDF'lari Yuborildi</b>\n\n` +
+            const message =
+              `📚 <b>Bugungi Test PDF'lari Yuborildi</b>\n\n` +
               `📋 <b>Test:</b> ${exam.title}\n` +
               `✅ <b>Yuborildi:</b> ${result.sent}\n` +
               `❌ <b>Xatolik:</b> ${result.failed}\n` +
               `📅 <b>Sana:</b> ${new Date().toLocaleDateString()}`;
-            
-            await this.telegramService.sendNotificationToChannelsAndBot(message);
-          }
-        } catch (error) {
-          this.logger.error(`Failed to process exam ${exam.id}:`, error);
-          totalFailed++;
-        }
-      }
 
-      this.logger.log(`Daily PDF sending completed: ${totalSent} sent, ${totalFailed} failed`);
-    } catch (error) {
-      this.logger.error('Failed to send scheduled exam PDFs:', error);
-    }
+            await this.telegramService.sendNotificationToChannelsAndBot(
+              message,
+            );
+          }
+        } catch (error) {}
+      }
+    } catch (error) {}
   }
 
   // Send reminder for upcoming exams every day at 6:00 PM
@@ -96,14 +94,22 @@ export class CronJobsService {
     timeZone: CRON_JOB_CONFIGS.EXAM_REMINDER.timeZone,
   })
   async sendExamReminders() {
-    this.logger.log('Starting exam reminders...');
-    
+    console.log('Starting exam reminders...');
+
     try {
       // Find exams scheduled for tomorrow
       const tomorrow = new Date();
       tomorrow.setDate(tomorrow.getDate() + 1);
-      const tomorrowStart = new Date(tomorrow.getFullYear(), tomorrow.getMonth(), tomorrow.getDate());
-      const tomorrowEnd = new Date(tomorrow.getFullYear(), tomorrow.getMonth(), tomorrow.getDate() + 1);
+      const tomorrowStart = new Date(
+        tomorrow.getFullYear(),
+        tomorrow.getMonth(),
+        tomorrow.getDate(),
+      );
+      const tomorrowEnd = new Date(
+        tomorrow.getFullYear(),
+        tomorrow.getMonth(),
+        tomorrow.getDate() + 1,
+      );
 
       const upcomingExams = await this.examRepository.find({
         where: {
@@ -114,15 +120,18 @@ export class CronJobsService {
       });
 
       if (upcomingExams.length === 0) {
-        this.logger.log('No exams scheduled for tomorrow');
+        console.log('No exams scheduled for tomorrow');
         return;
       }
 
       for (const exam of upcomingExams) {
-        const subjectNames = exam.subjects?.map(s => s.name).join(', ') || 'Fan belgilanmagan';
-        const groupNames = exam.groups?.map(g => g.name).join(', ') || 'Guruh belgilanmagan';
-        
-        const message = `⏰ <b>Ertaga Test!</b>\n\n` +
+        const subjectNames =
+          exam.subjects?.map((s) => s.name).join(', ') || 'Fan belgilanmagan';
+        const groupNames =
+          exam.groups?.map((g) => g.name).join(', ') || 'Guruh belgilanmagan';
+
+        const message =
+          `⏰ <b>Ertaga Test!</b>\n\n` +
           `📚 <b>Test:</b> ${exam.title}\n` +
           `📋 <b>Fan:</b> ${subjectNames}\n` +
           `👥 <b>Guruhlar:</b> ${groupNames}\n` +
@@ -131,12 +140,12 @@ export class CronJobsService {
           `📝 Tayyor bo'ling va vaqtida keling!`;
 
         await this.telegramService.sendNotificationToChannelsAndBot(message);
-        this.logger.log(`Reminder sent for exam: ${exam.title}`);
+        console.log(`Reminder sent for exam: ${exam.title}`);
       }
 
-      this.logger.log(`Exam reminders completed for ${upcomingExams.length} exams`);
+      console.log(`Exam reminders completed for ${upcomingExams.length} exams`);
     } catch (error) {
-      this.logger.error('Failed to send exam reminders:', error);
+      console.error('Failed to send exam reminders:', error);
     }
   }
 
@@ -146,8 +155,8 @@ export class CronJobsService {
     timeZone: CRON_JOB_CONFIGS.MISSING_PDF_CHECKER.timeZone,
   })
   async checkAndSendMissingPDFs() {
-    this.logger.log('Checking for variants without sent PDFs...');
-    
+    console.log('Checking for variants without sent PDFs...');
+
     try {
       // Find variants that need PDFs sent (created in the last 24 hours)
       const yesterday = new Date();
@@ -161,7 +170,7 @@ export class CronJobsService {
       });
 
       if (recentVariants.length === 0) {
-        this.logger.log('No recent variants found');
+        console.log('No recent variants found');
         return;
       }
 
@@ -171,32 +180,43 @@ export class CronJobsService {
       for (const variant of recentVariants) {
         try {
           // Check if student has Telegram account
-          const telegramStatus = await this.telegramService.getUserTelegramStatus(variant.student.id);
-          
+          const telegramStatus =
+            await this.telegramService.getUserTelegramStatus(
+              variant.student.id,
+            );
+
           if (telegramStatus.isLinked) {
-            const result = await this.examsService.generateAndSendVariantPDF(variant.id);
+            const result = await this.examsService.generateAndSendVariantPDF(
+              variant.id,
+            );
             if (result.telegramSent) {
               sent++;
-              this.logger.log(`PDF sent for variant ${variant.variantNumber}`);
+              console.log(`PDF sent for variant ${variant.variantNumber}`);
             } else {
               failed++;
-              this.logger.warn(`Failed to send PDF for variant ${variant.variantNumber}: ${result.message}`);
+              console.warn(
+                `Failed to send PDF for variant ${variant.variantNumber}: ${result.message}`,
+              );
             }
           } else {
-            this.logger.log(`Student ${variant.student.firstName} ${variant.student.lastName} doesn't have Telegram linked`);
+            console.log(
+              `Student ${variant.student.firstName} ${variant.student.lastName} doesn't have Telegram linked`,
+            );
           }
-          
+
           // Small delay between sends
-          await new Promise(resolve => setTimeout(resolve, 1000));
+          await new Promise((resolve) => setTimeout(resolve, 1000));
         } catch (error) {
           failed++;
-          this.logger.error(`Error processing variant ${variant.id}:`, error);
+          console.error(`Error processing variant ${variant.id}:`, error);
         }
       }
 
-      this.logger.log(`Missing PDF check completed: ${sent} sent, ${failed} failed`);
+      console.log(
+        `Missing PDF check completed: ${sent} sent, ${failed} failed`,
+      );
     } catch (error) {
-      this.logger.error('Failed to check missing PDFs:', error);
+      console.error('Failed to check missing PDFs:', error);
     }
   }
 
@@ -206,25 +226,32 @@ export class CronJobsService {
     timeZone: CRON_JOB_CONFIGS.WEEKLY_ATTENDANCE_SUMMARY.timeZone,
   })
   async sendWeeklyAttendanceSummary() {
-    this.logger.log('Generating weekly attendance summary...');
-    
+    console.log('Generating weekly attendance summary...');
+
     try {
       // Calculate last week's date range
       const today = new Date();
-      const lastWeekEnd = new Date(today.getFullYear(), today.getMonth(), today.getDate() - today.getDay());
-      const lastWeekStart = new Date(lastWeekEnd.getTime() - 7 * 24 * 60 * 60 * 1000);
+      const lastWeekEnd = new Date(
+        today.getFullYear(),
+        today.getMonth(),
+        today.getDate() - today.getDay(),
+      );
+      const lastWeekStart = new Date(
+        lastWeekEnd.getTime() - 7 * 24 * 60 * 60 * 1000,
+      );
 
       // This would typically involve getting attendance statistics
       // For now, we'll send a placeholder message
-      const message = `📊 <b>Haftalik Davomat Hisoboti</b>\n\n` +
+      const message =
+        `📊 <b>Haftalik Davomat Hisoboti</b>\n\n` +
         `📅 <b>Muddat:</b> ${lastWeekStart.toLocaleDateString()} - ${lastWeekEnd.toLocaleDateString()}\n\n` +
         `📋 Batafsil hisobot uchun LMS tizimiga kiring.\n` +
         `📱 Telegram orqali davomat kuzatishda davom eting!`;
 
       await this.telegramService.sendNotificationToChannelsAndBot(message);
-      this.logger.log('Weekly attendance summary sent');
+      console.log('Weekly attendance summary sent');
     } catch (error) {
-      this.logger.error('Failed to send weekly attendance summary:', error);
+      console.error('Failed to send weekly attendance summary:', error);
     }
   }
 
@@ -234,23 +261,22 @@ export class CronJobsService {
     timeZone: CRON_JOB_CONFIGS.DAILY_HEALTH_CHECK.timeZone,
   })
   async performDailyHealthCheck() {
-    this.logger.log('Performing daily health check...');
-    
+    console.log('Performing daily health check...');
+
     try {
       // Check if Telegram bot is working
       const botStatus = await this.telegramService.testTelegramConnection();
-      
+
       if (!botStatus) {
-        this.logger.error('Telegram bot health check failed!');
+        console.error('Telegram bot health check failed!');
         // You could send an alert to administrators here
       } else {
-        this.logger.log('Telegram bot health check passed');
+        console.log('Telegram bot health check passed');
       }
 
       // Additional health checks can be added here
-      
     } catch (error) {
-      this.logger.error('Health check failed:', error);
+      console.error('Health check failed:', error);
     }
   }
 
@@ -260,72 +286,93 @@ export class CronJobsService {
     timeZone: 'Asia/Tashkent',
   })
   async sendDailyPaymentReminders() {
-    this.logger.log('Starting daily payment reminders...');
-    
+    console.log('Starting daily payment reminders...');
+
     try {
       // Update overdue payments status first
       await this.paymentsService.updateOverduePayments();
-      
+
       // Get overdue payments
       const overduePayments = await this.paymentsService.getOverduePayments();
-      
+
       if (overduePayments.length === 0) {
-        this.logger.log('No overdue payments found');
+        console.log('No overdue payments found');
         return;
       }
 
-      this.logger.log(`Found ${overduePayments.length} overdue payments`);
-      
+      console.log(`Found ${overduePayments.length} overdue payments`);
+
       let sentCount = 0;
       let failedCount = 0;
-      
+
       for (const payment of overduePayments) {
         try {
           // Send individual payment reminder via Telegram
-          await this.telegramService.sendPaymentReminder(payment.studentId, payment);
-          
+          await this.telegramService.sendPaymentReminder(
+            payment.studentId,
+            payment,
+          );
+
           // Also send to channels if configured
           const relevantChannels = await this.telegramService.getAllChats();
-          const paymentChannels = relevantChannels.filter(channel => 
-            channel.type === 'channel' && 
-            channel.status === 'active' &&
-            (channel.center?.id === payment.group?.center?.id || !channel.center)
+          const paymentChannels = relevantChannels.filter(
+            (channel) =>
+              channel.type === 'channel' &&
+              channel.status === 'active' &&
+              (channel.center?.id === payment.group?.center?.id ||
+                !channel.center),
           );
-          
+
           for (const channel of paymentChannels) {
             try {
-              await this.telegramService.sendPaymentReminderToChannel(channel.chatId, payment);
+              await this.telegramService.sendPaymentReminderToChannel(
+                channel.chatId,
+                payment,
+              );
             } catch (error) {
-              this.logger.warn(`Failed to send payment reminder to channel ${channel.chatId}:`, error.message);
+              console.warn(
+                `Failed to send payment reminder to channel ${channel.chatId}:`,
+                error.message,
+              );
             }
           }
-          
+
           sentCount++;
-          this.logger.log(`Payment reminder sent for payment ${payment.id} to student ${payment.student?.firstName} ${payment.student?.lastName}`);
-          
+          console.log(
+            `Payment reminder sent for payment ${payment.id} to student ${payment.student?.firstName} ${payment.student?.lastName}`,
+          );
+
           // Small delay to avoid rate limiting
-          await new Promise(resolve => setTimeout(resolve, 500));
+          await new Promise((resolve) => setTimeout(resolve, 500));
         } catch (error) {
           failedCount++;
-          this.logger.error(`Failed to send payment reminder for payment ${payment.id}:`, error);
+          console.error(
+            `Failed to send payment reminder for payment ${payment.id}:`,
+            error,
+          );
         }
       }
-      
+
       // Send summary notification to channels
       if (sentCount > 0 || failedCount > 0) {
-        const summaryMessage = `💰 <b>Kunlik To'lov Eslatmalari</b>\n\n` +
+        const summaryMessage =
+          `💰 <b>Kunlik To'lov Eslatmalari</b>\n\n` +
           `📊 <b>Jami muddati o'tgan to'lovlar:</b> ${overduePayments.length}\n` +
           `✅ <b>Eslatma yuborildi:</b> ${sentCount}\n` +
           `❌ <b>Xatolik:</b> ${failedCount}\n` +
           `📅 <b>Sana:</b> ${new Date().toLocaleDateString()}\n\n` +
           `💡 <b>Ota-onalar, iltimos to'lovlarni muddatida amalga oshiring!</b>`;
-        
-        await this.telegramService.sendNotificationToChannelsAndBot(summaryMessage);
+
+        await this.telegramService.sendNotificationToChannelsAndBot(
+          summaryMessage,
+        );
       }
-      
-      this.logger.log(`Payment reminders completed: ${sentCount} sent, ${failedCount} failed`);
+
+      console.log(
+        `Payment reminders completed: ${sentCount} sent, ${failedCount} failed`,
+      );
     } catch (error) {
-      this.logger.error('Failed to send payment reminders:', error);
+      console.error('Failed to send payment reminders:', error);
     }
   }
 
@@ -335,12 +382,12 @@ export class CronJobsService {
     timeZone: 'Asia/Tashkent',
   })
   async sendUpcomingPaymentNotifications() {
-    this.logger.log('Starting weekly upcoming payment notifications...');
-    
+    console.log('Starting weekly upcoming payment notifications...');
+
     try {
       const today = new Date();
       const nextWeek = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
-      
+
       // Get payments due in the next week
       const upcomingPayments = await this.paymentRepository.find({
         where: {
@@ -349,21 +396,23 @@ export class CronJobsService {
         },
         relations: ['student', 'teacher', 'group'],
       });
-      
+
       if (upcomingPayments.length === 0) {
-        this.logger.log('No upcoming payments found for next week');
+        console.log('No upcoming payments found for next week');
         return;
       }
-      
-      this.logger.log(`Found ${upcomingPayments.length} payments due in the next week`);
-      
+
+      console.log(
+        `Found ${upcomingPayments.length} payments due in the next week`,
+      );
+
       let sentCount = 0;
       let failedCount = 0;
-      
+
       for (const payment of upcomingPayments) {
         try {
           // Send upcoming payment notification
-          const message = 
+          const message =
             `📅 To'lov eslatmasi\n\n` +
             `📚 Guruh: ${payment.group?.name || "Noma'lum"}\n` +
             `💵 Miqdor: ${payment.amount} so'm\n` +
@@ -371,37 +420,45 @@ export class CronJobsService {
             `📋 Tavsif: ${payment.description}\n\n` +
             `💡 To'lovni muddatida amalga oshirishni eslatamiz.\n` +
             `❓ Savollar bo'lsa o'qituvchingiz bilan bog'laning.`;
-          
+
           await this.telegramService.sendPaymentReminder(payment.studentId, {
             ...payment,
-            message: message
+            message: message,
           });
-          
+
           sentCount++;
-          
+
           // Small delay to avoid rate limiting
-          await new Promise(resolve => setTimeout(resolve, 300));
+          await new Promise((resolve) => setTimeout(resolve, 300));
         } catch (error) {
           failedCount++;
-          this.logger.error(`Failed to send upcoming payment notification for payment ${payment.id}:`, error);
+          console.error(
+            `Failed to send upcoming payment notification for payment ${payment.id}:`,
+            error,
+          );
         }
       }
-      
+
       // Send summary
       if (sentCount > 0 || failedCount > 0) {
-        const summaryMessage = `📅 <b>Haftalik To'lov Eslatmalari</b>\n\n` +
+        const summaryMessage =
+          `📅 <b>Haftalik To'lov Eslatmalari</b>\n\n` +
           `📊 <b>Kelasi hafta muddati yetadigan to'lovlar:</b> ${upcomingPayments.length}\n` +
           `✅ <b>Eslatma yuborildi:</b> ${sentCount}\n` +
           `❌ <b>Xatolik:</b> ${failedCount}\n` +
           `📅 <b>Sana:</b> ${new Date().toLocaleDateString()}\n\n` +
           `💰 Muddatini unutmang!`;
-        
-        await this.telegramService.sendNotificationToChannelsAndBot(summaryMessage);
+
+        await this.telegramService.sendNotificationToChannelsAndBot(
+          summaryMessage,
+        );
       }
-      
-      this.logger.log(`Upcoming payment notifications completed: ${sentCount} sent, ${failedCount} failed`);
+
+      console.log(
+        `Upcoming payment notifications completed: ${sentCount} sent, ${failedCount} failed`,
+      );
     } catch (error) {
-      this.logger.error('Failed to send upcoming payment notifications:', error);
+      console.error('Failed to send upcoming payment notifications:', error);
     }
   }
 }

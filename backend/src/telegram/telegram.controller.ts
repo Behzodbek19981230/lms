@@ -49,10 +49,7 @@ export class TelegramController {
   @ApiOperation({ summary: 'Telegram webhook endpoint for receiving messages' })
   @ApiResponse({ status: 200, description: 'Webhook processed successfully' })
   async handleWebhook(@Body() update: any) {
-    this.logger.log(
-      'Received Telegram webhook:',
-      JSON.stringify(update, null, 2),
-    );
+    console.log('Received Telegram webhook:', JSON.stringify(update, null, 2));
 
     try {
       if (update.message) {
@@ -65,7 +62,7 @@ export class TelegramController {
 
       return { ok: true };
     } catch (error) {
-      this.logger.error('Error processing webhook:', error);
+      console.error('Error processing webhook:', error);
       // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       return { ok: false, error: error.message };
     }
@@ -159,16 +156,14 @@ export class TelegramController {
   @ApiOperation({ summary: 'Get unlinked Telegram users' })
   @ApiResponse({ status: 200, description: 'Unlinked users retrieved' })
   async getUnlinkedUsers(@Request() req) {
-    this.logger.log(
-      `Getting unlinked users. User: ${JSON.stringify(req.user)}`,
-    );
+    console.log(`Getting unlinked users. User: ${JSON.stringify(req.user)}`);
 
     if (!req.user) {
-      this.logger.error('No user found in request');
+      console.error('No user found in request');
       throw new BadRequestException('User not authenticated');
     }
 
-    this.logger.log(`User role: ${req.user.role}, User ID: ${req.user.id}`);
+    console.log(`User role: ${req.user.role}, User ID: ${req.user.id}`);
     return this.telegramService.getUnlinkedTelegramUsers();
   }
 
@@ -178,9 +173,7 @@ export class TelegramController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   testAuth(@Request() req) {
-    this.logger.log(
-      `Test auth endpoint hit. User: ${JSON.stringify(req.user)}`,
-    );
+    console.log(`Test auth endpoint hit. User: ${JSON.stringify(req.user)}`);
     return {
       message: 'Authentication successful',
       // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
@@ -194,9 +187,7 @@ export class TelegramController {
   @Roles(UserRole.TEACHER, UserRole.ADMIN, UserRole.SUPERADMIN)
   @ApiBearerAuth()
   testRoles(@Request() req) {
-    this.logger.log(
-      `Test roles endpoint hit. User: ${JSON.stringify(req.user)}`,
-    );
+    console.log(`Test roles endpoint hit. User: ${JSON.stringify(req.user)}`);
     return {
       message: 'Role authorization successful',
       // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
@@ -420,7 +411,7 @@ export class TelegramController {
   // ==================== Private Helper Methods ====================
 
   private async processMessage(message: any) {
-    this.logger.log(
+    console.log(
       `Processing message from ${message.from?.username || message.from?.first_name}`,
     );
 
@@ -498,11 +489,11 @@ export class TelegramController {
       }
     }
 
-    this.logger.log(`Unhandled message: ${message.text}`);
+    console.log(`Unhandled message: ${message.text}`);
   }
 
   private processChannelPost(channelPost: any) {
-    this.logger.log(
+    console.log(
       'Processing channel post:',
       channelPost.text?.substring(0, 100),
     );
@@ -516,7 +507,7 @@ export class TelegramController {
       const match = text.match(/^#T(\d+)Q(\d+)\s+(.+)$/i);
 
       if (!match || match.length < 4) {
-        this.logger.warn(`Invalid answer format: ${text}`);
+        console.warn(`Invalid answer format: ${text}`);
         return;
       }
 
@@ -532,11 +523,11 @@ export class TelegramController {
       };
 
       await this.telegramService.processAnswer(dto);
-      this.logger.log(
+      console.log(
         `Answer processed for test ${testId}, question ${questionNumber}`,
       );
     } catch (error) {
-      this.logger.error('Error processing answer submission:', error);
+      console.error('Error processing answer submission:', error);
     }
   }
 
@@ -589,11 +580,11 @@ export class TelegramController {
         );
       }
 
-      this.logger.log(
+      console.log(
         `Registration handled for ${username}: ${result.success}, auto-connected: ${result.autoConnected}`,
       );
     } catch (error) {
-      this.logger.error('Error handling registration:', error);
+      console.error('Error handling registration:', error);
 
       if (this.telegramService['bot']) {
         await this.telegramService['bot'].sendMessage(
@@ -615,7 +606,7 @@ export class TelegramController {
       );
     }
 
-    this.logger.log(`Help request from ${message.from.username}`);
+    console.log(`Help request from ${message.from.username}`);
   }
 
   private async handleMainMenu(message: any) {
@@ -644,7 +635,7 @@ export class TelegramController {
         );
       }
     } catch (error) {
-      this.logger.error('Error getting user results:', error);
+      console.error('Error getting user results:', error);
       if (this.telegramService['bot']) {
         await this.telegramService['bot'].sendMessage(
           message.chat.id,
@@ -668,7 +659,7 @@ export class TelegramController {
         );
       }
     } catch (error) {
-      this.logger.error('Error getting user attendance:', error);
+      console.error('Error getting user attendance:', error);
       if (this.telegramService['bot']) {
         await this.telegramService['bot'].sendMessage(
           message.chat.id,
@@ -692,7 +683,7 @@ export class TelegramController {
         );
       }
     } catch (error) {
-      this.logger.error('Error getting user account info:', error);
+      console.error('Error getting user account info:', error);
       if (this.telegramService['bot']) {
         await this.telegramService['bot'].sendMessage(
           message.chat.id,
@@ -714,7 +705,7 @@ export class TelegramController {
         });
       }
     } catch (error) {
-      this.logger.error('Error getting teacher groups:', error);
+      console.error('Error getting teacher groups:', error);
       if (this.telegramService['bot']) {
         await this.telegramService['bot'].sendMessage(
           message.chat.id,
@@ -740,7 +731,7 @@ export class TelegramController {
         );
       }
     } catch (error) {
-      this.logger.error('Error getting group students:', error);
+      console.error('Error getting group students:', error);
       if (this.telegramService['bot']) {
         await this.telegramService['bot'].sendMessage(
           message.chat.id,
@@ -763,7 +754,7 @@ export class TelegramController {
         });
       }
     } catch (error) {
-      this.logger.error('Error marking attendance:', error);
+      console.error('Error marking attendance:', error);
       if (this.telegramService['bot']) {
         await this.telegramService['bot'].sendMessage(
           message.chat.id,
@@ -787,7 +778,7 @@ export class TelegramController {
         );
       }
     } catch (error) {
-      this.logger.error('Error getting announcements:', error);
+      console.error('Error getting announcements:', error);
       if (this.telegramService['bot']) {
         await this.telegramService['bot'].sendMessage(
           message.chat.id,
@@ -809,7 +800,7 @@ export class TelegramController {
         });
       }
     } catch (error) {
-      this.logger.error('Error getting active tests:', error);
+      console.error('Error getting active tests:', error);
       if (this.telegramService['bot']) {
         await this.telegramService['bot'].sendMessage(
           message.chat.id,

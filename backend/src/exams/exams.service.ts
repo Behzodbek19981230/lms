@@ -229,12 +229,12 @@ export class ExamsService {
     // Optionally send PDFs to Telegram
     if (generateVariantsDto.sendPDFsToTelegram) {
       try {
-        this.logger.log(`Sending ${variants.length} PDFs to Telegram...`);
+        console.log(`Sending ${variants.length} PDFs to Telegram...`);
         // Send PDFs in background (don't wait for completion)
         this.sendPDFsInBackground(variants);
-        this.logger.log('PDF sending initiated in background');
+        console.log('PDF sending initiated in background');
       } catch (error) {
-        this.logger.error('Failed to initiate PDF sending:', error);
+        console.error('Failed to initiate PDF sending:', error);
         // Don't fail the variant generation if PDF sending fails
       }
     }
@@ -372,13 +372,10 @@ export class ExamsService {
           // Small delay between sends to avoid overwhelming the system
           await new Promise((resolve) => setTimeout(resolve, 1000));
         } catch (error) {
-          this.logger.error(
-            `Failed to send PDF for variant ${variant.id}:`,
-            error,
-          );
+          console.error(`Failed to send PDF for variant ${variant.id}:`, error);
         }
       }
-      this.logger.log(
+      console.log(
         `Background PDF sending completed for ${variants.length} variants`,
       );
     });
@@ -434,7 +431,9 @@ export class ExamsService {
     // Ensure questions are loaded for each variant
     for (const variant of variants) {
       if (!variant.questions || variant.questions.length === 0) {
-        this.logger.warn(`Loading questions separately for variant ${variant.id} in getExamVariants`);
+        console.warn(
+          `Loading questions separately for variant ${variant.id} in getExamVariants`,
+        );
         const questions = await this.examVariantQuestionRepository.find({
           where: { variant: { id: variant.id } },
           order: { order: 'ASC' },
@@ -454,7 +453,7 @@ export class ExamsService {
     html: string,
     title = 'Document',
   ): Promise<Buffer> {
-    this.logger.log(`Starting PDF generation with PDFKit for: ${title}`);
+    console.log(`Starting PDF generation with PDFKit for: ${title}`);
     return await this.renderHtmlToPdfWithPDFKit(html, title);
   }
 
@@ -462,7 +461,7 @@ export class ExamsService {
     html: string,
     title = 'Document',
   ): Promise<Buffer> {
-    this.logger.log(`Using PDFKit PDF generation for: ${title}`);
+    console.log(`Using PDFKit PDF generation for: ${title}`);
 
     return new Promise((resolve, reject) => {
       try {
@@ -487,14 +486,14 @@ export class ExamsService {
 
         doc.on('end', () => {
           const finalBuffer = Buffer.concat(buffers);
-          this.logger.log(
+          console.log(
             `PDFKit PDF generated successfully. Size: ${finalBuffer.length} bytes`,
           );
           resolve(finalBuffer);
         });
 
         doc.on('error', (error) => {
-          this.logger.error('PDFKit error:', error);
+          console.error('PDFKit error:', error);
           reject(
             new InternalServerErrorException(
               `PDF generation failed: ${error.message}`,
@@ -659,7 +658,7 @@ export class ExamsService {
         // Finalize the PDF
         doc.end();
       } catch (error) {
-        this.logger.error('Error in PDFKit generation:', error);
+        console.error('Error in PDFKit generation:', error);
         reject(
           new InternalServerErrorException(
             `PDFKit generation failed: ${error.message}`,
@@ -765,7 +764,7 @@ export class ExamsService {
 
       return null;
     } catch (error) {
-      this.logger.warn('Error processing image data:', error);
+      console.warn('Error processing image data:', error);
       return null;
     }
   }
@@ -901,9 +900,7 @@ export class ExamsService {
       // Extract the MIME type and base64 data
       const [header, base64Data] = dataUri.split(',');
       if (!header || !base64Data) {
-        this.logger.warn(
-          'Invalid data URI format: missing header or base64 data',
-        );
+        console.warn('Invalid data URI format: missing header or base64 data');
         return null;
       }
 
@@ -921,7 +918,7 @@ export class ExamsService {
 
       // Validate the base64 data
       if (!this.isValidBase64(cleanBase64)) {
-        this.logger.warn('Invalid base64 data detected');
+        console.warn('Invalid base64 data detected');
         return null;
       }
 
@@ -929,18 +926,18 @@ export class ExamsService {
       try {
         const decoded = atob(cleanBase64);
         if (decoded.length < 50) {
-          this.logger.warn('Base64 data too small to be a valid image');
+          console.warn('Base64 data too small to be a valid image');
           return null;
         }
       } catch (error) {
-        this.logger.warn('Failed to decode base64 data:', error);
+        console.warn('Failed to decode base64 data:', error);
         return null;
       }
 
       // Reconstruct the data URI with clean base64
       return `${header},${cleanBase64}`;
     } catch (error) {
-      this.logger.warn('Failed to normalize data URI:', error);
+      console.warn('Failed to normalize data URI:', error);
       return null;
     }
   }
@@ -963,7 +960,7 @@ export class ExamsService {
 
     // Ensure we have basic data
     if (!exam) {
-      this.logger.error('No exam data found for variant');
+      console.error('No exam data found for variant');
       return '<div class="page"><div class="header"><div class="title">Error: Exam data not found</div></div></div>';
     }
 
@@ -977,7 +974,7 @@ export class ExamsService {
       `;
 
     const questions = variant.questions || [];
-    this.logger.log(`Building variant page with ${questions.length} questions`);
+    console.log(`Building variant page with ${questions.length} questions`);
 
     if (questions.length === 0) {
       const noQuestionsHtml = `
@@ -1022,7 +1019,7 @@ export class ExamsService {
 
         // Log image processing results for debugging
         if (q.imageBase64 || questionText.includes('data:image/')) {
-          this.logger.log(
+          console.log(
             `Question ${idx + 1}: Found image - imageBase64 field: ${!!q.imageBase64}, extracted from text: ${!!imageDataUri}, final URI length: ${imageDataUri?.length || 0}`,
           );
         }
@@ -1094,7 +1091,7 @@ export class ExamsService {
        ------------------------ */
 
   async debugVariant(variantId: number): Promise<any> {
-    this.logger.log(`Debugging variant ${variantId}`);
+    console.log(`Debugging variant ${variantId}`);
 
     try {
       // Query with all relations
@@ -1189,7 +1186,7 @@ export class ExamsService {
         },
       };
     } catch (error) {
-      this.logger.error(`Error debugging variant ${variantId}:`, error);
+      console.error(`Error debugging variant ${variantId}:`, error);
       return {
         variantId,
         error: error.message,
@@ -1204,7 +1201,7 @@ export class ExamsService {
 
   async generateVariantPDF(variantId: number): Promise<Buffer> {
     try {
-      this.logger.log(`Generating PDF for variant ${variantId}`);
+      console.log(`Generating PDF for variant ${variantId}`);
 
       // First, try to load the variant with relations
       const variant = await this.examVariantRepository.findOne({
@@ -1213,32 +1210,36 @@ export class ExamsService {
       });
 
       if (!variant) {
-        this.logger.error(`Variant ${variantId} not found`);
+        console.error(`Variant ${variantId} not found`);
         throw new NotFoundException('Variant not found');
       }
 
       // ALWAYS load questions separately to ensure they are present
-      this.logger.log(`Loading questions separately for variant ${variantId} to ensure they are present`);
+      console.log(
+        `Loading questions separately for variant ${variantId} to ensure they are present`,
+      );
       const questions = await this.examVariantQuestionRepository.find({
         where: { variant: { id: variantId } },
         order: { order: 'ASC' },
       });
       variant.questions = questions;
-      this.logger.log(`Loaded ${questions.length} questions for variant ${variantId}`);
+      console.log(
+        `Loaded ${questions.length} questions for variant ${variantId}`,
+      );
 
       // Validate that we have questions
       if (!variant.questions || variant.questions.length === 0) {
-        this.logger.error(`No questions found for variant ${variantId}`);
+        console.error(`No questions found for variant ${variantId}`);
         throw new BadRequestException('No questions found for this variant');
       }
 
       if (!variant) {
-        this.logger.error(`Variant ${variantId} not found`);
+        console.error(`Variant ${variantId} not found`);
         throw new NotFoundException('Variant not found');
       }
 
       // Enhanced logging for debugging
-      this.logger.log(`Variant ${variantId} database query result:`, {
+      console.log(`Variant ${variantId} database query result:`, {
         variantExists: !!variant,
         studentExists: !!variant.student,
         examExists: !!variant.exam,
@@ -1254,7 +1255,7 @@ export class ExamsService {
           })) || [],
       });
 
-      this.logger.log(`Found variant ${variantId}`, {
+      console.log(`Found variant ${variantId}`, {
         hasStudent: !!variant.student,
         hasExam: !!variant.exam,
         questionsCount: variant.questions?.length || 0,
@@ -1263,25 +1264,25 @@ export class ExamsService {
       });
 
       if (!variant.student) {
-        this.logger.error(`Variant ${variantId} missing student relation`);
+        console.error(`Variant ${variantId} missing student relation`);
         throw new InternalServerErrorException(
           'Variant data incomplete: missing student information',
         );
       }
 
       if (!variant.exam) {
-        this.logger.error(`Variant ${variantId} missing exam relation`);
+        console.error(`Variant ${variantId} missing exam relation`);
         throw new InternalServerErrorException(
           'Variant data incomplete: missing exam information',
         );
       }
 
       // Log questions info
-      this.logger.log(
+      console.log(
         `Variant ${variantId} has ${variant.questions?.length || 0} questions`,
       );
       if (variant.questions && variant.questions.length > 0) {
-        this.logger.log(`First question sample:`, {
+        console.log(`First question sample:`, {
           id: variant.questions[0].id,
           text: variant.questions[0].questionText?.substring(0, 50) + '...',
           hasAnswers: !!variant.questions[0].answers,
@@ -1322,10 +1323,7 @@ export class ExamsService {
         `${variant.exam.title} — Variant ${variant.variantNumber}`,
       );
     } catch (error) {
-      this.logger.error(
-        `Failed to generate PDF for variant ${variantId}:`,
-        error,
-      );
+      console.error(`Failed to generate PDF for variant ${variantId}:`, error);
       if (error instanceof NotFoundException) {
         throw error;
       }
@@ -1345,13 +1343,17 @@ export class ExamsService {
 
     // If questions are not loaded via relations, load them separately
     if (!variant.questions || variant.questions.length === 0) {
-      this.logger.warn(`No questions loaded via relations for answer key variant ${variantId}, loading separately`);
+      console.warn(
+        `No questions loaded via relations for answer key variant ${variantId}, loading separately`,
+      );
       const questions = await this.examVariantQuestionRepository.find({
         where: { variant: { id: variantId } },
         order: { order: 'ASC' },
       });
       variant.questions = questions;
-      this.logger.log(`Loaded ${questions.length} questions separately for answer key variant ${variantId}`);
+      console.log(
+        `Loaded ${questions.length} questions separately for answer key variant ${variantId}`,
+      );
     }
 
     // Get student's group information
@@ -1448,9 +1450,7 @@ export class ExamsService {
     message: string;
   }> {
     try {
-      this.logger.log(
-        `Starting PDF generation and send for variant ${variantId}`,
-      );
+      console.log(`Starting PDF generation and send for variant ${variantId}`);
 
       // First generate the PDF
       const pdfBuffer = await this.generateVariantPDF(variantId);
@@ -1462,7 +1462,7 @@ export class ExamsService {
       });
 
       if (!variant || !variant.student) {
-        this.logger.warn(`No student found for variant ${variantId}`);
+        console.warn(`No student found for variant ${variantId}`);
         return {
           pdfGenerated: true,
           telegramSent: false,
@@ -1473,7 +1473,7 @@ export class ExamsService {
       const fileName = `${variant.exam.title}-Variant-${variant.variantNumber}.pdf`;
       const caption = `🎓 <b>Test PDF - ${variant.exam.title}</b>\n\n📋 <b>Variant:</b> ${variant.variantNumber}\n👤 <b>Talaba:</b> ${variant.student.firstName} ${variant.student.lastName}\n📅 <b>Sana:</b> ${new Date().toLocaleDateString()}`;
 
-      this.logger.log(
+      console.log(
         `Sending PDF to user ${variant.student.id} for variant ${variantId}`,
       );
 
@@ -1485,7 +1485,7 @@ export class ExamsService {
         caption,
       );
 
-      this.logger.log(
+      console.log(
         `PDF send result for variant ${variantId}: ${telegramResult.success ? 'SUCCESS' : 'FAILED'} - ${telegramResult.message}`,
       );
 
@@ -1495,7 +1495,7 @@ export class ExamsService {
         message: telegramResult.message,
       };
     } catch (error) {
-      this.logger.error(
+      console.error(
         `Failed to generate and send variant PDF ${variantId}:`,
         error,
       );
@@ -1551,12 +1551,12 @@ export class ExamsService {
         }
       }
 
-      this.logger.log(
+      console.log(
         `Bulk PDF send completed for exam ${examId}: ${result.sent} sent, ${result.failed} failed`,
       );
       return result;
     } catch (error) {
-      this.logger.error(
+      console.error(
         `Failed to generate and send all variants PDFs for exam ${examId}:`,
         error,
       );
@@ -1718,7 +1718,7 @@ export class ExamsService {
     html: string,
     title = 'Document',
   ): Promise<Buffer> {
-    this.logger.warn(`Using fallback PDF generation with PDFKit for: ${title}`);
+    console.warn(`Using fallback PDF generation with PDFKit for: ${title}`);
 
     return new Promise((resolve, reject) => {
       try {
@@ -1743,14 +1743,14 @@ export class ExamsService {
 
         doc.on('end', () => {
           const finalBuffer = Buffer.concat(buffers);
-          this.logger.log(
+          console.log(
             `Fallback PDF generated successfully. Size: ${finalBuffer.length} bytes`,
           );
           resolve(finalBuffer);
         });
 
         doc.on('error', (error) => {
-          this.logger.error('PDFKit error:', error);
+          console.error('PDFKit error:', error);
           reject(
             new InternalServerErrorException(
               `PDF generation failed: ${error.message}`,
@@ -1893,7 +1893,7 @@ export class ExamsService {
         // Finalize the PDF
         doc.end();
       } catch (error) {
-        this.logger.error('Error in PDF fallback generation:', error);
+        console.error('Error in PDF fallback generation:', error);
         reject(
           new InternalServerErrorException(
             `PDF fallback generation failed: ${error.message}`,

@@ -56,7 +56,7 @@ export class TelegramAuthService {
     authData: TelegramAuthData,
   ): Promise<TelegramConnectionResult> {
     try {
-      this.logger.log(
+      console.log(
         `Connecting user ${userId} to Telegram ${authData.telegramUserId}`,
       );
 
@@ -114,9 +114,7 @@ export class TelegramAuthService {
         existingUserChat.lastActivity = new Date();
 
         telegramChat = await this.telegramChatRepo.save(existingUserChat);
-        this.logger.log(
-          `Updated existing Telegram connection for user ${userId}`,
-        );
+        console.log(`Updated existing Telegram connection for user ${userId}`);
       } else if (existingTelegramChat) {
         // Link existing Telegram chat to new user
         existingTelegramChat.user = user;
@@ -125,7 +123,7 @@ export class TelegramAuthService {
         existingTelegramChat.lastActivity = new Date();
 
         telegramChat = await this.telegramChatRepo.save(existingTelegramChat);
-        this.logger.log(`Linked existing Telegram chat to user ${userId}`);
+        console.log(`Linked existing Telegram chat to user ${userId}`);
       } else {
         // Create new connection
         telegramChat = this.telegramChatRepo.create({
@@ -142,7 +140,7 @@ export class TelegramAuthService {
         });
 
         telegramChat = await this.telegramChatRepo.save(telegramChat);
-        this.logger.log(`Created new Telegram connection for user ${userId}`);
+        console.log(`Created new Telegram connection for user ${userId}`);
       }
 
       // Update user's telegram fields
@@ -158,12 +156,12 @@ export class TelegramAuthService {
         const pendingResult =
           await this.telegramService.sendAllPendingPdfs(userId);
         if (pendingResult.sent > 0) {
-          this.logger.log(
+          console.log(
             `Sent ${pendingResult.sent} pending PDFs to user ${userId}`,
           );
         }
       } catch (pdfError) {
-        this.logger.warn(
+        console.warn(
           `Failed to send pending PDFs to user ${userId}:`,
           pdfError,
         );
@@ -183,7 +181,7 @@ export class TelegramAuthService {
         },
       };
     } catch (error) {
-      this.logger.error(`Failed to connect user ${userId} to Telegram:`, error);
+      console.error(`Failed to connect user ${userId} to Telegram:`, error);
       return {
         success: false,
         message:
@@ -252,7 +250,7 @@ export class TelegramAuthService {
         availableChannels,
       };
     } catch (error) {
-      this.logger.error(`Failed to get user ${userId} Telegram status:`, error);
+      console.error(`Failed to get user ${userId} Telegram status:`, error);
       return {
         isLinked: false,
         availableChannels: [],
@@ -296,14 +294,14 @@ export class TelegramAuthService {
 
       await this.telegramChatRepo.remove(userChat);
 
-      this.logger.log(`Disconnected user ${userId} from Telegram`);
+      console.log(`Disconnected user ${userId} from Telegram`);
 
       return {
         success: true,
         message: 'Telegram hisobingiz muvaffaqiyatli uzildi',
       };
     } catch (error) {
-      this.logger.error(
+      console.error(
         `Failed to disconnect user ${userId} from Telegram:`,
         error,
       );
@@ -377,7 +375,7 @@ export class TelegramAuthService {
         };
       }
     } catch (error) {
-      this.logger.error('Failed to authenticate from Telegram widget:', error);
+      console.error('Failed to authenticate from Telegram widget:', error);
       return {
         success: false,
         message: 'Autentifikatsiyada xatolik yuz berdi',
@@ -464,7 +462,7 @@ export class TelegramAuthService {
   private async sendWelcomeAndChannelInvitations(user: User): Promise<void> {
     try {
       if (!user.center) {
-        this.logger.warn(`User ${user.id} has no center assigned`);
+        console.warn(`User ${user.id} has no center assigned`);
         return;
       }
 
@@ -477,7 +475,7 @@ export class TelegramAuthService {
       });
 
       if (!userChat || !userChat.telegramUserId) {
-        this.logger.warn(`User ${user.id} has no Telegram connection`);
+        console.warn(`User ${user.id} has no Telegram connection`);
         return;
       }
 
@@ -523,11 +521,11 @@ export class TelegramAuthService {
         },
       );
 
-      this.logger.log(
+      console.log(
         `Sent welcome message and channel invitations to user ${user.id}`,
       );
     } catch (error) {
-      this.logger.error(
+      console.error(
         `Failed to send welcome message to user ${user.id}:`,
         error,
       );

@@ -21,7 +21,7 @@ PDF generatsiya paytida savollar va javob variantlari ko'rinmasdi.
 ### Kod o'zgarishlari
 ```typescript
 // ALWAYS load questions separately to ensure they are present
-this.logger.log(`Loading questions separately for variant ${variantId} to ensure they are present`);
+console.log(`Loading questions separately for variant ${variantId} to ensure they are present`);
 const questions = await this.examVariantQuestionRepository.find({
   where: { variant: { id: variantId } },
   order: { order: 'ASC' },
@@ -30,7 +30,7 @@ variant.questions = questions;
 
 // Validate that we have questions
 if (!variant.questions || variant.questions.length === 0) {
-  this.logger.error(`No questions found for variant ${variantId}`);
+  console.error(`No questions found for variant ${variantId}`);
   throw new BadRequestException('No questions found for this variant');
 }
 ```

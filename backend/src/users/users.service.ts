@@ -19,7 +19,6 @@ export class UsersService {
     private userRepository: Repository<User>,
     @InjectRepository(Center)
     private centerRepository: Repository<Center>,
-
   ) {}
 
   async create(dto: CreateUserDto): Promise<User> {
@@ -146,7 +145,7 @@ export class UsersService {
 
   async connectTelegram(userId: number, telegramUsername: string) {
     const user = await this.findOne(userId);
-    this.logger.log(`Connecting user ${userId} to Telegram as ${telegramUsername}`);
+    console.log(`Connecting user ${userId} to Telegram as ${telegramUsername}`);
 
     // Here you would typically:
     // 1. Create a pending connection request

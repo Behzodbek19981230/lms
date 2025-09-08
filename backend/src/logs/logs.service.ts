@@ -19,7 +19,7 @@ export class LogsService {
     userAgent?: string,
     ip?: string,
   ) {
-    this.logger.log(message, context);
+    console.log(message, context);
     await this.saveLog(LogLevel.LOG, message, context, userId, userAgent, ip);
   }
 
@@ -31,7 +31,7 @@ export class LogsService {
     userAgent?: string,
     ip?: string,
   ) {
-    this.logger.error(message, trace, context);
+    console.error(message, trace, context);
     await this.saveLog(
       LogLevel.ERROR,
       `${message}${trace ? `\n${trace}` : ''}`,
@@ -49,7 +49,7 @@ export class LogsService {
     userAgent?: string,
     ip?: string,
   ) {
-    this.logger.warn(message, context);
+    console.warn(message, context);
     await this.saveLog(LogLevel.WARN, message, context, userId, userAgent, ip);
   }
 
@@ -60,7 +60,7 @@ export class LogsService {
     userAgent?: string,
     ip?: string,
   ) {
-    this.logger.debug(message, context);
+    console.debug(message, context);
     await this.saveLog(LogLevel.DEBUG, message, context, userId, userAgent, ip);
   }
 
@@ -71,7 +71,6 @@ export class LogsService {
     userAgent?: string,
     ip?: string,
   ) {
-    this.logger.verbose(message, context);
     await this.saveLog(
       LogLevel.VERBOSE,
       message,

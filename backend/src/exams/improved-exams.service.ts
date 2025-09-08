@@ -25,13 +25,18 @@ export class ImprovedExamsService {
   /**
    * Test uchun PDF yaratish - yangi yondashuv
    */
-  async generateTestPDF(testId: number, options: {
-    method?: 'pdfkit' | 'puppeteer';
-    isAnswerKey?: boolean;
-    variantNumber?: string;
-    studentName?: string;
-  } = {}): Promise<Buffer> {
-    this.logger.log(`Generating PDF for test ${testId} using ${options.method || 'pdfkit'} method`);
+  async generateTestPDF(
+    testId: number,
+    options: {
+      method?: 'pdfkit' | 'puppeteer';
+      isAnswerKey?: boolean;
+      variantNumber?: string;
+      studentName?: string;
+    } = {},
+  ): Promise<Buffer> {
+    console.log(
+      `Generating PDF for test ${testId} using ${options.method || 'pdfkit'} method`,
+    );
 
     const test = await this.testRepository.findOne({
       where: { id: testId },
@@ -54,25 +59,28 @@ export class ImprovedExamsService {
   /**
    * Puppeteer yordamida PDF yaratish
    */
-  private async generatePuppeteerPDF(test: Test, options: any): Promise<Buffer> {
+  private async generatePuppeteerPDF(
+    test: Test,
+    options: any,
+  ): Promise<Buffer> {
     const testData = {
       title: test.title,
       subject: test.subject?.name,
-      questions: test.questions?.map(q => ({
+      questions: test.questions?.map((q) => ({
         text: q.text,
         type: q.type,
         points: q.points,
         imageBase64: q.imageBase64,
-        answers: q.answers?.map(a => ({
+        answers: q.answers?.map((a) => ({
           text: a.text,
-          isCorrect: a.isCorrect
-        }))
+          isCorrect: a.isCorrect,
+        })),
       })),
       variantNumber: options.variantNumber,
       studentName: options.studentName,
       duration: test.duration,
       totalPoints: test.totalPoints,
-      isAnswerKey: options.isAnswerKey
+      isAnswerKey: options.isAnswerKey,
     };
 
     const html = this.puppeteerPdfService.generateTestHTML(testData, options);
@@ -82,10 +90,13 @@ export class ImprovedExamsService {
   /**
    * Exam variant uchun PDF yaratish
    */
-  async generateExamVariantPDF(variantId: number, options: {
-    method?: 'pdfkit' | 'puppeteer';
-    isAnswerKey?: boolean;
-  } = {}): Promise<Buffer> {
+  async generateExamVariantPDF(
+    variantId: number,
+    options: {
+      method?: 'pdfkit' | 'puppeteer';
+      isAnswerKey?: boolean;
+    } = {},
+  ): Promise<Buffer> {
     const variant = await this.examVariantRepository.findOne({
       where: { id: variantId },
       relations: ['student', 'exam', 'questions'],
@@ -107,23 +118,29 @@ export class ImprovedExamsService {
   /**
    * Exam variant Puppeteer PDF
    */
-  private async generateExamVariantPuppeteerPDF(variant: ExamVariant, options: any): Promise<Buffer> {
+  private async generateExamVariantPuppeteerPDF(
+    variant: ExamVariant,
+    options: any,
+  ): Promise<Buffer> {
     const examData = {
       title: variant.exam?.title || 'IMTIHON',
       subject: variant.exam?.subjects?.[0]?.name || '',
-      questions: variant.questions?.map(vq => ({
+      questions: variant.questions?.map((vq) => ({
         text: vq.questionText,
         type: 'multiple_choice',
         points: vq.points || 1,
-        answers: vq.options?.map((opt: string, idx: number) => ({
-          text: opt,
-          isCorrect: vq.correctAnswer === String.fromCharCode(65 + idx)
-        })) || []
+        answers:
+          vq.options?.map((opt: string, idx: number) => ({
+            text: opt,
+            isCorrect: vq.correctAnswer === String.fromCharCode(65 + idx),
+          })) || [],
       })),
       variantNumber: variant.variantNumber,
-      studentName: variant.student ? `${variant.student.firstName} ${variant.student.lastName}` : '',
+      studentName: variant.student
+        ? `${variant.student.firstName} ${variant.student.lastName}`
+        : '',
       totalPoints: variant.totalPoints,
-      isAnswerKey: options.isAnswerKey
+      isAnswerKey: options.isAnswerKey,
     };
 
     const html = this.puppeteerPdfService.generateTestHTML(examData, options);
@@ -137,7 +154,7 @@ export class ImprovedExamsService {
     return this.questionRepository.find({
       where: { test: { id: testId } },
       relations: ['answers'],
-      order: { order: 'ASC' }
+      order: { order: 'ASC' },
     });
   }
 
@@ -156,29 +173,35 @@ export class ImprovedExamsService {
       puppeteerSuccess: false,
       pdfkitSize: undefined as number | undefined,
       puppeteerSize: undefined as number | undefined,
-      errors: [] as string[]
+      errors: [] as string[],
     };
 
     // PDFKit sinovi
     try {
-      const pdfkitBuffer = await this.generateTestPDF(testId, { method: 'pdfkit' });
+      const pdfkitBuffer = await this.generateTestPDF(testId, {
+        method: 'pdfkit',
+      });
       result.pdfkitSuccess = true;
       result.pdfkitSize = pdfkitBuffer.length;
-      this.logger.log(`PDFKit test successful. Size: ${pdfkitBuffer.length} bytes`);
+      console.log(`PDFKit test successful. Size: ${pdfkitBuffer.length} bytes`);
     } catch (error) {
       result.errors.push(`PDFKit error: ${error.message}`);
-      this.logger.error('PDFKit test failed:', error);
+      console.error('PDFKit test failed:', error);
     }
 
     // Puppeteer sinovi
     try {
-      const puppeteerBuffer = await this.generateTestPDF(testId, { method: 'puppeteer' });
+      const puppeteerBuffer = await this.generateTestPDF(testId, {
+        method: 'puppeteer',
+      });
       result.puppeteerSuccess = true;
       result.puppeteerSize = puppeteerBuffer.length;
-      this.logger.log(`Puppeteer test successful. Size: ${puppeteerBuffer.length} bytes`);
+      console.log(
+        `Puppeteer test successful. Size: ${puppeteerBuffer.length} bytes`,
+      );
     } catch (error) {
       result.errors.push(`Puppeteer error: ${error.message}`);
-      this.logger.error('Puppeteer test failed:', error);
+      console.error('Puppeteer test failed:', error);
     }
 
     return result;
