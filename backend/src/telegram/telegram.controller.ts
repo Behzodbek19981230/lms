@@ -327,12 +327,10 @@ export class TelegramController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Generate and send all tests PDFs to users' })
   @ApiResponse({ status: 200, description: 'All tests PDFs sent successfully' })
-  async sendAllTestsPDFs(
-    @Body() body: { userIds: number[] },
-  ) {
+  async sendAllTestsPDFs(@Body() body: { userIds: number[] }) {
     // Get all tests
     const tests = await this.testsService.findAll();
-    
+
     let totalSent = 0;
     let totalFailed = 0;
     const details: string[] = [];
@@ -354,14 +352,18 @@ export class TelegramController {
 
         totalSent += results.sentCount;
         totalFailed += results.failedCount;
-        details.push(`Test #${test.id} "${test.title}": ${results.sentCount} sent, ${results.failedCount} failed`);
+        details.push(
+          `Test #${test.id} "${test.title}": ${results.sentCount} sent, ${results.failedCount} failed`,
+        );
       } catch (error) {
         totalFailed += body.userIds.length;
-        details.push(`Test #${test.id} "${test.title}": Failed to generate/send - ${error.message}`);
+        details.push(
+          `Test #${test.id} "${test.title}": Failed to generate/send - ${error.message}`,
+        );
       }
 
       // Small delay to avoid overwhelming the system
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await new Promise((resolve) => setTimeout(resolve, 1000));
     }
 
     return {
@@ -513,12 +515,12 @@ export class TelegramController {
       const text = message.text.trim();
       const match = text.match(/^#T(\d+)Q(\d+)\s+(.+)$/i);
 
-      if (!match) {
+      if (!match || match.length < 4) {
         this.logger.warn(`Invalid answer format: ${text}`);
         return;
       }
 
-      const [, testId, questionNumber, answerText] = match;
+      const [, testId, questionNumber, answerText] = match as RegExpMatchArray;
 
       const dto: SubmitAnswerDto = {
         messageId: message.message_id.toString(),

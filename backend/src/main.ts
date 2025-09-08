@@ -30,9 +30,10 @@ async function bootstrap() {
   // Set global prefix
   app.setGlobalPrefix('api');
 
-  // Enable CORS for frontend
   app.enableCors({
-    origin: '*',
+    origin: ['http://localhost:3000', 'https://lms.universal-uz.uz'],
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
+    allowedHeaders: 'Content-Type, Authorization',
     credentials: true,
   });
 

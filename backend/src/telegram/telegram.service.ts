@@ -1473,7 +1473,7 @@ export class TelegramService {
 
       let resultMessage = `📊 <b>${chat.user.firstName} ning Test Natijalari</b>\n\n`;
 
-      Object.keys(testGroups).forEach((testId, index) => {
+      Object.keys(testGroups).forEach((testId) => {
         const testAnswers = testGroups[parseInt(testId)];
         const correctAnswers = testAnswers.filter((a) => a.isCorrect).length;
         const totalQuestions = testAnswers.length;
@@ -2533,6 +2533,7 @@ export class TelegramService {
       }
 
       return await this.pendingPdfRepo.find({
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
         where,
         relations: ['user'],
         order: { createdAt: 'DESC' },
