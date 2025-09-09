@@ -18,7 +18,7 @@ import {
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { RolesGuard } from '../auth/guards/roles.guard';
-import { UserRole } from '../users/entities/user.entity';
+import { User, UserRole } from '../users/entities/user.entity';
 import { TelegramService } from './telegram.service';
 import { TestPDFGeneratorService } from './test-pdf-generator.service';
 import { AnswerProcessorService } from './answer-processor.service';
@@ -130,7 +130,13 @@ export class TelegramController {
   @ApiOperation({ summary: 'Authenticate user via Telegram widget' })
   @ApiResponse({ status: 200, description: 'Authentication successful' })
   async authenticate(@Body() dto: AuthenticateUserDto, @Request() req) {
-    return this.telegramService.authenticateUser(dto, req.user);
+    if (!dto || !req.user) {
+      throw new BadRequestException('Invalid request');
+    }
+    return this.telegramService.authenticateUser({
+      dto,
+      user: req.user as User,
+    });
   }
 
   @Post('link/:telegramUserId/:lmsUserId')

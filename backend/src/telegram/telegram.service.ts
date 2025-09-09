@@ -201,10 +201,13 @@ export class TelegramService {
 
   // ==================== Enhanced User Authentication & Auto-Connection ====================
 
-  async authenticateUser(
-    dto: AuthenticateUserDto,
-    user: User,
-  ): Promise<{
+  async authenticateUser({
+    dto,
+    user,
+  }: {
+    dto: AuthenticateUserDto;
+    user: User;
+  }): Promise<{
     success: boolean;
     message: string;
     userId?: number;
