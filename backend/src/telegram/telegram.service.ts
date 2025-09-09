@@ -1,6 +1,6 @@
 import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, IsNull } from 'typeorm';
+import { Repository, IsNull, MoreThanOrEqual } from 'typeorm';
 import TelegramBot, { User as TelegramUser } from 'node-telegram-bot-api';
 import { ConfigService } from '@nestjs/config';
 import { LogsService } from '../logs/logs.service';
@@ -2705,7 +2705,7 @@ export class TelegramService {
     try {
       const where: any = {
         userId,
-        expiresAt: { $gte: new Date() }, // Not expired
+        expiresAt: MoreThanOrEqual(new Date()), // Not expired
       };
 
       if (status) {
