@@ -468,8 +468,12 @@ export class TelegramService {
         where: { telegramUserId },
         relations: ['user', 'user.center', 'user.subjects'],
       });
+      const currentUser = await this.userRepo.findOne({
+        where: { id: user.id },
+        relations: ['center', 'subjects'],
+      });
 
-      if (existingChat && existingChat.user) {
+      if (existingChat && existingChat.user && currentUser?.telegramConnected) {
         // User already connected, send updated channel list
         await this.sendUserChannelsAndInvitation(existingChat.user.id);
 
