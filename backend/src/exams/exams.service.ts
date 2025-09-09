@@ -1243,31 +1243,6 @@ export class ExamsService {
         throw new NotFoundException('Variant not found');
       }
 
-      // Enhanced logging for debugging
-      await this.logsService.log(`Variant ${variantId} database query result:`, JSON.stringify({
-        variantExists: !!variant,
-        studentExists: !!variant.student,
-        examExists: !!variant.exam,
-        questionsExists: !!variant.questions,
-        questionsCount: variant.questions?.length || 0,
-        questionsArray:
-          variant.questions?.map((q) => ({
-            id: q.id,
-            order: q.order,
-            questionText: q.questionText?.substring(0, 50),
-            answersCount: q.answers?.length || 0,
-            type: q.type,
-          })) || [],
-      }));
-
-      await this.logsService.log(`Found variant ${variantId}`, JSON.stringify({
-        hasStudent: !!variant.student,
-        hasExam: !!variant.exam,
-        questionsCount: variant.questions?.length || 0,
-        studentName: variant.student?.firstName,
-        examTitle: variant.exam?.title,
-      }));
-
       if (!variant.student) {
         this.logsService.error(`Variant ${variantId} missing student relation`);
         throw new InternalServerErrorException(
@@ -1287,12 +1262,15 @@ export class ExamsService {
         `Variant ${variantId} has ${variant.questions?.length || 0} questions`,
       );
       if (variant.questions && variant.questions.length > 0) {
-        await this.logsService.log(`First question sample:`, JSON.stringify({
-          id: variant.questions[0].id,
-          text: variant.questions[0].questionText?.substring(0, 50) + '...',
-          hasAnswers: !!variant.questions[0].answers,
-          answersCount: variant.questions[0].answers?.length || 0,
-        }));
+        await this.logsService.log(
+          `First question sample:`,
+          JSON.stringify({
+            id: variant.questions[0].id,
+            text: variant.questions[0].questionText?.substring(0, 50) + '...',
+            hasAnswers: !!variant.questions[0].answers,
+            answersCount: variant.questions[0].answers?.length || 0,
+          }),
+        );
       }
 
       // Get student's group information

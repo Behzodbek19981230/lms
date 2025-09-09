@@ -49,11 +49,11 @@ export class ImprovedExamsService {
 
     const { method = 'pdfkit' } = options;
 
-    if (method === 'puppeteer') {
-      return this.generatePuppeteerPDF(test, options);
-    } else {
-      return this.pdfService.generateTestPDF(testId, options);
-    }
+    // if (method === 'puppeteer') {
+    //   return this.generatePuppeteerPDF(test, options);
+    // } else {
+    return this.pdfService.generateTestPDF(testId, options);
+    // }
   }
 
   /**
@@ -108,11 +108,11 @@ export class ImprovedExamsService {
 
     const { method = 'pdfkit' } = options;
 
-    if (method === 'puppeteer') {
-      return this.generateExamVariantPuppeteerPDF(variant, options);
-    } else {
-      return this.pdfService.generateExamVariantPDF(variant, options);
-    }
+    // if (method === 'puppeteer') {
+    //   return this.generateExamVariantPuppeteerPDF(variant, options);
+    // } else {
+    return this.pdfService.generateExamVariantPDF(variant, options);
+    // }
   }
 
   /**
