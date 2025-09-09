@@ -14,6 +14,7 @@ import { NotificationsModule } from '../notifications/notifications.module';
 import { TelegramModule } from '../telegram/telegram.module';
 import { ExamsController } from './exams.controller';
 import { ExamsService } from './exams.service';
+import { LogsModule } from 'src/logs/logs.module';
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { ExamsService } from './exams.service';
     QuestionsModule,
     NotificationsModule,
     TelegramModule,
+    LogsModule,
   ],
   controllers: [ExamsController],
   providers: [ExamsService],
