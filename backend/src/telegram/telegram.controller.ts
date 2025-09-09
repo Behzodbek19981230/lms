@@ -127,6 +127,8 @@ export class TelegramController {
   }
 
   @Post('authenticate')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Authenticate user via Telegram widget' })
   @ApiResponse({ status: 200, description: 'Authentication successful' })
   async authenticate(@Body() dto: AuthenticateUserDto, @Request() req) {
