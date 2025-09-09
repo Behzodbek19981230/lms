@@ -977,23 +977,9 @@ const downloadAsPDF = async () => {
                   PDF ko'rish
                 </Button>
 
-                <Button
-                  onClick={downloadAsPDF}
-                  variant="outline"
-                  className="border-primary text-primary hover:bg-primary/5"
-                >
-                  <FileText className="h-4 w-4 mr-2" />
-                  HTML yuklab olish
-                </Button>
+               
 
-                <Button
-                  onClick={() => window.print()}
-                  variant="outline"
-                  className="border-primary text-primary hover:bg-primary/5"
-                >
-                  <Printer className="h-4 w-4 mr-2" />
-                  Chop etish
-                </Button>
+               
               </>
             )}
           </div>

@@ -4,7 +4,6 @@ import { Repository } from 'typeorm';
 import * as PDFDocument from 'pdfkit';
 import { Test } from '../tests/entities/test.entity';
 import { Question } from '../questions/entities/question.entity';
-import { User } from '../users/entities/user.entity';
 
 @Injectable()
 export class TestPDFGeneratorService {
@@ -33,13 +32,13 @@ export class TestPDFGeneratorService {
 
     return new Promise((resolve, reject) => {
       try {
-        const doc = new PDFDocument({
+        const doc: PDFDocument = new PDFDocument({
           size: 'A4',
           margin: 50,
         });
 
         const chunks: Buffer[] = [];
-        doc.on('data', (chunk) => chunks.push(chunk));
+        doc.on('data', (chunk: Buffer) => chunks.push(chunk));
         doc.on('end', () => resolve(Buffer.concat(chunks)));
 
         // Header
@@ -135,9 +134,9 @@ export class TestPDFGeneratorService {
           );
 
         doc.end();
-      } catch (error) {
-        console.error('Error generating PDF:', error);
-        reject(error);
+      } catch (error: unknown) {
+        this.logger.error('Error generating PDF:', error);
+        reject(error instanceof Error ? error : new Error(String(error)));
       }
     });
   }
@@ -154,13 +153,13 @@ export class TestPDFGeneratorService {
 
     return new Promise((resolve, reject) => {
       try {
-        const doc = new PDFDocument({
+        const doc: PDFDocument = new PDFDocument({
           size: 'A4',
           margin: 50,
         });
 
         const chunks: Buffer[] = [];
-        doc.on('data', (chunk) => chunks.push(chunk));
+        doc.on('data', (chunk: Buffer) => chunks.push(chunk));
         doc.on('end', () => resolve(Buffer.concat(chunks)));
 
         // Header
@@ -215,9 +214,9 @@ export class TestPDFGeneratorService {
         doc.text(`         #T${testId}Q2 B`);
 
         doc.end();
-      } catch (error) {
-        console.error('Error generating answer sheet:', error);
-        reject(error);
+      } catch (error: unknown) {
+        this.logger.error('Error generating answer sheet:', error);
+        reject(error instanceof Error ? error : new Error(String(error)));
       }
     });
   }
