@@ -212,8 +212,12 @@ export class TelegramService {
   }> {
     try {
       // Use the enhanced authentication method
+      this.logsService.log(
+        `Authenticating user ${user?.id} with Telegram ID ${dto.telegramUserId}`,
+        'TelegramService',
+      );
       const currentUser = await this.userRepo.findOne({
-        where: { id: user.id },
+        where: { id: user?.id },
       });
       if (currentUser?.telegramId) {
         return {
