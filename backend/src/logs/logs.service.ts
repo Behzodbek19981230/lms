@@ -164,6 +164,7 @@ export class LogsService {
       .addSelect('COUNT(*)', 'count')
       .groupBy('log.level')
       .getRawMany();
+    console.log(stats);
 
     return stats.reduce((acc, stat) => {
       acc[stat.level] = parseInt(stat.count);

@@ -7,6 +7,7 @@ import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Alert, AlertDescription } from '../components/ui/alert';
 import { Loader2, RefreshCw, AlertCircle, Info, AlertTriangle, Bug, Search, Calendar, Filter } from 'lucide-react';
+import { request } from '@/configs/request';
 
 interface Log {
   id: number;
@@ -39,7 +40,7 @@ const Logs: React.FC = () => {
   const [search, setSearch] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
-  const [context, setContext] = useState('');
+  const [context, setContext] = useState('1');
   const [autoRefresh, setAutoRefresh] = useState(false);
   const [lastRefresh, setLastRefresh] = useState(new Date());
 
@@ -95,16 +96,8 @@ const Logs: React.FC = () => {
 
   const fetchStats = async () => {
     try {
-      const response = await fetch('/api/logs/stats', {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-        },
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setStats(data);
-      }
+     const res=await request<LogStats>('/logs/stats');
+     setStats(res.data);
     } catch (err) {
       console.error('Failed to fetch stats:', err);
     }
@@ -305,7 +298,6 @@ const Logs: React.FC = () => {
                   <SelectValue placeholder="All contexts" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All contexts</SelectItem>
                   <SelectItem value="TelegramService">Telegram Service</SelectItem>
                   <SelectItem value="UsersService">Users Service</SelectItem>
                   <SelectItem value="AuthService">Auth Service</SelectItem>
