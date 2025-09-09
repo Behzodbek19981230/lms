@@ -5,7 +5,9 @@ import * as bodyParser from 'body-parser';
 import { CustomLogger } from './logs/custom-logger';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, {
+    logger: false,
+  });
 
   const customLogger = app.get(CustomLogger);
   app.useLogger(customLogger);
@@ -35,15 +37,5 @@ async function bootstrap() {
 
   const port = process.env.PORT || 3003;
   await app.listen(port);
-  console.log(`🚀 EduNimbus Backend running on http://localhost:${port}`);
-
-  customLogger.log(
-    `🚀 EduNimbus Backend running on http://localhost:${port}`,
-    'Bootstrap',
-  );
-  customLogger.log(
-    `📚 API Documentation: http://localhost:${port}/api/docs`,
-    'Bootstrap',
-  );
 }
 bootstrap();

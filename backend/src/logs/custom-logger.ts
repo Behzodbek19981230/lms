@@ -10,6 +10,14 @@ export class CustomLogger implements NestLoggerService {
   constructor(private readonly logsService: LogsService) {}
 
   log(message: any, context?: string) {
+    if (
+      context === 'RouterExplorer' ||
+      context === 'RoutesResolver' ||
+      context === 'InstanceLoader' ||
+      context === 'NestApplication'
+    ) {
+      return;
+    }
     console.log(`[${context || 'Application'}] ${message}`);
     this.logsService.log(message, context).catch(() => {});
   }

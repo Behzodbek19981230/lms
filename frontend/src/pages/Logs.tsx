@@ -34,13 +34,13 @@ const Logs: React.FC = () => {
   const [stats, setStats] = useState<LogStats>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [level, setLevel] = useState<string>('');
+  const [level, setLevel] = useState<string>(''); // bo'sh string => placeholder ishlaydi
   const [limit, setLimit] = useState(50);
   const [offset, setOffset] = useState(0);
   const [search, setSearch] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
-  const [context, setContext] = useState('1');
+  const [context, setContext] = useState('');
   const [autoRefresh, setAutoRefresh] = useState(false);
   const [lastRefresh, setLastRefresh] = useState(new Date());
 
@@ -54,38 +54,14 @@ const Logs: React.FC = () => {
         offset: offset.toString(),
       });
 
-      if (level) {
-        params.append('level', level);
-      }
+      if (level) params.append('level', level);
+      if (search) params.append('search', search);
+      if (startDate) params.append('startDate', startDate);
+      if (endDate) params.append('endDate', endDate);
+      if (context) params.append('context', context);
 
-      if (search) {
-        params.append('search', search);
-      }
-
-      if (startDate) {
-        params.append('startDate', startDate);
-      }
-
-      if (endDate) {
-        params.append('endDate', endDate);
-      }
-
-      if (context) {
-        params.append('context', context);
-      }
-
-      const response = await fetch(`/api/logs?${params}`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch logs');
-      }
-
-      const data = await response.json();
-      setLogs(data);
+      const res = await request<Log[]>(`/logs`, { params });
+      setLogs(res?.data);
       setLastRefresh(new Date());
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
@@ -96,8 +72,8 @@ const Logs: React.FC = () => {
 
   const fetchStats = async () => {
     try {
-     const res=await request<LogStats>('/logs/stats');
-     setStats(res.data);
+      const res = await request<LogStats>('/logs/stats');
+      setStats(res.data);
     } catch (err) {
       console.error('Failed to fetch stats:', err);
     }
@@ -108,7 +84,6 @@ const Logs: React.FC = () => {
     fetchStats();
   }, [level, limit, offset, search, startDate, endDate, context]);
 
-  // Auto-refresh effect
   useEffect(() => {
     let interval: NodeJS.Timeout;
     if (autoRefresh) {
@@ -116,7 +91,7 @@ const Logs: React.FC = () => {
         fetchLogs();
         fetchStats();
         setLastRefresh(new Date());
-      }, 30000); // Refresh every 30 seconds
+      }, 30000);
     }
     return () => {
       if (interval) clearInterval(interval);
@@ -155,24 +130,19 @@ const Logs: React.FC = () => {
 
   return (
     <div className="container mx-auto p-6 space-y-6">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">System Logs</h1>
           <p className="text-sm text-muted-foreground mt-1">
             Last updated: {lastRefresh.toLocaleTimeString('uz-UZ')}
             {autoRefresh && (
-              <span className="ml-2 text-green-600">
-                • Auto-refresh enabled (30s)
-              </span>
+              <span className="ml-2 text-green-600">• Auto-refresh enabled (30s)</span>
             )}
           </p>
         </div>
         <div className="flex gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setAutoRefresh(!autoRefresh)}
-          >
+          <Button variant="outline" size="sm" onClick={() => setAutoRefresh(!autoRefresh)}>
             {autoRefresh ? 'Disable' : 'Enable'} Auto-refresh
           </Button>
           <Button
@@ -180,16 +150,18 @@ const Logs: React.FC = () => {
             onClick={() => {
               const csvContent = [
                 ['ID', 'Level', 'Message', 'Context', 'User ID', 'User Agent', 'IP', 'Created At'].join(','),
-                ...logs.map(log => [
-                  log.id,
-                  log.level,
-                  `"${log.message.replace(/"/g, '""')}"`,
-                  log.context || '',
-                  log.userId || '',
-                  `"${(log.userAgent || '').replace(/"/g, '""')}"`,
-                  log.ip || '',
-                  log.createdAt
-                ].join(','))
+                ...logs.map((log) =>
+                  [
+                    log.id,
+                    log.level,
+                    `"${log.message.replace(/"/g, '""')}"`,
+                    log.context || '',
+                    log.userId || '',
+                    `"${(log.userAgent || '').replace(/"/g, '""')}"`,
+                    log.ip || '',
+                    log.createdAt,
+                  ].join(',')
+                ),
               ].join('\n');
 
               const blob = new Blob([csvContent], { type: 'text/csv' });
@@ -211,8 +183,9 @@ const Logs: React.FC = () => {
         </div>
       </div>
 
-      {/* Stats Cards */}
+      {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+        {/* Total Logs */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Logs</CardTitle>
@@ -225,6 +198,7 @@ const Logs: React.FC = () => {
           </CardContent>
         </Card>
 
+        {/* Errors */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Errors</CardTitle>
@@ -235,6 +209,7 @@ const Logs: React.FC = () => {
           </CardContent>
         </Card>
 
+        {/* Warnings */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Warnings</CardTitle>
@@ -245,6 +220,7 @@ const Logs: React.FC = () => {
           </CardContent>
         </Card>
 
+        {/* Debug */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Debug</CardTitle>
@@ -255,6 +231,7 @@ const Logs: React.FC = () => {
           </CardContent>
         </Card>
 
+        {/* Info */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Info</CardTitle>
@@ -275,12 +252,11 @@ const Logs: React.FC = () => {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          {/* Search and Quick Filters */}
+          {/* Search + Context */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <Label htmlFor="search" className="flex items-center gap-2">
-                <Search className="h-4 w-4" />
-                Search in logs
+                <Search className="h-4 w-4" /> Search in logs
               </Label>
               <Input
                 id="search"
@@ -293,7 +269,7 @@ const Logs: React.FC = () => {
 
             <div>
               <Label htmlFor="context">Context/Service</Label>
-              <Select value={context} onValueChange={setContext}>
+              <Select value={context || undefined} onValueChange={setContext}>
                 <SelectTrigger>
                   <SelectValue placeholder="All contexts" />
                 </SelectTrigger>
@@ -307,42 +283,27 @@ const Logs: React.FC = () => {
             </div>
           </div>
 
-          {/* Date Range and Level Filters */}
+          {/* Date + Level + Limit */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div>
               <Label htmlFor="startDate" className="flex items-center gap-2">
-                <Calendar className="h-4 w-4" />
-                Start Date
+                <Calendar className="h-4 w-4" /> Start Date
               </Label>
-              <Input
-                id="startDate"
-                type="datetime-local"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-              />
+              <Input id="startDate" type="datetime-local" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
             </div>
-
             <div>
               <Label htmlFor="endDate" className="flex items-center gap-2">
-                <Calendar className="h-4 w-4" />
-                End Date
+                <Calendar className="h-4 w-4" /> End Date
               </Label>
-              <Input
-                id="endDate"
-                type="datetime-local"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-              />
+              <Input id="endDate" type="datetime-local" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
             </div>
-
             <div>
               <Label htmlFor="level">Log Level</Label>
-              <Select value={level} onValueChange={setLevel}>
+              <Select value={level || undefined} onValueChange={setLevel}>
                 <SelectTrigger>
                   <SelectValue placeholder="All levels" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All levels</SelectItem>
                   <SelectItem value="error">Error</SelectItem>
                   <SelectItem value="warn">Warning</SelectItem>
                   <SelectItem value="log">Info</SelectItem>
@@ -351,7 +312,6 @@ const Logs: React.FC = () => {
                 </SelectContent>
               </Select>
             </div>
-
             <div>
               <Label htmlFor="limit">Results per page</Label>
               <Select value={limit.toString()} onValueChange={(value) => setLimit(parseInt(value))}>
@@ -368,98 +328,7 @@ const Logs: React.FC = () => {
             </div>
           </div>
 
-          {/* Quick Filters */}
-          <div className="space-y-3">
-            {/* Time Filters */}
-            <div className="flex flex-wrap gap-2">
-              <span className="text-sm font-medium text-muted-foreground mr-2">Time:</span>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  const now = new Date();
-                  const lastHour = new Date(now.getTime() - 60 * 60 * 1000);
-                  setStartDate(lastHour.toISOString().slice(0, 16));
-                  setEndDate(now.toISOString().slice(0, 16));
-                }}
-              >
-                Last Hour
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  const now = new Date();
-                  const last24h = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-                  setStartDate(last24h.toISOString().slice(0, 16));
-                  setEndDate(now.toISOString().slice(0, 16));
-                }}
-              >
-                Last 24 Hours
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  const now = new Date();
-                  const last7d = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-                  setStartDate(last7d.toISOString().slice(0, 16));
-                  setEndDate(now.toISOString().slice(0, 16));
-                }}
-              >
-                Last 7 Days
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  setStartDate('');
-                  setEndDate('');
-                }}
-              >
-                Clear Dates
-              </Button>
-            </div>
-
-            {/* Level Filters */}
-            <div className="flex flex-wrap gap-2">
-              <span className="text-sm font-medium text-muted-foreground mr-2">Level:</span>
-              <Button
-                variant={level === 'error' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setLevel(level === 'error' ? '' : 'error')}
-              >
-                <AlertCircle className="h-3 w-3 mr-1" />
-                Errors
-              </Button>
-              <Button
-                variant={level === 'warn' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setLevel(level === 'warn' ? '' : 'warn')}
-              >
-                <AlertTriangle className="h-3 w-3 mr-1" />
-                Warnings
-              </Button>
-              <Button
-                variant={level === 'log' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setLevel(level === 'log' ? '' : 'log')}
-              >
-                <Info className="h-3 w-3 mr-1" />
-                Info
-              </Button>
-              <Button
-                variant={level === 'debug' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setLevel(level === 'debug' ? '' : 'debug')}
-              >
-                <Bug className="h-3 w-3 mr-1" />
-                Debug
-              </Button>
-            </div>
-          </div>
-
-          {/* Action Buttons */}
+          {/* Clear + Apply */}
           <div className="flex gap-2 pt-2 border-t">
             <Button
               variant="outline"
@@ -518,48 +387,28 @@ const Logs: React.FC = () => {
                   <div className="flex items-start justify-between">
                     <div className="flex items-center space-x-2 flex-wrap gap-2">
                       {getLevelIcon(log.level)}
-                      <Badge variant={getLevelBadgeVariant(log.level)}>
-                        {log.level.toUpperCase()}
-                      </Badge>
-                      {log.context && (
-                        <Badge variant="outline" className="text-xs">
-                          {log.context}
-                        </Badge>
-                      )}
-                      {log.userId && (
-                        <Badge variant="secondary" className="text-xs">
-                          User: {log.userId}
-                        </Badge>
-                      )}
+                      <Badge variant={getLevelBadgeVariant(log.level)}>{log.level.toUpperCase()}</Badge>
+                      {log.context && <Badge variant="outline" className="text-xs">{log.context}</Badge>}
+                      {log.userId && <Badge variant="secondary" className="text-xs">User: {log.userId}</Badge>}
                     </div>
                     <span className="text-sm text-muted-foreground whitespace-nowrap ml-4">
                       {formatDate(log.createdAt)}
                     </span>
                   </div>
-
                   <div className="text-sm">
                     <pre className="whitespace-pre-wrap font-mono text-sm bg-muted p-3 rounded border text-xs leading-relaxed max-h-32 overflow-y-auto">
                       {log.message}
                     </pre>
                   </div>
-
                   <div className="flex items-center justify-between text-xs text-muted-foreground">
                     <div className="flex items-center space-x-4">
-                      {log.userAgent && (
-                        <span title={log.userAgent}>
-                          Browser: {log.userAgent.substring(0, 50)}...
-                        </span>
-                      )}
-                      {log.ip && (
-                        <span>IP: {log.ip}</span>
-                      )}
+                      {log.userAgent && <span title={log.userAgent}>Browser: {log.userAgent.substring(0, 50)}...</span>}
+                      {log.ip && <span>IP: {log.ip}</span>}
                     </div>
                     <span>ID: {log.id}</span>
                   </div>
                 </div>
               ))}
-
-              {/* Pagination Controls */}
               <div className="flex items-center justify-between pt-4 border-t">
                 <div className="text-sm text-muted-foreground">
                   Page {Math.floor(offset / limit) + 1} of results

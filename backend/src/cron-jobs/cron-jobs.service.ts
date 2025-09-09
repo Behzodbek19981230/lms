@@ -94,7 +94,6 @@ export class CronJobsService {
     timeZone: CRON_JOB_CONFIGS.EXAM_REMINDER.timeZone,
   })
   async sendExamReminders() {
-    console.log('Starting exam reminders...');
 
     try {
       // Find exams scheduled for tomorrow

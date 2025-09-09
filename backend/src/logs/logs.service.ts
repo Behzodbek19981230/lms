@@ -19,7 +19,6 @@ export class LogsService {
     userAgent?: string,
     ip?: string,
   ) {
-    console.log(message, context);
     await this.saveLog(LogLevel.LOG, message, context, userId, userAgent, ip);
   }
 
@@ -164,7 +163,6 @@ export class LogsService {
       .addSelect('COUNT(*)', 'count')
       .groupBy('log.level')
       .getRawMany();
-    console.log(stats);
 
     return stats.reduce((acc, stat) => {
       acc[stat.level] = parseInt(stat.count);
