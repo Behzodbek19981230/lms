@@ -129,8 +129,8 @@ export class TelegramController {
   @Post('authenticate')
   @ApiOperation({ summary: 'Authenticate user via Telegram widget' })
   @ApiResponse({ status: 200, description: 'Authentication successful' })
-  async authenticate(@Body() dto: AuthenticateUserDto) {
-    return this.telegramService.authenticateUser(dto);
+  async authenticate(@Body() dto: AuthenticateUserDto, @Request() req) {
+    return this.telegramService.authenticateUser(dto, req.user);
   }
 
   @Post('link/:telegramUserId/:lmsUserId')

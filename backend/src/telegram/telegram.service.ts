@@ -27,6 +27,7 @@ import { Answer } from '../questions/entities/answer.entity';
 import { Exam } from '../exams/entities/exam.entity';
 import { Group } from '../groups/entities/group.entity';
 import {
+  AuthenticateUserDto,
   CreateTelegramChatDto,
   SendTestToChannelDto,
   SubmitAnswerDto,
@@ -200,7 +201,10 @@ export class TelegramService {
 
   // ==================== Enhanced User Authentication & Auto-Connection ====================
 
-  async authenticateUser(dto: any): Promise<{
+  async authenticateUser(
+    dto: AuthenticateUserDto,
+    user: User,
+  ): Promise<{
     success: boolean;
     message: string;
     userId?: number;
@@ -208,12 +212,19 @@ export class TelegramService {
   }> {
     try {
       // Use the enhanced authentication method
-      return await this.authenticateAndConnectUser(
-        String(dto.telegramUserId),
-        dto.username,
-        dto.firstName,
-        dto.lastName,
-      );
+      const currentUser = await this.userRepo.findOne({
+        where: { id: user.id },
+      });
+      if (currentUser?.telegramId) {
+        return {
+          success: true,
+          message: `Siz allaqachon Telegram hisobingiz bilan tizimga kirdingiz.`,
+          userId: currentUser.id,
+          autoConnected: true,
+        };
+      } else {
+        return await this.authenticateUserByOwn(dto, user);
+      }
     } catch (error) {
       this.logsService.error(
         `Failed to authenticate user: ${error.message}`,
@@ -363,6 +374,168 @@ export class TelegramService {
             autoConnected: false,
           };
         }
+      }
+
+      // Create or update chat with linked user
+      const chat =
+        existingChat ||
+        this.telegramChatRepo.create({
+          chatId: telegramUserId,
+          type: ChatType.PRIVATE,
+          telegramUserId,
+          telegramUsername: username,
+          firstName,
+          lastName,
+          status: ChatStatus.ACTIVE,
+        });
+
+      chat.user = linkedUser;
+      await this.telegramChatRepo.save(chat);
+
+      // Automatically send invitations to relevant channels
+      await this.sendUserChannelsAndInvitation(linkedUser.id);
+
+      // Send any pending PDFs to the newly connected user
+      try {
+        const pendingResult = await this.sendAllPendingPdfs(linkedUser.id);
+        if (pendingResult.sent > 0) {
+          this.logsService.log(
+            `Successfully sent ${pendingResult.sent} pending PDFs to user ${linkedUser.id} after connection`,
+            'TelegramService',
+          );
+
+          // Optionally notify user about sent PDFs
+          const userChat = await this.telegramChatRepo.findOne({
+            where: { user: { id: linkedUser.id }, type: ChatType.PRIVATE },
+          });
+
+          if (userChat && userChat.telegramUserId && this.bot) {
+            const pdfMessage = `📄 Sizga ${pendingResult.sent} ta kutilayotgan PDF yuborildi!`;
+            await this.bot.sendMessage(userChat.telegramUserId, pdfMessage, {
+              parse_mode: 'HTML',
+            });
+          }
+        }
+      } catch (error) {
+        this.logsService.error(
+          `Failed to send pending PDFs to user ${linkedUser.id} after connection: ${error.message}`,
+          error.stack,
+          'TelegramService',
+        );
+      }
+
+      return {
+        success: true,
+        message: `🎉 Salom ${linkedUser.firstName}! Hisobingiz avtomatik ulandi. Tegishli kanallarga qo'shilish uchun quyidagi havolalardan foydalaning.`,
+        userId: linkedUser.id,
+        autoConnected: true,
+      };
+    } catch (error) {
+      this.logsService.error(
+        `Failed to authenticate and connect user: ${error.message}`,
+        error.stack,
+        'TelegramService',
+      );
+      return {
+        success: false,
+        message: "Autentifikatsiyada xatolik. Keyinroq qayta urinib ko'ring.",
+        autoConnected: false,
+      };
+    }
+  }
+
+  async authenticateUserByOwn(
+    dto: AuthenticateUserDto,
+    user: User,
+  ): Promise<{
+    success: boolean;
+    message: string;
+    userId?: number;
+    autoConnected?: boolean;
+  }> {
+    try {
+      const { telegramUserId, username, firstName, lastName } = dto;
+
+      // Check if this Telegram user is already registered
+      const existingChat = await this.telegramChatRepo.findOne({
+        where: { telegramUserId },
+        relations: ['user', 'user.center', 'user.subjects'],
+      });
+
+      if (existingChat && existingChat.user) {
+        // User already connected, send updated channel list
+        await this.sendUserChannelsAndInvitation(existingChat.user.id);
+
+        this.logsService.log(
+          `User ${existingChat.user.id} is already connected`,
+          'TelegramService',
+        );
+        return {
+          success: true,
+          message: `Qaytib kelganingiz bilan, ${existingChat.user.firstName}! Sizning hisobingiz allaqachon ulangan.`,
+          userId: existingChat.user.id,
+          autoConnected: true,
+        };
+      }
+
+      // Try to find matching LMS user by name - be more flexible with matching
+      let potentialUsers: User[] = [];
+
+      if (firstName || lastName) {
+        const searchConditions: any[] = [];
+
+        // Search by first name and last name combinations
+        if (firstName && lastName) {
+          searchConditions.push(
+            { firstName: firstName, lastName: lastName },
+            { firstName: lastName, lastName: firstName }, // Try reversed names
+          );
+        }
+
+        // Search by first name only
+        if (firstName) {
+          searchConditions.push({ firstName: firstName });
+        }
+
+        // Search by last name only
+        if (lastName) {
+          searchConditions.push({ lastName: lastName });
+        }
+
+        // Search by username if provided
+        if (username) {
+          searchConditions.push({ username: username });
+        }
+
+        potentialUsers = await this.userRepo.find({
+          where: searchConditions,
+          relations: ['center', 'subjects'],
+        });
+      }
+
+      let linkedUser: User | null = null;
+
+      if (potentialUsers.length > 0) {
+        // Take the first matching user for auto-linking
+        linkedUser = potentialUsers[0];
+        this.logsService.log(
+          `Auto-linking user ${linkedUser.firstName} ${linkedUser.lastName} with Telegram user ${telegramUserId}`,
+          'TelegramService',
+        );
+      } else {
+        // Use the passed user instead of creating a new one
+        linkedUser = user;
+        this.logsService.log(
+          `Linking existing user ${linkedUser.firstName} ${linkedUser.lastName} with Telegram user ${telegramUserId}`,
+          'TelegramService',
+        );
+      }
+
+      // Update the user's Telegram information
+      if (telegramUserId) {
+        linkedUser.telegramId = telegramUserId;
+        linkedUser.telegramConnected = true;
+        await this.userRepo.save(linkedUser);
       }
 
       // Create or update chat with linked user
