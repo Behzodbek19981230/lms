@@ -3,6 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { TestsService } from './tests.service';
 import { TestsController } from './tests.controller';
 import { TestGeneratorService } from './test-generator.service';
+import { LatexProcessorService } from './latex-processor.service';
 import { Test } from './entities/test.entity';
 import {
   GeneratedTest,
@@ -24,7 +25,7 @@ import { Question } from '../questions/entities/question.entity';
     ]),
   ],
   controllers: [TestsController],
-  providers: [TestsService, TestGeneratorService],
-  exports: [TestsService, TestGeneratorService],
+  providers: [TestsService, TestGeneratorService, LatexProcessorService],
+  exports: [TestsService, TestGeneratorService, LatexProcessorService],
 })
 export class TestsModule {}
