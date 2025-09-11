@@ -15,6 +15,7 @@ import {
   GeneratedTestVariant,
 } from './entities/generated-test.entity';
 import { LatexProcessorService } from './latex-processor.service';
+import { LogsService } from 'src/logs/logs.service';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const PDFDocument = require('pdfkit');
 
@@ -27,6 +28,7 @@ export interface GenerateTestDto {
   difficulty: string;
   includeAnswers: boolean;
   showTitleSheet: boolean;
+  testId?: number; // Optional test ID to base the generation on
 }
 
 export interface TestVariant {
@@ -51,6 +53,7 @@ export class TestGeneratorService {
     @InjectRepository(GeneratedTestVariant)
     private generatedTestVariantRepository: Repository<GeneratedTestVariant>,
     private latexProcessor: LatexProcessorService,
+    private logService: LogsService,
   ) {}
 
   /**
@@ -78,8 +81,16 @@ export class TestGeneratorService {
     }
 
     // Get available questions
+    void this.logService.log(
+      `Available questions for subject ${subject.name}: test id ${dto.testId}`,
+      'TestGenerator',
+    );
     const availableQuestions = await this.questionRepository.find({
-      where: { test: { subject: { id: dto.subjectId } } },
+      where: {
+        test: dto.testId
+          ? { id: dto.testId }
+          : { subject: { id: dto.subjectId } },
+      },
       relations: ['answers', 'test'],
     });
 
@@ -172,47 +183,68 @@ export class TestGeneratorService {
     variants: TestVariant[],
     config: GenerateTestDto,
     subjectName: string,
+    contentMappings?: {
+      latexMap?: Record<string, string>;
+      imageMap?: Record<string, string>;
+    },
   ): Promise<Buffer> {
     const PDFDoc = require('pdfkit');
 
     return new Promise((resolve, reject) => {
-      try {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-        const doc = new PDFDoc({ size: 'A4', margin: 50 });
-        const chunks: Buffer[] = [];
+      void (async () => {
+        try {
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+          const doc = new PDFDoc({ size: 'A4', margin: 50 });
+          const chunks: Buffer[] = [];
 
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-        doc.on('data', (chunk: Buffer) => chunks.push(chunk));
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-        doc.on('end', () => resolve(Buffer.concat(chunks)));
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+          doc.on('data', (chunk: Buffer) => chunks.push(chunk));
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+          doc.on('end', () => resolve(Buffer.concat(chunks)));
 
-        // Generate PDF for each variant
-        variants.forEach((variant, variantIndex) => {
-          if (variantIndex > 0) {
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-            doc.addPage();
+          // Generate PDF for each variant
+          for (
+            let variantIndex = 0;
+            variantIndex < variants.length;
+            variantIndex++
+          ) {
+            const variant = variants[variantIndex];
+            if (variantIndex > 0) {
+              // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+              doc.addPage();
+            }
+
+            await this.generateVariantPDF(
+              doc,
+              variant,
+              config,
+              subjectName,
+              contentMappings,
+            );
           }
 
-          this.generateVariantPDF(doc, variant, config, subjectName);
-        });
-
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-        doc.end();
-      } catch (error) {
-        reject(error instanceof Error ? error : new Error(String(error)));
-      }
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+          doc.end();
+        } catch (error) {
+          reject(error instanceof Error ? error : new Error(String(error)));
+        }
+      })();
     });
   }
 
   /**
    * Generate PDF for a single variant with 2-column layout
    */
-  private generateVariantPDF(
+  private async generateVariantPDF(
     doc: any,
     variant: TestVariant,
     config: GenerateTestDto,
     subjectName: string,
-  ): void {
+    contentMappings?: {
+      latexMap?: Record<string, string>;
+      imageMap?: Record<string, string>;
+    },
+  ): Promise<void> {
     const pageWidth = doc.page.width;
     const pageHeight = doc.page.height;
     const margin = 50;
@@ -220,21 +252,23 @@ export class TestGeneratorService {
     const columnSeparator = margin + columnWidth + 30; // Center line position
 
     // === HEADER PAGE ===
-    this.generateHeaderPage(
-      doc,
-      variant,
-      config,
-      subjectName,
-      pageWidth as number,
-      margin,
-    );
+    if (config.showTitleSheet) {
+      this.generateHeaderPage(
+        doc,
+        variant,
+        config,
+        subjectName,
+        pageWidth as number,
+        margin,
+      );
 
-    // Add new page for questions
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-    doc.addPage();
+      // Add new page for questions
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+      doc.addPage();
+    }
 
     // === QUESTIONS PAGE ===
-    this.generateQuestionsPage(
+    await this.generateQuestionsPage(
       doc,
       variant,
       config,
@@ -243,6 +277,7 @@ export class TestGeneratorService {
       margin,
       columnWidth,
       columnSeparator,
+      contentMappings,
     );
   }
 
@@ -380,7 +415,7 @@ export class TestGeneratorService {
   /**
    * Generate questions page with 2-column layout
    */
-  private generateQuestionsPage(
+  private async generateQuestionsPage(
     doc: any,
     variant: TestVariant,
     config: GenerateTestDto,
@@ -389,7 +424,11 @@ export class TestGeneratorService {
     margin: number,
     columnWidth: number,
     columnSeparator: number,
-  ): void {
+    contentMappings?: {
+      latexMap?: Record<string, string>;
+      imageMap?: Record<string, string>;
+    },
+  ): Promise<void> {
     // Page header
     // eslint-disable-next-line @typescript-eslint/no-unsafe-call
     doc
@@ -413,19 +452,47 @@ export class TestGeneratorService {
     let currentColumn = 'left';
     let questionCounter = 1;
 
-    variant.questions.forEach((question) => {
+    for (let i = 0; i < variant.questions.length; i++) {
+      const question = variant.questions[i];
       const questionText = `${questionCounter}. ${question.text}`;
 
       // Better space calculation with LaTeX and image support
-      const processedQuestionForSpace =
-        this.latexProcessor.processContent(questionText);
-      const baseSpace = 40; // Space for question text
+      const processedQuestionForSpace = this.latexProcessor
+        .processContentEnhanced
+        ? await this.latexProcessor.processContentEnhanced(questionText)
+        : { hasImages: false, base64Images: [] };
+
+      // More accurate space calculation
+      const baseSpace = 50; // Space for question text (increased for better spacing)
+
+      // Calculate answer space more accurately
       const answerCount = question.answers?.length || 0;
-      const answerSpace = answerCount * 18 + 10; // Space for answers
-      const imageSpace = processedQuestionForSpace.hasImages
+      let answerSpace = answerCount * 20; // 20px per answer line
+
+      // Add space for True/False or Essay questions
+      if (question.type === QuestionType.TRUE_FALSE) {
+        answerSpace = 40; // Space for A) and B) options
+      } else if (question.type === QuestionType.ESSAY) {
+        answerSpace = 30; // Space for answer line
+      }
+
+      // Calculate image space
+      const questionImageSpace = processedQuestionForSpace.hasImages
         ? (processedQuestionForSpace.base64Images?.length || 0) * 100
-        : 0; // Space for images
-      const totalSpace = baseSpace + answerSpace + imageSpace + 25; // Total with padding
+        : 0;
+
+      // Calculate answer image space (rough estimate)
+      let answerImageSpace = 0;
+      if (question.answers) {
+        question.answers.forEach((answer) => {
+          if (this.latexProcessor.hasBase64Images(answer.text)) {
+            answerImageSpace += 50; // Smaller space for answer images
+          }
+        });
+      }
+
+      const totalSpace =
+        baseSpace + answerSpace + questionImageSpace + answerImageSpace + 30; // Total with padding
 
       let xPos: number;
       let yPos: number;
@@ -465,11 +532,51 @@ export class TestGeneratorService {
         }
       }
 
-      // Draw question with improved formatting and LaTeX support
-      const processedQuestion =
-        this.latexProcessor.processContent(questionText);
-      const questionDisplayText = this.latexProcessor.convertLatexToText(
-        processedQuestion.text,
+      // Draw question with enhanced LaTeX and image support using MathJax
+      let processedQuestion =
+        await this.latexProcessor.processContentEnhanced(questionText);
+
+      // Apply content mappings if provided
+      if (contentMappings?.imageMap) {
+        processedQuestion = {
+          ...processedQuestion,
+          ...this.latexProcessor.mapImageData(
+            processedQuestion,
+            contentMappings.imageMap,
+          ),
+        };
+      }
+
+      // Remove IMAGE placeholders that don't have data and LATEX_SVG placeholders
+      let questionDisplayText = processedQuestion.text;
+      processedQuestion.base64Images.forEach((imageInfo) => {
+        if (!imageInfo.data || !imageInfo.data.startsWith('data:image/')) {
+          // Replace IMAGE placeholder with empty string
+          questionDisplayText = questionDisplayText.replace(
+            imageInfo.placeholder,
+            '',
+          );
+        } else {
+          // Remove IMAGE placeholder since we'll render the image separately
+          questionDisplayText = questionDisplayText.replace(
+            imageInfo.placeholder,
+            '',
+          );
+        }
+      });
+
+      // Remove LATEX_SVG placeholders since we'll render them as SVG
+      processedQuestion.svgFormulas?.forEach((svgFormula) => {
+        questionDisplayText = questionDisplayText.replace(
+          svgFormula.placeholder,
+          '',
+        );
+      });
+
+      // Calculate text height for better positioning
+      const textHeight = this.estimateTextHeight(
+        questionDisplayText,
+        columnWidth - 10,
       );
 
       // eslint-disable-next-line @typescript-eslint/no-unsafe-call
@@ -479,36 +586,110 @@ export class TestGeneratorService {
         .text(questionDisplayText, xPos, yPos, {
           width: columnWidth - 10,
           align: 'left',
-          lineGap: 2,
+          lineGap: 3, // Increased line gap for better readability
         });
 
-      // Handle Base64 images in question if any
+      let currentYPos = yPos + textHeight + 10; // Dynamic spacing based on text height      // Handle Base64 images in question if any
       if (processedQuestion.hasImages && processedQuestion.base64Images) {
-        yPos += 30; // Add space after question text
         processedQuestion.base64Images.forEach((imageInfo) => {
-          const imageData = this.latexProcessor.processBase64Image(
-            imageInfo.data,
-          );
-          if (imageData && imageData.size < 1024 * 1024) {
-            // Max 1MB
-            try {
-              // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-              doc.image(imageData.buffer, xPos + 10, yPos, {
-                fit: [columnWidth - 20, 80],
-                align: 'left',
+          if (imageInfo.data && imageInfo.data.startsWith('data:image/')) {
+            const imageData = this.latexProcessor.processBase64Image(
+              imageInfo.data,
+            );
+            if (imageData && imageData.size < 1024 * 1024) {
+              // Max 1MB
+              try {
+                // Use custom dimensions if available, otherwise default
+                const imageWidth = imageInfo.width || 120;
+                const imageHeight = imageInfo.height || 80;
+
+                // Scale to fit column while maintaining aspect ratio
+                const maxWidth = columnWidth - 20;
+                const maxHeight = 120;
+
+                let finalWidth = imageWidth;
+                let finalHeight = imageHeight;
+
+                // Scale down if too large
+                if (finalWidth > maxWidth) {
+                  const ratio = maxWidth / finalWidth;
+                  finalWidth = maxWidth;
+                  finalHeight = finalHeight * ratio;
+                }
+
+                if (finalHeight > maxHeight) {
+                  const ratio = maxHeight / finalHeight;
+                  finalHeight = maxHeight;
+                  finalWidth = finalWidth * ratio;
+                }
+
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+                doc.image(imageData.buffer, xPos + 10, currentYPos, {
+                  width: finalWidth,
+                  height: finalHeight,
+                  align: 'left',
+                });
+                currentYPos += finalHeight + 10; // Space for image
+              } catch (error) {
+                console.warn('Failed to add image to PDF:', error);
+                // Fallback: show placeholder text
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+                doc
+                  .font('Times-Roman')
+                  .fontSize(10)
+                  .text('[Rasm mavjud emas]', xPos + 10, currentYPos, {
+                    width: columnWidth - 20,
+                  });
+                currentYPos += 15;
+              }
+            }
+          } else {
+            // Show placeholder for images without data
+            const dimensions =
+              imageInfo.width && imageInfo.height
+                ? `${imageInfo.width}×${imageInfo.height}px`
+                : '';
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+            doc
+              .font('Times-Roman')
+              .fontSize(10)
+              .text(`[Rasm ${dimensions}]`, xPos + 10, currentYPos, {
+                width: columnWidth - 20,
               });
-              yPos += 90; // Space for image
+            currentYPos += 15;
+          }
+        });
+      }
+
+      // Handle SVG LaTeX formulas in question
+      if (processedQuestion.hasLatex && processedQuestion.svgFormulas) {
+        processedQuestion.svgFormulas.forEach((svgFormula) => {
+          if (svgFormula.svg) {
+            try {
+              // Render SVG formula to PDF
+              this.latexProcessor.renderSvgToPdf(
+                doc,
+                svgFormula.svg,
+                xPos + 10,
+                currentYPos,
+                {
+                  width: columnWidth - 20,
+                  height: 40, // Default height for formulas
+                  preserveAspectRatio: 'xMinYMin meet',
+                },
+              );
+              currentYPos += 45; // Space for SVG formula
             } catch (error) {
-              console.warn('Failed to add image to PDF:', error);
-              // Fallback: show placeholder text
+              console.warn('Failed to render LaTeX SVG formula:', error);
+              // Fallback: show formula text in italic 12pt font
               // eslint-disable-next-line @typescript-eslint/no-unsafe-call
               doc
-                .font('Times-Roman')
-                .fontSize(10)
-                .text('[Rasm]', xPos + 10, yPos, {
+                .font('Times-Italic')
+                .fontSize(12)
+                .text(svgFormula.formula, xPos + 10, currentYPos, {
                   width: columnWidth - 20,
                 });
-              yPos += 15;
+              currentYPos += 20;
             }
           }
         });
@@ -516,80 +697,209 @@ export class TestGeneratorService {
 
       // Draw answers
       if (question.answers && question.answers.length > 0) {
-        let answerY = yPos + 25;
         const letters = ['A', 'B', 'C', 'D', 'E', 'F'];
 
-        question.answers.forEach((answer, index) => {
-          const letter = letters[index] || `${index + 1}`;
+        // Process all answers with LaTeX support
+        const processedAnswers = await Promise.all(
+          question.answers.map(async (answer, index) => {
+            const letter = letters[index] || `${index + 1}`;
 
-          // Process LaTeX in answer text
-          const processedAnswer = this.latexProcessor.processContent(
-            answer.text,
-          );
-          const answerDisplayText = this.latexProcessor.convertLatexToText(
-            processedAnswer.text,
-          );
+            // Process LaTeX in answer text
+            let processedAnswer =
+              await this.latexProcessor.processContentEnhanced(answer.text);
 
-          let answerText = `${letter}) ${answerDisplayText}`;
+            // Apply content mappings if provided
+            if (contentMappings?.imageMap) {
+              processedAnswer = this.latexProcessor.mapImageData(
+                processedAnswer,
+                contentMappings.imageMap,
+              );
+            }
 
-          // Show correct answer if answer key is enabled
-          if (config.includeAnswers && answer.isCorrect) {
-            answerText += ' ✓';
-          }
+            // Remove IMAGE placeholders and LATEX_SVG placeholders
+            let answerDisplayText = processedAnswer.text;
+            processedAnswer.base64Images.forEach((imageInfo) => {
+              if (
+                !imageInfo.data ||
+                !imageInfo.data.startsWith('data:image/')
+              ) {
+                // Replace IMAGE placeholder with empty string
+                answerDisplayText = answerDisplayText.replace(
+                  imageInfo.placeholder,
+                  '',
+                );
+              } else {
+                // Remove IMAGE placeholder since we'll render the image separately
+                answerDisplayText = answerDisplayText.replace(
+                  imageInfo.placeholder,
+                  '',
+                );
+              }
+            });
+
+            // Remove LATEX_SVG placeholders since we'll render them as SVG
+            processedAnswer.svgFormulas?.forEach((svgFormula) => {
+              answerDisplayText = answerDisplayText.replace(
+                svgFormula.placeholder,
+                '',
+              );
+            });
+
+            return {
+              letter,
+              processedAnswer,
+              displayText: answerDisplayText,
+            };
+          }),
+        );
+
+        // Render each processed answer
+        processedAnswers.forEach((answerData) => {
+          const { letter, processedAnswer, displayText } = answerData;
+          const answerText = `${letter}) ${displayText}`;
+
+          // Don't show correct answer inline when answer key is enabled
+          // Individual answers will be shown in the answer key section instead
 
           // eslint-disable-next-line @typescript-eslint/no-unsafe-call
           doc
             .font('Times-Roman')
             .fontSize(12)
-            .text(answerText, xPos + 10, answerY, {
+            .text(answerText, xPos + 10, currentYPos, {
               width: columnWidth - 20,
-              lineGap: 1,
+              lineGap: 2, // Better line spacing for answers
             });
 
-          answerY += 18;
+          // Calculate answer text height for better spacing
+          const answerTextHeight = this.estimateTextHeight(
+            answerText,
+            columnWidth - 20,
+          );
+          currentYPos += Math.max(20, answerTextHeight + 5); // Dynamic spacing or minimum 20px
+
+          // Handle SVG LaTeX formulas in answer
+          if (processedAnswer.hasLatex && processedAnswer.svgFormulas) {
+            processedAnswer.svgFormulas.forEach((svgFormula) => {
+              if (svgFormula.svg) {
+                try {
+                  // Render SVG formula to PDF
+                  this.latexProcessor.renderSvgToPdf(
+                    doc,
+                    svgFormula.svg,
+                    xPos + 20,
+                    currentYPos,
+                    {
+                      width: columnWidth - 30,
+                      height: 30, // Smaller height for answer formulas
+                      preserveAspectRatio: 'xMinYMin meet',
+                    },
+                  );
+                  currentYPos += 35; // Space for SVG formula
+                } catch (error) {
+                  console.warn(
+                    'Failed to render LaTeX SVG formula in answer:',
+                    error,
+                  );
+                  // Fallback: show formula text in italic 12pt font
+                  // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+                  doc
+                    .font('Times-Italic')
+                    .fontSize(12)
+                    .text(svgFormula.formula, xPos + 20, currentYPos, {
+                      width: columnWidth - 30,
+                    });
+                  currentYPos += 15;
+                }
+              }
+            });
+          }
 
           // Handle Base64 images in answers
           if (processedAnswer.hasImages && processedAnswer.base64Images) {
             processedAnswer.base64Images.forEach((imageInfo) => {
-              const imageData = this.latexProcessor.processBase64Image(
-                imageInfo.data,
-              );
-              if (imageData && imageData.size < 512 * 1024) {
-                // Max 512KB for answer images
-                try {
-                  // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-                  doc.image(imageData.buffer, xPos + 20, answerY, {
-                    fit: [columnWidth - 30, 40],
-                    align: 'left',
-                  });
-                  answerY += 45; // Space for image
-                } catch (error) {
-                  console.warn('Failed to add answer image to PDF:', error);
-                  // Fallback: show placeholder text
-                  // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-                  doc
-                    .font('Times-Roman')
-                    .fontSize(9)
-                    .text('   [Rasm]', xPos + 20, answerY, {
-                      width: columnWidth - 30,
+              if (imageInfo.data) {
+                const imageData = this.latexProcessor.processBase64Image(
+                  imageInfo.data,
+                );
+                if (imageData && imageData.size < 512 * 1024) {
+                  // Max 512KB for answer images
+                  try {
+                    // Use custom dimensions if available, otherwise default smaller for answers
+                    const imageWidth = imageInfo.width
+                      ? imageInfo.width * 0.5
+                      : 60; // Scale down for answers
+                    const imageHeight = imageInfo.height
+                      ? imageInfo.height * 0.5
+                      : 40;
+
+                    // Scale to fit answer area
+                    const maxWidth = columnWidth - 30;
+                    const maxHeight = 60;
+
+                    let finalWidth = imageWidth;
+                    let finalHeight = imageHeight;
+
+                    if (finalWidth > maxWidth) {
+                      const ratio = maxWidth / finalWidth;
+                      finalWidth = maxWidth;
+                      finalHeight = finalHeight * ratio;
+                    }
+
+                    if (finalHeight > maxHeight) {
+                      const ratio = maxHeight / finalHeight;
+                      finalHeight = maxHeight;
+                      finalWidth = finalWidth * ratio;
+                    }
+
+                    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+                    doc.image(imageData.buffer, xPos + 20, currentYPos, {
+                      width: finalWidth,
+                      height: finalHeight,
+                      align: 'left',
                     });
-                  answerY += 12;
+                    currentYPos += finalHeight + 5; // Space for image
+                  } catch (error) {
+                    console.warn('Failed to add answer image to PDF:', error);
+                    // Fallback: show placeholder text
+                    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+                    doc
+                      .font('Times-Roman')
+                      .fontSize(9)
+                      .text('   [Rasm]', xPos + 20, currentYPos, {
+                        width: columnWidth - 30,
+                      });
+                    currentYPos += 12;
+                  }
                 }
+              } else {
+                // This should not happen since we removed placeholders from display text
+                // But keeping as fallback
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+                doc
+                  .font('Times-Roman')
+                  .fontSize(9)
+                  .text(`   [Rasm]`, xPos + 20, currentYPos, {
+                    width: columnWidth - 30,
+                  });
+                currentYPos += 12;
               }
             });
           }
         });
       } else if (question.type === QuestionType.TRUE_FALSE) {
-        const answerY = yPos + 25;
         // eslint-disable-next-line @typescript-eslint/no-unsafe-call
         doc
           .font('Times-Roman')
           .fontSize(12)
-          .text("A) To'g'ri", xPos + 10, answerY, { width: columnWidth - 20 });
+          .text("A) To'g'ri", xPos + 10, currentYPos, {
+            width: columnWidth - 20,
+          });
+        currentYPos += 18;
         // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-        doc.text("B) Noto'g'ri", xPos + 10, answerY + 18, {
+        doc.text("B) Noto'g'ri", xPos + 10, currentYPos, {
           width: columnWidth - 20,
         });
+        currentYPos += 18;
       } else if (question.type === QuestionType.ESSAY) {
         // eslint-disable-next-line @typescript-eslint/no-unsafe-call
         doc
@@ -598,17 +908,25 @@ export class TestGeneratorService {
           .text(
             'Javob: _________________________________',
             xPos + 10,
-            yPos + 25,
+            currentYPos,
             {
               width: columnWidth - 20,
             },
           );
+        currentYPos += 25;
+      }
+
+      // Update column position tracking
+      if (currentColumn === 'left') {
+        leftY = currentYPos + 10; // Add some padding between questions
+      } else {
+        rightY = currentYPos + 10; // Add some padding between questions
       }
 
       questionCounter++;
-    });
+    }
 
-    // Footer on last page
+    // Footer on questions page
     const footerY = pageHeight - 30;
     // eslint-disable-next-line @typescript-eslint/no-unsafe-call
     doc
@@ -623,6 +941,13 @@ export class TestGeneratorService {
           align: 'center',
         },
       );
+
+    // Add answer key on separate page if enabled
+    if (config.includeAnswers) {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+      doc.addPage();
+      this.addAnswerKeyPage(doc, variant, pageWidth, pageHeight, margin);
+    }
   }
 
   /**
@@ -639,6 +964,159 @@ export class TestGeneratorService {
       .moveTo(columnSeparator, margin + 50)
       .lineTo(columnSeparator, pageHeight - 50)
       .stroke();
+  }
+
+  /**
+   * Estimate text height for better spacing
+   */
+  private estimateTextHeight(text: string, width: number): number {
+    // Rough estimation: each character is about 7px wide, each line is about 16px tall
+    const avgCharWidth = 7;
+    const lineHeight = 16;
+    const charsPerLine = Math.floor(width / avgCharWidth);
+    const lines = Math.ceil(text.length / charsPerLine);
+    return lines * lineHeight;
+  }
+
+  /**
+   * Add answer key on a separate dedicated page
+   */
+  private addAnswerKeyPage(
+    doc: any,
+    variant: TestVariant,
+    pageWidth: number,
+    pageHeight: number,
+    margin: number,
+  ): void {
+    // Page title
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+    doc
+      .font('Times-Bold')
+      .fontSize(18)
+      .text('JAVOBLAR KALITI', margin, margin + 80, {
+        width: pageWidth - margin * 2,
+        align: 'center',
+      });
+
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+    doc.moveDown(1);
+
+    // Variant info
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+    doc
+      .font('Times-Roman')
+      .fontSize(14)
+      .text(`Variant ${variant.variantNumber}`, {
+        align: 'center',
+      });
+
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+    doc.fontSize(12).text(`Unique ID: #${variant.uniqueNumber}`, {
+      align: 'center',
+    });
+
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+    doc.moveDown(3);
+
+    // Generate answer key content
+    const answersPerLine = 10; // Show 10 answers per line
+    const totalQuestions = variant.questions.length;
+    let currentY = doc.y;
+    const letters = ['A', 'B', 'C', 'D', 'E', 'F'];
+
+    for (let i = 0; i < totalQuestions; i += answersPerLine) {
+      let lineText = '';
+
+      for (let j = 0; j < answersPerLine && i + j < totalQuestions; j++) {
+        const questionIndex = i + j;
+        const question = variant.questions[questionIndex];
+        const questionNumber = questionIndex + 1;
+
+        let correctAnswer = 'X'; // Default if no correct answer found
+
+        if (question.answers && question.answers.length > 0) {
+          const correctAnswerIndex = question.answers.findIndex(
+            (answer) => answer.isCorrect,
+          );
+          if (correctAnswerIndex !== -1) {
+            correctAnswer = letters[correctAnswerIndex] || 'X';
+          }
+        } else if (question.type === QuestionType.TRUE_FALSE) {
+          // For True/False questions, check if there's a correct answer in the question data
+          // This might be stored differently in your database structure
+          if (question.answers && question.answers.length > 0) {
+            const correctAnswerIndex = question.answers.findIndex(
+              (answer) => answer.isCorrect,
+            );
+            correctAnswer = correctAnswerIndex === 0 ? 'A' : 'B';
+          } else {
+            // Try to determine from question text patterns (basic logic)
+            const questionLower = question.text.toLowerCase();
+            if (
+              questionLower.includes("noto'g'ri") ||
+              questionLower.includes("yolg'on")
+            ) {
+              correctAnswer = 'B'; // Likely false
+            } else {
+              correctAnswer = 'A'; // Default to true
+            }
+          }
+        } else if (question.type === QuestionType.ESSAY) {
+          correctAnswer = '-'; // No specific answer for essay questions
+        }
+
+        lineText += `${questionNumber}.${correctAnswer}    `;
+      }
+
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+      doc
+        .font('Times-Roman')
+        .fontSize(12)
+        .text(lineText.trim(), margin + 20, currentY, {
+          width: pageWidth - margin * 2 - 40,
+          align: 'left',
+        });
+
+      currentY += 25; // More spacing between lines for better readability
+    }
+
+    // Instructions section
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+    doc.moveDown(3);
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+    doc.font('Times-Bold').fontSize(12);
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+    doc.text("Baholash ko'rsatmalari:", margin, doc.y);
+
+    const instructions = [
+      "• Har bir to'g'ri javob uchun 1 ball beriladi",
+      "• Noto'g'ri javob uchun 0 ball beriladi",
+      '• Javob bermaslik ham 0 ball deb hisoblanadi',
+      '• Maksimal ball: ' + totalQuestions + ' ball',
+    ];
+
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+    doc.font('Times-Roman').fontSize(11);
+    instructions.forEach((instruction) => {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+      doc.text(instruction, margin, doc.y + 15);
+    });
+
+    // Footer on answer key page
+    const footerY = pageHeight - 30;
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+    doc
+      .font('Times-Roman')
+      .fontSize(8)
+      .text(
+        `EduNimbus LMS • Javoblar kaliti • ${new Date().toLocaleDateString('uz-UZ')}`,
+        margin,
+        footerY,
+        {
+          width: pageWidth - margin * 2,
+          align: 'center',
+        },
+      );
   }
 
   /**

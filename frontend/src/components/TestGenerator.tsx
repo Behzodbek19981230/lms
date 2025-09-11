@@ -12,6 +12,7 @@ import { jsPDF } from "jspdf"
 import { request } from '@/configs/request'
 import { useToast } from '@/components/ui/use-toast'
 import { LaTeXRenderer } from '@/components/latex/latex-renderer'
+import { Test } from "@/types/test.type"
 
 interface Question {
   id: number
@@ -38,6 +39,12 @@ interface Subject {
   color: string
 }
 
+interface AssignedTest {
+  id: number;
+  name: string;
+  questionCount: number;
+}
+
 interface TestGeneratorProps {
   subject?: string
 }
@@ -47,6 +54,59 @@ export function TestGenerator({ subject }: TestGeneratorProps) {
   const [subjects, setSubjects] = useState<Subject[]>([])
   const [selectedSubject, setSelectedSubject] = useState<Subject | null>(null)
   const [availableQuestions, setAvailableQuestions] = useState<Question[]>([])
+  const [subjectTests, setSubjectTests] = useState<Test[]>([])
+  const [selectedTest, setSelectedTest] = useState<Test | null>(null)
+  
+  // Function to parse markdown images from text
+  const parseMarkdownImages = (text: string) => {
+    const images: Array<{ alt: string; src: string; width?: number; height?: number }> = [];
+    const base64ImageRegex = /!\[([^\]]*)\]\((data:image\/[^;]+;base64,[^)]+)\)/g;
+    let processedText = text;
+    let match;
+
+    while ((match = base64ImageRegex.exec(text)) !== null) {
+      const [fullMatch, alt, dataUrl] = match;
+      
+      // Extract dimensions from alt text if present (format: alt|width: 100px; height: 100px)
+      let width: number | undefined;
+      let height: number | undefined;
+
+      if (alt.includes('|')) {
+        const [altText, dimensions] = alt.split('|');
+        const widthMatch = dimensions.match(/width:\s*(\d+)px/);
+        const heightMatch = dimensions.match(/height:\s*(\d+)px/);
+
+        if (widthMatch) width = parseInt(widthMatch[1]);
+        if (heightMatch) height = parseInt(heightMatch[1]);
+        
+        images.push({
+          alt: altText,
+          src: dataUrl,
+          width,
+          height,
+        });
+      } else {
+        images.push({
+          alt,
+          src: dataUrl,
+        });
+      }
+
+      processedText = processedText.replace(fullMatch, '');
+    }
+
+    return { processedText: processedText.trim(), images };
+  }
+  
+    // Fetch assigned tests for selected subject
+    const fetchTestsForSubject = async (subjectId: number) => {
+      try {
+        const { data } = await request.get(`/tests?subjectId=${subjectId}`)
+        setSubjectTests(data || [])
+      } catch (error) {
+        setSubjectTests([])
+      }
+    }
   const [testConfig, setTestConfig] = useState({
     title: "",
     questionCount: 10,
@@ -81,6 +141,7 @@ export function TestGenerator({ subject }: TestGeneratorProps) {
           if (defaultSubject) {
             setSelectedSubject(defaultSubject)
             fetchQuestionsForSubject(defaultSubject.id)
+            fetchTestsForSubject(defaultSubject.id)
           }
         }
       } catch (error) {
@@ -113,6 +174,9 @@ export function TestGenerator({ subject }: TestGeneratorProps) {
       setAvailableQuestions([])
     }
   }
+
+  // Fetch tests for selected subject
+  // ...existing code...
 
   // Get subject icon based on category
   const getSubjectIcon = (category: string) => {
@@ -195,6 +259,7 @@ export function TestGenerator({ subject }: TestGeneratorProps) {
         difficulty: testConfig.difficulty,
         includeAnswers: testConfig.includeAnswers,
         showTitleSheet: showTitleSheet,
+        testId: selectedTest?.id || undefined, // Pass testId if selected
       })
 
       setGeneratedTest(data)
@@ -206,9 +271,10 @@ export function TestGenerator({ subject }: TestGeneratorProps) {
       })
     } catch (error) {
       setIsGenerating(false)
+        console.log(error?.response?.data);
       toast({
         title: 'Xatolik',
-        description: 'Test yaratishda xatolik yuz berdi',
+        description: error?.response?.data?.message || 'Test yaratishda xatolik yuz berdi',
         variant: 'destructive'
       })
     }
@@ -246,6 +312,8 @@ export function TestGenerator({ subject }: TestGeneratorProps) {
         description: 'PDF fayl muvaffaqiyatli yuklab olindi'
       })
     } catch (error) {
+        console.log(error?.response?.data);
+        
       toast({
         title: 'Xatolik',
         description: 'PDF yaratishda xatolik yuz berdi',
@@ -276,8 +344,11 @@ export function TestGenerator({ subject }: TestGeneratorProps) {
               onValueChange={(value) => {
                 const subject = subjects.find((s) => s.id === Number(value))
                 setSelectedSubject(subject || null)
+                setSelectedTest(null)
+                setSelectedTest(null)
                 if (subject) {
                   fetchQuestionsForSubject(subject.id)
+                  fetchTestsForSubject(subject.id)
                 }
               }}
             >
@@ -309,6 +380,33 @@ export function TestGenerator({ subject }: TestGeneratorProps) {
               </div>
             )}
           </div>
+
+          {/* Test Selection */}
+          {subjectTests.length > 0 && (
+            <div className="space-y-3">
+              <Label htmlFor="test" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                Test tanlash (ixtiyoriy)
+              </Label>
+              <Select
+                value={selectedTest?.id?.toString() || ''}
+                onValueChange={(value) => {
+                  const test = subjectTests.find((t) => t.id === Number(value))
+                  setSelectedTest(test || null)
+                }}
+              >
+                <SelectTrigger className="focus:ring-2 focus:ring-primary focus:border-primary">
+                  <SelectValue placeholder="Testni tanlang (ixtiyoriy)" />
+                </SelectTrigger>
+                <SelectContent>
+                  {subjectTests.map((test) => (
+                    <SelectItem key={test.id} value={test.id.toString()}>
+                      {test.title} ({test.totalQuestions} savol)
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-3">
@@ -509,11 +607,37 @@ export function TestGenerator({ subject }: TestGeneratorProps) {
                             <div className="flex-1">
                               <div className="flex items-center gap-2 mb-2">
                                 <span className="text-primary font-medium">{index + 1}.</span>
-                                {question.hasFormula ? (
-                                  <LaTeXRenderer content={question.text} />
-                                ) : (
-                                  <p className="font-medium">{question.text}</p>
-                                )}
+                                {(() => {
+                                  const { processedText, images } = parseMarkdownImages(question.text);
+                                  return (
+                                    <>
+                                      {question.hasFormula ? (
+                                        <LaTeXRenderer content={processedText} />
+                                      ) : (
+                                        <p className="font-medium">{processedText}</p>
+                                      )}
+                                      
+                                      {/* Markdown images */}
+                                      {images.map((image, imgIndex) => (
+                                        <div key={imgIndex} className="mt-3 mb-3">
+                                          <img 
+                                            src={image.src}
+                                            alt={image.alt}
+                                            className="max-w-full h-auto max-h-48 rounded border"
+                                            style={{
+                                              width: image.width ? `${image.width}px` : 'auto',
+                                              height: image.height ? `${image.height}px` : 'auto',
+                                            }}
+                                            onError={(e) => {
+                                              console.error('Markdown image load error:', e);
+                                              e.currentTarget.style.display = 'none';
+                                            }}
+                                          />
+                                        </div>
+                                      ))}
+                                    </>
+                                  );
+                                })()}
                               </div>
                               
                               {/* Rasm ko'rsatish */}
@@ -533,18 +657,42 @@ export function TestGenerator({ subject }: TestGeneratorProps) {
                               
                               {question.type === "multiple_choice" && question.answers && (
                                 <div className="mt-3 space-y-2">
-                                  {question.answers.map((option: any, i: number) => (
-                                    <div key={i} className="flex items-center gap-2 ml-4 p-2 bg-gray-50 rounded">
-                                      <span className="font-medium text-blue-600">
-                                        {String.fromCharCode(65 + i)})
-                                      </span>
-                                      {option.hasFormula ? (
-                                        <LaTeXRenderer content={option.text} inline />
-                                      ) : (
-                                        <span className="text-sm text-gray-700">{option.text}</span>
-                                      )}
-                                    </div>
-                                  ))}
+                                  {question.answers.map((option: any, i: number) => {
+                                    const { processedText, images } = parseMarkdownImages(option.text);
+                                    return (
+                                      <div key={i} className="ml-4 p-2 bg-gray-50 rounded">
+                                        <div className="flex items-center gap-2">
+                                          <span className="font-medium text-blue-600">
+                                            {String.fromCharCode(65 + i)})
+                                          </span>
+                                          {option.hasFormula ? (
+                                            <LaTeXRenderer content={processedText} inline />
+                                          ) : (
+                                            <span className="text-sm text-gray-700">{processedText}</span>
+                                          )}
+                                        </div>
+                                        
+                                        {/* Answer images */}
+                                        {images.map((image, imgIndex) => (
+                                          <div key={imgIndex} className="mt-2 ml-6">
+                                            <img 
+                                              src={image.src}
+                                              alt={image.alt}
+                                              className="max-w-full h-auto max-h-32 rounded border"
+                                              style={{
+                                                width: image.width ? `${image.width}px` : 'auto',
+                                                height: image.height ? `${image.height}px` : 'auto',
+                                              }}
+                                              onError={(e) => {
+                                                console.error('Answer image load error:', e);
+                                                e.currentTarget.style.display = 'none';
+                                              }}
+                                            />
+                                          </div>
+                                        ))}
+                                      </div>
+                                    );
+                                  })}
                                 </div>
                               )}
                               {question.type === "true_false" && (
@@ -569,7 +717,7 @@ export function TestGenerator({ subject }: TestGeneratorProps) {
                                   LaTeX
                                 </Badge>
                               )}
-                              {question.imageBase64 && (
+                              {(question.imageBase64 || parseMarkdownImages(question.text).images.length > 0) && (
                                 <Badge variant="outline" className="text-xs text-blue-600 border-blue-600">
                                   Rasm
                                 </Badge>

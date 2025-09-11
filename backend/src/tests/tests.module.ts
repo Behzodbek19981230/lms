@@ -12,6 +12,7 @@ import {
 import { Subject } from '../subjects/entities/subject.entity';
 import { User } from '../users/entities/user.entity';
 import { Question } from '../questions/entities/question.entity';
+import { LogsModule } from 'src/logs/logs.module';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { Question } from '../questions/entities/question.entity';
       GeneratedTest,
       GeneratedTestVariant,
     ]),
+    LogsModule,
   ],
   controllers: [TestsController],
   providers: [TestsService, TestGeneratorService, LatexProcessorService],

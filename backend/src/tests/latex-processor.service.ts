@@ -1,181 +1,304 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
-/* eslint-disable @typescript-eslint/no-require-imports */
 import { Injectable } from '@nestjs/common';
 
-const katex = require('katex');
+const mjNode = require('mathjax-node');
+const SVGtoPDFKit = require('svg-to-pdfkit');
+
+// MathJax sozlash
+mjNode.config({
+  MathJax: {
+    SVG: {
+      font: 'STIX-Web',
+      linebreaks: { automatic: true },
+    },
+  },
+});
+mjNode.start();
 
 @Injectable()
 export class LatexProcessorService {
   /**
-   * Process text containing LaTeX formulas and Base64 images
+   * Convert base64 image data to a buffer and return with size info
    */
-  processContent(text: string): ProcessedContent {
-    if (!text) return { text: '', hasLatex: false, hasImages: false };
+  processBase64Image(data: string): { buffer: Buffer; size: number } | null {
+    if (!data || typeof data !== 'string') return null;
+    const matches = data.match(/^data:image\/(png|jpeg|jpg|gif);base64,(.+)$/);
+    if (!matches) return null;
+    try {
+      const buffer = Buffer.from(matches[2], 'base64');
+      return { buffer, size: buffer.length };
+    } catch {
+      return null;
+    }
+  }
+  /**
+   * Check if the given text contains base64 image data
+   */
+  hasBase64Images(text: string): boolean {
+    if (!text) return false;
+    // Simple regex to detect base64 image data
+    return /data:image\/[a-zA-Z]+;base64,/.test(text);
+  }
+  /**
+   * LaTeX formulani SVG ga render qilish (MathJax)
+   */
+  async renderLatexToSvg(
+    formula: string,
+    isDisplay = false,
+  ): Promise<string | null> {
+    return new Promise((resolve) => {
+      mjNode.typeset(
+        {
+          math: formula,
+          format: isDisplay ? 'TeX' : 'inline-TeX',
+          svg: true,
+        },
+        (data: any) => {
+          if (data.errors || !data.svg) {
+            console.warn('MathJax rendering error:', data.errors);
+            resolve(null);
+          } else {
+            // XML / DOCTYPE olib tashlash
+            const cleanSvg = data.svg
+              .replace(/^<\?xml[^>]*\?>/, '')
+              .replace(/<!DOCTYPE[^>]*>/, '')
+              .trim();
+            resolve(cleanSvg);
+          }
+        },
+      );
+    });
+  }
 
-    const result: ProcessedContent = {
+  /**
+   * Matndan LaTeX formulalarni ajratib SVG ga aylantirish
+   */
+  async processLatexFormulas(text: string): Promise<ProcessedLatexContent> {
+    const result: ProcessedLatexContent = {
       text,
       hasLatex: false,
-      hasImages: false,
+      svgFormulas: [],
     };
 
-    // Extract LaTeX formulas (both inline $...$ and display $$...$$)
+    // $...$ yoki $$...$$ formulalarni topish
     const latexMatches = text.match(/\$\$[\s\S]*?\$\$|\$[^$\n]*?\$/g);
     if (latexMatches) {
       result.hasLatex = true;
-      result.latexFormulas = [];
-      latexMatches.forEach((match, index) => {
+
+      for (let i = 0; i < latexMatches.length; i++) {
+        const match = latexMatches[i];
         const isDisplay = match.startsWith('$$');
         const formula = match.replace(/^\$+|\$+$/g, '');
 
-        try {
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-          const rendered = katex.renderToString(formula, {
-            displayMode: isDisplay,
-            throwOnError: false,
-            output: 'html',
-          });
+        const svg = await this.renderLatexToSvg(formula, isDisplay);
+        const placeholder = ``;
 
-          const placeholder = `[LATEX_${index}]`;
-          result.text = result.text.replace(match, placeholder);
-          result.latexFormulas!.push({
-            placeholder,
-            original: match,
-            formula,
-            rendered,
-            isDisplay,
-          });
-        } catch (error) {
-          // If LaTeX rendering fails, keep original text
-          console.warn(`LaTeX rendering failed for: ${formula}`, error);
-        }
-      });
-    }
-
-    // Extract Base64 images
-    const base64Matches = text.match(
-      /data:image\/[^;]+;base64,[A-Za-z0-9+/]+=*/g,
-    );
-    if (base64Matches) {
-      result.hasImages = true;
-      result.base64Images = [];
-      base64Matches.forEach((match, index) => {
-        const placeholder = `[IMAGE_${index}]`;
         result.text = result.text.replace(match, placeholder);
-        result.base64Images!.push({
+        result.svgFormulas.push({
           placeholder,
-          original: match,
-          data: match,
+          formula,
+          svg,
+          isDisplay,
         });
-      });
+      }
     }
 
     return result;
   }
 
   /**
-   * Convert LaTeX to plain text for PDF generation
+   * Kontentni (matn + LaTeX + rasmlar) kompleks ishlov berish
    */
-  convertLatexToText(latex: string): string {
-    try {
-      // Basic LaTeX to text conversion for PDF
-      return latex
-        .replace(/\$\$([^$]+)\$\$/g, '$1') // Display math
-        .replace(/\$([^$]+)\$/g, '$1') // Inline math
-        .replace(/\\frac\{([^}]+)\}\{([^}]+)\}/g, '($1/$2)') // Fractions
-        .replace(/\\sqrt\{([^}]+)\}/g, '√($1)') // Square root
-        .replace(/\^(\w+)/g, '^$1') // Superscript
-        .replace(/_(\w+)/g, '_$1') // Subscript
-        .replace(/\\alpha/g, 'α')
-        .replace(/\\beta/g, 'β')
-        .replace(/\\gamma/g, 'γ')
-        .replace(/\\delta/g, 'δ')
-        .replace(/\\pi/g, 'π')
-        .replace(/\\theta/g, 'θ')
-        .replace(/\\lambda/g, 'λ')
-        .replace(/\\mu/g, 'μ')
-        .replace(/\\sigma/g, 'σ')
-        .replace(/\\omega/g, 'ω')
-        .replace(/\\sum/g, '∑')
-        .replace(/\\int/g, '∫')
-        .replace(/\\infty/g, '∞')
-        .replace(/\\pm/g, '±')
-        .replace(/\\times/g, '×')
-        .replace(/\\div/g, '÷')
-        .replace(/\\leq/g, '≤')
-        .replace(/\\geq/g, '≥')
-        .replace(/\\neq/g, '≠')
-        .replace(/\\approx/g, '≈')
-        .replace(/\\{|\\}/g, '') // Remove escaped braces
-        .replace(/\\\\/g, ' '); // Line breaks
-    } catch (error) {
-      console.warn('LaTeX conversion failed:', error);
-      return latex;
-    }
-  }
-
-  /**
-   * Extract image data from Base64 string
-   */
-  processBase64Image(base64String: string): ImageData | null {
-    try {
-      const matches = base64String.match(/data:image\/([^;]+);base64,(.+)/);
-      if (!matches) return null;
-
-      const [, mimeType, data] = matches;
-      const buffer = Buffer.from(data, 'base64');
-
+  async processContentEnhanced(text: string): Promise<EnhancedContent> {
+    if (!text) {
       return {
-        mimeType: `image/${mimeType}`,
-        buffer,
-        size: buffer.length,
-        extension: mimeType,
+        text: '',
+        hasLatex: false,
+        hasImages: false,
+        svgFormulas: [],
+        base64Images: [],
       };
+    }
+
+    // Avval LaTeX ni qayta ishlash
+    const latexResult = await this.processLatexFormulas(text);
+
+    // Rasmlar uchun placeholderlarni tekshirish
+    const imageMatches = latexResult.text.match(/\[IMAGE_\d+\]/g) || [];
+
+    // Direct base64 images in markdown format: ![alt](data:image/...)
+    const base64ImageRegex =
+      /!\[([^\]]*)\]\((data:image\/[^;]+;base64,[^)]+)\)/g;
+    const base64Images: Base64Image[] = [];
+    let processedText = latexResult.text;
+    let match;
+    let imageIndex = 0;
+
+    while ((match = base64ImageRegex.exec(latexResult.text)) !== null) {
+      const [fullMatch, alt, dataUrl] = match;
+      const placeholder = ``;
+
+      // Extract dimensions from alt text if present (format: alt|width: 100px; height: 100px)
+      let width: number | undefined;
+      let height: number | undefined;
+
+      if (alt.includes('|')) {
+        const [altText, dimensions] = alt.split('|');
+        const widthMatch = dimensions.match(/width:\s*(\d+)px/);
+        const heightMatch = dimensions.match(/height:\s*(\d+)px/);
+
+        if (widthMatch) width = parseInt(widthMatch[1]);
+        if (heightMatch) height = parseInt(heightMatch[1]);
+      }
+
+      base64Images.push({
+        placeholder,
+        original: fullMatch,
+        data: dataUrl,
+        width,
+        height,
+      });
+
+      processedText = processedText.replace(fullMatch, placeholder);
+      imageIndex++;
+    }
+
+    return {
+      text: processedText,
+      hasLatex: latexResult.hasLatex,
+      hasImages: imageMatches.length > 0 || base64Images.length > 0,
+      svgFormulas: latexResult.svgFormulas,
+      base64Images: [
+        ...imageMatches.map((ph) => ({
+          placeholder: ph,
+          original: ph,
+          data: '',
+        })),
+        ...base64Images,
+      ],
+    };
+  }
+
+  /**
+   * SVG ni PDFga joylash
+   */
+  renderSvgToPdf(
+    doc: any,
+    svg: string,
+    x: number,
+    y: number,
+    options?: any,
+  ): void {
+    try {
+      SVGtoPDFKit(doc, svg, x, y, options);
     } catch (error) {
-      console.warn('Base64 image processing failed:', error);
-      return null;
+      console.warn('Failed to render SVG to PDF:', error);
+      doc.font('Times-Roman').fontSize(12).text('[LaTeX]', x, y);
     }
   }
 
   /**
-   * Check if text contains LaTeX formulas
+   * Matndagi rasm placeholderlarini imageMap bilan almashtirish
    */
-  hasLatex(text: string): boolean {
-    return /\$\$[\s\S]*?\$\$|\$[^$\n]*?\$/.test(text);
+  mapImageData(content: any, imageMap: Record<string, string>) {
+    if (!content || !content.text) return content;
+    let newText = content.text;
+    if (content.base64Images && Array.isArray(content.base64Images)) {
+      content.base64Images = content.base64Images.map((img: any) => {
+        const data = imageMap?.[img.placeholder] || '';
+        newText = newText.replace(img.placeholder, '');
+        return { ...img, data };
+      });
+    }
+    return { ...content, text: newText };
   }
 
   /**
-   * Check if text contains Base64 images
+   * LaTeX placeholderlarini oddiy matnga aylantirish
    */
-  hasBase64Images(text: string): boolean {
-    return /data:image\/[^;]+;base64,[A-Za-z0-9+/]+=*/.test(text);
+  convertLatexToText(text: string): string {
+    if (!text) return '';
+    // [LATEX_SVG_x] ni '[LaTeX]' ga almashtiradi
+    return text.replace(/\[LATEX_SVG_\d+\]/g, '[LaTeX]');
+  }
+
+  /**
+   * Oddiy kontentni qayta ishlash (LaTeX va rasm placeholderlari)
+   */
+  processContent(text: string): any {
+    // Direct base64 images in markdown format: ![alt](data:image/...)
+    const base64ImageRegex =
+      /!\[([^\]]*)\]\((data:image\/[^;]+;base64,[^)]+)\)/g;
+    const base64Images: Base64Image[] = [];
+    let processedText = text;
+    let match;
+    let imageIndex = 0;
+
+    while ((match = base64ImageRegex.exec(text)) !== null) {
+      const [fullMatch, alt, dataUrl] = match;
+      const placeholder = ``;
+
+      // Extract dimensions from alt text if present (format: alt|width: 100px; height: 100px)
+      let width: number | undefined;
+      let height: number | undefined;
+
+      if (alt && alt.includes('|')) {
+        const dimensions = alt.split('|')[1];
+        const widthMatch = dimensions?.match(/width:\s*(\d+)px/);
+        const heightMatch = dimensions?.match(/height:\s*(\d+)px/);
+
+        if (widthMatch) width = parseInt(widthMatch[1]);
+        if (heightMatch) height = parseInt(heightMatch[1]);
+      }
+
+      base64Images.push({
+        placeholder,
+        original: fullMatch,
+        data: dataUrl,
+        width,
+        height,
+      });
+
+      processedText = processedText.replace(fullMatch, placeholder);
+      imageIndex++;
+    }
+
+    // Faqat LaTeX va rasm placeholderlarini aniqlash uchun soddalashtirilgan
+    return {
+      text: processedText,
+      hasLatex: /\$.*?\$/.test(processedText),
+      hasImages: /\[IMAGE_\d+\]/.test(processedText) || base64Images.length > 0,
+      base64Images,
+    };
   }
 }
 
-export interface ProcessedContent {
+// ---- INTERFACES ----
+
+export interface EnhancedContent {
   text: string;
   hasLatex: boolean;
   hasImages: boolean;
-  latexFormulas?: LatexFormula[];
-  base64Images?: Base64Image[];
+  svgFormulas: SvgFormula[];
+  base64Images: Base64Image[];
 }
 
-export interface LatexFormula {
+export interface ProcessedLatexContent {
+  text: string;
+  hasLatex: boolean;
+  svgFormulas: SvgFormula[];
+}
+
+export interface SvgFormula {
   placeholder: string;
-  original: string;
   formula: string;
-  rendered: string;
-  isDisplay: boolean;
+  svg: string | null;
+  isDisplay?: boolean;
 }
 
 export interface Base64Image {
   placeholder: string;
   original: string;
   data: string;
-}
-
-export interface ImageData {
-  mimeType: string;
-  buffer: Buffer;
-  size: number;
-  extension: string;
+  width?: number;
+  height?: number;
 }
