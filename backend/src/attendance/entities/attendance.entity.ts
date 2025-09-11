@@ -1,4 +1,11 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  ManyToOne,
+  CreateDateColumn,
+  UpdateDateColumn,
+} from 'typeorm';
 import { User } from '../../users/entities/user.entity';
 import { Group } from '../../groups/entities/group.entity';
 
@@ -6,7 +13,7 @@ export enum AttendanceStatus {
   PRESENT = 'present',
   ABSENT = 'absent',
   LATE = 'late',
-  EXCUSED = 'excused'
+  EXCUSED = 'excused',
 }
 
 @Entity('attendance')
@@ -29,7 +36,7 @@ export class Attendance {
   @Column({
     type: 'enum',
     enum: AttendanceStatus,
-    default: AttendanceStatus.ABSENT
+    default: AttendanceStatus.ABSENT,
   })
   status: AttendanceStatus;
 

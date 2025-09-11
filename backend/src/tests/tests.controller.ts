@@ -11,6 +11,7 @@ import {
   Query,
   Request,
   UseGuards,
+  Res,
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
@@ -19,19 +20,27 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
+import type { Response } from 'express';
 import { TestsService } from './tests.service';
 import { CreateTestDto } from './dto/create-test.dto';
 import { UpdateTestDto } from './dto/update-test.dto';
 import { TestResponseDto } from './dto/test-response.dto';
 import { TestStatsDto } from './dto/test-stats.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import {
+  TestGeneratorService,
+  type GenerateTestDto,
+} from './test-generator.service';
 
 @ApiTags('Tests')
 @Controller('tests')
 @UseGuards(JwtAuthGuard)
 @ApiBearerAuth()
 export class TestsController {
-  constructor(private readonly testsService: TestsService) {}
+  constructor(
+    private readonly testsService: TestsService,
+    private readonly testGeneratorService: TestGeneratorService,
+  ) {}
 
   @Post()
   @ApiOperation({ summary: 'Yangi test yaratish' })
@@ -127,5 +136,52 @@ export class TestsController {
   @ApiResponse({ status: 204, description: "Test muvaffaqiyatli o'chirildi" })
   async remove(@Param('id') id: number, @Request() req): Promise<void> {
     return this.testsService.remove(id, req.user.id);
+  }
+
+  @Post('generate')
+  @ApiOperation({ summary: 'Random test yaratish' })
+  @ApiResponse({
+    status: 201,
+    description: 'Test muvaffaqiyatli yaratildi',
+  })
+  async generateRandomTest(
+    @Body() generateTestDto: GenerateTestDto,
+    @Request() req,
+  ) {
+    return this.testGeneratorService.generateRandomTest(
+      generateTestDto,
+      req.user.id,
+    );
+  }
+
+  @Post('generate/:id/pdf')
+  @ApiOperation({ summary: 'Yaratilgan test uchun PDF generatsiya qilish' })
+  @ApiResponse({
+    status: 200,
+    description: 'PDF muvaffaqiyatli yaratildi',
+  })
+  async generateTestPDF(
+    @Param('id') id: string,
+    @Body()
+    body: {
+      variants: any[];
+      config: GenerateTestDto;
+      subjectName: string;
+    },
+    @Res() res: Response,
+  ) {
+    const pdfBuffer = await this.testGeneratorService.generateTestPDF(
+      body.variants as any,
+      body.config,
+      body.subjectName,
+    );
+
+    res.set({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `attachment; filename="generated_test_${id}.pdf"`,
+      'Content-Length': pdfBuffer.length,
+    });
+
+    res.send(pdfBuffer);
   }
 }

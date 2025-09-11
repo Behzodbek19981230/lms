@@ -6,7 +6,6 @@ import {
   Delete,
   Body,
   Param,
-  Query,
   UseGuards,
   Request,
   Res,
@@ -37,7 +36,7 @@ export class ExamsController {
   @ApiResponse({ status: 201, description: 'Exam created successfully' })
   async createExam(
     @Body() createExamDto: CreateExamDto,
-    @Request() req,
+    @Request() req: { user: { id: number } },
   ): Promise<Exam> {
     return this.examsService.createExam({
       ...createExamDto,
@@ -178,11 +177,15 @@ export class ExamsController {
       res.send(buffer);
 
       console.log(`PDF response sent successfully for variant ${variantId}`);
-    } catch (error) {
+    } catch (error: unknown) {
       console.error(`Error generating PDF for variant ${variantId}:`, error);
+      let errorMessage = 'Unknown error';
+      if (error && typeof error === 'object' && 'message' in error) {
+        errorMessage = (error as { message: string }).message;
+      }
       res.status(500).json({
         error: 'PDF generation failed',
-        message: error.message,
+        message: errorMessage,
         variantId,
       });
     }
