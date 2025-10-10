@@ -4,6 +4,12 @@ export enum SubjectCategory {
 	other = 'other',
 }
 
+export const SubjectCategoryLabels: Record<SubjectCategory, string> = {
+	[SubjectCategory.exact_science]: 'Aniq fanlar',
+	[SubjectCategory.social_science]: 'Ijtimoiy fanlar',
+	[SubjectCategory.other]: 'Boshqa',
+};
+
 export type SubjectType = {
 	category: SubjectCategory;
 	createdAt: string;

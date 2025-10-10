@@ -933,7 +933,7 @@ export class TestGeneratorService {
       .font('Times-Roman')
       .fontSize(8)
       .text(
-        `EduNimbus LMS • ${new Date().toLocaleDateString('uz-UZ')} • Variant: ${variant.uniqueNumber}`,
+        `EduOne LMS • ${new Date().toLocaleDateString('uz-UZ')} • Variant: ${variant.uniqueNumber}`,
         margin,
         footerY,
         {
@@ -1109,7 +1109,7 @@ export class TestGeneratorService {
       .font('Times-Roman')
       .fontSize(8)
       .text(
-        `EduNimbus LMS • Javoblar kaliti • ${new Date().toLocaleDateString('uz-UZ')}`,
+        `EduOne LMS • Javoblar kaliti • ${new Date().toLocaleDateString('uz-UZ')}`,
         margin,
         footerY,
         {

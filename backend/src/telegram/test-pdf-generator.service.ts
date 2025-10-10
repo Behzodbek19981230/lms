@@ -42,9 +42,7 @@ export class TestPDFGeneratorService {
         doc.on('end', () => resolve(Buffer.concat(chunks)));
 
         // Header
-        doc
-          .fontSize(20)
-          .text('EduNimbus Test Platformasi', { align: 'center' });
+        doc.fontSize(20).text('EduOne Test Platformasi', { align: 'center' });
         doc.moveDown();
 
         // Test Info
@@ -127,7 +125,7 @@ export class TestPDFGeneratorService {
         doc
           .fontSize(8)
           .text(
-            'Bu test EduNimbus platformasi orqali yaratilgan',
+            'Bu test EduOne platformasi orqali yaratilgan',
             50,
             doc.page.height - 50,
             { align: 'center' },

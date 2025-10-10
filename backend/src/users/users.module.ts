@@ -5,11 +5,13 @@ import { UsersService } from './users.service';
 import { UsersController } from './users.controller';
 import { Center } from 'src/centers/entities/center.entity';
 import { RolesGuard } from 'src/auth/guards/roles.guard';
+import { Log } from 'src/logs/entities/log.entity';
+import { LogsService } from 'src/logs/logs.service';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([User, Center])],
-  providers: [UsersService, RolesGuard],
+  imports: [TypeOrmModule.forFeature([User, Center, Log])],
+  providers: [UsersService, RolesGuard, LogsService],
   exports: [UsersService, TypeOrmModule],
   controllers: [UsersController],
 })
-export class UsersModule {} 
+export class UsersModule {}

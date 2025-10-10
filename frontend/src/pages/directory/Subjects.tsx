@@ -1,14 +1,20 @@
 import { request } from '@/configs/request.ts';
 import useSWR from 'swr';
-import { SubjectType } from '@/types/subject.type.ts';
+import { SubjectType, SubjectCategory, SubjectCategoryLabels } from '@/types/subject.type.ts';
 import DataTable, { Column } from '@/components/DataTable.tsx';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card.tsx';
-import { BookOpen, Pencil, Trash2 } from 'lucide-react';
+import { BookOpen, Pencil, Trash2, PlusCircle, FlaskConical } from 'lucide-react';
 import { Button } from '@/components/ui/button.tsx';
 import OpenDialogButton from '@/components/modal/OpenDialogButton.tsx';
 import { buttonProps } from '@/types/props.ts';
 import { SubjectModal } from '@/components/modal/SubjectModal.tsx';
 import { DeleteSubjectDialog } from '@/components/modal/DeleteSubjectDialog';
+import { Badge } from '@/components/ui/badge.tsx';
+import { Link } from 'react-router-dom';
+import moment from 'moment';
+import 'moment/locale/uz';
+
+moment.locale('uz');
 
 export default function Subjects() {
     const fetcher = async () => {
@@ -18,6 +24,19 @@ export default function Subjects() {
     const { data, isLoading, mutate } = useSWR('/subjects', fetcher);
 
     const subjects = data || ([] as SubjectType[]);
+
+    const renderCategory = (category?: SubjectCategory | string) => {
+        if (!category) return <Badge variant='outline'>Noma‘lum</Badge>;
+        const label = SubjectCategoryLabels[category as SubjectCategory] || String(category);
+        const colorClass =
+            category === SubjectCategory.exact_science
+                ? 'bg-blue-100 text-blue-800'
+                : category === SubjectCategory.social_science
+                ? 'bg-amber-100 text-amber-800'
+                : 'bg-gray-100 text-gray-800';
+        const cfg = { label, className: colorClass };
+        return <Badge className={cfg.className}>{cfg.label}</Badge>;
+    };
     const columns: Column<SubjectType>[] = [
         {
             header: () => 'Nomi',
@@ -29,24 +48,49 @@ export default function Subjects() {
         },
         {
             header: () => 'Kategoriya',
-            cell: (row) => row.category,
+            cell: (row) => renderCategory(row.category),
         },
         {
             header: () => 'Formulalar',
-            cell: (row) => (row.hasFormulas ? 'Ha' : 'Yo‘q'),
+            cell: (row) => (
+                <div className='flex items-center gap-2'>
+                    {row.hasFormulas ? (
+                        <Badge variant='outline' className='border-green-600 text-green-700'>
+                            <FlaskConical className='h-3 w-3 mr-1' /> LaTeX
+                        </Badge>
+                    ) : (
+                        <Badge variant='secondary' className='text-muted-foreground'>Yo‘q</Badge>
+                    )}
+                </div>
+            ),
         },
         {
             header: () => 'Yaratilgan sana',
-            cell: (row) => new Date(row.createdAt).toLocaleDateString(),
+            cell: (row) => (
+                <div className='leading-tight'>
+                    <div className='font-medium'>{moment(row.createdAt).format('DD.MM.YYYY')}</div>
+                    <div className='text-xs text-muted-foreground'>{moment(row.createdAt).fromNow()}</div>
+                </div>
+            ),
         },
         {
             header: () => 'Yangilangan sana',
-            cell: (row) => new Date(row.updatedAt).toLocaleDateString(),
+            cell: (row) => (
+                <div className='leading-tight'>
+                    <div className='font-medium'>{moment(row.updatedAt).format('DD.MM.YYYY')}</div>
+                    <div className='text-xs text-muted-foreground'>{moment(row.updatedAt).fromNow()}</div>
+                </div>
+            ),
         },
         {
             header: () => 'Amallar',
             cell: (row) => (
-                <div className='flex gap-2'>
+                <div className='flex flex-wrap gap-2'>
+                    <Button asChild variant='default' className='bg-primary hover:bg-primary/90'>
+                        <Link to={`/account/test/create?subject=${row.id}`}>
+                            <PlusCircle className='h-4 w-4 mr-1' /> Test yaratish
+                        </Link>
+                    </Button>
                     <OpenDialogButton
                         element={(props) => (
                             <Button {...props} className='bg-gradient-to-r from-primary to-secondary'>
@@ -129,7 +173,7 @@ export default function Subjects() {
             </CardHeader>
 
             <CardContent>
-                <div className='rounded-md border'>
+                <div className='rounded-lg border bg-card/50 backdrop-blur'>
                     <DataTable columns={columns} data={subjects} />
                 </div>
             </CardContent>

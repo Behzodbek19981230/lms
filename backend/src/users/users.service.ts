@@ -2,23 +2,23 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
-  Logger,
 } from '@nestjs/common';
 import type { Repository } from 'typeorm';
 import { User, UserRole } from './entities/user.entity';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Center } from 'src/centers/entities/center.entity';
 import { CreateUserDto } from './dto/create-user.dto';
+import { LogsService } from 'src/logs/logs.service';
 
 @Injectable()
 export class UsersService {
-  private readonly logger = new Logger(UsersService.name);
-
   constructor(
     @InjectRepository(User)
     private userRepository: Repository<User>,
     @InjectRepository(Center)
     private centerRepository: Repository<Center>,
+
+    private readonly logsService: LogsService,
   ) {}
 
   async create(dto: CreateUserDto): Promise<User> {
@@ -52,37 +52,63 @@ export class UsersService {
     return this.userRepository.save(user);
   }
 
-  async findAll(
-    centerId?: string,
-    role?: string,
-    includeGroups?: boolean,
-    includeSubjects?: boolean,
-    unassigned?: boolean,
-  ): Promise<User[]> {
-    const queryBuilder = this.userRepository
-      .createQueryBuilder('user')
-      .leftJoinAndSelect('user.center', 'center')
-      .leftJoinAndSelect('user.subjects', 'subjects');
+  async findAll({
+    user,
+    includeSubjects,
+    includeGroups,
+    unassigned,
+    role,
+  }: {
+    user?: User;
+    includeSubjects?: boolean;
+    includeGroups?: boolean;
+    unassigned?: boolean;
+    role?: UserRole;
+  }): Promise<User[]> {
+    if (!user) {
+      throw new BadRequestException("Foydalanuvchi ma'lumotlari mavjud emas");
+    }
 
-    if (unassigned) {
-      queryBuilder
-        .where('user.center IS NULL')
-        .andWhere('user.role != :superadmin', {
+    // Base query builder
+    const qb = this.userRepository
+      .createQueryBuilder('user')
+      .leftJoinAndSelect('user.center', 'center');
+
+    if (includeSubjects) {
+      qb.leftJoinAndSelect('user.subjects', 'subjects');
+    }
+    if (includeGroups) {
+      qb.leftJoinAndSelect('user.groups', 'groups');
+    }
+    // Note: User entity has no direct 'groups' relation; avoid joining non-existent relation
+
+    if (user.role === UserRole.SUPERADMIN) {
+      // Superadmin: may view unassigned and any center
+      if (unassigned) {
+        qb.where('user.center IS NULL').andWhere('user.role != :superadmin', {
           superadmin: UserRole.SUPERADMIN,
         });
-    } else if (centerId) {
-      queryBuilder.where('center.id = :centerId', {
-        centerId: Number(centerId),
-      });
+      }
+      if (role) {
+        qb.andWhere('user.role = :role', { role });
+      }
+      qb.orderBy('user.createdAt', 'DESC');
+      return qb.getMany();
     }
+
+    // Non-superadmin: strictly restrict to own center, ignore `unassigned`
+    if (!user.center || !user.center.id) {
+      // No center attached -> do not expose other users
+      return [];
+    }
+    qb.where('center.id = :centerId', { centerId: Number(user.center.id) });
 
     if (role) {
-      queryBuilder.andWhere('user.role = :role', { role });
+      qb.andWhere('user.role = :role', { role });
     }
 
-    queryBuilder.orderBy('user.createdAt', 'DESC');
-
-    return await queryBuilder.getMany();
+    qb.orderBy('user.createdAt', 'DESC');
+    return qb.getMany();
   }
 
   async findOne(id: number): Promise<User> {
@@ -144,7 +170,7 @@ export class UsersService {
   }
 
   async connectTelegram(userId: number, telegramUsername: string) {
-    const user = await this.findOne(userId);
+    await this.findOne(userId);
     console.log(`Connecting user ${userId} to Telegram as ${telegramUsername}`);
 
     // Here you would typically:

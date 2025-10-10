@@ -24,7 +24,7 @@ const TelegramConnect = () => {
 	const [telegramUsername, setTelegramUsername] = useState('');
 	const [loading, setLoading] = useState(false);
 	const [connecting, setConnecting] = useState(false);
-	const [botUsername, setBotUsername] = useState('@edunimbus_bot'); // This should come from config
+	const [botUsername, setBotUsername] = useState('@EduOne_bot'); // This should come from config
 
 	useEffect(() => {
 		loadTelegramStatus();

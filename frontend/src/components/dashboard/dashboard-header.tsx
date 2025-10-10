@@ -55,7 +55,7 @@ export const DashboardHeader = () => {
                         <BookOpen className='h-5 w-5 text-white' />
                     </div>
                     <span className='text-xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent'>
-                        {user.center?.name || 'EduNimbus'}
+                        {user.center?.name || 'EduOne'}
                     </span>
                 </div>
             </div>

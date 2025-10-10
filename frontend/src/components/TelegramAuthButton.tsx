@@ -70,7 +70,7 @@ export default function TelegramAuthButton({
     try {
       setLoading(true);
 
-      const userData = localStorage.getItem('edunimbus_user');
+      const userData = localStorage.getItem('EduOne_user');
       const user = userData ? JSON.parse(userData) : null;
 
       if (!user) {

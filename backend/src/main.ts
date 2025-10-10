@@ -24,10 +24,8 @@ async function bootstrap() {
 
   // Swagger documentation
   const config = new DocumentBuilder()
-    .setTitle('EduNimbus Connect API')
-    .setDescription(
-      'Backend API for EduNimbus  - Teacher Test Creation Platform',
-    )
+    .setTitle('EduOne Connect API')
+    .setDescription('Backend API for EduOne  - Teacher Test Creation Platform')
     .setVersion('1.0')
     .addBearerAuth()
     .build();
@@ -38,4 +36,5 @@ async function bootstrap() {
   const port = process.env.PORT || 3003;
   await app.listen(port);
 }
+
 bootstrap();

@@ -10,6 +10,7 @@ import { BaseEntity } from '../../common/entities/base.entity';
 import { Subject } from '../../subjects/entities/subject.entity';
 import { Test } from '../../tests/entities/test.entity';
 import { Center } from 'src/centers/entities/center.entity';
+import { Group } from 'src/groups/entities/group.entity';
 
 export enum UserRole {
   TEACHER = 'teacher',
@@ -68,6 +69,10 @@ export class User extends BaseEntity {
     inverseJoinColumn: { name: 'subjectId', referencedColumnName: 'id' },
   })
   subjects: Subject[];
+
+  // Only for students - groups they belong to (inverse side of Group.students)
+  @ManyToMany(() => Group, (group) => group.students)
+  groups: Group[];
 
   // Only for teachers - tests they created
   @OneToMany(() => Test, (test) => test.teacher)

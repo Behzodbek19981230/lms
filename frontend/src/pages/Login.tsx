@@ -9,7 +9,7 @@ import { useToast } from '@/hooks/use-toast.ts';
 import { useAuth } from '@/contexts/AuthContext.tsx';
 
 const Login = () => {
-	const [username, setUsername] = useState('teacher123');
+	const [username, setUsername] = useState('');
 	const [password, setPassword] = useState('123456');
 	const [showPassword, setShowPassword] = useState(false);
 	const [isLoading, setIsLoading] = useState(false);
@@ -96,7 +96,7 @@ const Login = () => {
 							<BookOpen className='h-8 w-8 text-primary-foreground' />
 						</div>
 					</div>
-					<h1 className='text-3xl font-bold text-foreground mb-2'>EduNimbus</h1>
+					<h1 className='text-3xl font-bold text-foreground mb-2'>EduOne</h1>
 					<p className='text-muted-foreground'>Tizimga kirish</p>
 				</div>
 

@@ -1,4 +1,4 @@
-# EduNimbus Connect Backend - Issues Fixed
+# EduOne Connect Backend - Issues Fixed
 
 ## Overview
 Bu faylda uchta asosiy muammo hal qilindi:

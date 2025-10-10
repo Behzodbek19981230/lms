@@ -1,11 +1,11 @@
 #!/bin/bash
 
-# EduNimbus Connect - CI/CD Deployment Script
+# EduOne Connect - CI/CD Deployment Script
 # PDF generatsiya bilan
 
 set -e
 
-echo "🚀 EduNimbus Connect deployment started..."
+echo "🚀 EduOne Connect deployment started..."
 
 # Colors for output
 RED='\033[0;31m'
@@ -118,7 +118,7 @@ NODE_ENV=production
 PORT=3000
 
 # Database
-DATABASE_URL=postgresql://username:password@localhost:5432/edunimbus
+DATABASE_URL=postgresql://username:password@localhost:5432/EduOne
 
 # JWT
 JWT_SECRET=your-production-jwt-secret
@@ -160,7 +160,7 @@ if command -v nginx &> /dev/null; then
     print_status "Configuring Nginx..."
     
     # Create nginx config for the app
-    sudo tee /etc/nginx/sites-available/edunimbus << EOF
+    sudo tee /etc/nginx/sites-available/EduOne << EOF
 server {
     listen 80;
     server_name your-domain.com;
@@ -192,7 +192,7 @@ server {
 EOF
     
     # Enable site
-    sudo ln -sf /etc/nginx/sites-available/edunimbus /etc/nginx/sites-enabled/
+    sudo ln -sf /etc/nginx/sites-available/EduOne /etc/nginx/sites-enabled/
     sudo nginx -t && sudo systemctl reload nginx || print_warning "Nginx config error"
 fi
 
@@ -203,7 +203,7 @@ print_status "Setting up PM2 processes..."
 cat > ecosystem.config.js << EOF
 module.exports = {
   apps: [{
-    name: 'edunimbus-backend',
+    name: 'EduOne-backend',
     script: 'backend/dist/main.js',
     cwd: '$(pwd)',
     instances: 'max',
@@ -227,7 +227,7 @@ EOF
 mkdir -p logs
 
 # Stop existing processes
-pm2 delete edunimbus-backend 2>/dev/null || true
+pm2 delete EduOne-backend 2>/dev/null || true
 
 # Start application
 print_status "Starting application with PM2..."
@@ -259,9 +259,9 @@ fi
 # 8. System service setup (alternative to PM2)
 print_status "Creating systemd service (backup option)..."
 
-sudo tee /etc/systemd/system/edunimbus.service << EOF
+sudo tee /etc/systemd/system/EduOne.service << EOF
 [Unit]
-Description=EduNimbus Connect Backend
+Description=EduOne Connect Backend
 After=network.target
 
 [Service]
@@ -281,11 +281,11 @@ WantedBy=multi-user.target
 EOF
 
 sudo systemctl daemon-reload
-sudo systemctl enable edunimbus
+sudo systemctl enable EduOne
 
 print_status "Deployment completed successfully!"
 print_status "Application is running with PM2"
-print_status "Systemd service 'edunimbus' is available as backup"
+print_status "Systemd service 'EduOne' is available as backup"
 
 # 9. Show final status
 echo ""

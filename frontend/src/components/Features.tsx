@@ -77,7 +77,7 @@ const Features = () => {
             Kuchli funksiyalar
           </h2>
           <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
-            EduNimbus o'quv markazlaringizni samarali boshqarish uchun barcha kerakli vositalarni taqdim etadi
+            EduOne o'quv markazlaringizni samarali boshqarish uchun barcha kerakli vositalarni taqdim etadi
           </p>
         </div>
 

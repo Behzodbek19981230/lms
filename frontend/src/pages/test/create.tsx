@@ -178,7 +178,6 @@ export default function CreateTestPage() {
 					points: q.points,
 					order: idx,
 					hasFormula: !!selectedSubject?.hasFormulas,
-					imageBase64: undefined,
 					testid: Number(testId),
 					answers: isMC
 						? (q.options || []).map((opt: string, i: number) => ({

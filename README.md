@@ -1,6 +1,6 @@
-# EduNimbus Connect - LMS System
+# EduOne Connect - LMS System
 
-EduNimbus Connect - bu zamonaviy ta'lim boshqaruv tizimi (LMS) bo'lib, Telegram integratsiyasi va zamonaviy texnologiyalar bilan ishlab chiqilgan.
+EduOne Connect - bu zamonaviy ta'lim boshqaruv tizimi (LMS) bo'lib, Telegram integratsiyasi va zamonaviy texnologiyalar bilan ishlab chiqilgan.
 
 ## 🚀 Yangi Xususiyatlar
 
@@ -64,7 +64,7 @@ npm install
 **Backend (.env):**
 ```env
 # Database
-DATABASE_URL="postgresql://username:password@localhost:5432/edunimbus"
+DATABASE_URL="postgresql://username:password@localhost:5432/EduOne"
 
 # JWT
 JWT_SECRET="your-jwt-secret-here"
@@ -86,7 +86,7 @@ cd backend
 npm run migration:run
 
 # Yoki SQL script bilan
-psql -d edunimbus -f ../database_migration_email_to_username.sql
+psql -d EduOne -f ../database_migration_email_to_username.sql
 ```
 
 ### 4. Ishga tushirish
@@ -210,4 +210,4 @@ Savollar yoki takliflar bo'lsa, Issue oching yoki Pull Request yuboring.
 
 ---
 
-**EduNimbus Connect Team** 🎓
+**EduOne Connect Team** 🎓

@@ -66,10 +66,11 @@ export class UsersController {
   ): Promise<User> {
     // Force the centerId to the admin's center
     const hashedPassword = await bcrypt.hash(dto.password, 12);
+    const currentUser = req.user as { center?: { id?: number } | null };
     return this.usersService.create({
       ...dto,
       password: hashedPassword,
-      centerId: Number(centerId) || req.user.center?.id,
+      centerId: Number(centerId) || (currentUser.center?.id ?? undefined),
     } as CreateUserDto);
   }
 
@@ -82,14 +83,14 @@ export class UsersController {
     const hashedPassword = await bcrypt.hash(dto.password, 12);
 
     // Fetch fresh admin with center to avoid missing center in token payload
-    const me = await this.usersService.findOne(req.user.id);
+    const currentUser = req.user as { id: number };
+    const me = await this.usersService.findOne(Number(currentUser.id));
 
     if (!me.center?.id) {
       throw new BadRequestException(
         "Admin foydalanuvchisi hech qanday markazga bog'lanmagan",
       );
     }
-    console.log();
 
     return this.usersService.create({
       ...dto,
@@ -103,31 +104,21 @@ export class UsersController {
   @ApiOperation({ summary: 'Get users list with optional filters' })
   @ApiResponse({ status: 200, description: 'Users list' })
   async getUsers(
-    @Query('role') role?: string,
-    @Query('centerId') centerId?: string,
-    @Query('includeGroups') includeGroups?: string,
+    @Query('role') role?: UserRole,
     @Query('includeSubjects') includeSubjects?: string,
+    @Query('includeGroups') includeGroups?: string,
     @Query('unassigned') unassigned?: string,
     @Request() req?,
   ) {
-    // For center admins and teachers, automatically filter by their center (unless unassigned is requested)
-    let effectiveCenterId = centerId;
-    if (
-      (req.user.role === UserRole.ADMIN ||
-        req.user.role === UserRole.TEACHER) &&
-      req.user.center?.id &&
-      unassigned !== 'true'
-    ) {
-      effectiveCenterId = req.user.center.id.toString();
-    }
+    const currentUser = req.user as User;
 
-    return this.usersService.findAll(
-      effectiveCenterId,
-      role,
-      includeGroups === 'true',
-      includeSubjects === 'true',
-      unassigned === 'true',
-    );
+    return this.usersService.findAll({
+      user: currentUser,
+      includeSubjects: includeSubjects === 'true',
+      includeGroups: includeGroups === 'true',
+      unassigned: unassigned === 'true',
+      role: role,
+    });
   }
 
   @Patch(':id')
@@ -183,7 +174,8 @@ export class UsersController {
   @ApiOperation({ summary: 'Get current user telegram status' })
   @ApiResponse({ status: 200, description: 'Telegram status' })
   async getMyTelegramStatus(@Request() req) {
-    return this.usersService.getTelegramStatus(req.user.id);
+    const currentUser = req.user as { id: number };
+    return this.usersService.getTelegramStatus(Number(currentUser.id));
   }
 
   @Post('me/connect-telegram')
@@ -193,7 +185,11 @@ export class UsersController {
     @Request() req,
     @Body('telegramUsername') telegramUsername: string,
   ) {
-    return this.usersService.connectTelegram(req.user.id, telegramUsername);
+    const currentUser = req.user as { id: number };
+    return this.usersService.connectTelegram(
+      Number(currentUser.id),
+      telegramUsername,
+    );
   }
 
   @Get('me')
@@ -205,6 +201,7 @@ export class UsersController {
   })
   async findMe(@Request() req): Promise<any> {
     console.log('User ID:', req.user);
-    return this.usersService.findOne(req.user.id);
+    const currentUser = req.user as { id: number };
+    return this.usersService.findOne(Number(currentUser.id));
   }
 }

@@ -90,7 +90,7 @@ const TelegramManagement: React.FC = () => {
       setLoading(true);
       
       // Get current user from localStorage
-      const userData = localStorage.getItem('edunimbus_user');
+      const userData = localStorage.getItem('EduOne_user');
       const user = userData ? JSON.parse(userData) : null;
       setCurrentUser(user);
       

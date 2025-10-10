@@ -72,7 +72,7 @@ const SuperAdminDashboard = () => {
                         <h1 className="text-3xl font-bold bg-gradient-to-r from-primary via-accent to-primary bg-clip-text text-transparent">
                             Super Admin Panel
                         </h1>
-                        <p className="text-muted-foreground animate-fade-in" style={{animationDelay: '0.2s'}}>EduNimbus platformasini boshqarish</p>
+                        <p className="text-muted-foreground animate-fade-in" style={{animationDelay: '0.2s'}}>EduOne platformasini boshqarish</p>
                     </div>
                     <div className="flex items-center space-x-4 animate-slide-up" style={{animationDelay: '0.3s'}}>
                         <Button variant="outline" size="sm">

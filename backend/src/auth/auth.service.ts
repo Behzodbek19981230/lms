@@ -144,7 +144,7 @@ export class AuthService {
   async validateUser(userId: number): Promise<User> {
     const user = await this.userRepository.findOne({
       where: { id: userId },
-      relations: ['subjects'],
+      relations: ['subjects', 'center'],
     });
 
     if (!user || !user.isActive) {

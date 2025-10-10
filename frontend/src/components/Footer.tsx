@@ -11,7 +11,7 @@ const Footer = () => {
               <div className="p-2 bg-gradient-primary rounded-lg">
                 <BookOpen className="h-6 w-6 text-primary-foreground" />
               </div>
-              <span className="text-xl font-bold">EduNimbus</span>
+              <span className="text-xl font-bold">EduOne</span>
             </div>
             <p className="text-background/80 leading-relaxed">
               O'quv markazlari uchun zamonaviy e-learning SaaS platformasi. 
@@ -20,7 +20,7 @@ const Footer = () => {
             <div className="space-y-3">
               <div className="flex items-center space-x-3">
                 <Mail className="h-4 w-4 text-primary" />
-                <span className="text-background/80">info@edunimbus.uz</span>
+                <span className="text-background/80">info@EduOne.uz</span>
               </div>
               <div className="flex items-center space-x-3">
                 <Phone className="h-4 w-4 text-primary" />
@@ -70,7 +70,7 @@ const Footer = () => {
         <div className="border-t border-background/20 mt-12 pt-8">
           <div className="flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
             <p className="text-background/60 text-sm">
-              © 2024 EduNimbus. Barcha huquqlar himoyalangan.
+              © 2024 EduOne. Barcha huquqlar himoyalangan.
             </p>
             <div className="flex space-x-6">
               <a href="#privacy" className="text-background/60 hover:text-background text-sm transition-colors">

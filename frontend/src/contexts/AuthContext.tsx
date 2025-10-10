@@ -26,12 +26,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
 	useEffect(() => {
 		// Check if user is logged in from localStorage
-		const storedUser = localStorage.getItem('edunimbus_user');
+		const storedUser = localStorage.getItem('EduOne_user');
 		if (storedUser) {
 			try {
 				setUser(JSON.parse(storedUser));
 			} catch (error) {
-				localStorage.removeItem('edunimbus_user');
+				localStorage.removeItem('EduOne_user');
 			}
 		}
 		setIsLoading(false);
@@ -53,7 +53,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 				return null;
 			}
 			localStorage.setItem('e_token', data.access_token);
-			localStorage.setItem('edunimbus_user', JSON.stringify(data.user));
+			localStorage.setItem('EduOne_user', JSON.stringify(data.user));
 
 			setUser({
 				...data.user,
@@ -86,7 +86,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 				return null;
 			}
 			localStorage.setItem('e_token', data.access_token);
-			localStorage.setItem('edunimbus_user', JSON.stringify(data.user));
+			localStorage.setItem('EduOne_user', JSON.stringify(data.user));
 
 			setUser({
 				...data.user,
@@ -103,7 +103,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
 	const logout = () => {
 		setUser(null);
-		localStorage.removeItem('edunimbus_user');
+		localStorage.removeItem('EduOne_user');
 		localStorage.removeItem('e_token');
 	};
 

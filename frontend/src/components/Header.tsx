@@ -13,7 +13,7 @@ const Header = () => {
                     <div className="p-2 bg-gradient-primary rounded-lg">
                         <BookOpen className="h-6 w-6 text-primary-foreground"/>
                     </div>
-                    <span className="text-xl font-bold text-foreground">EduNimbus</span>
+                    <span className="text-xl font-bold text-foreground">EduOne</span>
                 </div>
 
                 {/* Desktop Navigation */}

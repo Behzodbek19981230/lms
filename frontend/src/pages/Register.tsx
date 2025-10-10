@@ -83,7 +83,7 @@ const Register = () => {
 							<BookOpen className='h-8 w-8 text-primary-foreground' />
 						</div>
 					</div>
-					<h1 className='text-3xl font-bold text-foreground mb-2'>EduNimbus</h1>
+					<h1 className='text-3xl font-bold text-foreground mb-2'>EduOne</h1>
 					<p className='text-muted-foreground'>Ro'yxatdan o'tish</p>
 				</div>
 
