@@ -13,6 +13,7 @@ import { AuthProvider } from '@/contexts/AuthContext.tsx';
 import CreateTestPage from '@/pages/test/create.tsx';
 import SubjectTests from '@/pages/test/subject-tests.tsx';
 import TestQuestions from '@/pages/test/test-questions.tsx';
+import TestEditPage from '@/pages/test/edit';
 import Subjects from '@/pages/directory/Subjects.tsx';
 import SuperAdminDashboard from './pages/SuperAdminDashboard';
 import CenterAdminDashboard from './pages/CenterAdminDashboard';
@@ -71,6 +72,7 @@ const App = () => (
 							<Route path='exams/:examId/variants' element={<ExamVariants />} />
 							<Route path='test-generator' element={<TestGeneratorPage />} />
 							<Route path='test/create' element={<CreateTestPage />} />
+							<Route path='test/edit/:testId' element={<TestEditPage />} />
 							<Route path='subject/:subjectId/tests' element={<SubjectTests />} />
 							<Route path='test/:testId/questions' element={<TestQuestions />} />
 							<Route path='subjects' element={<Subjects />} />

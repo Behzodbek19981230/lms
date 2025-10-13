@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { request } from '@/configs/request';
 import type { SubjectType } from '@/types/subject.type';
 import { Pencil, Trash2 } from 'lucide-react';
+import PageLoader from '@/components/PageLoader';
 
 type UserLite = { id: number; firstName: string; lastName: string; role: string };
 
@@ -28,6 +29,7 @@ const GroupsPage = () => {
     const [subjects, setSubjects] = useState<SubjectType[]>([]);
     const [open, setOpen] = useState(false);
     const [loading, setLoading] = useState(false);
+    const [isLoading, setIsLoading] = useState(false);
     const [editId, setEditId] = useState<number | null>(null);
     const [form, setForm] = useState({
         name: '',
@@ -41,6 +43,7 @@ const GroupsPage = () => {
 
     const load = async () => {
         try {
+            setIsLoading(true);
             const [{ data: groupsRes }, { data: subjectsRes }] = await Promise.all([
                 request.get('/groups/me'),
                 request.get('/subjects'),
@@ -48,6 +51,9 @@ const GroupsPage = () => {
             setGroups(groupsRes || []);
             setSubjects(subjectsRes || []);
         } catch { }
+        finally {
+            setIsLoading(false);
+        }
     };
 
     const loadStudents = async () => {
@@ -64,6 +70,10 @@ const GroupsPage = () => {
 
     const selectedCount = form.studentIds.length;
     const canSubmit = form.name && form.daysOfWeek.length > 0 && form.startTime && form.endTime;
+
+    if (isLoading) {
+        return <PageLoader title='Guruh ma’lumotlari yuklanmoqda...' fullscreen={false} className='rounded-lg' />;
+    }
 
     return (
         <div className="p-6">
@@ -185,6 +195,8 @@ const GroupsPage = () => {
                     </DialogContent>
                 </Dialog>
             </div>
+
+
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {groups.map(g => (

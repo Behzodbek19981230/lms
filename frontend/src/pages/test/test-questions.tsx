@@ -36,6 +36,7 @@ import { request } from '@/configs/request';
 import { Test, TestStatus, TestTypeEnum } from '@/types/test.type';
 import { useAuth } from '@/contexts/AuthContext';
 import moment from 'moment';
+import PageLoader from '@/components/PageLoader';
 
 interface Question {
 	id: number;
@@ -70,9 +71,16 @@ export default function TestQuestions() {
 	const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
 	const [editingQuestion, setEditingQuestion] = useState<Question | null>(null);
 	const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-	const [questionForm, setQuestionForm] = useState({
+	type QuestionForm = {
+		text: string;
+		type: Question['type'];
+		points: number;
+		answers: { text: string; isCorrect: boolean; order: number }[];
+	};
+
+	const [questionForm, setQuestionForm] = useState<QuestionForm>({
 		text: '',
-		type: 'multiple_choice' as const,
+		type: 'multiple_choice',
 		points: 1,
 		answers: [{ text: '', isCorrect: false, order: 0 }],
 	});
@@ -109,14 +117,13 @@ export default function TestQuestions() {
 
 	const handleAddQuestion = async () => {
 		try {
+			const isFreeText = questionForm.type === 'essay' || questionForm.type === 'short_answer';
 			const questionData = {
 				text: questionForm.text,
 				type: questionForm.type,
 				points: questionForm.points,
 				testid: parseInt(testId!),
-				answers: (['essay', 'short_answer'] as const).includes(questionForm.type)
-					? undefined
-					: questionForm.answers,
+				answers: isFreeText ? undefined : questionForm.answers,
 			};
 
 			const response = await request.post('/questions', questionData);
@@ -146,14 +153,13 @@ export default function TestQuestions() {
 		if (!editingQuestion) return;
 
 		try {
+			const isFreeText = questionForm.type === 'essay' || questionForm.type === 'short_answer';
 			const questionData = {
 				text: questionForm.text,
 				type: questionForm.type,
 				points: questionForm.points,
 				testid: parseInt(testId!),
-				answers: (['essay', 'short_answer'] as const).includes(questionForm.type)
-					? undefined
-					: questionForm.answers,
+				answers: isFreeText ? undefined : questionForm.answers,
 			};
 
 			const response = await request.patch(`/questions/${editingQuestion.id}`, questionData);
@@ -498,13 +504,7 @@ export default function TestQuestions() {
 	};
 
 	if (isLoading) {
-		return (
-			<div className='min-h-screen bg-gradient-subtle flex items-center justify-center'>
-				<div className='text-center'>
-					<div className='text-lg text-muted-foreground'>Yuklanmoqda...</div>
-				</div>
-			</div>
-		);
+		return <PageLoader title='Test savollari yuklanmoqda...' />;
 	}
 
 	if (errorMessage) {
@@ -769,9 +769,7 @@ export default function TestQuestions() {
 										</div>
 
 										{/* Answer Options */}
-										{(questionForm.type === 'multiple_choice' ||
-											questionForm.type === 'true_false' ||
-											questionForm.type === 'fill_blank') && (
+										{needsAnswers(questionForm.type) && (
 											<div className='space-y-2'>
 												<Label>Javoblar</Label>
 												<div className='space-y-2'>
@@ -1128,7 +1126,7 @@ export default function TestQuestions() {
 							</div>
 						</div>
 
-						{questionForm.type !== 'essay' && questionForm.type !== 'short_answer' && (
+						{needsAnswers(questionForm.type) && (
 							<div>
 								<Label>Javoblar</Label>
 								<div className='space-y-2'>
@@ -1207,16 +1205,19 @@ export default function TestQuestions() {
 								<Label htmlFor='edit-type'>Savol turi</Label>
 								<Select
 									value={questionForm.type}
-									onValueChange={(value: any) => setQuestionForm({ ...questionForm, type: value })}
+									onValueChange={(value: Question['type']) =>
+										setQuestionForm({ ...questionForm, type: value })
+									}
 								>
 									<SelectTrigger>
 										<SelectValue />
 									</SelectTrigger>
 									<SelectContent>
 										<SelectItem value='multiple_choice'>Ko'p tanlovli</SelectItem>
-										<SelectItem value='single_choice'>Bitta tanlovli</SelectItem>
-										<SelectItem value='open_ended'>Ochiq savol</SelectItem>
 										<SelectItem value='true_false'>To'g'ri/Noto'g'ri</SelectItem>
+										<SelectItem value='essay'>Ochiq savol</SelectItem>
+										<SelectItem value='short_answer'>Qisqa javob</SelectItem>
+										<SelectItem value='fill_blank'>Bo'sh joyni to'ldirish</SelectItem>
 									</SelectContent>
 								</Select>
 							</div>

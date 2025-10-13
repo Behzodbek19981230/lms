@@ -1,13 +1,13 @@
 export enum TestTypeEnum {
-	OPEN = 'OPEN',
-	CLOSED = 'CLOSED',
-	MIXED = 'MIXED',
+	OPEN = 'open',
+	CLOSED = 'closed',
+	MIXED = 'mixed',
 }
 
 export enum TestStatus {
-	DRAFT = 'DRAFT',
-	PUBLISHED = 'PUBLISHED',
-	ARCHIVED = 'ARCHIVED',
+	DRAFT = 'draft',
+	PUBLISHED = 'published',
+	ARCHIVED = 'archived',
 }
 
 export type Test = {

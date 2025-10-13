@@ -25,9 +25,10 @@ import {
 } from 'lucide-react';
 import { request } from '@/configs/request';
 import { Test, TestStatus, TestTypeEnum } from '@/types/test.type';
-import type { SubjectType } from '@/types/subject.type';
+import { SubjectCategoryLabels, type SubjectType } from '@/types/subject.type';
 import { useAuth } from '@/contexts/AuthContext';
 import moment from 'moment';
+import PageLoader from '@/components/PageLoader';
 
 export default function SubjectTests() {
 	const { subjectId } = useParams();
@@ -153,13 +154,7 @@ export default function SubjectTests() {
 	};
 
 	if (isLoading) {
-		return (
-			<div className='min-h-screen bg-gradient-subtle flex items-center justify-center'>
-				<div className='text-center'>
-					<div className='text-lg text-muted-foreground'>Yuklanmoqda...</div>
-				</div>
-			</div>
-		);
+		return <PageLoader title='Fan va testlar yuklanmoqda...' />;
 	}
 
 	if (errorMessage) {
@@ -214,7 +209,7 @@ export default function SubjectTests() {
 							</div>
 							<div>
 								<Label className='text-sm text-muted-foreground'>Kategoriya</Label>
-								<p className='font-medium'>{subject?.category}</p>
+								<p className='font-medium'>{SubjectCategoryLabels[subject?.category]}</p>
 							</div>
 							<div>
 								<Label className='text-sm text-muted-foreground'>Testlar soni</Label>

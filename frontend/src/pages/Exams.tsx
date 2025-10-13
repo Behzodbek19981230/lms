@@ -36,6 +36,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { telegramService } from '@/services/telegram.service';
 import { useToast } from '@/components/ui/use-toast';
 import moment from 'moment';
+import PageLoader from '@/components/PageLoader';
 
 interface Exam {
 	id: number;
@@ -362,13 +363,7 @@ export default function ExamsPage() {
 	};
 
 	if (isLoading) {
-		return (
-			<div className='min-h-screen bg-gradient-subtle flex items-center justify-center'>
-				<div className='text-center'>
-					<div className='text-lg text-muted-foreground'>Yuklanmoqda...</div>
-				</div>
-			</div>
-		);
+		return <PageLoader title='Imtihonlar yuklanmoqda...' />;
 	}
 
 	if (errorMessage) {

@@ -7,6 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useAuth } from '@/contexts/AuthContext';
 import { ArrowLeft, Download, Users, FileText, Calendar, Clock, Settings, Loader2 } from 'lucide-react';
+import PageLoader from '@/components/PageLoader';
 import moment from 'moment';
 import { request } from '@/configs/request';
 import { useToast } from '@/components/ui/use-toast';
@@ -203,14 +204,7 @@ const ExamDetail: React.FC = () => {
 	};
 
 	if (loading) {
-		return (
-			<div className='flex items-center justify-center min-h-screen'>
-				<div className='flex items-center space-x-2'>
-					<Loader2 className='h-6 w-6 animate-spin text-primary' />
-					<div className='text-lg'>Imtihon ma'lumotlari yuklanmoqda...</div>
-				</div>
-			</div>
-		);
+		return <PageLoader title="Imtihon ma'lumotlari yuklanmoqda..." />;
 	}
 
 	if (error) {

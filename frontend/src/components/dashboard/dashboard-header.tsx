@@ -54,7 +54,7 @@ export const DashboardHeader = () => {
                     <div className='w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-secondary flex items-center justify-center'>
                         <BookOpen className='h-5 w-5 text-white' />
                     </div>
-                    <span className='text-xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent'>
+                    <span className='text-xl font-bold bg-primary  bg-clip-text text-transparent'>
                         {user.center?.name || 'EduOne'}
                     </span>
                 </div>

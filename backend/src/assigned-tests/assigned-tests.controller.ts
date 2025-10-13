@@ -1,4 +1,13 @@
-import { Body, Controller, Get, Param, Post, Request, Res, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Post,
+  Request,
+  Res,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AssignedTestsService } from './assigned-tests.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -12,14 +21,18 @@ export class AssignedTestsController {
   constructor(private readonly service: AssignedTestsService) {}
 
   @Get()
-  @ApiOperation({ summary: 'O\'qituvchining blok testlarini olish' })
+  @ApiOperation({ summary: "O'qituvchining blok testlarini olish" })
   async getMyAssignedTests(@Request() req) {
     return this.service.getMyAssignedTests(req.user.id);
   }
 
   @Get(':id/pdf')
   @ApiOperation({ summary: 'Blok testni PDF formatida yuklab olish' })
-  async downloadPdf(@Param('id') id: string, @Request() req, @Res() res: Response) {
+  async downloadPdf(
+    @Param('id') id: string,
+    @Request() req,
+    @Res() res: Response,
+  ) {
     const pdfBuffer = await this.service.generatePdf(Number(id), req.user.id);
     res.set({
       'Content-Type': 'application/pdf',
@@ -30,7 +43,7 @@ export class AssignedTestsController {
   }
 
   @Get(':id/answers')
-  @ApiOperation({ summary: 'Blok test javoblarini ko\'rish' })
+  @ApiOperation({ summary: "Blok test javoblarini ko'rish" })
   async getAnswers(@Param('id') id: string, @Request() req) {
     return this.service.getTestAnswers(Number(id), req.user.id);
   }
@@ -39,7 +52,13 @@ export class AssignedTestsController {
   @ApiOperation({ summary: 'Guruh uchun blok test generatsiya qilish' })
   async generate(
     @Body()
-    body: { baseTestId: number; groupId: number; numQuestions: number; shuffleAnswers?: boolean; title?: string },
+    body: {
+      baseTestId: number;
+      groupId: number;
+      numQuestions: number;
+      shuffleAnswers?: boolean;
+      title?: string;
+    },
     @Request() req,
   ) {
     return this.service.generate(body, req.user.id);

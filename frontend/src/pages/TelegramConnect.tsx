@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import PageLoader from '@/components/PageLoader';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -95,15 +96,7 @@ const TelegramConnect = () => {
 	};
 
 	if (loading) {
-		return (
-			<div className='min-h-screen bg-gradient-subtle flex items-center justify-center p-4'>
-				<Card className='w-full max-w-md'>
-					<CardContent className='flex items-center justify-center py-8'>
-						<p>Telegram holat yuklanmoqda...</p>
-					</CardContent>
-				</Card>
-			</div>
-		);
+		return <PageLoader title='Telegram holati yuklanmoqda...' />;
 	}
 
 	return (

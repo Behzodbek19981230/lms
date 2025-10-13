@@ -3,7 +3,7 @@ import useSWR from 'swr';
 import { SubjectType, SubjectCategory, SubjectCategoryLabels } from '@/types/subject.type.ts';
 import DataTable, { Column } from '@/components/DataTable.tsx';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card.tsx';
-import { BookOpen, Pencil, Trash2, PlusCircle, FlaskConical } from 'lucide-react';
+import { BookOpen, Pencil, Trash2, PlusCircle, FlaskConical, Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button.tsx';
 import OpenDialogButton from '@/components/modal/OpenDialogButton.tsx';
 import { buttonProps } from '@/types/props.ts';
@@ -12,6 +12,7 @@ import { DeleteSubjectDialog } from '@/components/modal/DeleteSubjectDialog';
 import { Badge } from '@/components/ui/badge.tsx';
 import { Link } from 'react-router-dom';
 import moment from 'moment';
+import PageLoader from '@/components/PageLoader';
 import 'moment/locale/uz';
 
 moment.locale('uz');
@@ -86,14 +87,15 @@ export default function Subjects() {
             header: () => 'Amallar',
             cell: (row) => (
                 <div className='flex flex-wrap gap-2'>
-                    <Button asChild variant='default' className='bg-primary hover:bg-primary/90'>
-                        <Link to={`/account/test/create?subject=${row.id}`}>
-                            <PlusCircle className='h-4 w-4 mr-1' /> Test yaratish
+                    <Button asChild variant='default' className='bg-green-600 hover:bg-green-700'>
+                        <Link to={`/account/subject/${row.id}/tests`}>
+                            <Eye className='h-4 w-4 mr-1' /> 
                         </Link>
                     </Button>
+
                     <OpenDialogButton
                         element={(props) => (
-                            <Button {...props} className='bg-gradient-to-r from-primary to-secondary'>
+                            <Button {...props} className=' from-primary to-secondary'>
                                 <Pencil className='h-4 w-4' />
                             </Button>
                         )}
@@ -134,7 +136,7 @@ export default function Subjects() {
     ];
 
     if (isLoading) {
-        return <div>Yuklanmoqda...</div>;
+        return <PageLoader title='Fanlar yuklanmoqda...' />;
     }
 
     return (
