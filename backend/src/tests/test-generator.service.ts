@@ -15,6 +15,8 @@ import {
 } from './entities/generated-test.entity';
 import { LatexProcessorService } from './latex-processor.service';
 import { LogsService } from 'src/logs/logs.service';
+import { promises as fs } from 'fs';
+import { join } from 'path';
 
 export interface GenerateTestDto {
   title: string;
@@ -52,6 +54,246 @@ export class TestGeneratorService {
     private latexProcessor: LatexProcessorService,
     private logService: LogsService,
   ) {}
+
+  /**
+   * Generate printable HTML files for provided variants and return public URLs
+   */
+  async generatePrintableHtmlFiles(input: {
+    variants: TestVariant[];
+    config: GenerateTestDto;
+    subjectName: string;
+    teacherId: number;
+  }): Promise<{
+    files: { variantNumber: string; url: string; fileName: string }[];
+    title: string;
+  }> {
+    const title = input.config.title || `${input.subjectName} testi`;
+    const timestamp = Date.now();
+    const publicDir = this.getPublicDir();
+    await fs.mkdir(publicDir, { recursive: true });
+
+    const slug = (s: string) =>
+      (s || '')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/(^-|-$)/g, '')
+        .substring(0, 80);
+
+    const files: {
+      variantNumber: string;
+      url: string;
+      fileName: string;
+    }[] = [];
+
+    for (const variant of input.variants) {
+      const inner = this.buildVariantHtml(variant, input);
+      const pageTitle = `${title} — Variant ${variant.variantNumber}`;
+      const html = this.wrapHtmlForBrowser(inner, pageTitle);
+
+      const fileName = `${slug(title)}-variant-${slug(variant.variantNumber)}-${timestamp}.html`;
+      const absolutePath = join(publicDir, fileName);
+      await fs.writeFile(absolutePath, html, 'utf8');
+      const url = `/print/${fileName}`;
+      files.push({ variantNumber: variant.variantNumber, url, fileName });
+    }
+
+    return { files, title };
+  }
+
+  private getPublicDir(): string {
+    return join(__dirname, '..', '..', 'public');
+  }
+
+  private buildVariantHtml(
+    variant: TestVariant,
+    ctx: { config: GenerateTestDto; subjectName: string },
+  ): string {
+    const header = `
+      <div class="header">
+        <div class="title">${escapeHtml(
+          ctx.config.title || `${ctx.subjectName} testi`,
+        )}</div>
+        <div class="subtitle">Variant: ${escapeHtml(
+          variant.variantNumber,
+        )}</div>
+        <div class="meta">Sana: ${new Date().toLocaleDateString('uz-UZ')}</div>
+      </div>`;
+
+    const questionsHtml = (variant.questions || [])
+      .map((q, idx) => {
+        const points = typeof q.points === 'number' ? q.points : 1;
+        const textProcessed = this.extractImageFromText(q.text || '');
+        const qText = escapeHtml(textProcessed.cleanedText);
+        const imgHtml = textProcessed.imageDataUri
+          ? `<div class="image-container"><img class="q-image" src="${textProcessed.imageDataUri}" style="${textProcessed.imageStyles || ''}" alt="Savol rasmi" /></div>`
+          : q.imageBase64
+            ? `<div class="image-container"><img class="q-image" src="${q.imageBase64.startsWith('data:') ? q.imageBase64 : `data:image/png;base64,${q.imageBase64}`}" alt="Savol rasmi" /></div>`
+            : '';
+
+        let answersHtml = '';
+        if (
+          q.type === QuestionType.MULTIPLE_CHOICE &&
+          Array.isArray(q.answers) &&
+          q.answers.length
+        ) {
+          answersHtml = `<div class="answers">${q.answers
+            .map((a, i) => {
+              const aProc = this.extractImageFromText(a.text || '');
+              const aText = escapeHtml(aProc.cleanedText);
+              const aImg = aProc.imageDataUri
+                ? `<div class="answer-image-container"><img class="answer-image" src="${aProc.imageDataUri}" style="${aProc.imageStyles || ''}" alt="Javob rasmi"/></div>`
+                : '';
+              return `<div class="answer">${String.fromCharCode(65 + i)}) ${aText}${aImg}</div>`;
+            })
+            .join('')}</div>`;
+        } else if (q.type === QuestionType.TRUE_FALSE) {
+          answersHtml = `<div class="answers"><div class="answer">A) To'g'ri</div><div class="answer">B) Noto'g'ri</div></div>`;
+        } else if (q.type === QuestionType.ESSAY) {
+          answersHtml = `<div class="answers"><div class="answer">Javob: ___________________________</div></div>`;
+        }
+
+        return `<div class="question">
+          <div class="q-row">
+            <div class="q-no">${idx + 1}.</div>
+            <div class="q-content">
+              <div class="q-text">${qText}</div>
+              ${imgHtml}
+              ${answersHtml}
+            </div>
+            <div class="points">[${points} ball]</div>
+          </div>
+        </div>`;
+      })
+      .join('');
+
+    return `<div class="page">${header}<div class="questions-container">${questionsHtml}</div></div>`;
+  }
+
+  private wrapHtmlForBrowser(inner: string, title: string): string {
+    return `<!DOCTYPE html>
+      <html lang="uz">
+      <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>${title}</title>
+        <link rel="preconnect" href="https://cdn.jsdelivr.net" />
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+        <style>
+          @page { size: A4; margin: 20mm; }
+          body { font-family: Times, 'Times New Roman', serif; margin: 0; padding: 0; color: #111; }
+          .toolbar { position: sticky; top: 0; background: #fff; border-bottom: 1px solid #eee; padding: 8px 12px; display:flex; gap:8px; align-items:center; z-index: 10; }
+          .toolbar button { padding: 6px 10px; font-size: 14px; }
+          .page { page-break-after: always; padding: 0 6mm; }
+          .header { text-align: center; margin-bottom: 12px; }
+          .title { font-size: 20px; font-weight: 700; margin: 0 0 6px 0; }
+          .subtitle { font-size: 12px; margin: 2px 0; color: #333; }
+          .meta { font-size: 10px; color: #666; }
+          .questions-container { column-count: 2; column-gap: 16px; column-rule: 1px solid #ddd; background-image: linear-gradient(to bottom, #ddd, #ddd); background-size: 1px 100%; background-position: 50% 0; background-repeat: no-repeat; }
+          .question { margin: 10px 0 14px 0; break-inside: avoid; break-inside: avoid-column; -webkit-column-break-inside: avoid; -moz-column-break-inside: avoid; }
+          .q-row { display: flex; align-items: flex-start; gap: 8px; }
+          .q-no { color: #cc5000; font-weight: 600; min-width: 20px; flex-shrink: 0; }
+          .q-content { flex: 1; }
+          .q-text { margin-bottom: 6px; }
+          .points { color: #666; font-size: 10px; font-weight: 500; align-self: flex-start; flex-shrink: 0; margin-left: 8px; }
+          .answers { margin-top: 6px; padding-left: 0; }
+          .answer { margin: 2px 0; }
+          .image-container { margin: 8px 0; }
+          .answer-image-container { margin: 4px 0 4px 20px; display: inline-block; }
+          .answer-image { max-width: 200px; height: auto; max-height: 150px; border: 1px solid #ddd; border-radius: 4px; margin: 2px 0; break-inside: avoid; display: inline-block; vertical-align: middle; }
+          img.q-image { max-width: 100%; height: auto; max-height: 300px; border: 1px solid #ddd; border-radius: 4px; margin: 6px 0; break-inside: avoid; display: block; }
+          @media print { .toolbar { display: none; } }
+          @media screen and (max-width: 900px) { .questions-container { column-count: 1; background: none; } }
+        </style>
+        <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+        <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+      </head>
+      <body>
+        <div class="toolbar">
+          <button onclick="window.print()">Chop etish</button>
+          <span style="color:#666; font-size:13px;">Chop etish oynasida "Save as PDF" ni tanlang.</span>
+        </div>
+        ${inner}
+        <script>
+          window.addEventListener('DOMContentLoaded', function() {
+            if (window.renderMathInElement) {
+              try {
+                window.renderMathInElement(document.body, {
+                  delimiters: [
+                    {left: '$$', right: '$$', display: true},
+                    {left: '$', right: '$', display: false},
+                    {left: '\\(', right: '\\)', display: false},
+                    {left: '\\[', right: '\\]', display: true}
+                  ],
+                  throwOnError: false
+                });
+              } catch (e) {
+                console.warn('KaTeX render error', e);
+              }
+            }
+          });
+        </script>
+      </body>
+      </html>`;
+  }
+
+  private extractImageFromText(text: string): {
+    cleanedText: string;
+    imageDataUri: string | null;
+    imageStyles?: string;
+  } {
+    if (!text) {
+      return { cleanedText: '', imageDataUri: null };
+    }
+
+    const markdownImageWithSizePattern =
+      /!\[[^\]]*\|([^\]]+)\]\((data:image\/[^\s)]+[^)]*)\)/gs;
+    let cleanedText = text;
+    let imageDataUri: string | null = null;
+    let imageStyles: string | undefined;
+
+    for (const match of text.matchAll(markdownImageWithSizePattern)) {
+      const styles = match[1];
+      let imageSrc = match[2];
+      imageSrc = this.extractDataUriFromText(imageSrc);
+      if (imageSrc && imageSrc.startsWith('data:image/') && !imageDataUri) {
+        imageDataUri = imageSrc;
+        imageStyles = this.parseImageStyles(styles);
+      }
+      cleanedText = cleanedText.replace(match[0], '');
+    }
+
+    if (!imageDataUri) {
+      const markdownImagePattern =
+        /!\[[^\]]*\]\((data:image\/[^\s)]+[^)]*)\)/gs;
+      for (const match of text.matchAll(markdownImagePattern)) {
+        let imageSrc = match[1];
+        imageSrc = this.extractDataUriFromText(imageSrc);
+        if (imageSrc && imageSrc.startsWith('data:image/') && !imageDataUri) {
+          imageDataUri = imageSrc;
+        }
+        cleanedText = cleanedText.replace(match[0], '');
+      }
+    }
+
+    cleanedText = cleanedText.replace(/!\[[^\]]*\]/g, '').trim();
+    return { cleanedText, imageDataUri, imageStyles };
+  }
+
+  private extractDataUriFromText(s: string): string {
+    if (!s) return '';
+    const cleaned = s.replace(/\s+/g, '');
+    const m = cleaned.match(/(data:image\/[^;]+;base64,[A-Za-z0-9+/=]+)/i);
+    return m ? m[1] : cleaned;
+  }
+
+  private parseImageStyles(styleString: string): string {
+    if (!styleString) return '';
+    return styleString
+      .split(';')
+      .map((x) => x.trim())
+      .filter((x) => x.length > 0)
+      .join('; ');
+  }
 
   /**
    * Generate unique 10-digit number for test variant
@@ -1065,4 +1307,15 @@ export class TestGeneratorService {
       teacherId,
     });
   }
+}
+
+// Small utility copied to keep this service self-contained
+function escapeHtml(str: string) {
+  if (!str) return '';
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
 }

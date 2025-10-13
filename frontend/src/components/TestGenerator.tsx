@@ -8,7 +8,6 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { Download, Shuffle, FileText, Printer, Calculator, Globe, Beaker, History } from "lucide-react"
-import { jsPDF } from "jspdf"
 import { request } from '@/configs/request'
 import { useToast } from '@/components/ui/use-toast'
 import { LaTeXRenderer } from '@/components/latex/latex-renderer'
@@ -280,44 +279,35 @@ export function TestGenerator({ subject }: TestGeneratorProps) {
     }
   }
 
-  const generatePDF = async () => {
+  const generateHTML = async () => {
     if (!generatedTest) return
 
     try {
-      const response = await request.post(
-        `/tests/generate/${Date.now()}/pdf`,
-        {
-          variants: generatedTest.variants,
-          config: generatedTest.config,
-          subjectName: generatedTest.subject,
-        },
-        {
-          responseType: 'blob',
-        }
-      )
-
-      // Create blob and download
-      const blob = new Blob([response.data], { type: 'application/pdf' })
-      const url = window.URL.createObjectURL(blob)
-      const link = document.createElement('a')
-      link.href = url
-      link.download = `${generatedTest.title}_Test.pdf`
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
-      window.URL.revokeObjectURL(url)
-
-      toast({
-        title: 'PDF tayyor',
-        description: 'PDF fayl muvaffaqiyatli yuklab olindi'
+      const { data } = await request.post(`/tests/generate/${Date.now()}/pdf`, {
+        variants: generatedTest.variants,
+        config: generatedTest.config,
+        subjectName: generatedTest.subject,
       })
-    } catch (error) {
-        console.log(error?.response?.data);
-        
+
+      const files: Array<{ url: string; fileName: string; variantNumber: string }> = data?.files || []
+      if (!files.length) {
+        toast({ title: 'Natija topilmadi', description: 'HTML fayllar yaratilmagan', variant: 'destructive' })
+        return
+      }
+
+      // Open the first file in a new tab, and show a toast with count
+      window.open(files[0].url, '_blank')
+      if (files.length > 1) {
+        toast({ title: 'Bir nechta variant', description: `${files.length} ta HTML yaratildi. Har birini alohida oching.` })
+      } else {
+        toast({ title: 'Tayyor', description: 'HTML chop etish sahifasi ochildi' })
+      }
+    } catch (error: any) {
+      console.log(error?.response?.data)
       toast({
         title: 'Xatolik',
-        description: 'PDF yaratishda xatolik yuz berdi',
-        variant: 'destructive'
+        description: error?.response?.data?.message || 'HTML yaratishda xatolik yuz berdi',
+        variant: 'destructive',
       })
     }
   }
@@ -550,12 +540,12 @@ export function TestGenerator({ subject }: TestGeneratorProps) {
             {generatedTest && (
               <>
                 <Button
-                  onClick={generatePDF}
+                  onClick={generateHTML}
                   variant="outline"
                   className="border-primary text-primary hover:bg-primary/5"
                 >
-                  <Download className="h-4 w-4 mr-2" />
-                  PDF ko'rish
+                  <Printer className="h-4 w-4 mr-2" />
+                  Chop etish (HTML)
                 </Button>
               </>
             )}

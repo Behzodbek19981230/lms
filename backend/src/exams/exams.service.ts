@@ -448,98 +448,6 @@ export class ExamsService {
     return variants;
   }
 
-  private renderHtmlToPdf(): Promise<Buffer> {
-    return Promise.reject(new BadRequestException('PDF generation disabled'));
-  }
-
-  private renderHtmlToPdfWithPDFKit(): Promise<Buffer> {
-    return Promise.reject(new BadRequestException('PDF generation disabled'));
-  }
-
-  private wrapHtml(inner: string, title: string): string {
-    return `<!DOCTYPE html>
-      <html lang="uz">
-      <head>
-        <meta charset="UTF-8" />
-        <title>${title}</title>
-        <link rel="preconnect" href="https://cdn.jsdelivr.net" />
-        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
-        <style>
-          @page { size: A4; margin: 20mm; }
-          body { font-family: Times, 'Times New Roman', serif; margin: 0; padding: 0; color: #111; }
-          .page { page-break-after: always; padding: 0 6mm; }
-          .question-page { page-break-after: always; padding: 0 6mm; }
-          .header { text-align: center; margin-bottom: 12px; }
-          .title { font-size: 20px; font-weight: 700; margin: 0 0 6px 0; }
-          .subtitle { font-size: 12px; margin: 2px 0; color: #333; }
-          .meta { font-size: 10px; color: #666; }
-          .questions-container { column-count: 2; column-gap: 16px; column-rule: 1px solid #ddd; background-image: linear-gradient(to bottom, #ddd, #ddd); background-size: 1px 100%; background-position: 50% 0; background-repeat: no-repeat; }
-          .question { 
-            margin: 10px 0 14px 0; 
-            break-inside: avoid;
-            break-inside: avoid-column;
-            -webkit-column-break-inside: avoid;
-            -moz-column-break-inside: avoid;
-          }
-          .q-row { display: flex; align-items: flex-start; gap: 8px; }
-          .q-no { color: #cc5000; font-weight: 600; min-width: 20px; flex-shrink: 0; }
-          .q-content { flex: 1; }
-          .q-text { margin-bottom: 6px; }
-          .points { color: #666; font-size: 10px; font-weight: 500; align-self: flex-start; flex-shrink: 0; margin-left: 8px; }
-          .answers { margin-top: 6px; padding-left: 0; }
-          .answer { margin: 2px 0; }
-          .image-container { margin: 8px 0; }
-          .answer-image-container { margin: 4px 0 4px 20px; display: inline-block; }
-          .answer-image { 
-            max-width: 200px; 
-            height: auto; 
-            max-height: 150px; 
-            border: 1px solid #ddd; 
-            border-radius: 4px; 
-            margin: 2px 0; 
-            break-inside: avoid;
-            display: inline-block;
-            vertical-align: middle;
-          }
-          .katex-display { margin: 6px 0; }
-          img.q-image { 
-            max-width: 100%; 
-            height: auto; 
-            max-height: 300px; 
-            border: 1px solid #ddd; 
-            border-radius: 4px; 
-            margin: 6px 0; 
-            break-inside: avoid;
-            display: block;
-          }
-          /* Override styles for images with custom dimensions */
-          img[style*="width"], img[style*="height"] {
-            max-width: none !important;
-            max-height: none !important;
-          }
-          .key-table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 8px; }
-          .key-table th, .key-table td { border: 1px solid #ccc; padding: 6px 8px; text-align: center; }
-          .key-table th { background: #f7f7f7; }
-          /* Title page styles */
-          .title-page { page-break-after: always; padding: 20px; text-align: center; }
-          .title-page h1 { font-size: 24px; margin: 30px 0; color: #333; }
-          .title-page h2 { font-size: 18px; margin: 20px 0; color: #666; }
-          .title-page .info { margin: 15px 0; font-size: 14px; }
-          .title-page .instructions { text-align: left; margin: 40px auto; max-width: 500px; }
-          .title-page .instructions h3 { color: #333; margin-bottom: 15px; }
-          .title-page .instructions ul { padding-left: 20px; }
-          .title-page .instructions li { margin: 8px 0; }
-          .student-info { margin: 40px auto; max-width: 400px; text-align: left; }
-          .student-info .field { margin: 20px 0; border-bottom: 1px solid #333; padding-bottom: 5px; }
-          @media screen and (max-width: 900px) { .questions-container { column-count: 1; background: none; } }
-        </style>
-      </head>
-      <body>
-        ${inner}
-      </body>
-      </html>`;
-  }
-
   private wrapHtmlForBrowser(inner: string, title: string): string {
     return `<!DOCTYPE html>
       <html lang="uz">
@@ -568,7 +476,7 @@ export class ExamsService {
             -moz-column-break-inside: avoid;
           }
           .q-row { display: flex; align-items: flex-start; gap: 8px; }
-          .q-no { color: #cc5000; font-weight: 600; min-width: 20px; flex-shrink: 0; }
+          .q-no { color: #000; font-weight: 600; min-width: 20px; flex-shrink: 0; }
           .q-content { flex: 1; }
           .q-text { margin-bottom: 6px; }
           .points { color: #666; font-size: 10px; font-weight: 500; align-self: flex-start; flex-shrink: 0; margin-left: 8px; }
@@ -1107,7 +1015,7 @@ export class ExamsService {
                   ${imgHtml}
                   ${answersHtml}
                 </div>
-                <div class="points">[${points} ball]</div>
+               
               </div>
             </div>`;
       })

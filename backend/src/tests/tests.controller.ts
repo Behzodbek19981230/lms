@@ -30,6 +30,7 @@ import {
   TestGeneratorService,
   type GenerateTestDto,
 } from './test-generator.service';
+import { TestVariant } from './test-generator.service';
 
 @ApiTags('Tests')
 @Controller('tests')
@@ -187,4 +188,32 @@ export class TestsController {
   }
 
   // PDF generation endpoint removed
+  @Post('generate/:nonce/pdf')
+  @ApiOperation({
+    summary:
+      'Deprecated PDF route: returns printable HTML links for generated variants',
+  })
+  @ApiResponse({ status: 200, description: 'Printable HTML URLs returned' })
+  async generatePrintableHtmlForGenerated(
+    @Param('nonce') _nonce: string,
+    @Body()
+    body: {
+      variants: TestVariant[];
+      config: GenerateTestDto;
+      subjectName: string;
+    },
+    @Request() req: { user: { id: number | string } },
+  ): Promise<{
+    files: { variantNumber: string; url: string; fileName: string }[];
+    title?: string;
+  }> {
+    const userId =
+      typeof req.user.id === 'string' ? parseInt(req.user.id, 10) : req.user.id;
+    return await this.testGeneratorService.generatePrintableHtmlFiles({
+      variants: body.variants,
+      config: body.config,
+      subjectName: body.subjectName,
+      teacherId: userId,
+    });
+  }
 }
