@@ -5,7 +5,7 @@ import { ExamsService } from '../exams/exams.service';
 import { AttendanceService } from '../attendance/attendance.service';
 import { PaymentsService } from '../payments/payments.service';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Between, MoreThanOrEqual } from 'typeorm';
+import { Repository, Between } from 'typeorm';
 import { Exam, ExamStatus } from '../exams/entities/exam.entity';
 import { ExamVariant } from '../exams/entities/exam-variant.entity';
 import { Payment, PaymentStatus } from '../payments/payment.entity';
@@ -28,73 +28,12 @@ export class CronJobsService {
     private paymentRepository: Repository<Payment>,
   ) {}
 
-  // Send PDFs to students every day at 8:00 AM for scheduled exams
-  @Cron(CRON_JOB_CONFIGS.DAILY_PDF_SENDER.schedule, {
-    name: 'dailyPDFSender',
-    timeZone: CRON_JOB_CONFIGS.DAILY_PDF_SENDER.timeZone,
-  })
-  async sendScheduledExamPDFs() {
-    try {
-      // Find all scheduled exams for today
-      const today = new Date();
-      const todayStart = new Date(
-        today.getFullYear(),
-        today.getMonth(),
-        today.getDate(),
-      );
-      const todayEnd = new Date(
-        today.getFullYear(),
-        today.getMonth(),
-        today.getDate() + 1,
-      );
-
-      const scheduledExams = await this.examRepository.find({
-        where: {
-          status: ExamStatus.SCHEDULED,
-          examDate: Between(todayStart, todayEnd),
-        },
-        relations: ['variants', 'variants.student'],
-      });
-
-      if (scheduledExams.length === 0) {
-        return;
-      }
-
-      let totalSent = 0;
-      let totalFailed = 0;
-
-      for (const exam of scheduledExams) {
-        try {
-          if (exam.variants && exam.variants.length > 0) {
-            const result =
-              await this.examsService.generateAndSendAllVariantsPDFs(exam.id);
-            totalSent += result.sent;
-            totalFailed += result.failed;
-
-            // Send summary notification to Telegram channels
-            const message =
-              `📚 <b>Bugungi Test PDF'lari Yuborildi</b>\n\n` +
-              `📋 <b>Test:</b> ${exam.title}\n` +
-              `✅ <b>Yuborildi:</b> ${result.sent}\n` +
-              `❌ <b>Xatolik:</b> ${result.failed}\n` +
-              `📅 <b>Sana:</b> ${new Date().toLocaleDateString()}`;
-
-            await this.telegramService.sendNotificationToChannelsAndBot(
-              message,
-            );
-          }
-        } catch (error) {}
-      }
-    } catch (error) {}
-  }
-
   // Send reminder for upcoming exams every day at 6:00 PM
   @Cron(CRON_JOB_CONFIGS.EXAM_REMINDER.schedule, {
     name: 'examReminder',
     timeZone: CRON_JOB_CONFIGS.EXAM_REMINDER.timeZone,
   })
   async sendExamReminders() {
-
     try {
       // Find exams scheduled for tomorrow
       const tomorrow = new Date();
@@ -145,77 +84,6 @@ export class CronJobsService {
       console.log(`Exam reminders completed for ${upcomingExams.length} exams`);
     } catch (error) {
       console.error('Failed to send exam reminders:', error);
-    }
-  }
-
-  // Check for new variants without PDFs every 2 hours
-  @Cron(CRON_JOB_CONFIGS.MISSING_PDF_CHECKER.schedule, {
-    name: 'missingPDFChecker',
-    timeZone: CRON_JOB_CONFIGS.MISSING_PDF_CHECKER.timeZone,
-  })
-  async checkAndSendMissingPDFs() {
-    console.log('Checking for variants without sent PDFs...');
-
-    try {
-      // Find variants that need PDFs sent (created in the last 24 hours)
-      const yesterday = new Date();
-      yesterday.setDate(yesterday.getDate() - 1);
-
-      const recentVariants = await this.examVariantRepository.find({
-        where: {
-          createdAt: MoreThanOrEqual(yesterday),
-        },
-        relations: ['student', 'exam'],
-      });
-
-      if (recentVariants.length === 0) {
-        console.log('No recent variants found');
-        return;
-      }
-
-      let sent = 0;
-      let failed = 0;
-
-      for (const variant of recentVariants) {
-        try {
-          // Check if student has Telegram account
-          const telegramStatus =
-            await this.telegramService.getUserTelegramStatus(
-              variant.student.id,
-            );
-
-          if (telegramStatus.isLinked) {
-            const result = await this.examsService.generateAndSendVariantPDF(
-              variant.id,
-            );
-            if (result.telegramSent) {
-              sent++;
-              console.log(`PDF sent for variant ${variant.variantNumber}`);
-            } else {
-              failed++;
-              console.warn(
-                `Failed to send PDF for variant ${variant.variantNumber}: ${result.message}`,
-              );
-            }
-          } else {
-            console.log(
-              `Student ${variant.student.firstName} ${variant.student.lastName} doesn't have Telegram linked`,
-            );
-          }
-
-          // Small delay between sends
-          await new Promise((resolve) => setTimeout(resolve, 1000));
-        } catch (error) {
-          failed++;
-          console.error(`Error processing variant ${variant.id}:`, error);
-        }
-      }
-
-      console.log(
-        `Missing PDF check completed: ${sent} sent, ${failed} failed`,
-      );
-    } catch (error) {
-      console.error('Failed to check missing PDFs:', error);
     }
   }
 
@@ -314,13 +182,14 @@ export class CronJobsService {
 
           // Also send to channels if configured
           const relevantChannels = await this.telegramService.getAllChats();
-          const paymentChannels = relevantChannels.filter(
-            (channel) =>
-              channel.type === 'channel' &&
-              channel.status === 'active' &&
-              (channel.center?.id === payment.group?.center?.id ||
-                !channel.center),
-          );
+          const paymentChannels = relevantChannels.filter((channel) => {
+            const isChannel = String(channel.type) === 'channel';
+            const isActive = String(channel.status) === 'active';
+            const sameCenter =
+              (channel.center?.id || null) ===
+                (payment.group?.center?.id || null) || !channel.center;
+            return isChannel && isActive && sameCenter;
+          });
 
           for (const channel of paymentChannels) {
             try {

@@ -5,7 +5,6 @@ import {
   Param,
   Post,
   Request,
-  Res,
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
@@ -22,30 +21,19 @@ export class AssignedTestsController {
 
   @Get()
   @ApiOperation({ summary: "O'qituvchining blok testlarini olish" })
-  async getMyAssignedTests(@Request() req) {
-    return this.service.getMyAssignedTests(req.user.id);
+  async getMyAssignedTests(@Request() req: { user: { id: number } }) {
+    return this.service.getMyAssignedTests(Number(req.user.id));
   }
 
-  @Get(':id/pdf')
-  @ApiOperation({ summary: 'Blok testni PDF formatida yuklab olish' })
-  async downloadPdf(
-    @Param('id') id: string,
-    @Request() req,
-    @Res() res: Response,
-  ) {
-    const pdfBuffer = await this.service.generatePdf(Number(id), req.user.id);
-    res.set({
-      'Content-Type': 'application/pdf',
-      'Content-Disposition': `attachment; filename="block-test-${id}.pdf"`,
-      'Content-Length': pdfBuffer.length,
-    });
-    res.end(pdfBuffer);
-  }
+  // PDF download endpoint removed as part of cleanup
 
   @Get(':id/answers')
   @ApiOperation({ summary: "Blok test javoblarini ko'rish" })
-  async getAnswers(@Param('id') id: string, @Request() req) {
-    return this.service.getTestAnswers(Number(id), req.user.id);
+  async getAnswers(
+    @Param('id') id: string,
+    @Request() req: { user: { id: number } },
+  ) {
+    return this.service.getTestAnswers(Number(id), Number(req.user.id));
   }
 
   @Post('generate')
@@ -59,8 +47,8 @@ export class AssignedTestsController {
       shuffleAnswers?: boolean;
       title?: string;
     },
-    @Request() req,
+    @Request() req: { user: { id: number } },
   ) {
-    return this.service.generate(body, req.user.id);
+    return this.service.generate(body, Number(req.user.id));
   }
 }

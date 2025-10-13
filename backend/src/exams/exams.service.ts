@@ -2,12 +2,12 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
-  InternalServerErrorException,
   Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-const PDFDocument = require('pdfkit');
+import { promises as fs } from 'fs';
+import { join } from 'path';
 
 import { Exam, ExamStatus, ExamType } from './entities/exam.entity';
 import { ExamVariant, ExamVariantStatus } from './entities/exam-variant.entity';
@@ -20,10 +20,11 @@ import { TestsService } from '../tests/tests.service';
 import { QuestionsService } from '../questions/questions.service';
 import { User, UserRole } from '../users/entities/user.entity';
 import { NotificationsService } from '../notifications/notifications.service';
-import { TelegramService } from '../telegram/telegram.service';
+// import { TelegramService } from '../telegram/telegram.service';
 
 import { Question, QuestionType } from '../questions/entities/question.entity';
 import { LogsService } from 'src/logs/logs.service';
+import * as katex from 'katex';
 
 export interface CreateExamDto {
   title: string;
@@ -74,7 +75,7 @@ export class ExamsService {
     private testsService: TestsService,
     private questionsService: QuestionsService,
     private notificationsService: NotificationsService,
-    private telegramService: TelegramService,
+    // private telegramService: TelegramService,
     private readonly logsService: LogsService,
   ) {}
 
@@ -146,7 +147,39 @@ export class ExamsService {
     if (exam.status !== ExamStatus.DRAFT) {
       throw new BadRequestException('Can only delete draft exams');
     }
-    await this.examRepository.remove(exam);
+
+    // Defensive cleanup to avoid FK issues in join tables or child rows
+    // 1) Delete variants first (questions will cascade via onDelete: CASCADE)
+    await this.examVariantRepository
+      .createQueryBuilder()
+      .delete()
+      .where('examId = :examId', { examId })
+      .execute();
+
+    // 2) Clear ManyToMany join tables explicitly (exam_groups, exam_subjects)
+    try {
+      await this.examRepository.query(
+        'DELETE FROM exam_groups WHERE "examId" = $1',
+        [examId],
+      );
+    } catch (e) {
+      this.logger.warn(
+        `Failed to clear exam_groups for exam ${examId}: ${e?.message || e}`,
+      );
+    }
+    try {
+      await this.examRepository.query(
+        'DELETE FROM exam_subjects WHERE "examId" = $1',
+        [examId],
+      );
+    } catch (e) {
+      this.logger.warn(
+        `Failed to clear exam_subjects for exam ${examId}: ${e?.message || e}`,
+      );
+    }
+
+    // 3) Finally remove the exam
+    await this.examRepository.delete(examId);
   }
 
   /* --------------------------------
@@ -220,22 +253,13 @@ export class ExamsService {
         studentIds,
       );
     } catch (error) {
-      this.logsService.log('Notification creation failed:', error);
+      void this.logsService.log(
+        `Notification creation failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
       // Don't fail the variant generation if notification fails
     }
 
-    // Optionally send PDFs to Telegram
-    if (generateVariantsDto.sendPDFsToTelegram) {
-      try {
-        this.logsService.log(`Sending ${variants.length} PDFs to Telegram...`);
-        // Send PDFs in background (don't wait for completion)
-        this.sendPDFsInBackground(variants);
-        this.logsService.log('PDF sending initiated in background');
-      } catch (error) {
-        this.logsService.error('Failed to initiate PDF sending:', error);
-        // Don't fail the variant generation if PDF sending fails
-      }
-    }
+    // PDF sending deprecated: no background PDF generation/sending
 
     return variants;
   }
@@ -247,6 +271,12 @@ export class ExamsService {
     randomizeQuestions: boolean,
     randomizeAnswers: boolean,
   ): Promise<void> {
+    type Answer = {
+      id: number;
+      text: string;
+      isCorrect: boolean;
+      hasFormula?: boolean;
+    };
     const variantQuestions: ExamVariantQuestion[] = [];
     let questionOrder = 1;
 
@@ -273,12 +303,12 @@ export class ExamsService {
 
       for (const question of selectedQuestions) {
         // Get answers
-        const answers = await this.questionsService.getQuestionAnswers(
+        const answers = (await this.questionsService.getQuestionAnswers(
           question.id,
-        );
+        )) as Answer[];
 
         // Shuffle answers if requested (and not essay/short)
-        let shuffledAnswers = [...answers];
+        let shuffledAnswers: Answer[] = [...answers];
         if (
           randomizeAnswers &&
           question.type !== QuestionType.ESSAY &&
@@ -304,7 +334,6 @@ export class ExamsService {
           answers: shuffledAnswers.map((answer, index) => ({
             id: answer.id,
             text: answer.text,
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
             isCorrect: answer.isCorrect,
             order: index,
             hasFormula: answer.hasFormula,
@@ -326,7 +355,6 @@ export class ExamsService {
       await this.examVariantQuestionRepository.save(variantQuestions);
     }
 
-    // Update variant totals (optional)
     await this.updateVariantTotals(variant.id);
   }
 
@@ -361,33 +389,10 @@ export class ExamsService {
     return arr;
   }
 
-  private async sendPDFsInBackground(variants: ExamVariant[]): Promise<void> {
-    // Run in background - no await needed
-    setImmediate(async () => {
-      for (const variant of variants) {
-        try {
-          await this.generateAndSendVariantPDF(variant.id);
-          // Small delay between sends to avoid overwhelming the system
-          await new Promise((resolve) => setTimeout(resolve, 1000));
-        } catch (error) {
-          this.logsService.error(
-            `Failed to send PDF for variant ${variant.id}:`,
-            error,
-          );
-        }
-      }
-      this.logsService.log(
-        `Background PDF sending completed for ${variants.length} variants`,
-      );
-    });
-  }
-
-  /* ------------------------
-       Exam statistics updater
-       ------------------------ */
+  // PDF background send removed
 
   private async updateExamStatistics(examId: number): Promise<void> {
-    const exam = await this.findById(examId);
+    // Removed redundant exam load
     const variants = await this.examVariantRepository.find({
       where: { exam: { id: examId } },
       relations: ['questions'],
@@ -395,7 +400,9 @@ export class ExamsService {
 
     const totalStudents = Array.from(
       new Set(
-        (variants || []).map((v) => (v as any).student?.id).filter(Boolean),
+        (variants || [])
+          .map((v) => (v.student ? v.student.id : undefined))
+          .filter((id): id is number => typeof id === 'number'),
       ),
     ).length;
     const completedStudents = variants.filter(
@@ -406,7 +413,7 @@ export class ExamsService {
       0,
     );
     const totalPoints = variants.reduce(
-      (sum, v) => sum + ((v as any).totalPoints || 0),
+      (sum, v) => sum + (v.totalPoints || 0),
       0,
     );
 
@@ -418,10 +425,6 @@ export class ExamsService {
     });
   }
 
-  /* ------------------------
-       Variant retrieval
-       ------------------------ */
-
   async getExamVariants(examId: number): Promise<ExamVariant[]> {
     const variants = await this.examVariantRepository.find({
       where: { exam: { id: examId } },
@@ -429,10 +432,9 @@ export class ExamsService {
       order: { variantNumber: 'ASC' },
     });
 
-    // Ensure questions are loaded for each variant
     for (const variant of variants) {
       if (!variant.questions || variant.questions.length === 0) {
-        this.logsService.warn(
+        void this.logsService.warn(
           `Loading questions separately for variant ${variant.id} in getExamVariants`,
         );
         const questions = await this.examVariantQuestionRepository.find({
@@ -446,227 +448,12 @@ export class ExamsService {
     return variants;
   }
 
-  /* ------------------------
-       PDF generation (Puppeteer + KaTeX)
-       ------------------------ */
-
-  private async renderHtmlToPdf(
-    html: string,
-    title = 'Document',
-  ): Promise<Buffer> {
-    this.logsService.log(`Starting PDF generation with PDFKit for: ${title}`);
-    return await this.renderHtmlToPdfWithPDFKit(html, title);
+  private renderHtmlToPdf(): Promise<Buffer> {
+    return Promise.reject(new BadRequestException('PDF generation disabled'));
   }
 
-  private async renderHtmlToPdfWithPDFKit(
-    html: string,
-    title = 'Document',
-  ): Promise<Buffer> {
-    this.logsService.log(`Using PDFKit PDF generation for: ${title}`);
-
-    return new Promise((resolve, reject) => {
-      try {
-        // Create a new PDFDocument
-        const doc = new PDFDocument({
-          size: 'A4',
-          margin: 50,
-          info: {
-            Title: title,
-            Author: 'Universal LMS',
-            Subject: 'Exam Document',
-            Creator: 'Universal LMS System',
-          },
-        });
-
-        const buffers: Buffer[] = [];
-
-        // Collect PDF data
-        doc.on('data', (chunk) => {
-          buffers.push(chunk);
-        });
-
-        doc.on('end', () => {
-          const finalBuffer = Buffer.concat(buffers);
-          this.logsService.log(
-            `PDFKit PDF generated successfully. Size: ${finalBuffer.length} bytes`,
-          );
-          resolve(finalBuffer);
-        });
-
-        doc.on('error', (error) => {
-          this.logsService.error('PDFKit error:', error);
-          reject(
-            new InternalServerErrorException(
-              `PDF generation failed: ${error.message}`,
-            ),
-          );
-        });
-
-        // Extract basic information from HTML
-        let examTitle = title;
-        let variantNumber = '';
-        let studentName = '';
-        let subjectName = '';
-        let questionsText = '';
-
-        // Extract title from HTML if possible
-        const titleMatch = html.match(/<title>([^<]+)<\/title>/i);
-        if (titleMatch && titleMatch[1]) {
-          examTitle = titleMatch[1];
-        }
-
-        // Extract variant information
-        const variantMatch = html.match(/Variant[:\s]*([^\n<]+)/i);
-        if (variantMatch && variantMatch[1]) {
-          variantNumber = variantMatch[1].trim();
-        }
-
-        // Extract student name
-        const studentMatch = html.match(/(?:Talaba|O'quvchi)[:\s]*([^\n<]+)/i);
-        if (studentMatch && studentMatch[1]) {
-          studentName = studentMatch[1].trim();
-        }
-
-        // Extract subject name
-        const subjectMatch = html.match(/(?:Fan|Subject)[:\s]*([^\n<]+)/i);
-        if (subjectMatch && subjectMatch[1]) {
-          subjectName = subjectMatch[1].trim();
-        }
-
-        // Extract questions with better parsing
-        const questionsMatches = html.match(
-          /<div class="question">([\s\S]*?)<\/div>/g,
-        );
-        if (questionsMatches) {
-          questionsText = questionsMatches
-            .map((q, i) => {
-              // Better HTML to text conversion
-              const cleanText = q
-                .replace(/<div class="q-no">[^<]*<\/div>/g, '') // Remove question numbers
-                .replace(/<div class="points">[^<]*<\/div>/g, '') // Remove points
-                .replace(/<[^>]*>/g, ' ') // Remove all HTML tags
-                .replace(/\s+/g, ' ') // Normalize whitespace
-                .trim();
-              return `${i + 1}. ${cleanText}`;
-            })
-            .join('\n\n');
-        }
-
-        // Set up fonts and styles
-        doc
-          .fontSize(20)
-          .font('Helvetica-Bold')
-          .text(examTitle || 'IMTIHON', { align: 'center' })
-          .moveDown(2);
-
-        if (subjectName) {
-          doc
-            .fontSize(16)
-            .font('Helvetica-Bold')
-            .text(`Fan: ${subjectName}`, { align: 'center' })
-            .moveDown(1);
-        }
-
-        if (variantNumber) {
-          doc
-            .fontSize(14)
-            .font('Helvetica')
-            .text(`Variant: ${variantNumber}`, { align: 'center' })
-            .moveDown(1);
-        }
-
-        if (studentName) {
-          doc
-            .fontSize(12)
-            .font('Helvetica')
-            .text(`Talaba: ${studentName}`, { align: 'center' })
-            .moveDown(1);
-        }
-
-        doc
-          .fontSize(10)
-          .font('Helvetica')
-          .text(`Sana: ${new Date().toLocaleDateString('uz-UZ')}`, {
-            align: 'center',
-          })
-          .moveDown(2);
-
-        // Add a line separator
-        doc.moveTo(50, doc.y).lineTo(545, doc.y).stroke().moveDown(1);
-
-        // Add questions section
-        if (questionsText) {
-          doc
-            .fontSize(14)
-            .font('Helvetica-Bold')
-            .text('SAVOLLAR:', { align: 'left' })
-            .moveDown(1);
-
-          // Split text into chunks to avoid overflow
-          const maxLength = 2000; // Limit text length per chunk
-          const chunks: string[] = [];
-          let currentChunk = '';
-          const lines = questionsText.split('\n\n');
-
-          for (const line of lines) {
-            if (currentChunk.length + line.length > maxLength) {
-              if (currentChunk) chunks.push(currentChunk);
-              currentChunk = line;
-            } else {
-              currentChunk = currentChunk ? currentChunk + '\n\n' + line : line;
-            }
-          }
-          if (currentChunk) chunks.push(currentChunk);
-
-          // Add each chunk
-          for (const chunk of chunks) {
-            doc.fontSize(10).font('Helvetica').text(chunk, {
-              align: 'left',
-              width: 495,
-              lineGap: 3,
-            });
-            if (doc.y > 700) {
-              // Add page break if needed
-              doc.addPage();
-            }
-          }
-        } else {
-          doc
-            .fontSize(12)
-            .font('Helvetica')
-            .text("PDFKit mode: Savollar HTML formatidan chiqarib bo'lmadi.", {
-              align: 'center',
-            })
-            .moveDown(2)
-            .text(
-              'Ushbu PDF tizim imkoniyatlari cheklanganligi sababli soddalashtirilgan formatda yaratildi.',
-              {
-                align: 'center',
-                fontSize: 10,
-              },
-            );
-        }
-
-        // Footer
-        doc
-          .fontSize(8)
-          .font('Helvetica')
-          .text('Universal LMS - PDFKit Mode', 50, doc.page.height - 50, {
-            align: 'center',
-            width: doc.page.width - 100,
-          });
-
-        // Finalize the PDF
-        doc.end();
-      } catch (error) {
-        this.logsService.error('Error in PDFKit generation:', error);
-        reject(
-          new InternalServerErrorException(
-            `PDFKit generation failed: ${error.message}`,
-          ),
-        );
-      }
-    });
+  private renderHtmlToPdfWithPDFKit(): Promise<Buffer> {
+    return Promise.reject(new BadRequestException('PDF generation disabled'));
   }
 
   private wrapHtml(inner: string, title: string): string {
@@ -675,6 +462,8 @@ export class ExamsService {
       <head>
         <meta charset="UTF-8" />
         <title>${title}</title>
+        <link rel="preconnect" href="https://cdn.jsdelivr.net" />
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
         <style>
           @page { size: A4; margin: 20mm; }
           body { font-family: Times, 'Times New Roman', serif; margin: 0; padding: 0; color: #111; }
@@ -684,7 +473,14 @@ export class ExamsService {
           .title { font-size: 20px; font-weight: 700; margin: 0 0 6px 0; }
           .subtitle { font-size: 12px; margin: 2px 0; color: #333; }
           .meta { font-size: 10px; color: #666; }
-          .question { margin: 10px 0 14px 0; break-inside: avoid; }
+          .questions-container { column-count: 2; column-gap: 16px; column-rule: 1px solid #ddd; background-image: linear-gradient(to bottom, #ddd, #ddd); background-size: 1px 100%; background-position: 50% 0; background-repeat: no-repeat; }
+          .question { 
+            margin: 10px 0 14px 0; 
+            break-inside: avoid;
+            break-inside: avoid-column;
+            -webkit-column-break-inside: avoid;
+            -moz-column-break-inside: avoid;
+          }
           .q-row { display: flex; align-items: flex-start; gap: 8px; }
           .q-no { color: #cc5000; font-weight: 600; min-width: 20px; flex-shrink: 0; }
           .q-content { flex: 1; }
@@ -735,12 +531,193 @@ export class ExamsService {
           .title-page .instructions li { margin: 8px 0; }
           .student-info { margin: 40px auto; max-width: 400px; text-align: left; }
           .student-info .field { margin: 20px 0; border-bottom: 1px solid #333; padding-bottom: 5px; }
+          @media screen and (max-width: 900px) { .questions-container { column-count: 1; background: none; } }
         </style>
       </head>
       <body>
         ${inner}
       </body>
       </html>`;
+  }
+
+  private wrapHtmlForBrowser(inner: string, title: string): string {
+    return `<!DOCTYPE html>
+      <html lang="uz">
+      <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>${title}</title>
+        <link rel="preconnect" href="https://cdn.jsdelivr.net" />
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+        <style>
+          @page { size: A4; margin: 20mm; }
+          body { font-family: Times, 'Times New Roman', serif; margin: 0; padding: 0; color: #111; }
+          .toolbar { position: sticky; top: 0; background: #fff; border-bottom: 1px solid #eee; padding: 8px 12px; display:flex; gap:8px; align-items:center; z-index: 10; }
+          .toolbar button { padding: 6px 10px; font-size: 14px; }
+          .page { page-break-after: always; padding: 0 6mm; }
+          .header { text-align: center; margin-bottom: 12px; }
+          .title { font-size: 20px; font-weight: 700; margin: 0 0 6px 0; }
+          .subtitle { font-size: 12px; margin: 2px 0; color: #333; }
+          .meta { font-size: 10px; color: #666; }
+          .questions-container { column-count: 2; column-gap: 16px; column-rule: 1px solid #ddd; background-image: linear-gradient(to bottom, #ddd, #ddd); background-size: 1px 100%; background-position: 50% 0; background-repeat: no-repeat; }
+          .question { 
+            margin: 10px 0 14px 0; 
+            break-inside: avoid;
+            break-inside: avoid-column;
+            -webkit-column-break-inside: avoid;
+            -moz-column-break-inside: avoid;
+          }
+          .q-row { display: flex; align-items: flex-start; gap: 8px; }
+          .q-no { color: #cc5000; font-weight: 600; min-width: 20px; flex-shrink: 0; }
+          .q-content { flex: 1; }
+          .q-text { margin-bottom: 6px; }
+          .points { color: #666; font-size: 10px; font-weight: 500; align-self: flex-start; flex-shrink: 0; margin-left: 8px; }
+          .answers { margin-top: 6px; padding-left: 0; }
+          .answer { margin: 2px 0; }
+          .image-container { margin: 8px 0; }
+          .answer-image-container { margin: 4px 0 4px 20px; display: inline-block; }
+          .answer-image { max-width: 200px; height: auto; max-height: 150px; border: 1px solid #ddd; border-radius: 4px; margin: 2px 0; break-inside: avoid; display: inline-block; vertical-align: middle; }
+          .katex-display { margin: 6px 0; }
+          img.q-image { max-width: 100%; height: auto; max-height: 300px; border: 1px solid #ddd; border-radius: 4px; margin: 6px 0; break-inside: avoid; display: block; }
+          img[style*="width"], img[style*="height"] { max-width: none !important; max-height: none !important; }
+          .key-table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 8px; }
+          .key-table th, .key-table td { border: 1px solid #ccc; padding: 6px 8px; text-align: center; }
+          .key-table th { background: #f7f7f7; }
+          @media print { .toolbar { display: none; } }
+          @media screen and (max-width: 900px) { .questions-container { column-count: 1; background: none; } }
+        </style>
+        <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+        <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+      </head>
+      <body>
+        <div class="toolbar">
+          <button onclick="window.print()">PDFga chop etish</button>
+          <span style="color:#666; font-size:13px;">Chop etish oynasida "Save as PDF"ni tanlang.</span>
+        </div>
+        ${inner}
+        <script>
+          window.addEventListener('DOMContentLoaded', function() {
+            if (window.renderMathInElement) {
+              try {
+                window.renderMathInElement(document.body, {
+                  delimiters: [
+                    {left: '$$', right: '$$', display: true},
+                    {left: '$', right: '$', display: false},
+                    {left: '\\(', right: '\\)', display: false},
+                    {left: '\\[', right: '\\]', display: true}
+                  ],
+                  throwOnError: false
+                });
+              } catch (e) {
+                console.warn('KaTeX render error', e);
+              }
+            }
+          });
+        </script>
+      </body>
+      </html>`;
+  }
+
+  async generateVariantHTML(variantId: number): Promise<string> {
+    const variant = await this.examVariantRepository.findOne({
+      where: { id: variantId },
+      relations: ['student', 'exam', 'exam.subjects', 'questions'],
+    });
+    if (!variant) {
+      throw new NotFoundException('Variant not found');
+    }
+
+    const questions = await this.examVariantQuestionRepository.find({
+      where: { variant: { id: variantId } },
+      order: { order: 'ASC' },
+    });
+    variant.questions = questions;
+
+    const studentGroups = variant.student
+      ? await this.groupRepository.find({
+          where: { students: { id: variant.student.id } },
+          relations: ['students'],
+        })
+      : [];
+
+    const titlePageHtml = this.generateExamTitlePage(
+      {
+        exam: variant.exam,
+        student: variant.student,
+        questions: variant.questions,
+        variantNumber: variant.variantNumber,
+      },
+      false,
+      studentGroups.map((g) => ({ name: g.name })),
+    );
+    const inner = this.buildVariantPage(
+      { ...variant, exam: variant.exam },
+      false,
+    );
+    const combinedContent = titlePageHtml + inner;
+    const pageTitle = `${variant.exam?.title || 'Imtihon'} — Variant ${variant.variantNumber}`;
+    return this.renderWithLayout(combinedContent, pageTitle);
+  }
+
+  async generateVariantPrintableFile(
+    variantId: number,
+  ): Promise<{ url: string; fileName: string; absolutePath: string }> {
+    // Load variant metadata and reuse existing HTML if available
+    const variant = await this.examVariantRepository.findOne({
+      where: { id: variantId },
+      relations: ['exam', 'student'],
+    });
+    if (!variant) throw new NotFoundException('Variant not found');
+
+    // If already generated and file exists, return it
+    if (variant.printHtmlPath) {
+      const existingFile = variant.printHtmlPath.split('/').pop() || '';
+      const existingPath = join(this.getPublicDir(), existingFile);
+      try {
+        await fs.access(existingPath);
+        return {
+          url: variant.printHtmlPath,
+          fileName: existingFile || `variant-${variantId}.html`,
+          absolutePath: existingPath,
+        };
+      } catch {
+        // file missing → regenerate below
+      }
+    }
+
+    // Build fresh HTML
+    const html = await this.generateVariantHTML(variantId);
+
+    // Ensure public dir exists
+    const publicDir = this.getPublicDir();
+    await fs.mkdir(publicDir, { recursive: true });
+
+    // Safe slug helper
+    const slug = (s: string) =>
+      (s || '')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/(^-|-$)/g, '')
+        .substring(0, 80);
+
+    const examSlug = slug(variant.exam?.title || 'exam');
+    const varSlug = slug(variant.variantNumber || String(variantId));
+    const stuSlug = slug(
+      `${variant.student?.firstName || ''}-${variant.student?.lastName || ''}`,
+    );
+    const timestamp = Date.now();
+    const fileName = `${examSlug}-variant-${varSlug}${stuSlug ? '-' + stuSlug : ''}-${timestamp}.html`;
+    const absolutePath = join(publicDir, fileName);
+
+    await fs.writeFile(absolutePath, html, 'utf8');
+
+    // Public URL via static assets (configured in main.ts)
+    const url = `/print/${fileName}`;
+
+    // Persist path for reuse
+    await this.examVariantRepository.update(variantId, { printHtmlPath: url });
+
+    return { url, fileName, absolutePath };
   }
 
   private getImageSrc(imageBase64?: string, mime?: string): string | null {
@@ -765,8 +742,63 @@ export class ExamsService {
 
       return null;
     } catch (error) {
-      this.logsService.warn('Error processing image data:', error);
+      void this.logsService.warn(
+        `Error processing image data: ${error instanceof Error ? error.message : String(error)}`,
+      );
       return null;
+    }
+  }
+
+  // Resolve the public directory depending on runtime (dist vs ts-node)
+  private getPublicDir(): string {
+    return join(__dirname, '..', '..', 'public');
+  }
+
+  // Render given content inside shared layout template (src/shared/main.html compiled to dist/src/shared/main.html)
+  private async renderWithLayout(
+    contentHtml: string,
+    pageTitle: string,
+    extraHead = '',
+  ): Promise<string> {
+    try {
+      const layoutPath = join(__dirname, '..', 'shared', 'main.html');
+      const layoutHtml = await fs.readFile(layoutPath, 'utf8');
+      const defaultExtraHead = `
+        <link rel="preconnect" href="https://cdn.jsdelivr.net" />
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+        <style>
+          .questions-container { column-count: 2; column-gap: 16px; column-rule: 1px solid #ddd; background-image: linear-gradient(to bottom, #ddd, #ddd); background-size: 1px 100%; background-position: 50% 0; background-repeat: no-repeat; }
+          .question { margin: 10px 0 14px 0; break-inside: avoid; break-inside: avoid-column; -webkit-column-break-inside: avoid; -moz-column-break-inside: avoid; }
+          @media screen and (max-width: 900px) { .questions-container { column-count: 1; background: none; } }
+        </style>
+        <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+        <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+        <script>
+          window.addEventListener('DOMContentLoaded', function() {
+            if (window.renderMathInElement) {
+              try {
+                window.renderMathInElement(document.body, {
+                  delimiters: [
+                    {left: '$$', right: '$$', display: true},
+                    {left: '$', right: '$', display: false},
+                    {left: '\\(', right: '\\)', display: false},
+                    {left: '\\[', right: '\\]', display: true}
+                  ],
+                  throwOnError: false
+                });
+              } catch (e) {
+                console.warn('KaTeX render error', e);
+              }
+            }
+          });
+        </script>`;
+      return layoutHtml
+        .replace('{{PAGE_TITLE}}', escapeHtml(pageTitle))
+        .replace('{{EXTRA_HEAD}}', `${defaultExtraHead}\n${extraHead || ''}`)
+        .replace('{{CONTENT}}', contentHtml);
+    } catch {
+      // Fallback to previous inline wrapper if layout missing
+      return this.wrapHtmlForBrowser(contentHtml, pageTitle);
     }
   }
 
@@ -788,7 +820,7 @@ export class ExamsService {
       const reencoded = btoa(decoded);
       // Allow for padding differences
       return str.replace(/=+$/, '') === reencoded.replace(/=+$/, '');
-    } catch (error) {
+    } catch {
       return false;
     }
   }
@@ -901,7 +933,7 @@ export class ExamsService {
       // Extract the MIME type and base64 data
       const [header, base64Data] = dataUri.split(',');
       if (!header || !base64Data) {
-        this.logsService.warn(
+        void this.logsService.warn(
           'Invalid data URI format: missing header or base64 data',
         );
         return null;
@@ -921,7 +953,7 @@ export class ExamsService {
 
       // Validate the base64 data
       if (!this.isValidBase64(cleanBase64)) {
-        this.logsService.warn('Invalid base64 data detected');
+        void this.logsService.warn('Invalid base64 data detected');
         return null;
       }
 
@@ -929,18 +961,26 @@ export class ExamsService {
       try {
         const decoded = atob(cleanBase64);
         if (decoded.length < 50) {
-          this.logsService.warn('Base64 data too small to be a valid image');
+          void this.logsService.warn(
+            'Base64 data too small to be a valid image',
+          );
           return null;
         }
       } catch (error) {
-        this.logsService.warn('Failed to decode base64 data:', error);
+        const err = error as Error;
+        void this.logsService.warn(
+          `Failed to decode base64 data: ${err.message}`,
+        );
         return null;
       }
 
       // Reconstruct the data URI with clean base64
       return `${header},${cleanBase64}`;
     } catch (error) {
-      this.logsService.warn('Failed to normalize data URI:', error);
+      const err = error as Error;
+      void this.logsService.warn(
+        `Failed to normalize data URI: ${err.message}`,
+      );
       return null;
     }
   }
@@ -963,7 +1003,7 @@ export class ExamsService {
 
     // Ensure we have basic data
     if (!exam) {
-      this.logsService.error('No exam data found for variant');
+      void this.logsService.error('No exam data found for variant');
       return '<div class="page"><div class="header"><div class="title">Error: Exam data not found</div></div></div>';
     }
 
@@ -976,12 +1016,12 @@ export class ExamsService {
         </div>
       `;
 
-    const questions = variant.questions || [];
-    this.logsService.log(
-      `Building variant page with ${questions.length} questions`,
+    const questionsCount = variant.questions?.length ?? 0;
+    void this.logsService.log(
+      `Building variant page with ${questionsCount} questions`,
     );
 
-    if (questions.length === 0) {
+    if (questionsCount === 0) {
       const noQuestionsHtml = `
         <div class="page">
           ${header}
@@ -997,16 +1037,17 @@ export class ExamsService {
 
     const questionsHtml = (variant.questions || [])
       .sort((a, b) => (a.order || 0) - (b.order || 0))
-      .map((q: any, idx: number) => {
-        const answers = q.answers || [];
-        const points = Number.isFinite(q.points) ? q.points : 1;
+      .map((q: ExamVariantQuestion, idx: number) => {
+        const answers = Array.isArray(q.answers) ? q.answers : [];
+        const points = typeof q.points === 'number' ? q.points : 1;
 
         // First try to get image from imageBase64 field
         let imageDataUri = this.getImageSrc(q.imageBase64);
         let imageStyles = '';
 
         // If no image in imageBase64 field, extract from text
-        let questionText = q.questionText || '';
+        let questionText: string =
+          typeof q.questionText === 'string' ? q.questionText : '';
         if (!imageDataUri) {
           const textProcessResult = this.extractImageFromText(questionText);
           questionText = textProcessResult.cleanedText;
@@ -1023,15 +1064,18 @@ export class ExamsService {
           : '';
 
         // Log image processing results for debugging
-        if (q.imageBase64 || questionText.includes('data:image/')) {
-          this.logsService.log(
+        if (
+          q.imageBase64 ||
+          (questionText && questionText.includes('data:image/'))
+        ) {
+          void this.logsService.log(
             `Question ${idx + 1}: Found image - imageBase64 field: ${!!q.imageBase64}, extracted from text: ${!!imageDataUri}, final URI length: ${imageDataUri?.length || 0}`,
           );
         }
 
         const answersHtml = answers.length
           ? `<div class="answers">${answers
-              .map((a: any, i: number) => {
+              .map((a, i: number) => {
                 // Process answer text for images
                 const answerProcessResult = this.extractImageFromText(
                   a.text || '',
@@ -1044,19 +1088,22 @@ export class ExamsService {
                   ? `<div class="answer-image-container"><img class="answer-image" src="${answerImageDataUri}" alt="Javob rasmi" style="${answerImageStyles}" /></div>`
                   : '';
 
-                return `<div class="answer">${String.fromCharCode(65 + i)}) ${escapeHtml(cleanAnswerText)}${answerImgHtml}</div>`;
+                const renderedAnswerHtml =
+                  this.renderTextWithLatex(cleanAnswerText);
+
+                return `<div class="answer">${String.fromCharCode(65 + i)}) ${renderedAnswerHtml}${answerImgHtml}</div>`;
               })
               .join('')}</div>`
           : '';
 
-        // NOTE: We intentionally do NOT strip LaTeX delimiters: KaTeX auto-render will process $$...$$ etc.
-        const cleanedQuestionText = escapeHtml(questionText);
+        // Render LaTeX to HTML using KaTeX (server-side)
+        const renderedQuestionText = this.renderTextWithLatex(questionText);
 
         return `<div class="question">
               <div class="q-row">
                 <div class="q-no">${idx + 1}.</div>
                 <div class="q-content">
-                  <div class="q-text">${cleanedQuestionText}</div>
+                  <div class="q-text">${renderedQuestionText}</div>
                   ${imgHtml}
                   ${answersHtml}
                 </div>
@@ -1070,14 +1117,14 @@ export class ExamsService {
 
     if (withAnswerKey) {
       const keyRows = (variant.questions || [])
-        .sort((a: any, b: any) => (a.order || 0) - (b.order || 0))
-        .map((q: any, i: number) => {
-          const idx =
+        .sort((a, b) => (a.order || 0) - (b.order || 0))
+        .map((q, i: number) => {
+          const idxNum: number =
             typeof q.correctAnswerIndex === 'number'
               ? q.correctAnswerIndex
               : -1;
-          const letter = idx >= 0 ? String.fromCharCode(65 + idx) : '-';
-          const pts = Number.isFinite(q.points) ? q.points : 1;
+          const letter = idxNum >= 0 ? String.fromCharCode(65 + idxNum) : '-';
+          const pts = typeof q.points === 'number' ? q.points : 1;
           return `<tr><td>${i + 1}</td><td>${letter}</td><td>${pts}</td></tr>`;
         })
         .join('');
@@ -1091,19 +1138,30 @@ export class ExamsService {
     return pageHtml;
   }
 
+  // Convert LaTeX delimiters in plain text to HTML using KaTeX; non-math text is HTML-escaped
+  private renderTextWithLatex(text: string): string {
+    try {
+      return renderWithKatex(text ?? '');
+    } catch (e) {
+      void this.logsService.warn(
+        `KaTeX render failed: ${e instanceof Error ? e.message : String(e)}`,
+      );
+      return escapeHtml(text ?? '');
+    }
+  }
+
   /* ------------------------
        Debug & Troubleshooting
        ------------------------ */
 
   async debugVariant(variantId: number): Promise<any> {
-    this.logsService.log(`Debugging variant ${variantId}`);
+    void this.logsService.log(`Debugging variant ${variantId}`);
 
     try {
       // Query with all relations
       const variant = await this.examVariantRepository.findOne({
         where: { id: variantId },
         relations: ['student', 'exam', 'exam.subjects', 'questions'],
-        order: { questions: { order: 'ASC' } as any },
       });
 
       if (!variant) {
@@ -1191,10 +1249,14 @@ export class ExamsService {
         },
       };
     } catch (error) {
-      this.logsService.error(`Error debugging variant ${variantId}:`, error);
+      const err = error as Error;
+      void this.logsService.error(
+        `Error debugging variant ${variantId}: ${err.message}`,
+        err.stack,
+      );
       return {
         variantId,
-        error: error.message,
+        error: err.message,
         found: false,
       };
     }
@@ -1204,354 +1266,54 @@ export class ExamsService {
        Public PDF API methods
        ------------------------ */
 
-  async generateVariantPDF(variantId: number): Promise<Buffer> {
-    try {
-      this.logsService.log(`Generating PDF for variant ${variantId}`);
-
-      // First, try to load the variant with relations
-      const variant = await this.examVariantRepository.findOne({
-        where: { id: variantId },
-        relations: ['student', 'exam', 'exam.subjects', 'questions'],
-      });
-
-      if (!variant) {
-        this.logsService.error(`Variant ${variantId} not found`);
-        throw new NotFoundException('Variant not found');
-      }
-
-      // ALWAYS load questions separately to ensure they are present
-      this.logsService.log(
-        `Loading questions separately for variant ${variantId} to ensure they are present`,
-      );
-      const questions = await this.examVariantQuestionRepository.find({
-        where: { variant: { id: variantId } },
-        order: { order: 'ASC' },
-      });
-      variant.questions = questions;
-      this.logsService.log(
-        `Loaded ${questions.length} questions for variant ${variantId}`,
-      );
-
-      // Validate that we have questions
-      if (!variant.questions || variant.questions.length === 0) {
-        this.logsService.error(`No questions found for variant ${variantId}`);
-        throw new BadRequestException('No questions found for this variant');
-      }
-
-      if (!variant) {
-        this.logsService.error(`Variant ${variantId} not found`);
-        throw new NotFoundException('Variant not found');
-      }
-
-      if (!variant.student) {
-        this.logsService.error(`Variant ${variantId} missing student relation`);
-        throw new InternalServerErrorException(
-          'Variant data incomplete: missing student information',
-        );
-      }
-
-      if (!variant.exam) {
-        this.logsService.error(`Variant ${variantId} missing exam relation`);
-        throw new InternalServerErrorException(
-          'Variant data incomplete: missing exam information',
-        );
-      }
-
-      // Log questions info
-      this.logsService.log(
-        `Variant ${variantId} has ${variant.questions?.length || 0} questions`,
-      );
-      if (variant.questions && variant.questions.length > 0) {
-        await this.logsService.log(
-          `First question sample:`,
-          JSON.stringify({
-            id: variant.questions[0].id,
-            text: variant.questions[0].questionText?.substring(0, 50) + '...',
-            hasAnswers: !!variant.questions[0].answers,
-            answersCount: variant.questions[0].answers?.length || 0,
-          }),
-        );
-      }
-
-      // Get student's group information
-      const studentGroups = variant.student
-        ? await this.groupRepository.find({
-            where: { students: { id: variant.student.id } },
-            relations: ['students'],
-          })
-        : [];
-
-      // Generate title page
-      const titlePageHtml = this.generateExamTitlePage(
-        variant,
-        false,
-        studentGroups,
-      );
-
-      const inner = this.buildVariantPage(
-        { ...variant, exam: variant.exam } as any,
-        false,
-      );
-
-      // Combine title page with variant content
-      const combinedContent = titlePageHtml + inner;
-
-      const html = this.wrapHtml(
-        combinedContent,
-        `${variant.exam.title} — Variant ${variant.variantNumber}`,
-      );
-
-      return this.renderHtmlToPdf(
-        html,
-        `${variant.exam.title} — Variant ${variant.variantNumber}`,
-      );
-    } catch (error) {
-      this.logsService.error(
-        `Failed to generate PDF for variant ${variantId}:`,
-        error,
-      );
-      if (error instanceof NotFoundException) {
-        throw error;
-      }
-      throw new InternalServerErrorException(
-        `PDF generation failed for variant ${variantId}: ${error.message}`,
-      );
-    }
+  generateVariantPDF(_variantId: number): Promise<Buffer> {
+    void _variantId;
+    throw new BadRequestException('PDF generation disabled');
   }
 
-  async generateAnswerKeyPDF(variantId: number): Promise<Buffer> {
-    const variant = await this.examVariantRepository.findOne({
-      where: { id: variantId },
-      relations: ['student', 'exam', 'exam.subjects', 'questions'],
-    });
-
-    if (!variant) throw new NotFoundException('Variant not found');
-
-    // If questions are not loaded via relations, load them separately
-    if (!variant.questions || variant.questions.length === 0) {
-      this.logsService.warn(
-        `No questions loaded via relations for answer key variant ${variantId}, loading separately`,
-      );
-      const questions = await this.examVariantQuestionRepository.find({
-        where: { variant: { id: variantId } },
-        order: { order: 'ASC' },
-      });
-      variant.questions = questions;
-      this.logsService.log(
-        `Loaded ${questions.length} questions separately for answer key variant ${variantId}`,
-      );
-    }
-
-    // Get student's group information
-    const studentGroups = await this.groupRepository.find({
-      where: { students: { id: variant.student.id } },
-      relations: ['students'],
-    });
-
-    // Generate title page
-    const titlePageHtml = this.generateExamTitlePage(
-      variant,
-      true,
-      studentGroups,
-    );
-
-    const inner = this.buildVariantPage(
-      { ...variant, exam: variant.exam } as any,
-      true,
-    );
-
-    // Combine title page with answer key content
-    const combinedContent = titlePageHtml + inner;
-
-    const html = this.wrapHtml(
-      combinedContent,
-      `${variant.exam.title} — Javoblar: Variant ${variant.variantNumber}`,
-    );
-    return this.renderHtmlToPdf(
-      html,
-      `${variant.exam.title} — Javoblar: Variant ${variant.variantNumber}`,
-    );
+  generateAnswerKeyPDF(_variantId: number): Promise<Buffer> {
+    void _variantId;
+    throw new BadRequestException('PDF generation disabled');
   }
 
-  async generateAllVariantsPDF(examId: number): Promise<Buffer> {
-    const exam = await this.findById(examId);
-    const variants = await this.getExamVariants(examId);
-
-    // Generate title page for all variants
-    const examWithSubjects = await this.examRepository.findOne({
-      where: { id: examId },
-      relations: ['subjects'],
-    });
-
-    const titlePageHtml = this.generateExamTitlePageForAll(
-      examWithSubjects,
-      variants,
-      false,
-    );
-
-    const pages = variants
-      .map((v) => this.buildVariantPage({ ...v, exam } as any, false))
-      .join('');
-
-    const combinedContent = titlePageHtml + pages;
-    const html = this.wrapHtml(
-      combinedContent,
-      `${exam.title} — Barcha variantlar`,
-    );
-    return this.renderHtmlToPdf(html, `${exam.title} — Barcha variantlar`);
+  generateAllVariantsPDF(_examId: number): Promise<Buffer> {
+    void _examId;
+    throw new BadRequestException('PDF generation disabled');
   }
 
-  async generateAllAnswerKeysPDF(examId: number): Promise<Buffer> {
-    const exam = await this.findById(examId);
-    const variants = await this.getExamVariants(examId);
-
-    // Generate title page for all answer keys
-    const examWithSubjects = await this.examRepository.findOne({
-      where: { id: examId },
-      relations: ['subjects'],
-    });
-
-    const titlePageHtml = this.generateExamTitlePageForAll(
-      examWithSubjects,
-      variants,
-      true,
-    );
-
-    const pages = variants
-      .map((v) => this.buildVariantPage({ ...v, exam } as any, true))
-      .join('');
-
-    const combinedContent = titlePageHtml + pages;
-    const html = this.wrapHtml(combinedContent, `${exam.title} — Javoblar`);
-    return this.renderHtmlToPdf(html, `${exam.title} — Javoblar`);
+  generateAllAnswerKeysPDF(_examId: number): Promise<Buffer> {
+    void _examId;
+    throw new BadRequestException('PDF generation disabled');
   }
 
   /* ------------------------
        PDF Generation with Telegram Auto-Send
        ------------------------ */
 
-  async generateAndSendVariantPDF(variantId: number): Promise<{
+  generateAndSendVariantPDF(): Promise<{
     pdfGenerated: boolean;
     telegramSent: boolean;
     message: string;
   }> {
-    try {
-      this.logsService.log(
-        `Starting PDF generation and send for variant ${variantId}`,
-      );
-
-      // First generate the PDF
-      const pdfBuffer = await this.generateVariantPDF(variantId);
-
-      // Get variant details for user ID and filename
-      const variant = await this.examVariantRepository.findOne({
-        where: { id: variantId },
-        relations: ['student', 'exam'],
-      });
-
-      if (!variant || !variant.student) {
-        this.logsService.warn(`No student found for variant ${variantId}`);
-        return {
-          pdfGenerated: true,
-          telegramSent: false,
-          message: 'PDF generated but no student found to send to',
-        };
-      }
-
-      const fileName = `${variant.exam.title}-Variant-${variant.variantNumber}.pdf`;
-      const caption = `🎓 <b>Test PDF - ${variant.exam.title}</b>\n\n📋 <b>Variant:</b> ${variant.variantNumber}\n👤 <b>Talaba:</b> ${variant.student.firstName} ${variant.student.lastName}\n📅 <b>Sana:</b> ${new Date().toLocaleDateString()}`;
-
-      this.logsService.log(
-        `Sending PDF to user ${variant.student.id} for variant ${variantId}`,
-      );
-
-      // Send PDF to user's Telegram
-      const telegramResult = await this.telegramService.sendPDFToUser(
-        variant.student.id,
-        pdfBuffer,
-        fileName,
-        caption,
-      );
-
-      this.logsService.log(
-        `PDF send result for variant ${variantId}: ${telegramResult.success ? 'SUCCESS' : 'FAILED'} - ${telegramResult.message}`,
-      );
-
-      return {
-        pdfGenerated: true,
-        telegramSent: telegramResult.success,
-        message: telegramResult.message,
-      };
-    } catch (error) {
-      this.logsService.error(
-        `Failed to generate and send variant PDF ${variantId}:`,
-        error,
-      );
-      return {
-        pdfGenerated: false,
-        telegramSent: false,
-        message: `Error: ${error.message}`,
-      };
-    }
+    return Promise.resolve({
+      pdfGenerated: false,
+      telegramSent: false,
+      message: 'PDF generation disabled',
+    });
   }
 
-  async generateAndSendAllVariantsPDFs(examId: number): Promise<{
+  generateAndSendAllVariantsPDFs(): Promise<{
     totalVariants: number;
     sent: number;
     failed: number;
     details: string[];
   }> {
-    try {
-      const exam = await this.findById(examId);
-      const variants = await this.getExamVariants(examId);
-
-      const result = {
-        totalVariants: variants.length,
-        sent: 0,
-        failed: 0,
-        details: [] as string[],
-      };
-
-      for (const variant of variants) {
-        try {
-          const variantResult = await this.generateAndSendVariantPDF(
-            variant.id,
-          );
-          if (variantResult.telegramSent) {
-            result.sent++;
-            result.details.push(
-              `✅ Variant ${variant.variantNumber} (${variant.student?.firstName} ${variant.student?.lastName}): ${variantResult.message}`,
-            );
-          } else {
-            result.failed++;
-            result.details.push(
-              `❌ Variant ${variant.variantNumber} (${variant.student?.firstName} ${variant.student?.lastName}): ${variantResult.message}`,
-            );
-          }
-
-          // Small delay to avoid overwhelming the system
-          await new Promise((resolve) => setTimeout(resolve, 500));
-        } catch (error) {
-          result.failed++;
-          result.details.push(
-            `❌ Variant ${variant.variantNumber}: Error - ${error.message}`,
-          );
-        }
-      }
-
-      this.logsService.log(
-        `Bulk PDF send completed for exam ${examId}: ${result.sent} sent, ${result.failed} failed`,
-      );
-      return result;
-    } catch (error) {
-      this.logsService.error(
-        `Failed to generate and send all variants PDFs for exam ${examId}:`,
-        error,
-      );
-      throw new InternalServerErrorException(
-        `Bulk PDF generation failed: ${error.message}`,
-      );
-    }
+    return Promise.resolve({
+      totalVariants: 0,
+      sent: 0,
+      failed: 0,
+      details: [],
+    });
   }
 
   /* ------------------------
@@ -1559,12 +1321,17 @@ export class ExamsService {
        ------------------------ */
 
   private generateExamTitlePage(
-    variant: any,
+    variant: {
+      exam: Exam;
+      student?: User | null;
+      questions?: ExamVariantQuestion[] | null;
+      variantNumber: string;
+    },
     isAnswerKey: boolean = false,
-    studentGroups: any[] = [],
+    studentGroups: Array<{ name: string }> = [],
   ): string {
     const exam = variant.exam;
-    const student = variant.student;
+    const student = variant.student || null;
     const subjects = exam.subjects || [];
     const subjectNames =
       subjects.map((s) => s.name).join(', ') || "Fan ko'rsatilmagan";
@@ -1630,8 +1397,8 @@ export class ExamsService {
   }
 
   private generateExamTitlePageForAll(
-    exam: any,
-    variants: any[],
+    exam: Exam,
+    variants: Array<ExamVariant & { questions?: ExamVariantQuestion[] }>,
     isAnswerKey: boolean = false,
   ): string {
     const subjects = exam.subjects || [];
@@ -1702,195 +1469,8 @@ export class ExamsService {
        Fallback PDF Generation
        ------------------------ */
 
-  private async renderHtmlToPdfFallback(
-    html: string,
-    title = 'Document',
-  ): Promise<Buffer> {
-    this.logsService.warn(
-      `Using fallback PDF generation with PDFKit for: ${title}`,
-    );
-
-    return new Promise((resolve, reject) => {
-      try {
-        // Create a new PDFDocument
-        const doc = new PDFDocument({
-          size: 'A4',
-          margin: 50,
-          info: {
-            Title: title,
-            Author: 'Universal LMS',
-            Subject: 'Exam Document',
-            Creator: 'Universal LMS System',
-          },
-        });
-
-        const buffers: Buffer[] = [];
-
-        // Collect PDF data
-        doc.on('data', (chunk) => {
-          buffers.push(chunk);
-        });
-
-        doc.on('end', () => {
-          const finalBuffer = Buffer.concat(buffers);
-          this.logsService.log(
-            `Fallback PDF generated successfully. Size: ${finalBuffer.length} bytes`,
-          );
-          resolve(finalBuffer);
-        });
-
-        doc.on('error', (error) => {
-          this.logsService.error('PDFKit error:', error);
-          reject(
-            new InternalServerErrorException(
-              `PDF generation failed: ${error.message}`,
-            ),
-          );
-        });
-
-        // Extract basic information from HTML
-        let examTitle = title;
-        let variantNumber = '';
-        let studentName = '';
-        let subjectName = '';
-        let questionsText = '';
-
-        // Extract title from HTML if possible
-        const titleMatch = html.match(/<title>([^<]+)<\/title>/i);
-        if (titleMatch && titleMatch[1]) {
-          examTitle = titleMatch[1];
-        }
-
-        // Extract variant information
-        const variantMatch = html.match(/Variant[:\s]*([^\n<]+)/i);
-        if (variantMatch && variantMatch[1]) {
-          variantNumber = variantMatch[1].trim();
-        }
-
-        // Extract student name
-        const studentMatch = html.match(/(?:Talaba|O'quvchi)[:\s]*([^\n<]+)/i);
-        if (studentMatch && studentMatch[1]) {
-          studentName = studentMatch[1].trim();
-        }
-
-        // Extract subject name
-        const subjectMatch = html.match(/(?:Fan|Subject)[:\s]*([^\n<]+)/i);
-        if (subjectMatch && subjectMatch[1]) {
-          subjectName = subjectMatch[1].trim();
-        }
-
-        // Extract questions
-        const questionsMatches = html.match(
-          /<div class="question">([\s\S]*?)<\/div>/g,
-        );
-        if (questionsMatches) {
-          questionsText = questionsMatches
-            .map((q, i) => {
-              // Simple HTML to text conversion
-              const cleanText = q
-                .replace(/<[^>]*>/g, ' ')
-                .replace(/\s+/g, ' ')
-                .trim();
-              return `${i + 1}. ${cleanText}`;
-            })
-            .join('\n\n');
-        }
-
-        // Set up fonts and styles
-        doc
-          .fontSize(20)
-          .font('Helvetica-Bold')
-          .text(examTitle || 'IMTIHON', { align: 'center' })
-          .moveDown(2);
-
-        if (subjectName) {
-          doc
-            .fontSize(16)
-            .font('Helvetica-Bold')
-            .text(`Fan: ${subjectName}`, { align: 'center' })
-            .moveDown(1);
-        }
-
-        if (variantNumber) {
-          doc
-            .fontSize(14)
-            .font('Helvetica')
-            .text(`Variant: ${variantNumber}`, { align: 'center' })
-            .moveDown(1);
-        }
-
-        if (studentName) {
-          doc
-            .fontSize(12)
-            .font('Helvetica')
-            .text(`Talaba: ${studentName}`, { align: 'center' })
-            .moveDown(1);
-        }
-
-        doc
-          .fontSize(10)
-          .font('Helvetica')
-          .text(`Sana: ${new Date().toLocaleDateString('uz-UZ')}`, {
-            align: 'center',
-          })
-          .moveDown(2);
-
-        // Add a line separator
-        doc.moveTo(50, doc.y).lineTo(545, doc.y).stroke().moveDown(1);
-
-        // Add questions section
-        if (questionsText) {
-          doc
-            .fontSize(14)
-            .font('Helvetica-Bold')
-            .text('SAVOLLAR:', { align: 'left' })
-            .moveDown(1);
-
-          doc.fontSize(10).font('Helvetica').text(questionsText, {
-            align: 'left',
-            width: 495,
-            lineGap: 5,
-          });
-        } else {
-          doc
-            .fontSize(12)
-            .font('Helvetica')
-            .text(
-              "PDF fallback mode: Savollar HTML formatidan chiqarib bo'lmadi.",
-              {
-                align: 'center',
-              },
-            )
-            .moveDown(2)
-            .text(
-              'Ushbu PDF tizim imkoniyatlari cheklanganligi sababli soddalashtirilgan formatda yaratildi.',
-              {
-                align: 'center',
-                fontSize: 10,
-              },
-            );
-        }
-
-        // Footer
-        doc
-          .fontSize(8)
-          .font('Helvetica')
-          .text('Universal LMS - PDF Fallback Mode', 50, doc.page.height - 50, {
-            align: 'center',
-            width: doc.page.width - 100,
-          });
-
-        // Finalize the PDF
-        doc.end();
-      } catch (error) {
-        this.logsService.error('Error in PDF fallback generation:', error);
-        reject(
-          new InternalServerErrorException(
-            `PDF fallback generation failed: ${error.message}`,
-          ),
-        );
-      }
-    });
+  private async renderHtmlToPdfFallback(): Promise<Buffer> {
+    return Promise.reject(new BadRequestException('PDF generation disabled'));
   }
 }
 
@@ -1906,4 +1486,38 @@ function escapeHtml(str: string) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#039;');
+}
+
+// Server-side KaTeX renderer: converts inline $...$ and display $$...$$ (also \( \), \[ \]) to HTML
+// Keeps non-LaTeX parts escaped to avoid XSS while allowing KaTeX markup to render as HTML.
+// Note: KaTeX CSS is already linked in wrapHtmlForBrowser.
+function renderWithKatex(text: string): string {
+  if (!text) return '';
+  const parts: string[] = [];
+  const regex =
+    /\$\$([\s\S]*?)\$\$|\$([^$\n]+?)\$|\\\[((?:.|\n)*?)\\\]|\\\(((?:.|\n)*?)\\\)/g;
+  let lastIndex = 0;
+  let m: RegExpExecArray | null;
+  while ((m = regex.exec(text)) !== null) {
+    const index = m.index;
+    const before = text.slice(lastIndex, index);
+    if (before) parts.push(escapeHtml(before));
+    const formula = (m[1] ?? m[2] ?? m[3] ?? m[4] ?? '').trim();
+    const display = Boolean(m[1] || m[3]);
+    try {
+      const html: string = katex.renderToString(formula, {
+        displayMode: display,
+        throwOnError: false,
+        strict: 'ignore',
+        trust: false,
+      });
+      parts.push(html);
+    } catch {
+      parts.push(`<span class="katex-error">${escapeHtml(formula)}</span>`);
+    }
+    lastIndex = index + m[0].length;
+  }
+  const rest = text.slice(lastIndex);
+  if (rest) parts.push(escapeHtml(rest));
+  return parts.join('');
 }

@@ -5,7 +5,6 @@ import { TelegramService } from './telegram.service';
 import { TelegramController } from './telegram.controller';
 import { TelegramAuthController } from './telegram-auth.controller';
 import { TelegramAuthService } from './telegram-auth.service';
-import { TestPDFGeneratorService } from './test-pdf-generator.service';
 import { AnswerProcessorService } from './answer-processor.service';
 import { TelegramChat } from './entities/telegram-chat.entity';
 import { TelegramAnswer } from './entities/telegram-answer.entity';
@@ -43,17 +42,7 @@ import { LogsModule } from '../logs/logs.module';
     LogsModule,
   ],
   controllers: [TelegramController, TelegramAuthController],
-  providers: [
-    TelegramService,
-    TelegramAuthService,
-    TestPDFGeneratorService,
-    AnswerProcessorService,
-  ],
-  exports: [
-    TelegramService,
-    TelegramAuthService,
-    TestPDFGeneratorService,
-    AnswerProcessorService,
-  ],
+  providers: [TelegramService, TelegramAuthService, AnswerProcessorService],
+  exports: [TelegramService, TelegramAuthService, AnswerProcessorService],
 })
 export class TelegramModule {}

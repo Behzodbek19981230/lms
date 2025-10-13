@@ -20,17 +20,6 @@ import { CRON_JOB_CONFIGS } from './cron-jobs.config';
 export class CronJobsController {
   constructor(private readonly cronJobsService: CronJobsService) {}
 
-  @Post('send-scheduled-pdfs')
-  @ApiOperation({ summary: 'Manually trigger scheduled PDF sending' })
-  @ApiResponse({ status: 200, description: 'PDF sending triggered' })
-  async triggerScheduledPDFs() {
-    await this.cronJobsService.sendScheduledExamPDFs();
-    return {
-      success: true,
-      message: 'Scheduled PDF sending triggered',
-    };
-  }
-
   @Post('send-exam-reminders')
   @ApiOperation({ summary: 'Manually trigger exam reminders' })
   @ApiResponse({ status: 200, description: 'Exam reminders triggered' })
@@ -39,17 +28,6 @@ export class CronJobsController {
     return {
       success: true,
       message: 'Exam reminders triggered',
-    };
-  }
-
-  @Post('check-missing-pdfs')
-  @ApiOperation({ summary: 'Manually trigger missing PDF check' })
-  @ApiResponse({ status: 200, description: 'Missing PDF check triggered' })
-  async triggerMissingPDFCheck() {
-    await this.cronJobsService.checkAndSendMissingPDFs();
-    return {
-      success: true,
-      message: 'Missing PDF check triggered',
     };
   }
 
@@ -78,30 +56,16 @@ export class CronJobsController {
   @Get('status')
   @ApiOperation({ summary: 'Get cron job status information' })
   @ApiResponse({ status: 200, description: 'Cron job status' })
-  async getCronJobStatus() {
+  getCronJobStatus() {
     return {
       success: true,
       cronJobs: [
-        {
-          name: 'dailyPDFSender',
-          schedule: CRON_JOB_CONFIGS.DAILY_PDF_SENDER.schedule,
-          description: CRON_JOB_CONFIGS.DAILY_PDF_SENDER.description,
-          timeZone: CRON_JOB_CONFIGS.DAILY_PDF_SENDER.timeZone,
-          enabled: CRON_JOB_CONFIGS.DAILY_PDF_SENDER.enabled,
-        },
         {
           name: 'examReminder',
           schedule: CRON_JOB_CONFIGS.EXAM_REMINDER.schedule,
           description: CRON_JOB_CONFIGS.EXAM_REMINDER.description,
           timeZone: CRON_JOB_CONFIGS.EXAM_REMINDER.timeZone,
           enabled: CRON_JOB_CONFIGS.EXAM_REMINDER.enabled,
-        },
-        {
-          name: 'missingPDFChecker',
-          schedule: CRON_JOB_CONFIGS.MISSING_PDF_CHECKER.schedule,
-          description: CRON_JOB_CONFIGS.MISSING_PDF_CHECKER.description,
-          timeZone: CRON_JOB_CONFIGS.MISSING_PDF_CHECKER.timeZone,
-          enabled: CRON_JOB_CONFIGS.MISSING_PDF_CHECKER.enabled,
         },
         {
           name: 'weeklyAttendanceSummary',

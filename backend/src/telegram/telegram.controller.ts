@@ -20,13 +20,11 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { User, UserRole } from '../users/entities/user.entity';
 import { TelegramService } from './telegram.service';
-import { TestPDFGeneratorService } from './test-pdf-generator.service';
 import { AnswerProcessorService } from './answer-processor.service';
 import { TestsService } from '../tests/tests.service';
 // Import DTOs
 import {
   CreateTelegramChatDto,
-  SendTestToChannelDto,
   SubmitAnswerDto,
   AuthenticateUserDto,
 } from './dto/telegram.dto';
@@ -38,7 +36,7 @@ export class TelegramController {
 
   constructor(
     private readonly telegramService: TelegramService,
-    private readonly pdfGeneratorService: TestPDFGeneratorService,
+    // PDF generation service removed
     private readonly answerProcessorService: AnswerProcessorService,
     private readonly testsService: TestsService,
   ) {}
@@ -186,60 +184,25 @@ export class TelegramController {
       message: 'Authentication successful',
       // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       user: req.user,
-      timestamp: new Date().toISOString(),
     };
   }
 
-  @Get('test-roles')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.TEACHER, UserRole.ADMIN, UserRole.SUPERADMIN)
-  @ApiBearerAuth()
-  testRoles(@Request() req) {
-    console.log(`Test roles endpoint hit. User: ${JSON.stringify(req.user)}`);
-    return {
-      message: 'Role authorization successful',
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-      user: req.user,
-      timestamp: new Date().toISOString(),
-    };
-  }
-
-  // ==================== Channel Management ====================
-
+  // ==================== Channel/Answers/Notifications ====================
   @Post('generate-invite/:channelId')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.TEACHER, UserRole.ADMIN, UserRole.SUPERADMIN)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Generate invite link for a channel' })
   @ApiResponse({ status: 200, description: 'Invite link generated' })
-  async generateInviteLink(@Param('channelId') channelId: string) {
+  async generateInvite(@Param('channelId') channelId: string) {
     return this.telegramService.generateChannelInviteLink(channelId);
   }
 
-  @Get('check-bot-status/:channelId')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.TEACHER, UserRole.ADMIN, UserRole.SUPERADMIN)
-  @ApiBearerAuth()
-  @ApiOperation({ summary: 'Check bot status in a channel' })
-  @ApiResponse({ status: 200, description: 'Bot status checked' })
-  async checkBotStatus(@Param('channelId') channelId: string) {
-    return this.telegramService.checkBotChannelStatus(channelId);
-  }
-
-  @Post('send-test')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.TEACHER, UserRole.ADMIN, UserRole.SUPERADMIN)
-  @ApiBearerAuth()
-  @ApiOperation({ summary: 'Send a test to a Telegram channel' })
-  @ApiResponse({ status: 200, description: 'Test sent successfully' })
-  async sendTestToChannel(@Body() dto: SendTestToChannelDto) {
-    const success = await this.telegramService.sendTestToChannel(dto);
-    return { success, message: 'Test sent to Telegram channel' };
-  }
-
   @Post('answers')
-  @ApiOperation({ summary: 'Submit an answer from Telegram' })
-  @ApiResponse({ status: 201, description: 'Answer submitted successfully' })
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Submit an answer via API' })
+  @ApiResponse({ status: 201, description: 'Answer accepted' })
   async submitAnswer(@Body() dto: SubmitAnswerDto) {
     return this.telegramService.processAnswer(dto);
   }
@@ -248,27 +211,21 @@ export class TelegramController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.TEACHER, UserRole.ADMIN, UserRole.SUPERADMIN)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Notify exam start to Telegram channels' })
-  @ApiResponse({
-    status: 200,
-    description: 'Exam start notification sent successfully',
-  })
-  async notifyExamStart(@Body() dto: { examId: number; groupIds: number[] }) {
-    const result = await this.telegramService.notifyExamStart(
-      dto.examId,
-      dto.groupIds,
-    );
-    return result;
+  @ApiOperation({ summary: 'Notify students that the exam has started' })
+  @ApiResponse({ status: 200, description: 'Notifications sent' })
+  async notifyExamStart(@Body() body: { examId: number; groupIds: number[] }) {
+    if (!body?.examId || !Array.isArray(body.groupIds)) {
+      throw new BadRequestException('examId and groupIds are required');
+    }
+    return this.telegramService.notifyExamStart(body.examId, body.groupIds);
   }
-
-  // ==================== Results Management ====================
 
   @Post('publish-results/:testId/:channelId')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.TEACHER, UserRole.ADMIN, UserRole.SUPERADMIN)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Publish test results to a channel' })
-  @ApiResponse({ status: 200, description: 'Results published successfully' })
+  @ApiResponse({ status: 200, description: 'Results published' })
   async publishResults(
     @Param('testId') testId: string,
     @Param('channelId') channelId: string,
@@ -283,96 +240,11 @@ export class TelegramController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get test statistics from Telegram submissions' })
   @ApiResponse({ status: 200, description: 'Statistics retrieved' })
-  async getTestStatistics(@Param('testId') testId: string) {
-    return this.telegramService.getTestStatistics(+testId);
+  async getTestStatistics(@Param('testId') testId: string): Promise<unknown> {
+    return this.telegramService.getTestStatistics(+testId) as Promise<unknown>;
   }
 
-  // ==================== PDF Generation ====================
-
-  @Post('send-test-pdf/:testId')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.TEACHER, UserRole.ADMIN, UserRole.SUPERADMIN)
-  @ApiBearerAuth()
-  @ApiOperation({ summary: 'Generate and send test PDF to users' })
-  @ApiResponse({ status: 200, description: 'Test PDF sent successfully' })
-  async sendTestPDF(
-    @Param('testId') testId: string,
-    @Body() body: { userIds: number[] },
-  ) {
-    const pdfBuffer = await this.pdfGeneratorService.generateTestPDF(
-      +testId,
-      0, // userId not needed for generation
-    );
-
-    const results = await this.telegramService.sendPDFToMultipleUsers(
-      body.userIds,
-      pdfBuffer,
-      `Test_${testId}.pdf`,
-      `📄 Test #${testId} PDF fayli`,
-    );
-
-    return {
-      success: results.success,
-      sentCount: results.sentCount,
-      failedCount: results.failedCount,
-      message: `PDF yuborish jarayoni tugallandi. Muvaffaqiyatli: ${results.sentCount}, Xato: ${results.failedCount}`,
-    };
-  }
-
-  // Add this new method to send all tests as PDFs
-  @Post('send-all-tests-pdfs')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.TEACHER, UserRole.ADMIN, UserRole.SUPERADMIN)
-  @ApiBearerAuth()
-  @ApiOperation({ summary: 'Generate and send all tests PDFs to users' })
-  @ApiResponse({ status: 200, description: 'All tests PDFs sent successfully' })
-  async sendAllTestsPDFs(@Body() body: { userIds: number[] }) {
-    // Get all tests
-    const tests = await this.testsService.findAll();
-
-    let totalSent = 0;
-    let totalFailed = 0;
-    const details: string[] = [];
-
-    // Generate and send PDF for each test
-    for (const test of tests) {
-      try {
-        const pdfBuffer = await this.pdfGeneratorService.generateTestPDF(
-          test.id,
-          0, // userId not needed for generation
-        );
-
-        const results = await this.telegramService.sendPDFToMultipleUsers(
-          body.userIds,
-          pdfBuffer,
-          `Test_${test.id}_${test.title.replace(/\s+/g, '_')}.pdf`,
-          `📄 Test "${test.title}" (#${test.id}) PDF fayli`,
-        );
-
-        totalSent += results.sentCount;
-        totalFailed += results.failedCount;
-        details.push(
-          `Test #${test.id} "${test.title}": ${results.sentCount} sent, ${results.failedCount} failed`,
-        );
-      } catch (error) {
-        totalFailed += body.userIds.length;
-        details.push(
-          `Test #${test.id} "${test.title}": Failed to generate/send - ${error.message}`,
-        );
-      }
-
-      // Small delay to avoid overwhelming the system
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-    }
-
-    return {
-      success: totalFailed === 0,
-      totalSent,
-      totalFailed,
-      details,
-      message: `Barcha testlar PDF ko'rinishida yuborildi. Muvaffaqiyatli: ${totalSent}, Xato: ${totalFailed}`,
-    };
-  }
+  // PDF-related endpoints removed
 
   @Post('process-answer-message')
   @ApiOperation({ summary: 'Process answer message from Telegram webhook' })
@@ -500,7 +372,7 @@ export class TelegramController {
     console.log(`Unhandled message: ${message.text}`);
   }
 
-  private processChannelPost(channelPost: any) {
+  private processChannelPost(channelPost: any): void {
     console.log(
       'Processing channel post:',
       channelPost.text?.substring(0, 100),
@@ -511,15 +383,18 @@ export class TelegramController {
   private async processAnswerSubmission(message: any) {
     try {
       // Parse the answer format: #T123Q1 A
-      const text = message.text.trim();
-      const match = text.match(/^#T(\d+)Q(\d+)\s+(.+)$/i);
+      const text: string =
+        typeof message.text === 'string' ? message.text.trim() : '';
+      const match: RegExpMatchArray | null = text.match(
+        /^#T(\d+)Q(\d+)\s+(.+)$/i,
+      );
 
       if (!match || match.length < 4) {
         console.warn(`Invalid answer format: ${text}`);
         return;
       }
 
-      const [, testId, questionNumber, answerText] = match as RegExpMatchArray;
+      const [, testId, questionNumber, answerText] = match;
 
       const dto: SubmitAnswerDto = {
         messageId: message.message_id.toString(),

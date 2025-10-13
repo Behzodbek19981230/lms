@@ -138,19 +138,13 @@ const ExamDetail: React.FC = () => {
 	const downloadVariantPDF = async (variantId: number) => {
 		try {
 			setDownloadingPdfs(prev => new Set(prev).add(variantId));
-			const response = await request.get(`/exams/variants/${variantId}/pdf`, { responseType: 'blob' });
-			const blob = response.data as Blob;
-			const url = window.URL.createObjectURL(blob);
-			const a = document.createElement('a');
-			a.href = url;
-			a.download = `imtihon-variant-${variantId}.pdf`;
-			document.body.appendChild(a);
-			a.click();
-			window.URL.revokeObjectURL(url);
-			document.body.removeChild(a);
+			const response = await request.get(`/exams/variants/${variantId}/pdf`);
+			const { url } = response.data as { url: string };
+            window.open(`${import.meta.env.VITE_FILE_BASE_URL}${url}`, '_blank');
+
 			toast({
 				title: 'Muvaffaqiyat',
-				description: 'PDF muvaffaqiyatli yuklandi',
+				description: 'Savollar varianiti muvaffaqiyatli yuklandi',
 			});
 		} catch (err) {
 			const errorMsg = err instanceof Error ? err.message : 'PDF yuklab olishda xatolik';
@@ -172,16 +166,15 @@ const ExamDetail: React.FC = () => {
 	const downloadAnswerKeyPDF = async (variantId: number) => {
 		try {
 			setDownloadingPdfs(prev => new Set(prev).add(-variantId)); // Use negative to distinguish from variant PDF
-			const response = await request.get(`/exams/variants/${variantId}/answer-key`, { responseType: 'blob' });
-			const blob = response.data as Blob;
-			const url = window.URL.createObjectURL(blob);
-			const a = document.createElement('a');
-			a.href = url;
-			a.download = `javoblar-kaliti-${variantId}.pdf`;
-			document.body.appendChild(a);
-			a.click();
-			window.URL.revokeObjectURL(url);
-			document.body.removeChild(a);
+			const response = await request.get(`/exams/variants/${variantId}/answer-key`);
+			const { url } = response.data as { url: string };
+
+			// Build absolute URL using API origin (VITE_API_BASE_URL may include /api path)
+			const base = (request.defaults as any).baseURL as string | undefined;
+			const api = base ? new URL(base, window.location.origin) : new URL(window.location.origin);
+			const origin = `${api.protocol}//${api.host}`;
+			const fullUrl = `${origin}${url}`;
+			window.open(fullUrl, '_blank');
 			toast({
 				title: 'Muvaffaqiyat',
 				description: 'Javoblar kaliti muvaffaqiyatli yuklandi',

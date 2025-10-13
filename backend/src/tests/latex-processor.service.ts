@@ -1,18 +1,7 @@
 import { Injectable } from '@nestjs/common';
 
-const mjNode = require('mathjax-node');
-const SVGtoPDFKit = require('svg-to-pdfkit');
-
 // MathJax sozlash
-mjNode.config({
-  MathJax: {
-    SVG: {
-      font: 'STIX-Web',
-      linebreaks: { automatic: true },
-    },
-  },
-});
-mjNode.start();
+// PDF-related MathJax server rendering removed. Frontend/HTML uses KaTeX.
 
 @Injectable()
 export class LatexProcessorService {
@@ -41,38 +30,17 @@ export class LatexProcessorService {
   /**
    * LaTeX formulani SVG ga render qilish (MathJax)
    */
-  async renderLatexToSvg(
-    formula: string,
-    isDisplay = false,
-  ): Promise<string | null> {
-    return new Promise((resolve) => {
-      mjNode.typeset(
-        {
-          math: formula,
-          format: isDisplay ? 'TeX' : 'inline-TeX',
-          svg: true,
-        },
-        (data: any) => {
-          if (data.errors || !data.svg) {
-            console.warn('MathJax rendering error:', data.errors);
-            resolve(null);
-          } else {
-            // XML / DOCTYPE olib tashlash
-            const cleanSvg = data.svg
-              .replace(/^<\?xml[^>]*\?>/, '')
-              .replace(/<!DOCTYPE[^>]*>/, '')
-              .trim();
-            resolve(cleanSvg);
-          }
-        },
-      );
-    });
+  renderLatexToSvg(_formula: string, _isDisplay = false): string | null {
+    // Server-side LaTeX-to-SVG is disabled; return null to let clients render.
+    void _formula;
+    void _isDisplay;
+    return null;
   }
 
   /**
    * Matndan LaTeX formulalarni ajratib SVG ga aylantirish
    */
-  async processLatexFormulas(text: string): Promise<ProcessedLatexContent> {
+  processLatexFormulas(text: string): ProcessedLatexContent {
     const result: ProcessedLatexContent = {
       text,
       hasLatex: false,
@@ -89,7 +57,7 @@ export class LatexProcessorService {
         const isDisplay = match.startsWith('$$');
         const formula = match.replace(/^\$+|\$+$/g, '');
 
-        const svg = await this.renderLatexToSvg(formula, isDisplay);
+        const svg = this.renderLatexToSvg(formula, isDisplay);
         const placeholder = ``;
 
         result.text = result.text.replace(match, placeholder);
@@ -108,7 +76,7 @@ export class LatexProcessorService {
   /**
    * Kontentni (matn + LaTeX + rasmlar) kompleks ishlov berish
    */
-  async processContentEnhanced(text: string): Promise<EnhancedContent> {
+  processContentEnhanced(text: string): EnhancedContent {
     if (!text) {
       return {
         text: '',
@@ -120,21 +88,26 @@ export class LatexProcessorService {
     }
 
     // Avval LaTeX ni qayta ishlash
-    const latexResult = await this.processLatexFormulas(text);
+    const latexResult = this.processLatexFormulas(text);
 
     // Rasmlar uchun placeholderlarni tekshirish
-    const imageMatches = latexResult.text.match(/\[IMAGE_\d+\]/g) || [];
+    const imageMatches: string[] =
+      latexResult.text.match(/\[IMAGE_\d+\]/g) ?? [];
 
     // Direct base64 images in markdown format: ![alt](data:image/...)
     const base64ImageRegex =
       /!\[([^\]]*)\]\((data:image\/[^;]+;base64,[^)]+)\)/g;
     const base64Images: Base64Image[] = [];
     let processedText = latexResult.text;
-    let match;
-    let imageIndex = 0;
+    let match: RegExpExecArray | null;
+    // let imageIndex = 0;
 
     while ((match = base64ImageRegex.exec(latexResult.text)) !== null) {
-      const [fullMatch, alt, dataUrl] = match;
+      const [fullMatch, alt, dataUrl] = match as unknown as [
+        string,
+        string,
+        string,
+      ];
       const placeholder = ``;
 
       // Extract dimensions from alt text if present (format: alt|width: 100px; height: 100px)
@@ -142,12 +115,12 @@ export class LatexProcessorService {
       let height: number | undefined;
 
       if (alt.includes('|')) {
-        const [altText, dimensions] = alt.split('|');
+        const [, dimensions] = alt.split('|');
         const widthMatch = dimensions.match(/width:\s*(\d+)px/);
         const heightMatch = dimensions.match(/height:\s*(\d+)px/);
 
-        if (widthMatch) width = parseInt(widthMatch[1]);
-        if (heightMatch) height = parseInt(heightMatch[1]);
+        if (widthMatch) width = parseInt(widthMatch[1], 10);
+        if (heightMatch) height = parseInt(heightMatch[1], 10);
       }
 
       base64Images.push({
@@ -159,7 +132,7 @@ export class LatexProcessorService {
       });
 
       processedText = processedText.replace(fullMatch, placeholder);
-      imageIndex++;
+      // imageIndex++;
     }
 
     return {
@@ -168,7 +141,7 @@ export class LatexProcessorService {
       hasImages: imageMatches.length > 0 || base64Images.length > 0,
       svgFormulas: latexResult.svgFormulas,
       base64Images: [
-        ...imageMatches.map((ph) => ({
+        ...imageMatches.map((ph: string) => ({
           placeholder: ph,
           original: ph,
           data: '',
@@ -181,32 +154,25 @@ export class LatexProcessorService {
   /**
    * SVG ni PDFga joylash
    */
-  renderSvgToPdf(
-    doc: any,
-    svg: string,
-    x: number,
-    y: number,
-    options?: any,
-  ): void {
-    try {
-      SVGtoPDFKit(doc, svg, x, y, options);
-    } catch (error) {
-      console.warn('Failed to render SVG to PDF:', error);
-      doc.font('Times-Roman').fontSize(12).text('[LaTeX]', x, y);
-    }
+  // PDF rendering removed
+  renderSvgToPdf(): void {
+    return;
   }
 
   /**
    * Matndagi rasm placeholderlarini imageMap bilan almashtirish
    */
-  mapImageData(content: any, imageMap: Record<string, string>) {
+  mapImageData(
+    content: { text: string; base64Images?: Base64Image[] },
+    imageMap: Record<string, string>,
+  ) {
     if (!content || !content.text) return content;
     let newText = content.text;
     if (content.base64Images && Array.isArray(content.base64Images)) {
-      content.base64Images = content.base64Images.map((img: any) => {
+      content.base64Images = content.base64Images.map((img) => {
         const data = imageMap?.[img.placeholder] || '';
         newText = newText.replace(img.placeholder, '');
-        return { ...img, data };
+        return { ...img, data } as Base64Image;
       });
     }
     return { ...content, text: newText };
@@ -224,17 +190,26 @@ export class LatexProcessorService {
   /**
    * Oddiy kontentni qayta ishlash (LaTeX va rasm placeholderlari)
    */
-  processContent(text: string): any {
+  processContent(text: string): {
+    text: string;
+    hasLatex: boolean;
+    hasImages: boolean;
+    base64Images: Base64Image[];
+  } {
     // Direct base64 images in markdown format: ![alt](data:image/...)
     const base64ImageRegex =
       /!\[([^\]]*)\]\((data:image\/[^;]+;base64,[^)]+)\)/g;
     const base64Images: Base64Image[] = [];
     let processedText = text;
-    let match;
-    let imageIndex = 0;
+    let match: RegExpExecArray | null;
+    // let imageIndex = 0;
 
     while ((match = base64ImageRegex.exec(text)) !== null) {
-      const [fullMatch, alt, dataUrl] = match;
+      const [fullMatch, alt, dataUrl] = match as unknown as [
+        string,
+        string,
+        string,
+      ];
       const placeholder = ``;
 
       // Extract dimensions from alt text if present (format: alt|width: 100px; height: 100px)
@@ -246,8 +221,8 @@ export class LatexProcessorService {
         const widthMatch = dimensions?.match(/width:\s*(\d+)px/);
         const heightMatch = dimensions?.match(/height:\s*(\d+)px/);
 
-        if (widthMatch) width = parseInt(widthMatch[1]);
-        if (heightMatch) height = parseInt(heightMatch[1]);
+        if (widthMatch) width = parseInt(widthMatch[1], 10);
+        if (heightMatch) height = parseInt(heightMatch[1], 10);
       }
 
       base64Images.push({
@@ -259,7 +234,7 @@ export class LatexProcessorService {
       });
 
       processedText = processedText.replace(fullMatch, placeholder);
-      imageIndex++;
+      // imageIndex++;
     }
 
     // Faqat LaTeX va rasm placeholderlarini aniqlash uchun soddalashtirilgan

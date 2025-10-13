@@ -9,6 +9,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { ArrowLeft, Download, Search, Filter, FileText, Users, CheckCircle, Clock, AlertCircle } from 'lucide-react';
 import moment from 'moment';
 import { request } from '@/configs/request';
+import { toast } from '@/components/ui/use-toast';
 
 interface ExamVariant {
 	id: number;
@@ -96,33 +97,50 @@ const ExamVariants: React.FC = () => {
 
 	const downloadVariantPDF = async (variantId: number) => {
 		try {
-			const response = await request.get(`/exams/variants/${variantId}/pdf`, { responseType: 'blob' });
-			const blob = response.data as Blob;
-			const url = window.URL.createObjectURL(blob);
-			const a = document.createElement('a');
-			a.href = url;
-			a.download = `exam-variant-${variantId}.pdf`;
-			document.body.appendChild(a);
-			a.click();
-			window.URL.revokeObjectURL(url);
-			document.body.removeChild(a);
+			const response = await request.get(`/exams/variants/${variantId}/pdf`);
+			const { url } = response.data as { url: string };
+
+			// Build absolute URL using API origin (VITE_API_BASE_URL may include /api path)
+			const base = (request.defaults as any).baseURL as string | undefined;
+			const api = base ? new URL(base, window.location.origin) : new URL(window.location.origin);
+			const origin = `${api.protocol}//${api.host}`;
+			const fullUrl = `${origin}${url}`;
+			window.open(fullUrl, '_blank');
 		} catch (err) {
 			setError(err instanceof Error ? err.message : 'Failed to download PDF');
 		}
 	};
 
+	const openPrintableHtml = async (variantId: number) => {
+		try {
+			// Ask backend to generate a printable HTML file and return relative URL like /print/xxx.html
+			const resp = await request.post(`/exams/variants/${variantId}/printable`);
+			const { url } = resp.data as { url: string };
+
+			// Build absolute URL using API origin (VITE_API_BASE_URL may include /api path)
+			const base = (request.defaults as any).baseURL as string | undefined;
+			const api = base ? new URL(base, window.location.origin) : new URL(window.location.origin);
+			const origin = `${api.protocol}//${api.host}`;
+			const fullUrl = `${origin}${url}`;
+			window.open(fullUrl, '_blank');
+		} catch (err: any) {
+			const msg = err?.response?.data?.message || 'HTML faylni yaratishda xatolik yuz berdi';
+			setError(typeof msg === 'string' ? msg : 'Xatolik');
+			if (toast) toast({ title: 'Xatolik', description: msg, variant: 'destructive' });
+		}
+	};
+
 	const downloadAnswerKeyPDF = async (variantId: number) => {
 		try {
-			const response = await request.get(`/exams/variants/${variantId}/answer-key`, { responseType: 'blob' });
-			const blob = response.data as Blob;
-			const url = window.URL.createObjectURL(blob);
-			const a = document.createElement('a');
-			a.href = url;
-			a.download = `answer-key-${variantId}.pdf`;
-			document.body.appendChild(a);
-			a.click();
-			window.URL.revokeObjectURL(url);
-			document.body.removeChild(a);
+			const response = await request.get(`/exams/variants/${variantId}/answer-key`);
+			const { url } = response.data as { url: string };
+
+			// Build absolute URL using API origin (VITE_API_BASE_URL may include /api path)
+			const base = (request.defaults as any).baseURL as string | undefined;
+			const api = base ? new URL(base, window.location.origin) : new URL(window.location.origin);
+			const origin = `${api.protocol}//${api.host}`;
+			const fullUrl = `${origin}${url}`;
+			window.open(fullUrl, '_blank');
 		} catch (err) {
 			setError(err instanceof Error ? err.message : 'Failed to download answer key');
 		}
@@ -438,6 +456,14 @@ const ExamVariants: React.FC = () => {
 											>
 												<Download className='h-4 w-4 mr-1' />
 												Test
+											</Button>
+											<Button
+												size='sm'
+												variant='outline'
+												onClick={() => openPrintableHtml(variant.id)}
+											>
+												<FileText className='h-4 w-4 mr-1' />
+												HTML
 											</Button>
 											<Button
 												size='sm'

@@ -78,4 +78,8 @@ export class ExamVariant extends BaseEntity {
 
   @Column({ nullable: true })
   resultPdfPath: string;
+
+  // Generated printable HTML path (public URL like /print/filename.html)
+  @Column({ type: 'text', nullable: true })
+  printHtmlPath: string | null;
 }

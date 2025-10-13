@@ -32,7 +32,6 @@ import {
   SendTestToChannelDto,
   SubmitAnswerDto,
 } from './dto/telegram.dto';
-import { TestPDFGeneratorService } from './test-pdf-generator.service'; // Add this import
 
 @Injectable()
 export class TelegramService {
@@ -63,7 +62,6 @@ export class TelegramService {
     @InjectRepository(Group)
     private groupRepo: Repository<Group>,
     private configService: ConfigService,
-    private readonly testPDFGeneratorService: TestPDFGeneratorService,
     private readonly logsService: LogsService,
   ) {
     const token = this.configService.get<string>('TELEGRAM_BOT_TOKEN');
@@ -1154,43 +1152,28 @@ export class TelegramService {
     }
 
     try {
-      // Generate test PDF
-      const pdfBuffer = await this.testPDFGeneratorService.generateTestPDF(
-        dto.testId,
-        0, // userId not needed for generation
-      );
-
-      // Send PDF document with a descriptive caption
+      // Send plain text message instead of PDF
       const caption = dto.customMessage
-        ? `${dto.customMessage}\n\n📄 Test #${dto.testId}: ${test.title}`
-        : `📄 Test #${dto.testId}: ${test.title}\n\nFan: ${test.subject?.name || "Noma'lum"}\nSavollar soni: ${test.questions?.length || 0} ta`;
+        ? `${dto.customMessage}\n\n� Test #${dto.testId}: ${test.title}`
+        : `� Test #${dto.testId}: ${test.title}\n\nFan: ${test.subject?.name || "Noma'lum"}\nSavollar soni: ${test.questions?.length || 0} ta`;
 
-      await this.bot.sendDocument(
-        targetChannelId,
-        pdfBuffer,
-        {
-          caption,
-          parse_mode: 'HTML',
-        },
-        {
-          filename: `test-${dto.testId}.pdf`,
-          contentType: 'application/pdf',
-        },
-      );
+      await this.bot.sendMessage(targetChannelId, caption, {
+        parse_mode: 'HTML',
+      });
 
-      this.logsService.log(
-        `Test ${dto.testId} PDF sent successfully to channel ${targetChannelId} (requested: ${dto.channelId})`,
+      void this.logsService.log(
+        `Test ${dto.testId} message sent successfully to channel ${targetChannelId} (requested: ${dto.channelId})`,
         'TelegramService',
       );
       return true;
     } catch (error) {
-      this.logsService.error(
-        `Failed to send test PDF to channel: ${error.message}`,
+      void this.logsService.error(
+        `Failed to send test message to channel: ${error.message}`,
         error.stack,
         'TelegramService',
       );
       throw new BadRequestException(
-        `Test PDFni Telegram kanaliga yuborishda xatolik: ${error.message}`,
+        `Test xabarini Telegram kanaliga yuborishda xatolik: ${error.message}`,
       );
     }
   }
@@ -2653,7 +2636,7 @@ export class TelegramService {
     type: PendingPdfType,
     fileName: string,
     caption: string,
-    metadata: any,
+    metadata: Record<string, unknown>,
     pdfBuffer?: Buffer,
     expirationDays: number = 30,
   ): Promise<PendingPdf> {
@@ -2673,7 +2656,7 @@ export class TelegramService {
         type,
         fileName,
         caption,
-        metadata,
+        metadata: metadata,
         pdfData: pdfBuffer ? pdfBuffer.toString('base64') : null,
         status: PendingPdfStatus.PENDING,
         expiresAt,
@@ -2768,7 +2751,7 @@ export class TelegramService {
             pdfBuffer = Buffer.from(pendingPdf.pdfData, 'base64');
           } else {
             // Regenerate PDF from metadata
-            pdfBuffer = await this.regeneratePdfFromMetadata(pendingPdf);
+            pdfBuffer = this.regeneratePdfFromMetadata(pendingPdf);
           }
 
           // Attempt to send the PDF
@@ -2816,7 +2799,12 @@ export class TelegramService {
         } catch (error) {
           // Mark as failed
           pendingPdf.status = PendingPdfStatus.FAILED;
-          pendingPdf.failureReason = error.message;
+          const errorMessage =
+            typeof (error as unknown as { message?: unknown })?.message ===
+            'string'
+              ? (error as { message: string }).message
+              : String(error);
+          pendingPdf.failureReason = errorMessage;
           await this.pendingPdfRepo.save(pendingPdf);
 
           result.failed++;
@@ -2847,9 +2835,7 @@ export class TelegramService {
     return result;
   }
 
-  private async regeneratePdfFromMetadata(
-    pendingPdf: PendingPdf,
-  ): Promise<Buffer> {
+  private regeneratePdfFromMetadata(pendingPdf: PendingPdf): Buffer {
     // This method would regenerate the PDF based on the stored metadata
     // For now, we'll throw an error if no PDF data is stored
     if (!pendingPdf.pdfData) {

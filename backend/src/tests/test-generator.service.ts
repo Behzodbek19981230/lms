@@ -1,5 +1,4 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
-/* eslint-disable @typescript-eslint/no-require-imports */
 import {
   Injectable,
   NotFoundException,
@@ -16,8 +15,6 @@ import {
 } from './entities/generated-test.entity';
 import { LatexProcessorService } from './latex-processor.service';
 import { LogsService } from 'src/logs/logs.service';
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const PDFDocument = require('pdfkit');
 
 export interface GenerateTestDto {
   title: string;
@@ -179,57 +176,11 @@ export class TestGeneratorService {
   /**
    * Generate PDF for test variants with 2-column layout
    */
-  async generateTestPDF(
-    variants: TestVariant[],
-    config: GenerateTestDto,
-    subjectName: string,
-    contentMappings?: {
-      latexMap?: Record<string, string>;
-      imageMap?: Record<string, string>;
-    },
-  ): Promise<Buffer> {
-    const PDFDoc = require('pdfkit');
-
-    return new Promise((resolve, reject) => {
-      void (async () => {
-        try {
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-          const doc = new PDFDoc({ size: 'A4', margin: 50 });
-          const chunks: Buffer[] = [];
-
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-          doc.on('data', (chunk: Buffer) => chunks.push(chunk));
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-          doc.on('end', () => resolve(Buffer.concat(chunks)));
-
-          // Generate PDF for each variant
-          for (
-            let variantIndex = 0;
-            variantIndex < variants.length;
-            variantIndex++
-          ) {
-            const variant = variants[variantIndex];
-            if (variantIndex > 0) {
-              // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-              doc.addPage();
-            }
-
-            await this.generateVariantPDF(
-              doc,
-              variant,
-              config,
-              subjectName,
-              contentMappings,
-            );
-          }
-
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-          doc.end();
-        } catch (error) {
-          reject(error instanceof Error ? error : new Error(String(error)));
-        }
-      })();
-    });
+  generateTestPDF(): Promise<Buffer> {
+    // PDF generation is deprecated; use HTML printable flow instead
+    return Promise.reject(
+      new BadRequestException('PDF generation is disabled. Use HTML output.'),
+    );
   }
 
   /**
@@ -459,7 +410,7 @@ export class TestGeneratorService {
       // Better space calculation with LaTeX and image support
       const processedQuestionForSpace = this.latexProcessor
         .processContentEnhanced
-        ? await this.latexProcessor.processContentEnhanced(questionText)
+        ? this.latexProcessor.processContentEnhanced(questionText)
         : { hasImages: false, base64Images: [] };
 
       // More accurate space calculation
@@ -534,7 +485,7 @@ export class TestGeneratorService {
 
       // Draw question with enhanced LaTeX and image support using MathJax
       let processedQuestion =
-        await this.latexProcessor.processContentEnhanced(questionText);
+        this.latexProcessor.processContentEnhanced(questionText);
 
       // Apply content mappings if provided
       if (contentMappings?.imageMap) {
@@ -667,17 +618,8 @@ export class TestGeneratorService {
           if (svgFormula.svg) {
             try {
               // Render SVG formula to PDF
-              this.latexProcessor.renderSvgToPdf(
-                doc,
-                svgFormula.svg,
-                xPos + 10,
-                currentYPos,
-                {
-                  width: columnWidth - 20,
-                  height: 40, // Default height for formulas
-                  preserveAspectRatio: 'xMinYMin meet',
-                },
-              );
+              // PDF rendering removed; skip server-side SVG to PDF embedding
+              this.latexProcessor.renderSvgToPdf();
               currentYPos += 45; // Space for SVG formula
             } catch (error) {
               console.warn('Failed to render LaTeX SVG formula:', error);
@@ -701,16 +643,17 @@ export class TestGeneratorService {
 
         // Process all answers with LaTeX support
         const processedAnswers = await Promise.all(
-          question.answers.map(async (answer, index) => {
+          question.answers.map((answer, index) => {
             const letter = letters[index] || `${index + 1}`;
 
             // Process LaTeX in answer text
-            let processedAnswer =
-              await this.latexProcessor.processContentEnhanced(answer.text);
+            const processedAnswer = this.latexProcessor.processContentEnhanced(
+              answer.text,
+            );
 
             // Apply content mappings if provided
             if (contentMappings?.imageMap) {
-              processedAnswer = this.latexProcessor.mapImageData(
+              this.latexProcessor.mapImageData(
                 processedAnswer,
                 contentMappings.imageMap,
               );
@@ -783,17 +726,8 @@ export class TestGeneratorService {
               if (svgFormula.svg) {
                 try {
                   // Render SVG formula to PDF
-                  this.latexProcessor.renderSvgToPdf(
-                    doc,
-                    svgFormula.svg,
-                    xPos + 20,
-                    currentYPos,
-                    {
-                      width: columnWidth - 30,
-                      height: 30, // Smaller height for answer formulas
-                      preserveAspectRatio: 'xMinYMin meet',
-                    },
-                  );
+                  // PDF rendering removed; skip server-side SVG to PDF embedding
+                  this.latexProcessor.renderSvgToPdf();
                   currentYPos += 35; // Space for SVG formula
                 } catch (error) {
                   console.warn(

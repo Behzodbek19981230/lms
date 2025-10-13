@@ -3,9 +3,12 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import * as bodyParser from 'body-parser';
 import { CustomLogger } from './logs/custom-logger';
+import { join } from 'path';
+import { NestExpressApplication } from '@nestjs/platform-express';
+import type { Response } from 'express';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule, {
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     logger: false,
   });
 
@@ -17,6 +20,28 @@ async function bootstrap() {
 
   // Set global prefix
   app.setGlobalPrefix('api');
+
+  // Serve static HTML printables at /print/* with permissive CORS headers
+  const staticHeaders = (res: Response) => {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+    res.setHeader(
+      'Access-Control-Allow-Headers',
+      'Content-Type, Authorization',
+    );
+    // Helpful when embedding across origins
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+  };
+  // - In prod (compiled): files under dist/public
+  app.useStaticAssets(join(__dirname, 'public'), {
+    prefix: '/print/',
+    setHeaders: staticHeaders,
+  });
+  // - In dev (ts-node): also serve project-root/public
+  app.useStaticAssets(join(__dirname, '..', 'public'), {
+    prefix: '/print/',
+    setHeaders: staticHeaders,
+  });
 
   app.enableCors({
     origin: '*',
@@ -37,4 +62,4 @@ async function bootstrap() {
   await app.listen(port);
 }
 
-bootstrap();
+void bootstrap();

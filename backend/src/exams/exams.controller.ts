@@ -131,148 +131,49 @@ export class ExamsController {
   }
 
   @Get('variants/:variantId/pdf')
-  @ApiOperation({ summary: 'Download exam variant PDF' })
-  @ApiResponse({ status: 200, description: 'PDF file' })
+  @ApiOperation({
+    summary: 'Deprecated: Redirect to printable HTML instead of PDF',
+  })
+  @ApiResponse({ status: 303, description: 'Redirects to printable HTML file' })
   async downloadVariantPDF(
     @Param('variantId') variantId: string,
     @Res() res: Response,
-  ): Promise<void> {
-    try {
-      console.log(`PDF generation requested for variant ${variantId}`);
-      const buffer = await this.examsService.generateVariantPDF(+variantId);
+  ) {
+    // Generate printable HTML file and redirect to its public URL
+    const { url } =
+      await this.examsService.generateVariantPrintableFile(+variantId);
 
-      console.log(
-        `PDF generated successfully. Buffer size: ${buffer.length} bytes`,
-      );
-
-      // Check if buffer is valid
-      if (!buffer || buffer.length === 0) {
-        console.error('Empty PDF buffer generated');
-        res.status(500).json({ error: 'PDF generation failed - empty buffer' });
-        return;
-      }
-
-      // Check if buffer starts with PDF signature
-      const pdfHeader = buffer.slice(0, 4).toString();
-      console.log(`PDF header: ${pdfHeader}`);
-
-      if (!pdfHeader.startsWith('%PDF')) {
-        console.error('Invalid PDF buffer - missing PDF header');
-        console.log(
-          'Buffer start (first 100 bytes):',
-          buffer.slice(0, 100).toString(),
-        );
-        res
-          .status(500)
-          .json({ error: 'PDF generation failed - invalid format' });
-        return;
-      }
-
-      res.setHeader('Content-Type', 'application/pdf');
-      res.setHeader('Content-Length', buffer.length.toString());
-      res.setHeader(
-        'Content-Disposition',
-        `attachment; filename="variant-${variantId}.pdf"`,
-      );
-      res.send(buffer);
-
-      console.log(`PDF response sent successfully for variant ${variantId}`);
-    } catch (error: unknown) {
-      console.error(`Error generating PDF for variant ${variantId}:`, error);
-      let errorMessage = 'Unknown error';
-      if (error && typeof error === 'object' && 'message' in error) {
-        errorMessage = (error as { message: string }).message;
-      }
-      res.status(500).json({
-        error: 'PDF generation failed',
-        message: errorMessage,
-        variantId,
-      });
-    }
+    return res.send({ url });
   }
 
-  @Get('variants/:variantId/answer-key')
-  @ApiOperation({ summary: 'Download exam variant answer key PDF' })
-  @ApiResponse({ status: 200, description: 'Answer key PDF file' })
-  async downloadAnswerKeyPDF(
+  @Get('variants/:variantId/html')
+  @ApiOperation({ summary: 'Preview exam variant as HTML (browser printable)' })
+  @ApiResponse({ status: 200, description: 'HTML content' })
+  async previewVariantHTML(
     @Param('variantId') variantId: string,
     @Res() res: Response,
   ): Promise<void> {
-    const buffer = await this.examsService.generateAnswerKeyPDF(+variantId);
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader(
-      'Content-Disposition',
-      `attachment; filename="answer-key-${variantId}.pdf"`,
-    );
-    res.send(buffer);
+    const html = await this.examsService.generateVariantHTML(+variantId);
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.send(html);
   }
 
-  @Get(':id/variants/pdf')
-  @ApiOperation({ summary: 'Download all exam variants PDF' })
-  @ApiResponse({ status: 200, description: 'All variants PDF file' })
-  async downloadAllVariantsPDF(
-    @Param('id') id: string,
-    @Res() res: Response,
-  ): Promise<void> {
-    const buffer = await this.examsService.generateAllVariantsPDF(+id);
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader(
-      'Content-Disposition',
-      `attachment; filename="exam-${id}-variants.pdf"`,
-    );
-    res.send(buffer);
-  }
-
-  @Get(':id/variants/answer-keys')
-  @ApiOperation({ summary: 'Download all exam answer keys PDF' })
-  @ApiResponse({ status: 200, description: 'All answer keys PDF file' })
-  async downloadAllAnswerKeysPDF(
-    @Param('id') id: string,
-    @Res() res: Response,
-  ): Promise<void> {
-    const buffer = await this.examsService.generateAllAnswerKeysPDF(+id);
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader(
-      'Content-Disposition',
-      `attachment; filename="exam-${id}-answer-keys.pdf"`,
-    );
-    res.send(buffer);
-  }
-
-  @Post('variants/:variantId/send-telegram')
+  @Post('variants/:variantId/printable')
   @ApiOperation({
-    summary: 'Generate and send exam variant PDF to student via Telegram',
+    summary: 'Generate printable HTML file for a variant and return its URL',
   })
   @ApiResponse({
-    status: 200,
-    description: 'PDF generated and sent via Telegram',
+    status: 201,
+    description: 'Printable HTML generated',
+    type: Object,
   })
-  async sendVariantPDFToTelegram(@Param('variantId') variantId: string) {
-    const result =
-      await this.examsService.generateAndSendVariantPDF(+variantId);
-    return {
-      success: result.telegramSent,
-      pdfGenerated: result.pdfGenerated,
-      message: result.message,
-    };
+  async createPrintableHtml(
+    @Param('variantId') variantId: string,
+  ): Promise<{ url: string }> {
+    const { url } =
+      await this.examsService.generateVariantPrintableFile(+variantId);
+    return { url };
   }
 
-  @Post(':id/send-all-telegram')
-  @ApiOperation({
-    summary: 'Generate and send all exam variant PDFs to students via Telegram',
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'All PDFs generated and sent via Telegram',
-  })
-  async sendAllVariantsPDFsToTelegram(@Param('id') id: string) {
-    const result = await this.examsService.generateAndSendAllVariantsPDFs(+id);
-    return {
-      success: result.failed === 0,
-      totalVariants: result.totalVariants,
-      sent: result.sent,
-      failed: result.failed,
-      details: result.details,
-    };
-  }
+  // All PDF and Telegram-related endpoints removed as part of PDF cleanup
 }

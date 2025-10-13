@@ -11,7 +11,6 @@ import {
   Query,
   Request,
   UseGuards,
-  Res,
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
@@ -51,9 +50,12 @@ export class TestsController {
   })
   async create(
     @Body() createTestDto: CreateTestDto,
-    @Request() req,
+    @Request() req: { user: { id: number | string } },
   ): Promise<TestResponseDto> {
-    return this.testsService.create(createTestDto, req.user.id);
+    const userId =
+      typeof req.user.id === 'string' ? parseInt(req.user.id, 10) : req.user.id;
+
+    return this.testsService.create(createTestDto, userId);
   }
 
   @Get()
@@ -69,13 +71,18 @@ export class TestsController {
     description: "Fan bo'yicha filtrlash",
   })
   async findAll(
-    @Query('subjectid') subjectid: number,
-    @Request() req,
+    @Query('subjectid') subjectid: string | number | undefined,
+    @Request() req: { user: { id: number | string } },
   ): Promise<TestResponseDto[]> {
-    if (subjectid) {
-      return this.testsService.findBySubject(subjectid, req.user.id);
+    const userId =
+      typeof req.user.id === 'string' ? parseInt(req.user.id, 10) : req.user.id;
+    const subjId =
+      typeof subjectid === 'string' ? parseInt(subjectid, 10) : subjectid;
+
+    if (subjId) {
+      return this.testsService.findBySubject(subjId, userId);
     }
-    return this.testsService.findAllByTeacher(req.user.id);
+    return this.testsService.findAllByTeacher(userId);
   }
 
   @Get('my')
@@ -85,8 +92,13 @@ export class TestsController {
     description: "Testlar ro'yxati",
     type: [TestResponseDto],
   })
-  async findMyTests(@Request() req): Promise<TestResponseDto[]> {
-    return this.testsService.findAllByTeacher(req.user.id);
+  async findMyTests(
+    @Request() req: { user: { id: number | string } },
+  ): Promise<TestResponseDto[]> {
+    const userId =
+      typeof req.user.id === 'string' ? parseInt(req.user.id, 10) : req.user.id;
+
+    return this.testsService.findAllByTeacher(userId);
   }
 
   @Get('stats')
@@ -96,8 +108,13 @@ export class TestsController {
     description: 'Testlar statistikasi',
     type: TestStatsDto,
   })
-  async getStats(@Request() req): Promise<TestStatsDto> {
-    return this.testsService.getTestStats(req.user.id);
+  async getStats(
+    @Request() req: { user: { id: number | string } },
+  ): Promise<TestStatsDto> {
+    const userId =
+      typeof req.user.id === 'string' ? parseInt(req.user.id, 10) : req.user.id;
+
+    return this.testsService.getTestStats(userId);
   }
 
   @Get(':id')
@@ -109,10 +126,13 @@ export class TestsController {
   })
   @ApiResponse({ status: 404, description: 'Test topilmadi' })
   async findOne(
-    @Param('id') id: number,
-    @Request() req,
+    @Param('id') id: string,
+    @Request() req: { user: { id: number | string } },
   ): Promise<TestResponseDto> {
-    return this.testsService.findOne(id, req.user.id);
+    const userId =
+      typeof req.user.id === 'string' ? parseInt(req.user.id, 10) : req.user.id;
+
+    return this.testsService.findOne(parseInt(id, 10), userId);
   }
 
   @Patch(':id')
@@ -123,19 +143,28 @@ export class TestsController {
     type: TestResponseDto,
   })
   async update(
-    @Param('id') id: number,
+    @Param('id') id: string,
     @Body() updateTestDto: UpdateTestDto,
-    @Request() req,
+    @Request() req: { user: { id: number | string } },
   ): Promise<TestResponseDto> {
-    return this.testsService.update(id, updateTestDto, req.user.id);
+    const userId =
+      typeof req.user.id === 'string' ? parseInt(req.user.id, 10) : req.user.id;
+
+    return this.testsService.update(parseInt(id, 10), updateTestDto, userId);
   }
 
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: "Testni o'chirish" })
   @ApiResponse({ status: 204, description: "Test muvaffaqiyatli o'chirildi" })
-  async remove(@Param('id') id: number, @Request() req): Promise<void> {
-    return this.testsService.remove(id, req.user.id);
+  async remove(
+    @Param('id') id: string,
+    @Request() req: { user: { id: number | string } },
+  ): Promise<void> {
+    const userId =
+      typeof req.user.id === 'string' ? parseInt(req.user.id, 10) : req.user.id;
+
+    return this.testsService.remove(parseInt(id, 10), userId);
   }
 
   @Post('generate')
@@ -146,42 +175,16 @@ export class TestsController {
   })
   async generateRandomTest(
     @Body() generateTestDto: GenerateTestDto,
-    @Request() req,
+    @Request() req: { user: { id: number | string } },
   ) {
+    const userId =
+      typeof req.user.id === 'string' ? parseInt(req.user.id, 10) : req.user.id;
+
     return this.testGeneratorService.generateRandomTest(
       generateTestDto,
-      req.user.id,
+      userId,
     );
   }
 
-  @Post('generate/:id/pdf')
-  @ApiOperation({ summary: 'Yaratilgan test uchun PDF generatsiya qilish' })
-  @ApiResponse({
-    status: 200,
-    description: 'PDF muvaffaqiyatli yaratildi',
-  })
-  async generateTestPDF(
-    @Param('id') id: string,
-    @Body()
-    body: {
-      variants: any[];
-      config: GenerateTestDto;
-      subjectName: string;
-    },
-    @Res() res: Response,
-  ) {
-    const pdfBuffer = await this.testGeneratorService.generateTestPDF(
-      body.variants as any,
-      body.config,
-      body.subjectName,
-    );
-
-    res.set({
-      'Content-Type': 'application/pdf',
-      'Content-Disposition': `attachment; filename="generated_test_${id}.pdf"`,
-      'Content-Length': pdfBuffer.length,
-    });
-
-    res.send(pdfBuffer);
-  }
+  // PDF generation endpoint removed
 }

@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
@@ -26,7 +26,6 @@ import {
 	Archive,
 	Calendar,
 	BookOpen,
-	Shuffle,
 	Settings,
 	FileSpreadsheet,
 	MessageCircle,
@@ -141,14 +140,7 @@ export default function ExamsPage() {
 		subjectIds: [] as number[],
 	});
 
-	// Generate variants state
-	const [isGenerateDialogOpen, setIsGenerateDialogOpen] = useState(false);
-	const [selectedExam, setSelectedExam] = useState<Exam | null>(null);
-	const [generateForm, setGenerateForm] = useState({
-		questionsPerSubject: 10,
-		randomizeQuestions: true,
-		randomizeAnswers: true,
-	});
+	// No separate generate flow; starting will generate automatically
 
 	useEffect(() => {
 		loadData();
@@ -193,18 +185,20 @@ export default function ExamsPage() {
 		}
 	};
 
-	const handleGenerateVariants = async () => {
-		if (!selectedExam) return;
-
+	const handleStartExam = async (exam: Exam) => {
 		try {
-			const response = await request.post(`/exams/${selectedExam.id}/generate-variants`, generateForm);
-			// Exam statistikalarini yangilash
-			const updatedExam = await request.get(`/exams/${selectedExam.id}`);
-			setExams(exams.map((exam) => (exam.id === selectedExam.id ? updatedExam.data : exam)));
-			setIsGenerateDialogOpen(false);
-			setSelectedExam(null);
+			// 1) Generate variants with defaults
+			await request.post(`/exams/${exam.id}/generate-variants`, {
+				questionsPerSubject: 10,
+				randomizeQuestions: true,
+				randomizeAnswers: true,
+			});
+			// 2) Move exam to in_progress (will trigger Telegram notify inside status handler)
+			await handleUpdateExamStatus(exam.id, 'in_progress');
 		} catch (e: any) {
-			setErrorMessage(e?.response?.data?.message || "Variantlarni generatsiya qilib bo'lmadi");
+			const msg = e?.response?.data?.message || "Boshlashda xatolik: variantlar generatsiyasi yoki holat yangilanishi amalga oshmadi";
+			setErrorMessage(msg);
+			toast({ title: 'Xatolik', description: msg, variant: 'destructive' });
 		}
 	};
 
@@ -289,8 +283,11 @@ export default function ExamsPage() {
 		try {
 			await request.delete(`/exams/${examId}`);
 			setExams(exams.filter((exam) => exam.id !== examId));
+			toast({ title: "O'chirildi", description: 'Imtihon muvaffaqiyatli o\'chirildi.' });
 		} catch (e: any) {
-			setErrorMessage(e?.response?.data?.message || "Imtihonni o'chirib bo'lmadi");
+			const msg = e?.response?.data?.message || "Imtihonni o'chirib bo'lmadi";
+			setErrorMessage(msg);
+			toast({ title: 'Xatolik', description: msg, variant: 'destructive' });
 		}
 	};
 
@@ -497,24 +494,13 @@ export default function ExamsPage() {
 													<Button
 														variant='ghost'
 														size='sm'
-														onClick={() => {
-															setSelectedExam(exam);
-															setIsGenerateDialogOpen(true);
-														}}
-														title='Variantlar generatsiya qilish'
+														onClick={() => handleDeleteExam(exam.id)}
+														className='text-destructive hover:text-destructive'
+														title="O'chirish"
 													>
-														<Shuffle className='h-4 w-4' />
+														<Trash2 className='h-4 w-4' />
 													</Button>
 												)}
-												<Button
-													variant='ghost'
-													size='sm'
-													onClick={() => handleDeleteExam(exam.id)}
-													className='text-destructive hover:text-destructive'
-													title="O'chirish"
-												>
-													<Trash2 className='h-4 w-4' />
-												</Button>
 											</div>
 										</div>
 										<CardTitle className='text-lg text-card-foreground line-clamp-2'>
@@ -562,7 +548,6 @@ export default function ExamsPage() {
 										<div className='flex items-center justify-between text-xs text-muted-foreground mb-4'>
 											<span>Yaratilgan: {moment(exam.createdAt).format('DD.MM.YYYY')}</span>
 											<div className='flex items-center space-x-2'>
-												{exam.shuffleQuestions && <Shuffle className='h-3 w-3' />}
 												{exam.shuffleAnswers && <Settings className='h-3 w-3' />}
 											</div>
 										</div>
@@ -580,35 +565,16 @@ export default function ExamsPage() {
 										</div>
 
 										{/* Status Actions */}
-										{exam.status === 'draft' && (
+										{(exam.status === 'draft' || exam.status === 'scheduled') && (
 											<div className='mt-2'>
 												<Button
 													size='sm'
 													className='w-full'
-													onClick={() => handleUpdateExamStatus(exam.id, 'scheduled')}
-												>
-													<Calendar className='h-4 w-4 mr-2' />
-													Rejalashtirish
-												</Button>
-											</div>
-										)}
-
-										{exam.status === 'scheduled' && (
-											<div className='mt-2 space-y-2'>
-												<Button
-													size='sm'
-													className='w-full'
-													onClick={() => handleUpdateExamStatus(exam.id, 'in_progress')}
+													onClick={() => handleStartExam(exam)}
 												>
 													<Play className='h-4 w-4 mr-2' />
 													Boshlash
 												</Button>
-												{exam.groups.length > 0 && (
-													<div className='flex items-center justify-center text-xs text-muted-foreground'>
-														<MessageCircle className='h-3 w-3 mr-1' />
-														Telegram orqali xabar yuboriladi
-													</div>
-												)}
 											</div>
 										)}
 
@@ -819,78 +785,7 @@ export default function ExamsPage() {
 				</DialogContent>
 			</Dialog>
 
-			{/* Generate Variants Dialog */}
-			<Dialog open={isGenerateDialogOpen} onOpenChange={setIsGenerateDialogOpen}>
-				<DialogContent className='max-w-md'>
-					<DialogHeader>
-						<DialogTitle>Variantlar generatsiya qilish</DialogTitle>
-					</DialogHeader>
-
-					<div className='space-y-4'>
-						<div>
-							<Label htmlFor='questionsPerSubject'>Har fandagi savollar soni</Label>
-							<Input
-								id='questionsPerSubject'
-								type='number'
-								value={generateForm.questionsPerSubject}
-								onChange={(e) =>
-									setGenerateForm({ ...generateForm, questionsPerSubject: parseInt(e.target.value) })
-								}
-								min='1'
-								max='50'
-							/>
-						</div>
-
-						<div className='space-y-2'>
-							<div className='flex items-center space-x-2'>
-								<Checkbox
-									id='randomizeQuestions'
-									checked={generateForm.randomizeQuestions}
-									onCheckedChange={(checked) =>
-										setGenerateForm({ ...generateForm, randomizeQuestions: !!checked })
-									}
-								/>
-								<Label htmlFor='randomizeQuestions'>Savollarni aralashtirish</Label>
-							</div>
-
-							<div className='flex items-center space-x-2'>
-								<Checkbox
-									id='randomizeAnswers'
-									checked={generateForm.randomizeAnswers}
-									onCheckedChange={(checked) =>
-										setGenerateForm({ ...generateForm, randomizeAnswers: !!checked })
-									}
-								/>
-								<Label htmlFor='randomizeAnswers'>Javoblarni aralashtirish</Label>
-							</div>
-						</div>
-
-						{selectedExam && (
-							<div className='bg-blue-50 border border-blue-200 rounded-lg p-3'>
-								<p className='text-sm text-blue-800'>
-									<strong>Imtihon:</strong> {selectedExam.title}
-								</p>
-								<p className='text-sm text-blue-700'>
-									<strong>O'quvchilar:</strong> {selectedExam.totalStudents} ta
-								</p>
-								<p className='text-sm text-blue-700'>
-									<strong>Variantlar:</strong>{' '}
-									{selectedExam.totalStudents * selectedExam.variantsPerStudent} ta
-								</p>
-							</div>
-						)}
-					</div>
-
-					<div className='flex space-x-2 pt-4'>
-						<Button variant='outline' onClick={() => setIsGenerateDialogOpen(false)} className='flex-1'>
-							Bekor qilish
-						</Button>
-						<Button onClick={handleGenerateVariants} className='flex-1'>
-							Generatsiya qilish
-						</Button>
-					</div>
-				</DialogContent>
-			</Dialog>
+			{/* No separate generate dialog; starting will generate automatically */}
 		</div>
 	);
 }
