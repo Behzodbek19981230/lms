@@ -6,8 +6,11 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
+import { Checkbox } from "@/components/ui/checkbox"
 import { Badge } from "@/components/ui/badge"
-import { Download, Shuffle, FileText, Printer, Calculator, Globe, Beaker, History } from "lucide-react"
+import { Download, Shuffle, FileText, Printer, Calculator, Globe, Beaker, History, ChevronsUpDown } from "lucide-react"
 import { request } from '@/configs/request'
 import { useToast } from '@/components/ui/use-toast'
 import { LaTeXRenderer } from '@/components/latex/latex-renderer'
@@ -54,7 +57,8 @@ export function TestGenerator({ subject }: TestGeneratorProps) {
   const [selectedSubject, setSelectedSubject] = useState<Subject | null>(null)
   const [availableQuestions, setAvailableQuestions] = useState<Question[]>([])
   const [subjectTests, setSubjectTests] = useState<Test[]>([])
-  const [selectedTest, setSelectedTest] = useState<Test | null>(null)
+  const [selectedTests, setSelectedTests] = useState<Test[]>([])
+  const [testsPopoverOpen, setTestsPopoverOpen] = useState(false)
   
   // Function to parse markdown images from text
   const parseMarkdownImages = (text: string) => {
@@ -100,7 +104,7 @@ export function TestGenerator({ subject }: TestGeneratorProps) {
     // Fetch assigned tests for selected subject
     const fetchTestsForSubject = async (subjectId: number) => {
       try {
-        const { data } = await request.get(`/tests?subjectId=${subjectId}`)
+        const { data } = await request.get(`/tests?subjectid=${subjectId}`)
         setSubjectTests(data || [])
       } catch (error) {
         setSubjectTests([])
@@ -173,9 +177,6 @@ export function TestGenerator({ subject }: TestGeneratorProps) {
       setAvailableQuestions([])
     }
   }
-
-  // Fetch tests for selected subject
-  // ...existing code...
 
   // Get subject icon based on category
   const getSubjectIcon = (category: string) => {
@@ -250,15 +251,15 @@ export function TestGenerator({ subject }: TestGeneratorProps) {
     try {
       // Call backend API to generate test
       const { data } = await request.post('/tests/generate', {
-        title: testConfig.title || `${selectedSubject.nameUz} testi`,
-        subjectId: selectedSubject.id,
+        title: testConfig.title || `${selectedSubject!.nameUz} testi`,
+        subjectId: selectedSubject!.id,
         questionCount: testConfig.questionCount,
         variantCount: testConfig.variantCount,
         timeLimit: testConfig.timeLimit,
         difficulty: testConfig.difficulty,
         includeAnswers: testConfig.includeAnswers,
         showTitleSheet: showTitleSheet,
-        testId: selectedTest?.id || undefined, // Pass testId if selected
+        testIds: selectedTests.map((t) => t.id),
       })
 
       setGeneratedTest(data)
@@ -268,9 +269,9 @@ export function TestGenerator({ subject }: TestGeneratorProps) {
         title: 'Test yaratildi',
         description: `${testConfig.variantCount} ta variant muvaffaqiyatli yaratildi`
       })
-    } catch (error) {
+    } catch (error: any) {
       setIsGenerating(false)
-        console.log(error?.response?.data);
+      console.log(error?.response?.data);
       toast({
         title: 'Xatolik',
         description: error?.response?.data?.message || 'Test yaratishda xatolik yuz berdi',
@@ -334,8 +335,7 @@ export function TestGenerator({ subject }: TestGeneratorProps) {
               onValueChange={(value) => {
                 const subject = subjects.find((s) => s.id === Number(value))
                 setSelectedSubject(subject || null)
-                setSelectedTest(null)
-                setSelectedTest(null)
+                setSelectedTests([])
                 if (subject) {
                   fetchQuestionsForSubject(subject.id)
                   fetchTestsForSubject(subject.id)
@@ -377,24 +377,82 @@ export function TestGenerator({ subject }: TestGeneratorProps) {
               <Label htmlFor="test" className="text-sm font-medium text-gray-700 dark:text-gray-300">
                 Test tanlash (ixtiyoriy)
               </Label>
-              <Select
-                value={selectedTest?.id?.toString() || ''}
-                onValueChange={(value) => {
-                  const test = subjectTests.find((t) => t.id === Number(value))
-                  setSelectedTest(test || null)
-                }}
-              >
-                <SelectTrigger className="focus:ring-2 focus:ring-primary focus:border-primary">
-                  <SelectValue placeholder="Testni tanlang (ixtiyoriy)" />
-                </SelectTrigger>
-                <SelectContent>
-                  {subjectTests.map((test) => (
-                    <SelectItem key={test.id} value={test.id.toString()}>
-                      {test.title} ({test.totalQuestions} savol)
-                    </SelectItem>
+              <Popover open={testsPopoverOpen} onOpenChange={setTestsPopoverOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={testsPopoverOpen}
+                    className="w-full justify-between"
+                  >
+                    {selectedTests.length === 0
+                      ? "Test(lar)ni tanlang (ixtiyoriy)"
+                      : `${selectedTests.length} ta test tanlandi`}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0">
+                  <Command>
+                    <CommandInput placeholder="Test qidiring..." />
+                    <CommandEmpty>Natija topilmadi.</CommandEmpty>
+                    <CommandList>
+                      <CommandGroup>
+                        {subjectTests.map((test) => {
+                          const checked = selectedTests.some((t) => t.id === test.id)
+                          return (
+                            <CommandItem
+                              key={test.id}
+                              value={`${test.id}`}
+                              onSelect={() => {
+                                setSelectedTests((prev) => {
+                                  const exists = prev.some((t) => t.id === test.id)
+                                  if (exists) return prev.filter((t) => t.id !== test.id)
+                                  return [...prev, test]
+                                })
+                              }}
+                              className="cursor-pointer"
+                            >
+                              <div className="flex items-center gap-2">
+                                <Checkbox
+                                  checked={checked}
+                                  onCheckedChange={() => {
+                                    setSelectedTests((prev) => {
+                                      const exists = prev.some((t) => t.id === test.id)
+                                      if (exists) return prev.filter((t) => t.id !== test.id)
+                                      return [...prev, test]
+                                    })
+                                  }}
+                                />
+                                <span className="truncate">
+                                  {test.title} ({test.totalQuestions} savol)
+                                </span>
+                              </div>
+                            </CommandItem>
+                          )
+                        })}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
+              {selectedTests.length > 0 && (
+                <div className="flex flex-wrap gap-2 pt-1">
+                  {selectedTests.map((t) => (
+                    <Badge key={t.id} variant="secondary" className="flex items-center gap-1">
+                      {t.title}
+                      <button
+                        type="button"
+                        onClick={() => setSelectedTests((prev) => prev.filter((x) => x.id !== t.id))}
+                        className="ml-1 text-xs text-muted-foreground hover:text-foreground"
+                        aria-label="O'chirish"
+                        title="O'chirish"
+                      >
+                        ×
+                      </button>
+                    </Badge>
                   ))}
-                </SelectContent>
-              </Select>
+                </div>
+              )}
             </div>
           )}
 

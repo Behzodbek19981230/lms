@@ -27,7 +27,8 @@ export interface GenerateTestDto {
   difficulty: string;
   includeAnswers: boolean;
   showTitleSheet: boolean;
-  testId?: number; // Optional test ID to base the generation on
+  testId?: number; // Optional: single test
+  testIds?: number[]; // Optional: multiple tests
 }
 
 export interface TestVariant {
@@ -321,17 +322,27 @@ export class TestGeneratorService {
 
     // Get available questions
     void this.logService.log(
-      `Available questions for subject ${subject.name}: test id ${dto.testId}`,
+      `Available questions for subject ${subject.name}: test id ${dto.testId}, test ids: ${(dto.testIds || []).join(',')}`,
       'TestGenerator',
     );
-    const availableQuestions = await this.questionRepository.find({
-      where: {
-        test: dto.testId
-          ? { id: dto.testId }
-          : { subject: { id: dto.subjectId } },
-      },
-      relations: ['answers', 'test'],
-    });
+
+    let availableQuestions: Question[] = [];
+    if (dto.testIds && dto.testIds.length > 0) {
+      // Fetch questions from multiple tests
+      availableQuestions = await this.questionRepository.find({
+        where: dto.testIds.map((id) => ({ test: { id } })),
+        relations: ['answers', 'test'],
+      });
+    } else {
+      availableQuestions = await this.questionRepository.find({
+        where: {
+          test: dto.testId
+            ? { id: dto.testId }
+            : { subject: { id: dto.subjectId } },
+        },
+        relations: ['answers', 'test'],
+      });
+    }
 
     if (availableQuestions.length === 0) {
       throw new BadRequestException('Tanlangan fanda savollar mavjud emas');

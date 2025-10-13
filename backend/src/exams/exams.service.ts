@@ -947,7 +947,6 @@ export class ExamsService {
       .sort((a, b) => (a.order || 0) - (b.order || 0))
       .map((q: ExamVariantQuestion, idx: number) => {
         const answers = Array.isArray(q.answers) ? q.answers : [];
-        const points = typeof q.points === 'number' ? q.points : 1;
 
         // First try to get image from imageBase64 field
         let imageDataUri = this.getImageSrc(q.imageBase64);
