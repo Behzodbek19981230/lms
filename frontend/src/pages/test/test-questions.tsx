@@ -12,6 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { MathLiveInput } from '@/components/latex/mathlive-input';
 import { LaTeXRenderer } from '@/components/latex/latex-renderer';
+import { HtmlRenderer } from '@/components/HtmlRenderer';
 import {
 	ArrowLeft,
 	Plus,
@@ -90,21 +91,26 @@ export default function TestQuestions() {
 	const [importedQuestions, setImportedQuestions] = useState<Question[]>([]);
 	const [activeTab, setActiveTab] = useState('list');
 
-	useEffect(() => {
-		if (testId) {
+		useEffect(() => {
+			if (!testId) return;
+			const isNumeric = /^\d+$/.test(String(testId));
+			if (!isNumeric) {
+				setIsLoading(false);
+				setErrorMessage("Noto'g'ri test ID");
+				return;
+			}
 			loadTestAndQuestions();
-		}
-	}, [testId]);
+		}, [testId]);
 
 	const loadTestAndQuestions = async () => {
 		try {
 			setIsLoading(true);
 			setErrorMessage('');
 
-			const [testRes, questionsRes] = await Promise.all([
-				request.get(`/tests/${testId}`),
-				request.get(`/questions?testId=${testId}`),
-			]);
+					const [testRes, questionsRes] = await Promise.all([
+						request.get(`/tests/${Number(testId)}`),
+						request.get(`/questions?testId=${Number(testId)}`),
+					]);
 
 			setTest(testRes.data);
 			setQuestions(questionsRes.data || []);
@@ -642,10 +648,12 @@ export default function TestQuestions() {
 														</div>
 													</div>
 													<CardTitle className='text-lg text-card-foreground'>
-														{test?.subject?.hasFormulas ? (
+														{ /<\s*\w+[^>]*>/.test(question.text || '') ? (
+															<HtmlRenderer content={question.text} />
+														) : test?.subject?.hasFormulas ? (
 															<LaTeXRenderer content={question.text} />
 														) : (
-															question.text
+															<span>{question.text}</span>
 														)}
 													</CardTitle>
 												</CardHeader>
@@ -671,13 +679,12 @@ export default function TestQuestions() {
 																				}`}
 																			></div>
 																			<span className='text-sm'>
-																				{test?.subject?.hasFormulas ? (
-																					<LaTeXRenderer
-																						content={answer.text}
-																						inline
-																					/>
+																				{ /<\s*\w+[^>]*>/.test(answer.text || '') ? (
+																					<HtmlRenderer content={answer.text} inline />
+																				) : test?.subject?.hasFormulas ? (
+																					<LaTeXRenderer content={answer.text} inline />
 																				) : (
-																					answer.text
+																					<span>{answer.text}</span>
 																				)}
 																			</span>
 																		</div>
@@ -884,7 +891,9 @@ export default function TestQuestions() {
 													<div>
 														<Label className='text-sm text-blue-700'>Savol:</Label>
 														<div className='mt-1 p-3 bg-white rounded border'>
-															{test?.subject?.hasFormulas ? (
+															{ /<\s*\w+[^>]*>/.test(questionForm.text || '') ? (
+																<HtmlRenderer content={questionForm.text} />
+															) : test?.subject?.hasFormulas ? (
 																<LaTeXRenderer content={questionForm.text} />
 															) : (
 																<p>{questionForm.text}</p>
@@ -914,11 +923,10 @@ export default function TestQuestions() {
 																			<span className='font-medium'>
 																				{String.fromCharCode(65 + index)}.
 																			</span>
-																			{test?.subject?.hasFormulas ? (
-																				<LaTeXRenderer
-																					content={answer.text}
-																					inline
-																				/>
+																			{ /<\s*\w+[^>]*>/.test(answer.text || '') ? (
+																				<HtmlRenderer content={answer.text} inline />
+																			) : test?.subject?.hasFormulas ? (
+																				<LaTeXRenderer content={answer.text} inline />
 																			) : (
 																				<span>{answer.text}</span>
 																			)}

@@ -17,6 +17,7 @@ import { LatexProcessorService } from './latex-processor.service';
 import { LogsService } from 'src/logs/logs.service';
 import { promises as fs } from 'fs';
 import { join } from 'path';
+import * as katex from 'katex';
 
 export interface GenerateTestDto {
   title: string;
@@ -71,7 +72,8 @@ export class TestGeneratorService {
     const title = input.config.title || `${input.subjectName} testi`;
     const timestamp = Date.now();
     const publicDir = this.getPublicDir();
-    await fs.mkdir(publicDir, { recursive: true });
+    const uploadsDir = join(publicDir, 'uploads');
+    await fs.mkdir(uploadsDir, { recursive: true });
 
     const slug = (s: string) =>
       (s || '')
@@ -92,10 +94,37 @@ export class TestGeneratorService {
       const html = this.wrapHtmlForBrowser(inner, pageTitle);
 
       const fileName = `${slug(title)}-variant-${slug(variant.variantNumber)}-${timestamp}.html`;
-      const absolutePath = join(publicDir, fileName);
+      const absolutePath = join(uploadsDir, fileName);
       await fs.writeFile(absolutePath, html, 'utf8');
-      const url = `/print/${fileName}`;
+      const url = `/print/uploads/${fileName}`;
       files.push({ variantNumber: variant.variantNumber, url, fileName });
+
+      // Persist printable info and answer key by uniqueNumber
+      try {
+        const variantEntity = await this.generatedTestVariantRepository.findOne(
+          {
+            where: { uniqueNumber: variant.uniqueNumber },
+            relations: ['generatedTest'],
+          },
+        );
+        if (variantEntity) {
+          const answerKey = this.buildAnswerKey(variant.questions);
+          variantEntity.printableUrl = url;
+          variantEntity.printableFileName = fileName;
+          variantEntity.answerKey = answerKey;
+          await this.generatedTestVariantRepository.save(variantEntity);
+        } else {
+          void this.logService.log(
+            `Variant not found for uniqueNumber=${variant.uniqueNumber} to persist printable info`,
+            'TestGenerator',
+          );
+        }
+      } catch (e) {
+        void this.logService.log(
+          `Failed to persist printable info for variant ${variant.uniqueNumber}: ${String(e)}`,
+          'TestGenerator',
+        );
+      }
     }
 
     return { files, title };
@@ -122,14 +151,20 @@ export class TestGeneratorService {
 
     const questionsHtml = (variant.questions || [])
       .map((q, idx) => {
-        const points = typeof q.points === 'number' ? q.points : 1;
         const textProcessed = this.extractImageFromText(q.text || '');
-        const qText = escapeHtml(textProcessed.cleanedText);
-        const imgHtml = textProcessed.imageDataUri
-          ? `<div class="image-container"><img class="q-image" src="${textProcessed.imageDataUri}" style="${textProcessed.imageStyles || ''}" alt="Savol rasmi" /></div>`
-          : q.imageBase64
-            ? `<div class="image-container"><img class="q-image" src="${q.imageBase64.startsWith('data:') ? q.imageBase64 : `data:image/png;base64,${q.imageBase64}`}" alt="Savol rasmi" /></div>`
-            : '';
+        const renderedQuestionText = this.renderTextWithLatex(
+          textProcessed.cleanedText,
+        );
+
+        // Prefer image extracted from text; otherwise use imageBase64 on question with normalization
+        const fromTextUri = this.normalizeDataUri(
+          textProcessed.imageDataUri || '',
+        );
+        const fromFieldUri = this.getImageSrc(q.imageBase64);
+        const finalImageSrc = fromTextUri || fromFieldUri;
+        const imgHtml = finalImageSrc
+          ? `<div class="image-container"><img class="q-image" src="${finalImageSrc}" style="${textProcessed.imageStyles || ''}" alt="Savol rasmi" /></div>`
+          : '';
 
         let answersHtml = '';
         if (
@@ -140,11 +175,12 @@ export class TestGeneratorService {
           answersHtml = `<div class="answers">${q.answers
             .map((a, i) => {
               const aProc = this.extractImageFromText(a.text || '');
-              const aText = escapeHtml(aProc.cleanedText);
-              const aImg = aProc.imageDataUri
-                ? `<div class="answer-image-container"><img class="answer-image" src="${aProc.imageDataUri}" style="${aProc.imageStyles || ''}" alt="Javob rasmi"/></div>`
+              const aTextHtml = this.renderTextWithLatex(aProc.cleanedText);
+              const aImgUri = this.normalizeDataUri(aProc.imageDataUri || '');
+              const aImg = aImgUri
+                ? `<div class="answer-image-container"><img class="answer-image" src="${aImgUri}" style="${aProc.imageStyles || ''}" alt="Javob rasmi"/></div>`
                 : '';
-              return `<div class="answer">${String.fromCharCode(65 + i)}) ${aText}${aImg}</div>`;
+              return `<div class="answer">${String.fromCharCode(65 + i)}) ${aTextHtml}${aImg}</div>`;
             })
             .join('')}</div>`;
         } else if (q.type === QuestionType.TRUE_FALSE) {
@@ -157,11 +193,10 @@ export class TestGeneratorService {
           <div class="q-row">
             <div class="q-no">${idx + 1}.</div>
             <div class="q-content">
-              <div class="q-text">${qText}</div>
+              <div class="q-text">${renderedQuestionText}</div>
               ${imgHtml}
               ${answersHtml}
             </div>
-            <div class="points">[${points} ball]</div>
           </div>
         </div>`;
       })
@@ -190,9 +225,15 @@ export class TestGeneratorService {
           .subtitle { font-size: 12px; margin: 2px 0; color: #333; }
           .meta { font-size: 10px; color: #666; }
           .questions-container { column-count: 2; column-gap: 16px; column-rule: 1px solid #ddd; background-image: linear-gradient(to bottom, #ddd, #ddd); background-size: 1px 100%; background-position: 50% 0; background-repeat: no-repeat; }
-          .question { margin: 10px 0 14px 0; break-inside: avoid; break-inside: avoid-column; -webkit-column-break-inside: avoid; -moz-column-break-inside: avoid; }
+          .question { 
+            margin: 10px 0 14px 0; 
+            break-inside: avoid;
+            break-inside: avoid-column;
+            -webkit-column-break-inside: avoid;
+            -moz-column-break-inside: avoid;
+          }
           .q-row { display: flex; align-items: flex-start; gap: 8px; }
-          .q-no { color: #cc5000; font-weight: 600; min-width: 20px; flex-shrink: 0; }
+          .q-no { color: #000; font-weight: 600; min-width: 20px; flex-shrink: 0; }
           .q-content { flex: 1; }
           .q-text { margin-bottom: 6px; }
           .points { color: #666; font-size: 10px; font-weight: 500; align-self: flex-start; flex-shrink: 0; margin-left: 8px; }
@@ -201,7 +242,12 @@ export class TestGeneratorService {
           .image-container { margin: 8px 0; }
           .answer-image-container { margin: 4px 0 4px 20px; display: inline-block; }
           .answer-image { max-width: 200px; height: auto; max-height: 150px; border: 1px solid #ddd; border-radius: 4px; margin: 2px 0; break-inside: avoid; display: inline-block; vertical-align: middle; }
+          .katex-display { margin: 6px 0; }
           img.q-image { max-width: 100%; height: auto; max-height: 300px; border: 1px solid #ddd; border-radius: 4px; margin: 6px 0; break-inside: avoid; display: block; }
+          img[style*="width"], img[style*="height"] { max-width: none !important; max-height: none !important; }
+          .key-table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 8px; }
+          .key-table th, .key-table td { border: 1px solid #ccc; padding: 6px 8px; text-align: center; }
+          .key-table th { background: #f7f7f7; }
           @media print { .toolbar { display: none; } }
           @media screen and (max-width: 900px) { .questions-container { column-count: 1; background: none; } }
         </style>
@@ -210,8 +256,8 @@ export class TestGeneratorService {
       </head>
       <body>
         <div class="toolbar">
-          <button onclick="window.print()">Chop etish</button>
-          <span style="color:#666; font-size:13px;">Chop etish oynasida "Save as PDF" ni tanlang.</span>
+          <button onclick="window.print()">PDFga chop etish</button>
+          <span style="color:#666; font-size:13px;">Chop etish oynasida "Save as PDF"ni tanlang.</span>
         </div>
         ${inner}
         <script>
@@ -257,7 +303,7 @@ export class TestGeneratorService {
       let imageSrc = match[2];
       imageSrc = this.extractDataUriFromText(imageSrc);
       if (imageSrc && imageSrc.startsWith('data:image/') && !imageDataUri) {
-        imageDataUri = imageSrc;
+        imageDataUri = this.normalizeDataUri(imageSrc) ?? null;
         imageStyles = this.parseImageStyles(styles);
       }
       cleanedText = cleanedText.replace(match[0], '');
@@ -270,7 +316,7 @@ export class TestGeneratorService {
         let imageSrc = match[1];
         imageSrc = this.extractDataUriFromText(imageSrc);
         if (imageSrc && imageSrc.startsWith('data:image/') && !imageDataUri) {
-          imageDataUri = imageSrc;
+          imageDataUri = this.normalizeDataUri(imageSrc) ?? null;
         }
         cleanedText = cleanedText.replace(match[0], '');
       }
@@ -294,6 +340,119 @@ export class TestGeneratorService {
       .map((x) => x.trim())
       .filter((x) => x.length > 0)
       .join('; ');
+  }
+
+  // Convert LaTeX delimiters in plain text to HTML using KaTeX; non-math text is HTML-escaped
+  private renderTextWithLatex(text: string): string {
+    try {
+      return renderWithKatexAllowHtml(text ?? '');
+    } catch (e) {
+      void this.logService.log(
+        `KaTeX render failed: ${e instanceof Error ? e.message : String(e)}`,
+        'TestGenerator',
+      );
+      return escapeHtml(text ?? '');
+    }
+  }
+
+  private getImageSrc(imageBase64?: string, mime?: string): string | null {
+    if (!imageBase64) return null;
+
+    try {
+      const cleanBase64 = imageBase64.replace(/\s+/g, '');
+
+      if (/^data:image\/[a-zA-Z]+;base64,/.test(cleanBase64)) {
+        return this.normalizeDataUri(cleanBase64);
+      }
+
+      if (this.isValidBase64(cleanBase64)) {
+        const safeMime =
+          mime || this.detectImageMimeType(cleanBase64) || 'image/png';
+        return `data:${safeMime};base64,${cleanBase64}`;
+      }
+
+      return null;
+    } catch (error) {
+      void this.logService.log(
+        `Error processing image data: ${error instanceof Error ? error.message : String(error)}`,
+        'TestGenerator',
+      );
+      return null;
+    }
+  }
+
+  private isValidBase64(str: string): boolean {
+    if (!str || str.length < 4) return false;
+    const base64Regex = /^[A-Za-z0-9+/]*={0,2}$/;
+    if (!base64Regex.test(str)) return false;
+    const paddedLength = str.length + ((4 - (str.length % 4)) % 4);
+    if (paddedLength % 4 !== 0) return false;
+    try {
+      const decoded = Buffer.from(str, 'base64').toString('binary');
+      const reencoded = Buffer.from(decoded, 'binary').toString('base64');
+      return str.replace(/=+$/, '') === reencoded.replace(/=+$/, '');
+    } catch {
+      return false;
+    }
+  }
+
+  private normalizeDataUri(dataUri: string): string | null {
+    if (!dataUri || !dataUri.startsWith('data:image/')) {
+      return null;
+    }
+    try {
+      const [header, base64Data] = dataUri.split(',');
+      if (!header || !base64Data) {
+        void this.logService.log(
+          'Invalid data URI format: missing header or base64 data',
+          'TestGenerator',
+        );
+        return null;
+      }
+      let cleanBase64 = base64Data.replace(/\s+/g, '');
+      cleanBase64 = cleanBase64.replace(/[^A-Za-z0-9+/=]/g, '');
+      const paddingNeeded = (4 - (cleanBase64.length % 4)) % 4;
+      if (paddingNeeded > 0) cleanBase64 += '='.repeat(paddingNeeded);
+      if (!this.isValidBase64(cleanBase64)) {
+        void this.logService.log(
+          'Invalid base64 data detected',
+          'TestGenerator',
+        );
+        return null;
+      }
+      try {
+        const decoded = Buffer.from(cleanBase64, 'base64');
+        if (decoded.length < 50) {
+          void this.logService.log(
+            'Base64 data too small to be a valid image',
+            'TestGenerator',
+          );
+          return null;
+        }
+      } catch (err) {
+        void this.logService.log(
+          `Failed to decode base64 data: ${String(err)}`,
+          'TestGenerator',
+        );
+        return null;
+      }
+      return `${header},${cleanBase64}`;
+    } catch (error) {
+      void this.logService.log(
+        `Failed to normalize data URI: ${String(error)}`,
+        'TestGenerator',
+      );
+      return null;
+    }
+  }
+
+  private detectImageMimeType(base64: string): string | null {
+    if (base64.startsWith('/9j/')) return 'image/jpeg';
+    if (base64.startsWith('iVBORw0KGgo')) return 'image/png';
+    if (base64.startsWith('R0lGODlh') || base64.startsWith('R0lGODdh'))
+      return 'image/gif';
+    if (base64.startsWith('UklGR')) return 'image/webp';
+    return null;
   }
 
   /**
@@ -402,6 +561,7 @@ export class TestGeneratorService {
         questionsData: questionsWithShuffledAnswers,
         generatedAt: new Date(),
         generatedTest: savedGeneratedTest,
+        answerKey: this.buildAnswerKey(questionsWithShuffledAnswers),
       });
 
       await this.generatedTestVariantRepository.save(variant);
@@ -424,6 +584,145 @@ export class TestGeneratorService {
       totalQuestions: dto.questionCount,
       totalVariants: dto.variantCount,
     };
+  }
+
+  /**
+   * Build answer key JSON from questions list
+   */
+  private buildAnswerKey(questions: Question[]): {
+    total: number;
+    answers: string[]; // e.g., ['C', 'A', '-', ...]
+  } {
+    const letters = ['A', 'B', 'C', 'D', 'E', 'F'];
+    const answers = (questions || []).map((q) => {
+      if (
+        q.type === QuestionType.MULTIPLE_CHOICE &&
+        q.answers &&
+        q.answers.length > 0
+      ) {
+        const idx = q.answers.findIndex((a) => a.isCorrect);
+        return idx >= 0 ? letters[idx] || 'X' : 'X';
+      }
+      if (q.type === QuestionType.TRUE_FALSE) {
+        // If answers array provided, index 0 => A (True), 1 => B (False)
+        if (q.answers && q.answers.length > 0) {
+          const idx = q.answers.findIndex((a) => a.isCorrect);
+          if (idx === 0) return 'A';
+          if (idx === 1) return 'B';
+        }
+        // Fallback heuristic: default to 'A'
+        return 'A';
+      }
+      // Essay / other types do not have a single correct option
+      return '-';
+    });
+    return { total: answers.length, answers };
+  }
+
+  /**
+   * Retrieve stored variant info by unique number
+   */
+  async getVariantByUniqueNumber(uniqueNumber: string) {
+    const variant = await this.generatedTestVariantRepository.findOne({
+      where: { uniqueNumber },
+      relations: [
+        'generatedTest',
+        'generatedTest.subject',
+        'generatedTest.teacher',
+      ],
+    });
+    if (!variant) {
+      throw new NotFoundException('Variant topilmadi');
+    }
+    return {
+      uniqueNumber: variant.uniqueNumber,
+      variantNumber: variant.variantNumber,
+      printableUrl: variant.printableUrl,
+      printableFileName: variant.printableFileName,
+      answerKey: variant.answerKey,
+      generatedTest: {
+        id: variant.generatedTest.id,
+        title: variant.generatedTest.title,
+        subject: variant.generatedTest.subject?.id,
+        teacher: variant.generatedTest.teacher?.id,
+      },
+      createdAt: variant.createdAt,
+      updatedAt: variant.updatedAt,
+    };
+  }
+
+  /**
+   * List generated tests for a teacher
+   */
+  async listGeneratedTests(teacherId: number) {
+    const tests = await this.generatedTestRepository.find({
+      where: { teacher: { id: teacherId } },
+      relations: ['subject', 'teacher'],
+      order: { createdAt: 'DESC' },
+    });
+
+    // Count variants per test without loading all questions
+    const ids = tests.map((t) => t.id);
+    const variantsByTest: Record<number, number> = {};
+    if (ids.length > 0) {
+      const qb = this.generatedTestVariantRepository
+        .createQueryBuilder('v')
+        .select('v.generatedTestId', 'generatedTestId')
+        .addSelect('COUNT(*)', 'cnt')
+        .where('v.generatedTestId IN (:...ids)', { ids })
+        .groupBy('v.generatedTestId');
+      const rows = await qb.getRawMany<{
+        generatedTestId: string;
+        cnt: string;
+      }>();
+      for (const r of rows)
+        variantsByTest[Number(r.generatedTestId)] = Number(r.cnt);
+    }
+
+    return tests.map((t) => ({
+      id: t.id,
+      title: t.title,
+      subject: {
+        id: t.subject?.id,
+        name: t.subject?.name,
+      },
+      teacher: {
+        id: t.teacher?.id,
+        fullName: (t as any).teacher?.fullName,
+      },
+      createdAt: t.createdAt,
+      variantCount: variantsByTest[t.id] ?? t.variantCount ?? 0,
+      questionCount: t.questionCount,
+      timeLimit: t.timeLimit,
+      difficulty: t.difficulty,
+    }));
+  }
+
+  /**
+   * List variants of a generated test, ensuring ownership
+   */
+  async listGeneratedTestVariants(testId: number, teacherId: number) {
+    const test = await this.generatedTestRepository.findOne({
+      where: { id: testId },
+      relations: ['teacher'],
+    });
+    if (!test) throw new NotFoundException('Yaratilgan test topilmadi');
+    if (test.teacher?.id !== teacherId)
+      throw new BadRequestException("Bu testga ruxsatingiz yo'q");
+
+    const variants = await this.generatedTestVariantRepository.find({
+      where: { generatedTest: { id: testId } },
+      order: { variantNumber: 'ASC' },
+    });
+
+    return variants.map((v) => ({
+      uniqueNumber: v.uniqueNumber,
+      variantNumber: v.variantNumber,
+      printableUrl: v.printableUrl,
+      printableFileName: v.printableFileName,
+      generatedAt: v.generatedAt ?? v.createdAt,
+      answerKey: v.answerKey,
+    }));
   }
 
   /**
@@ -1329,4 +1628,56 @@ function escapeHtml(str: string) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#039;');
+}
+
+// Basic HTML sanitizer: removes scripts/styles, event handlers, and javascript: URLs; keeps common tags like div/span/b/i/br/ul/ol/li etc.
+function sanitizeHtmlBasic(html: string): string {
+  if (!html) return '';
+  let out = String(html);
+  // remove script/style blocks
+  out = out.replace(/<\s*(script|style)[^>]*>[\s\S]*?<\s*\/\s*\1\s*>/gi, '');
+  // remove event handler attributes like onclick="..."
+  out = out.replace(/\s+on[a-z]+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, '');
+  // neutralize javascript: in href/src
+  out = out.replace(
+    /\s(href|src)\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi,
+    (_m, attr, val) => {
+      const v = String(val).replace(/^['"]|['"]$/g, '');
+      if (/^\s*javascript:/i.test(v)) return '';
+      return ` ${attr}="${v}"`;
+    },
+  );
+  return out;
+}
+
+// Server-side KaTeX renderer that preserves sanitized HTML for non-math segments
+function renderWithKatexAllowHtml(text: string): string {
+  if (!text) return '';
+  const parts: string[] = [];
+  const regex =
+    /\$\$([\s\S]*?)\$\$|\$([^$\n]+?)\$|\\\[((?:.|\n)*?)\\\]|\\\(((?:.|\n)*?)\\\)/g;
+  let lastIndex = 0;
+  let m: RegExpExecArray | null;
+  while ((m = regex.exec(text)) !== null) {
+    const index = m.index;
+    const before = text.slice(lastIndex, index);
+    if (before) parts.push(sanitizeHtmlBasic(before));
+    const formula = (m[1] ?? m[2] ?? m[3] ?? m[4] ?? '').trim();
+    const display = Boolean(m[1] || m[3]);
+    try {
+      const html: string = katex.renderToString(formula, {
+        displayMode: display,
+        throwOnError: false,
+        strict: 'ignore',
+        trust: false,
+      });
+      parts.push(html);
+    } catch {
+      parts.push(`<span class="katex-error">${escapeHtml(formula)}</span>`);
+    }
+    lastIndex = index + m[0].length;
+  }
+  const rest = text.slice(lastIndex);
+  if (rest) parts.push(sanitizeHtmlBasic(rest));
+  return parts.join('');
 }

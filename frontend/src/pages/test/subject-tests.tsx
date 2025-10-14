@@ -52,21 +52,26 @@ export default function SubjectTests() {
 		showResults: true,
 	});
 
-	useEffect(() => {
-		if (subjectId) {
+		useEffect(() => {
+			if (!subjectId) return;
+			const isNumeric = /^\d+$/.test(String(subjectId));
+			if (!isNumeric) {
+				setIsLoading(false);
+				setErrorMessage("Noto'g'ri fan ID");
+				return;
+			}
 			loadSubjectAndTests();
-		}
-	}, [subjectId]);
+		}, [subjectId]);
 
 	const loadSubjectAndTests = async () => {
 		try {
 			setIsLoading(true);
 			setErrorMessage('');
 
-			const [subjectRes, testsRes] = await Promise.all([
-				request.get(`/subjects/${subjectId}`),
-				request.get(`/tests?subjectid=${subjectId}`),
-			]);
+					const [subjectRes, testsRes] = await Promise.all([
+						request.get(`/subjects/${Number(subjectId)}`),
+						request.get(`/tests?subjectid=${Number(subjectId)}`),
+					]);
 
 			setSubject(subjectRes.data);
 			setTests(testsRes.data || []);

@@ -12,6 +12,7 @@ import {
   Request,
   UseGuards,
 } from '@nestjs/common';
+import { ParseIntPipe } from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiOperation,
@@ -118,6 +119,41 @@ export class TestsController {
     return this.testsService.getTestStats(userId);
   }
 
+  // Generated tests endpoints must be above ':id' to avoid route conflicts
+  @Get('generated/variant/:uniqueNumber')
+  @ApiOperation({
+    summary: 'Generated variant maʼlumotini olish (uniqueNumber orqali)',
+  })
+  @ApiResponse({ status: 200, description: 'Variant topildi' })
+  async getGeneratedVariantByUnique(
+    @Param('uniqueNumber') uniqueNumber: string,
+  ) {
+    return this.testGeneratorService.getVariantByUniqueNumber(uniqueNumber);
+  }
+
+  @Get('generated')
+  @ApiOperation({
+    summary: "O'qituvchining yaratgan testlari (generator) ro'yxati",
+  })
+  @ApiResponse({ status: 200, description: 'Generated tests list' })
+  async listGeneratedTests(@Request() req: { user: { id: number | string } }) {
+    const userId =
+      typeof req.user.id === 'string' ? parseInt(req.user.id, 10) : req.user.id;
+    return this.testGeneratorService.listGeneratedTests(userId);
+  }
+
+  @Get('generated/:id/variants')
+  @ApiOperation({ summary: "Yaratilgan test variantlari ro'yxati" })
+  @ApiResponse({ status: 200, description: 'Generated test variants list' })
+  async listGeneratedTestVariants(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req: { user: { id: number | string } },
+  ) {
+    const userId =
+      typeof req.user.id === 'string' ? parseInt(req.user.id, 10) : req.user.id;
+    return this.testGeneratorService.listGeneratedTestVariants(id, userId);
+  }
+
   @Get(':id')
   @ApiOperation({ summary: "Testni ID bo'yicha olish" })
   @ApiResponse({
@@ -127,13 +163,13 @@ export class TestsController {
   })
   @ApiResponse({ status: 404, description: 'Test topilmadi' })
   async findOne(
-    @Param('id') id: string,
+    @Param('id', ParseIntPipe) id: number,
     @Request() req: { user: { id: number | string } },
   ): Promise<TestResponseDto> {
     const userId =
       typeof req.user.id === 'string' ? parseInt(req.user.id, 10) : req.user.id;
 
-    return this.testsService.findOne(parseInt(id, 10), userId);
+    return this.testsService.findOne(id, userId);
   }
 
   @Patch(':id')
@@ -144,14 +180,14 @@ export class TestsController {
     type: TestResponseDto,
   })
   async update(
-    @Param('id') id: string,
+    @Param('id', ParseIntPipe) id: number,
     @Body() updateTestDto: UpdateTestDto,
     @Request() req: { user: { id: number | string } },
   ): Promise<TestResponseDto> {
     const userId =
       typeof req.user.id === 'string' ? parseInt(req.user.id, 10) : req.user.id;
 
-    return this.testsService.update(parseInt(id, 10), updateTestDto, userId);
+    return this.testsService.update(id, updateTestDto, userId);
   }
 
   @Delete(':id')
@@ -159,13 +195,13 @@ export class TestsController {
   @ApiOperation({ summary: "Testni o'chirish" })
   @ApiResponse({ status: 204, description: "Test muvaffaqiyatli o'chirildi" })
   async remove(
-    @Param('id') id: string,
+    @Param('id', ParseIntPipe) id: number,
     @Request() req: { user: { id: number | string } },
   ): Promise<void> {
     const userId =
       typeof req.user.id === 'string' ? parseInt(req.user.id, 10) : req.user.id;
 
-    return this.testsService.remove(parseInt(id, 10), userId);
+    return this.testsService.remove(id, userId);
   }
 
   @Post('generate')

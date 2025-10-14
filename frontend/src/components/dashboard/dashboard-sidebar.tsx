@@ -46,6 +46,7 @@ const teacherMenuItems = [
     { title: 'To\'lovlar', url: '/account/teacher-payments', icon: DollarSign },
     { title: 'Mening fanlarim', url: '/account/subjects', icon: Book
      },
+    { title: 'Yaratilgan testlar', url: '/account/generated-tests', icon: FileText },
     { title: 'Telegram Management', url: '/account/telegram', icon: Send },
 ];
 const studentMenuItems = [

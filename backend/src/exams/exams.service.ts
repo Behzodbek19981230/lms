@@ -579,13 +579,14 @@ export class ExamsService {
 
     // If already generated and file exists, return it
     if (variant.printHtmlPath) {
-      const existingFile = variant.printHtmlPath.split('/').pop() || '';
-      const existingPath = join(this.getPublicDir(), existingFile);
+      // Resolve stored URL like /print/<file> or /print/uploads/<file>
+      const relative = variant.printHtmlPath.replace(/^\/?print\/+/, '');
+      const existingPath = join(this.getPublicDir(), relative);
       try {
         await fs.access(existingPath);
         return {
           url: variant.printHtmlPath,
-          fileName: existingFile || `variant-${variantId}.html`,
+          fileName: relative.split('/').pop() || `variant-${variantId}.html`,
           absolutePath: existingPath,
         };
       } catch {
@@ -598,7 +599,8 @@ export class ExamsService {
 
     // Ensure public dir exists
     const publicDir = this.getPublicDir();
-    await fs.mkdir(publicDir, { recursive: true });
+    const uploadsDir = join(publicDir, 'uploads');
+    await fs.mkdir(uploadsDir, { recursive: true });
 
     // Safe slug helper
     const slug = (s: string) =>
@@ -615,12 +617,12 @@ export class ExamsService {
     );
     const timestamp = Date.now();
     const fileName = `${examSlug}-variant-${varSlug}${stuSlug ? '-' + stuSlug : ''}-${timestamp}.html`;
-    const absolutePath = join(publicDir, fileName);
+    const absolutePath = join(uploadsDir, fileName);
 
     await fs.writeFile(absolutePath, html, 'utf8');
 
     // Public URL via static assets (configured in main.ts)
-    const url = `/print/${fileName}`;
+    const url = `/print/uploads/${fileName}`;
 
     // Persist path for reuse
     await this.examVariantRepository.update(variantId, { printHtmlPath: url });
@@ -1048,7 +1050,7 @@ export class ExamsService {
   // Convert LaTeX delimiters in plain text to HTML using KaTeX; non-math text is HTML-escaped
   private renderTextWithLatex(text: string): string {
     try {
-      return renderWithKatex(text ?? '');
+      return renderWithKatexAllowHtml(text ?? '');
     } catch (e) {
       void this.logsService.warn(
         `KaTeX render failed: ${e instanceof Error ? e.message : String(e)}`,
@@ -1398,7 +1400,23 @@ function escapeHtml(str: string) {
 // Server-side KaTeX renderer: converts inline $...$ and display $$...$$ (also \( \), \[ \]) to HTML
 // Keeps non-LaTeX parts escaped to avoid XSS while allowing KaTeX markup to render as HTML.
 // Note: KaTeX CSS is already linked in wrapHtmlForBrowser.
-function renderWithKatex(text: string): string {
+function sanitizeHtmlBasic(html: string): string {
+  if (!html) return '';
+  let out = String(html);
+  out = out.replace(/<\s*(script|style)[^>]*>[\s\S]*?<\s*\/\s*\1\s*>/gi, '');
+  out = out.replace(/\s+on[a-z]+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, '');
+  out = out.replace(
+    /\s(href|src)\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi,
+    (_m, attr, val) => {
+      const v = String(val).replace(/^['"]|['"]$/g, '');
+      if (/^\s*javascript:/i.test(v)) return '';
+      return ` ${attr}="${v}"`;
+    },
+  );
+  return out;
+}
+
+function renderWithKatexAllowHtml(text: string): string {
   if (!text) return '';
   const parts: string[] = [];
   const regex =
@@ -1408,7 +1426,7 @@ function renderWithKatex(text: string): string {
   while ((m = regex.exec(text)) !== null) {
     const index = m.index;
     const before = text.slice(lastIndex, index);
-    if (before) parts.push(escapeHtml(before));
+    if (before) parts.push(sanitizeHtmlBasic(before));
     const formula = (m[1] ?? m[2] ?? m[3] ?? m[4] ?? '').trim();
     const display = Boolean(m[1] || m[3]);
     try {
@@ -1425,6 +1443,6 @@ function renderWithKatex(text: string): string {
     lastIndex = index + m[0].length;
   }
   const rest = text.slice(lastIndex);
-  if (rest) parts.push(escapeHtml(rest));
+  if (rest) parts.push(sanitizeHtmlBasic(rest));
   return parts.join('');
 }

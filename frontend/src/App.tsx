@@ -24,6 +24,7 @@ import ExamsPage from './pages/Exams';
 import TeacherDashboard from './pages/TeacherDashboard';
 import ExamDetail from './pages/exams/ExamDetail';
 import ExamVariants from './pages/exams/ExamVariants';
+import GeneratedTestsPage from './pages/GeneratedTests';
 import TestGeneratorPage from './pages/TestGeneratorPage';
 import StudentDashboard from './pages/StudentDashboard';
 import TelegramManagement from './pages/TelegramManagement';
@@ -70,6 +71,7 @@ const App = () => (
 							<Route path='exams' element={<ExamsPage />} />
 							<Route path='exams/:examId' element={<ExamDetail />} />
 							<Route path='exams/:examId/variants' element={<ExamVariants />} />
+							<Route path='generated-tests' element={<GeneratedTestsPage />} />
 							<Route path='test-generator' element={<TestGeneratorPage />} />
 							<Route path='test/create' element={<CreateTestPage />} />
 							<Route path='test/edit/:testId' element={<TestEditPage />} />

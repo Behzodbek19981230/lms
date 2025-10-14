@@ -15,6 +15,7 @@ import { request } from '@/configs/request'
 import { useToast } from '@/components/ui/use-toast'
 import { LaTeXRenderer } from '@/components/latex/latex-renderer'
 import { Test } from "@/types/test.type"
+import { SubjectCategory, SubjectCategoryLabels } from "@/types/subject.type"
 
 interface Question {
   id: number
@@ -121,6 +122,10 @@ export function TestGenerator({ subject }: TestGeneratorProps) {
   const [generatedTest, setGeneratedTest] = useState<any>(null)
   const [isGenerating, setIsGenerating] = useState(false)
   const [showTitleSheet, setShowTitleSheet] = useState(false)
+  const [printFiles, setPrintFiles] = useState<
+    Array<{ url: string; fileName: string; variantNumber: string; uniqueNumber?: string }>
+  >([])
+  const [printTitle, setPrintTitle] = useState<string>("")
 
   // Fetch subjects on component mount
   useEffect(() => {
@@ -296,8 +301,14 @@ export function TestGenerator({ subject }: TestGeneratorProps) {
         return
       }
 
-      // Open the first file in a new tab, and show a toast with count
-      window.open(files[0].url, '_blank')
+      // Map unique numbers from generatedTest
+      const enriched = files.map((f) => {
+        const match = generatedTest.variants?.find((v: any) => `${v.variantNumber}` === `${f.variantNumber}`)
+        return { ...f,url:`${import.meta.env.VITE_FILE_BASE_URL}${f.url}`, uniqueNumber: match?.uniqueNumber as string | undefined }
+      })
+      setPrintFiles(enriched)
+      setPrintTitle(data?.title || generatedTest.title)
+
       if (files.length > 1) {
         toast({ title: 'Bir nechta variant', description: `${files.length} ta HTML yaratildi. Har birini alohida oching.` })
       } else {
@@ -358,7 +369,7 @@ export function TestGenerator({ subject }: TestGeneratorProps) {
             </Select>
             {selectedSubject && (
               <div className="flex items-center gap-2 mt-2">
-                <Badge variant="secondary">{selectedSubject.category}</Badge>
+                <Badge variant="secondary">{SubjectCategoryLabels[selectedSubject.category]}</Badge>
                 {selectedSubject.hasFormulas && (
                   <Badge variant="outline" className="text-green-600 border-green-600">
                     LaTeX qo'llab-quvvatlaydi
@@ -550,32 +561,9 @@ export function TestGenerator({ subject }: TestGeneratorProps) {
             </div>
           </div>
 
-          <div className="flex items-center space-x-2">
-            <input
-              type="checkbox"
-              id="includeAnswers"
-              checked={testConfig.includeAnswers}
-              onChange={(e) => setTestConfig((prev) => ({ ...prev, includeAnswers: e.target.checked }))}
-              className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary"
-            />
-            <Label htmlFor="includeAnswers" className="text-sm font-medium text-gray-700 dark:text-gray-300">
-              Javoblar kalitini qo'shish
-            </Label>
-          </div>
+         
 
-          <div className="flex items-center space-x-2">
-            <input
-              type="checkbox"
-              id="includeTitleSheet"
-              checked={showTitleSheet}
-              onChange={(e) => setShowTitleSheet(e.target.checked)}
-              className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary"
-            />
-            <Label htmlFor="includeTitleSheet" className="text-sm font-medium text-gray-700 dark:text-gray-300">
-              Sarlavha varag'ini qo'shish
-            </Label>
-          </div>
-
+         
           <div className="flex gap-3">
             <Button
               onClick={generateRandomTest}
@@ -625,162 +613,49 @@ export function TestGenerator({ subject }: TestGeneratorProps) {
               </div>
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div>
-                <h3 className="font-semibold text-lg">{generatedTest.title}</h3>
-                <p className="text-muted-foreground">{generatedTest.description}</p>
-              </div>
+          
+        </Card>
+      )}
 
-              <div className="space-y-6">
-                {generatedTest.variants.map((variant: any, variantIndex: number) => (
-                  <div key={variant.variantNumber} className="border rounded-lg p-4">
-                    <div className="flex items-center justify-between mb-3">
-                      <h4 className="font-semibold text-lg text-blue-600">
-                        Variant {variant.variantNumber}
-                      </h4>
-                      <div className="flex gap-2">
-                        <Badge variant="outline" className="text-green-600 border-green-600">
-                          #{variant.uniqueNumber}
-                        </Badge>
-                        <Badge variant="outline">
-                          {variant.questions?.length || 0} savol
-                        </Badge>
-                      </div>
-                    </div>
-                    <div className="space-y-4 max-h-96 overflow-y-auto">
-                      {variant.questions.map((question: any, index: number) => (
-                        <div key={question.id} className="p-4 border rounded-lg">
-                          <div className="flex items-start justify-between">
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2 mb-2">
-                                <span className="text-primary font-medium">{index + 1}.</span>
-                                {(() => {
-                                  const { processedText, images } = parseMarkdownImages(question.text);
-                                  return (
-                                    <>
-                                      {question.hasFormula ? (
-                                        <LaTeXRenderer content={processedText} />
-                                      ) : (
-                                        <p className="font-medium">{processedText}</p>
-                                      )}
-                                      
-                                      {/* Markdown images */}
-                                      {images.map((image, imgIndex) => (
-                                        <div key={imgIndex} className="mt-3 mb-3">
-                                          <img 
-                                            src={image.src}
-                                            alt={image.alt}
-                                            className="max-w-full h-auto max-h-48 rounded border"
-                                            style={{
-                                              width: image.width ? `${image.width}px` : 'auto',
-                                              height: image.height ? `${image.height}px` : 'auto',
-                                            }}
-                                            onError={(e) => {
-                                              console.error('Markdown image load error:', e);
-                                              e.currentTarget.style.display = 'none';
-                                            }}
-                                          />
-                                        </div>
-                                      ))}
-                                    </>
-                                  );
-                                })()}
-                              </div>
-                              
-                              {/* Rasm ko'rsatish */}
-                              {question.imageBase64 && (
-                                <div className="mt-3 mb-3">
-                                  <img 
-                                    src={question.imageBase64.startsWith('data:') ? question.imageBase64 : `data:image/png;base64,${question.imageBase64}`}
-                                    alt="Savol rasmi"
-                                    className="max-w-full h-auto max-h-48 rounded border"
-                                    onError={(e) => {
-                                      console.error('Image load error:', e);
-                                      e.currentTarget.style.display = 'none';
-                                    }}
-                                  />
-                                </div>
-                              )}
-                              
-                              {question.type === "multiple_choice" && question.answers && (
-                                <div className="mt-3 space-y-2">
-                                  {question.answers.map((option: any, i: number) => {
-                                    const { processedText, images } = parseMarkdownImages(option.text);
-                                    return (
-                                      <div key={i} className="ml-4 p-2 bg-gray-50 rounded">
-                                        <div className="flex items-center gap-2">
-                                          <span className="font-medium text-blue-600">
-                                            {String.fromCharCode(65 + i)})
-                                          </span>
-                                          {option.hasFormula ? (
-                                            <LaTeXRenderer content={processedText} inline />
-                                          ) : (
-                                            <span className="text-sm text-gray-700">{processedText}</span>
-                                          )}
-                                        </div>
-                                        
-                                        {/* Answer images */}
-                                        {images.map((image, imgIndex) => (
-                                          <div key={imgIndex} className="mt-2 ml-6">
-                                            <img 
-                                              src={image.src}
-                                              alt={image.alt}
-                                              className="max-w-full h-auto max-h-32 rounded border"
-                                              style={{
-                                                width: image.width ? `${image.width}px` : 'auto',
-                                                height: image.height ? `${image.height}px` : 'auto',
-                                              }}
-                                              onError={(e) => {
-                                                console.error('Answer image load error:', e);
-                                                e.currentTarget.style.display = 'none';
-                                              }}
-                                            />
-                                          </div>
-                                        ))}
-                                      </div>
-                                    );
-                                  })}
-                                </div>
-                              )}
-                              {question.type === "true_false" && (
-                                <div className="mt-3 space-y-2 ml-4">
-                                  <div className="p-2 bg-gray-50 rounded">
-                                    <span className="font-medium text-blue-600">A) </span>
-                                    <span className="text-sm text-gray-700">To'g'ri</span>
-                                  </div>
-                                  <div className="p-2 bg-gray-50 rounded">
-                                    <span className="font-medium text-blue-600">B) </span>
-                                    <span className="text-sm text-gray-700">Noto'g'ri</span>
-                                  </div>
-                                </div>
-                              )}
-                            </div>
-                            <div className="flex flex-col items-end gap-2">
-                              <Badge variant="outline" className="text-xs">
-                                {question.points} ball
-                              </Badge>
-                              {question.hasFormula && (
-                                <Badge variant="outline" className="text-xs text-green-600 border-green-600">
-                                  LaTeX
-                                </Badge>
-                              )}
-                              {(question.imageBase64 || parseMarkdownImages(question.text).images.length > 0) && (
-                                <Badge variant="outline" className="text-xs text-blue-600 border-blue-600">
-                                  Rasm
-                                </Badge>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                    <div className="mt-3 text-right">
-                      <Badge variant="outline">Jami: {variant.totalPoints} ball</Badge>
-                    </div>
-                  </div>
-                ))}
+      {printFiles.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center justify-between">
+              <span className="flex items-center gap-2">
+                <Printer className="h-5 w-5 text-primary" />
+                Chop etish fayllari
+              </span>
+              <div className="flex gap-2">
+                <Badge variant="secondary">{printFiles.length} variant</Badge>
               </div>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="mb-3">
+              <h3 className="font-semibold text-lg">{printTitle || generatedTest?.title}</h3>
+              <p className="text-sm text-muted-foreground">Variants (har biri uchun havola va yuklab olish)</p>
+            </div>
+            <div className="divide-y rounded border">
+              {printFiles.map((f, idx) => (
+                <div key={`${f.variantNumber}-${idx}`} className="flex flex-col md:flex-row md:items-center justify-between gap-3 p-3">
+                  <div className="flex items-center gap-3">
+                    <Badge variant="outline">Variant {f.variantNumber}</Badge>
+                    {f.uniqueNumber && (
+                      <Badge variant="outline" className="text-green-600 border-green-600">#{f.uniqueNumber}</Badge>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <a href={f.url} target="_blank" rel="noreferrer" className="text-primary underline">
+                      Ochish
+                    </a>
+                    <a href={f.url} download={f.fileName} className="inline-flex">
+                      <Button size="sm" variant="outline" className="gap-2">
+                        <Download className="h-4 w-4" /> Yuklab olish
+                      </Button>
+                    </a>
+                  </div>
+                </div>
+              ))}
             </div>
           </CardContent>
         </Card>

@@ -55,6 +55,15 @@ export class GeneratedTestVariant extends BaseEntity {
   @Column({ type: 'timestamp', nullable: true })
   generatedAt: Date;
 
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  printableUrl: string | null;
+
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  printableFileName: string | null;
+
+  @Column({ type: 'json', nullable: true })
+  answerKey: Record<string, any> | null;
+
   @ManyToOne(() => GeneratedTest, (test) => test.variants, {
     onDelete: 'CASCADE',
   })
