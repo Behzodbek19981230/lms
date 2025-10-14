@@ -126,6 +126,7 @@ export function TestGenerator({ subject }: TestGeneratorProps) {
     Array<{ url: string; fileName: string; variantNumber: string; uniqueNumber?: string; answerSheetUrl?: string }>
   >([])
   const [printTitle, setPrintTitle] = useState<string>("")
+  const [combinedUrl, setCombinedUrl] = useState<string | null>(null)
 
   // Fetch subjects on component mount
   useEffect(() => {
@@ -312,7 +313,9 @@ export function TestGenerator({ subject }: TestGeneratorProps) {
         }
       })
       setPrintFiles(enriched)
-      setPrintTitle(data?.title || generatedTest.title)
+  setPrintTitle(data?.title || generatedTest.title)
+  const rawCombined: string | undefined = data?.combinedUrl
+  setCombinedUrl(rawCombined ? `${import.meta.env.VITE_FILE_BASE_URL}${rawCombined}` : null)
 
       if (files.length > 1) {
         toast({ title: 'Bir nechta variant', description: `${files.length} ta HTML yaratildi. Har birini alohida oching.` })
@@ -598,6 +601,25 @@ export function TestGenerator({ subject }: TestGeneratorProps) {
                   <Printer className="h-4 w-4 mr-2" />
                   Chop etish (HTML)
                 </Button>
+                {combinedUrl && (
+                  <div className="flex gap-2">
+                    <a href={combinedUrl} target="_blank" rel="noreferrer">
+                      <Button variant="outline" className="border-primary text-primary hover:bg-primary/5">
+                        <Printer className="h-4 w-4 mr-2" /> Barchasini chop etish (HTML)
+                      </Button>
+                    </a>
+                    <a href={`${combinedUrl}?mode=variants`} target="_blank" rel="noreferrer">
+                      <Button variant="outline" className="border-primary text-primary hover:bg-primary/5">
+                        Variantlargina
+                      </Button>
+                    </a>
+                    <a href={`${combinedUrl}?mode=sheets`} target="_blank" rel="noreferrer">
+                      <Button variant="outline" className="border-primary text-primary hover:bg-primary/5">
+                        Faqat javob varagi
+                      </Button>
+                    </a>
+                  </div>
+                )}
               </>
             )}
           </div>

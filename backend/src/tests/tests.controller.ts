@@ -265,6 +265,7 @@ export class TestsController {
       answerSheetUrl?: string;
     }[];
     title?: string;
+    combinedUrl?: string;
   }> {
     const userId =
       typeof req.user.id === 'string' ? parseInt(req.user.id, 10) : req.user.id;

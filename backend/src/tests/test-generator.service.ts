@@ -489,6 +489,7 @@ export class TestGeneratorService {
       </div>
       <script>
         window.addEventListener('DOMContentLoaded', function() {
+          // Render math if available
           if (window.renderMathInElement) {
             try {
               window.renderMathInElement(document.body, {
@@ -502,6 +503,25 @@ export class TestGeneratorService {
               });
             } catch (e) { console.warn('KaTeX render error', e); }
           }
+
+          // Handle query params: ?mode=variants|sheets|all and ?print=1
+          try {
+            var params = new URLSearchParams(window.location.search);
+            var mode = (params.get('mode') || '').toLowerCase();
+            if (mode === 'variants') {
+              document.body.classList.add('print-variants');
+              document.body.classList.remove('print-sheets');
+            } else if (mode === 'sheets') {
+              document.body.classList.add('print-sheets');
+              document.body.classList.remove('print-variants');
+            } else {
+              document.body.classList.remove('print-variants');
+              document.body.classList.remove('print-sheets');
+            }
+            if (params.get('print') === '1') {
+              setTimeout(function(){ window.print(); }, 0);
+            }
+          } catch (e) { /* ignore */ }
         });
       </script>
     </body>
