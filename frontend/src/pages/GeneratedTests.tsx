@@ -38,6 +38,7 @@ export default function GeneratedTestsPage() {
   const [active, setActive] = useState<GeneratedTestDto | null>(null);
   const [variants, setVariants] = useState<VariantDto[]>([]);
   const [variantsLoading, setVariantsLoading] = useState(false);
+  const [answerGenLoading, setAnswerGenLoading] = useState<string | null>(null);
 
   const escapeHtml = (s: string) =>
     String(s || '')
@@ -146,6 +147,25 @@ export default function GeneratedTestsPage() {
     }
   };
 
+  const openAnswerSheet = async (uniqueNumber: string) => {
+    if (!uniqueNumber) return;
+    try {
+      setAnswerGenLoading(uniqueNumber);
+      const { data } = await request.post(`/tests/generated/variant/${uniqueNumber}/answer-sheet`);
+      const url = data?.url as string | undefined;
+      if (!url) {
+        toast({ title: 'Xatolik', description: 'Answer-sheet linki olinmadi', variant: 'destructive' });
+        return;
+      }
+      const fullUrl = `${import.meta.env.VITE_FILE_BASE_URL}${url}`;
+      window.open(fullUrl, '_blank');
+    } catch (e: any) {
+      toast({ title: 'Xatolik', description: e?.response?.data?.message || 'Answer-sheet yaratilmadi', variant: 'destructive' });
+    } finally {
+      setAnswerGenLoading(null);
+    }
+  };
+
   return (
     <div className="space-y-4">
       <Card>
@@ -237,6 +257,9 @@ export default function GeneratedTestsPage() {
                       ) : (
                         <span className="text-xs text-muted-foreground">Chop etish fayli hali yaratilmagan</span>
                       )}
+                      <Button size="sm" variant="outline" onClick={() => openAnswerSheet(v.uniqueNumber)} disabled={answerGenLoading === v.uniqueNumber}>
+                        {answerGenLoading === v.uniqueNumber ? 'Yaratilmoqda…' : 'Javoblar varagi'}
+                      </Button>
                     </div>
                   </div>
                 ))}

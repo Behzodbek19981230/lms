@@ -154,6 +154,24 @@ export class TestsController {
     return this.testGeneratorService.listGeneratedTestVariants(id, userId);
   }
 
+  @Post('generated/variant/:uniqueNumber/answer-sheet')
+  @ApiOperation({
+    summary:
+      'Variant uchun answer-sheet (titul varaq) yaratilgan HTMLni qaytarish',
+  })
+  @ApiResponse({ status: 200, description: 'Answer sheet URL' })
+  async generateAnswerSheetForVariant(
+    @Param('uniqueNumber') uniqueNumber: string,
+    @Request() req: { user: { id: number | string } },
+  ): Promise<{ url: string; fileName: string }> {
+    const userId =
+      typeof req.user.id === 'string' ? parseInt(req.user.id, 10) : req.user.id;
+    return this.testGeneratorService.generateAnswerSheetForVariantUnique(
+      uniqueNumber,
+      userId,
+    );
+  }
+
   @Get(':id')
   @ApiOperation({ summary: "Testni ID bo'yicha olish" })
   @ApiResponse({
@@ -240,7 +258,12 @@ export class TestsController {
     },
     @Request() req: { user: { id: number | string } },
   ): Promise<{
-    files: { variantNumber: string; url: string; fileName: string }[];
+    files: {
+      variantNumber: string;
+      url: string;
+      fileName: string;
+      answerSheetUrl?: string;
+    }[];
     title?: string;
   }> {
     const userId =

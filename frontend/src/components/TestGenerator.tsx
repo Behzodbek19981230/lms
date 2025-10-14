@@ -123,7 +123,7 @@ export function TestGenerator({ subject }: TestGeneratorProps) {
   const [isGenerating, setIsGenerating] = useState(false)
   const [showTitleSheet, setShowTitleSheet] = useState(false)
   const [printFiles, setPrintFiles] = useState<
-    Array<{ url: string; fileName: string; variantNumber: string; uniqueNumber?: string }>
+    Array<{ url: string; fileName: string; variantNumber: string; uniqueNumber?: string; answerSheetUrl?: string }>
   >([])
   const [printTitle, setPrintTitle] = useState<string>("")
 
@@ -295,7 +295,7 @@ export function TestGenerator({ subject }: TestGeneratorProps) {
         subjectName: generatedTest.subject,
       })
 
-      const files: Array<{ url: string; fileName: string; variantNumber: string }> = data?.files || []
+  const files: Array<{ url: string; fileName: string; variantNumber: string; answerSheetUrl?: string }> = data?.files || []
       if (!files.length) {
         toast({ title: 'Natija topilmadi', description: 'HTML fayllar yaratilmagan', variant: 'destructive' })
         return
@@ -304,7 +304,12 @@ export function TestGenerator({ subject }: TestGeneratorProps) {
       // Map unique numbers from generatedTest
       const enriched = files.map((f) => {
         const match = generatedTest.variants?.find((v: any) => `${v.variantNumber}` === `${f.variantNumber}`)
-        return { ...f,url:`${import.meta.env.VITE_FILE_BASE_URL}${f.url}`, uniqueNumber: match?.uniqueNumber as string | undefined }
+        return { 
+          ...f,
+          url: `${import.meta.env.VITE_FILE_BASE_URL}${f.url}`,
+          answerSheetUrl: f.answerSheetUrl ? `${import.meta.env.VITE_FILE_BASE_URL}${f.answerSheetUrl}` : undefined,
+          uniqueNumber: match?.uniqueNumber as string | undefined 
+        }
       })
       setPrintFiles(enriched)
       setPrintTitle(data?.title || generatedTest.title)
@@ -653,6 +658,14 @@ export function TestGenerator({ subject }: TestGeneratorProps) {
                         <Download className="h-4 w-4" /> Yuklab olish
                       </Button>
                     </a>
+                    {f.answerSheetUrl && (
+                      <>
+                        <span className="text-muted-foreground">|</span>
+                        <a href={f.answerSheetUrl} target="_blank" rel="noreferrer" className="text-primary underline">
+                          Javoblar varagi
+                        </a>
+                      </>
+                    )}
                   </div>
                 </div>
               ))}

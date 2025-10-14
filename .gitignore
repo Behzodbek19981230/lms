@@ -29,4 +29,4 @@ backend/node_modules
 backend/dist
 backend/src/migrations
 # Keep public/uploads tracked for printable HTML outputs
-#!backend/public/uploads
+backend/public/uploads
