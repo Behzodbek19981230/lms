@@ -257,9 +257,7 @@ export default function GeneratedTestsPage() {
                       ) : (
                         <span className="text-xs text-muted-foreground">Chop etish fayli hali yaratilmagan</span>
                       )}
-                      <Button size="sm" variant="outline" onClick={() => openAnswerSheet(v.uniqueNumber)} disabled={answerGenLoading === v.uniqueNumber}>
-                        {answerGenLoading === v.uniqueNumber ? 'Yaratilmoqda…' : 'Javoblar varagi'}
-                      </Button>
+                    
                     </div>
                   </div>
                 ))}
