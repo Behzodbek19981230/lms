@@ -13,7 +13,7 @@ import {
     SidebarMenuSubItem,
     useSidebar,
 } from '@/components/ui/sidebar';
-import { Award, FolderOpen, LayoutDashboard, MessageSquare, Settings, Users, Send, Book, AlertCircle, Users2, GraduationCap, UserCheck, DollarSign, FileText } from 'lucide-react';
+import { Award, FolderOpen, LayoutDashboard, MessageSquare, Settings, Users, Send, Book, AlertCircle, Users2, GraduationCap, UserCheck, DollarSign, FileText, Scan } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useEffect, useState } from 'react';
 
@@ -47,6 +47,7 @@ const teacherMenuItems = [
     { title: 'Mening fanlarim', url: '/account/subjects', icon: Book
      },
     { title: 'Yaratilgan testlar', url: '/account/generated-tests', icon: FileText },
+    { title: 'Skaner', url: '/account/scanner', icon: Scan },
     { title: 'Telegram Management', url: '/account/telegram', icon: Send },
 ];
 const studentMenuItems = [

@@ -501,7 +501,7 @@ export function TestGenerator({ subject }: TestGeneratorProps) {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {[5, 10, 15, 20, 25, 30, 35, 40].map((num) => (
+                  {[10, 15, 20,  30, 40,50,80,100].map((num) => (
                     <SelectItem key={num} value={num.toString()}>
                       {num} ta savol
                     </SelectItem>
@@ -599,23 +599,19 @@ export function TestGenerator({ subject }: TestGeneratorProps) {
                   className="border-primary text-primary hover:bg-primary/5"
                 >
                   <Printer className="h-4 w-4 mr-2" />
-                  Chop etish (HTML)
+                  Chop etish 
                 </Button>
                 {combinedUrl && (
                   <div className="flex gap-2">
                     <a href={combinedUrl} target="_blank" rel="noreferrer">
                       <Button variant="outline" className="border-primary text-primary hover:bg-primary/5">
-                        <Printer className="h-4 w-4 mr-2" /> Barchasini chop etish (HTML)
+                        <Printer className="h-4 w-4 mr-2" /> Barchasini chop etish 
                       </Button>
                     </a>
-                    <a href={`${combinedUrl}?mode=variants`} target="_blank" rel="noreferrer">
+                 
+                    <a href={`/sheet.png`} target="_blank" rel="noreferrer">
                       <Button variant="outline" className="border-primary text-primary hover:bg-primary/5">
-                        Variantlargina
-                      </Button>
-                    </a>
-                    <a href={`${combinedUrl}?mode=sheets`} target="_blank" rel="noreferrer">
-                      <Button variant="outline" className="border-primary text-primary hover:bg-primary/5">
-                        Faqat javob varagi
+                        Javob varag'ini yuklab olish
                       </Button>
                     </a>
                   </div>

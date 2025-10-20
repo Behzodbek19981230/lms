@@ -1,420 +1,118 @@
 <!DOCTYPE html>
 <html lang="uz">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Test Javoblari Bloki - 108 ta Savol</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        }
-        
-        body {
-            background-color: #f0f2f5;
-            padding: 15px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-        }
-        
-        .container {
-            background-color: white;
-            border-radius: 10px;
-            box-shadow: 0 3px 12px rgba(0, 0, 0, 0.12);
-            padding: 20px;
-            width: 100%;
-            max-width: 1000px;
-            position: relative;
-        }
-        
-        .header {
-            text-align: center;
-            margin-bottom: 18px;
-            padding-bottom: 12px;
-            border-bottom: 2px solid #e1e5eb;
-        }
-        
-        .header h1 {
-            font-size: 24px;
-            color: #2c3e50;
-            margin-bottom: 8px;
-        }
-        
-        .warning {
-            background-color: #fff3cd;
-            border: 1px solid #ffeaa7;
-            border-radius: 6px;
-            padding: 10px 15px;
-            margin-bottom: 20px;
-            font-style: italic;
-            text-align: center;
-            font-size: 14px;
-        }
-        
-        .warning p {
-            margin-bottom: 4px;
-            font-weight: 500;
-        }
-        
-        .section-title {
-            text-align: center;
-            margin: 20px 0 12px;
-            color: #2c3e50;
-            font-size: 18px;
-            padding-bottom: 6px;
-            border-bottom: 1px solid #3498db;
-        }
-        
-        /* Javoblar bloki uchun stil */
-        .answers-grid {
-            display: grid;
-            grid-template-columns: repeat(6, 1fr);
-            gap: 10px;
-            margin-bottom: 25px;
-        }
-        
-        .answer-item {
-            display: flex;
-            align-items: center;
-            background: #f8f9fa;
-            padding: 8px 10px;
-            border-radius: 6px;
-            border: 1px solid #dee2e6;
-            font-size: 13px;
-        }
-        
-        .question-number {
-            font-weight: bold;
-            margin-right: 8px;
-            min-width: 20px;
-            color: #2c3e50;
-        }
-        
-        .options {
-            display: flex;
-            gap: 6px;
-        }
-        
-        .option-circle {
-            width: 20px;
-            height: 20px;
-            border-radius: 50%;
-            border: 1.5px solid #6c757d;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            font-size: 11px;
-            font-weight: bold;
-            transition: all 0.2s ease;
-        }
-        
-        .option-circle:hover {
-            background-color: #e9ecef;
-        }
-        
-        .option-circle.selected {
-            background-color: #3498db;
-            color: white;
-            border-color: #3498db;
-        }
-        
-        /* Shaxsiy ma'lumotlar uchun stil */
-        .personal-info {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 15px;
-            margin-bottom: 25px;
-        }
-        
-        .info-item {
-            display: flex;
-            flex-direction: column;
-        }
-        
-        .info-label {
-            font-weight: bold;
-            margin-bottom: 6px;
-            color: #2c3e50;
-            display: flex;
-            align-items: center;
-            font-size: 14px;
-        }
-        
-        .info-label:after {
-            content: "";
-            flex-grow: 1;
-            height: 1px;
-            background: #dee2e6;
-            margin-left: 8px;
-        }
-        
-        .info-value {
-            padding: 8px 12px;
-            border: 1px dashed #adb5bd;
-            border-radius: 5px;
-            min-height: 38px;
-            display: flex;
-            align-items: center;
-            font-size: 14px;
-        }
-        
-        .footer {
-            margin-top: 25px;
-            font-size: 13px;
-            color: #6c757d;
-            text-align: center;
-            padding: 12px;
-            border-top: 1px solid #e1e5eb;
-            font-style: italic;
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-end;
-        }
-        
-        /* Test raqami bloki */
-        .test-number-block {
-            display: flex;
-            flex-direction: column;
-            align-items: flex-end;
-            gap: 5px;
-        }
-        
-        .test-number-label {
-            font-weight: bold;
-            font-size: 14px;
-            color: #2c3e50;
-            margin-bottom: 5px;
-            text-align: right;
-            width: 100%;
-        }
-        
-        .test-number-grid {
-            display: grid;
-            grid-template-columns: repeat(10, 1fr);
-            gap: 3px;
-        }
-        
-        .number-cell {
-            width: 22px;
-            height: 22px;
-            border: 1px solid #6c757d;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 12px;
-            font-weight: bold;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            background-color: white;
-        }
-        
-        .number-cell:hover {
-            background-color: #e9ecef;
-        }
-        
-        .number-cell.selected {
-            background-color: #3498db;
-            color: white;
-            border-color: #3498db;
-        }
-        
-        .row-label {
-            font-weight: bold;
-            font-size: 11px;
-            color: #6c757d;
-            margin-right: 3px;
-        }
-        
-        /* Navbatdagi qatorlar uchun orqa fon */
-        .answers-grid .answer-item:nth-child(12n+1),
-        .answers-grid .answer-item:nth-child(12n+2),
-        .answers-grid .answer-item:nth-child(12n+3),
-        .answers-grid .answer-item:nth-child(12n+4),
-        .answers-grid .answer-item:nth-child(12n+5),
-        .answers-grid .answer-item:nth-child(12n+6) {
-            background-color: #f0f8ff;
-        }
-        
-        /* Responsive dizayn */
-        @media (max-width: 900px) {
-            .answers-grid {
-                grid-template-columns: repeat(4, 1fr);
-            }
-        }
-        
-        @media (max-width: 700px) {
-            .answers-grid {
-                grid-template-columns: repeat(3, 1fr);
-            }
-            
-            .personal-info {
-                grid-template-columns: 1fr;
-            }
-            
-            .container {
-                padding: 15px;
-            }
-            
-            .footer {
-                flex-direction: column;
-                gap: 15px;
-                align-items: center;
-            }
-            
-            .test-number-block {
-                align-items: center;
-            }
-        }
-        
-        @media (max-width: 500px) {
-            .answers-grid {
-                grid-template-columns: repeat(2, 1fr);
-            }
-            
-            .header h1 {
-                font-size: 20px;
-            }
-            
-            .test-number-grid {
-                grid-template-columns: repeat(5, 1fr);
-            }
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Javob varaqasi (108 savol, landscape)</title>
+<style>
+  @page {
+    size: A4 landscape;
+    margin: 10mm;
+  }
+  body {
+    font-family: Arial, sans-serif;
+    background: white;
+    color: #000;
+    margin: 0;
+    padding: 10px;
+  }
+  h2 {
+    text-align: center;
+    margin: 5px 0 10px;
+  }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    font-size: 10px;
+  }
+  td, th {
+    border: 1px solid #999;
+    text-align: center;
+    padding: 2px;
+  }
+  th {
+    background: #eee;
+    font-weight: bold;
+  }
+  .num {
+    width: 20px;
+    background: #f7f7f7;
+  }
+  .circle {
+    width: 16px;
+    height: 16px;
+    border: 1px solid #555;
+    border-radius: 50%;
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+    user-select: none;
+  }
+  .selected .circle {
+    background: #000;
+    color: #fff;
+  }
+  .option {
+    width: 20px;
+  }
+  /* Grid: 6 ustunli bo‘lim (har biri 18 savol) */
+  .section {
+    display: inline-block;
+    vertical-align: top;
+    margin-right: 8px;
+  }
+</style>
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <h1>3 NOMER HOMEP 1000001</h1>
-        </div>
-        
-        <div class="warning">
-            <p><strong>Diqqat! Ви украї пісіма tekkizmang!</strong></p>
-            <p><em>Вимчанне! Здесь не закріпшивайте!</em></p>
-        </div>
-        
-        <h2 class="section-title">JAVOBLAR BLOKI - БЛОК ОТВЕТОВ</h2>
-        
-        <div class="answers-grid">
-            <!-- JavaScript orqali 108 ta javob yaratiladi -->
-        </div>
-        
-        <h2 class="section-title">Shaxsiy Ma'lumotlar</h2>
-        
-        <div class="personal-info">
-            <div class="info-item">
-                <div class="info-label">Familyangiz:</div>
-                <div class="info-value">Фамилия ______</div>
-            </div>
-            
-            <div class="info-item">
-                <div class="info-label">Ismingiz:</div>
-                <div class="info-value">Имя ______</div>
-            </div>
-            
-            <div class="info-item">
-                <div class="info-label">Otangizning ismi:</div>
-                <div class="info-value">Отчество ______</div>
-            </div>
-            
-            <div class="info-item">
-                <div class="info-label">Ta'lim muassasasi:</div>
-                <div class="info-value">Образ учреж. ______</div>
-            </div>
-            
-            <div class="info-item">
-                <div class="info-label">Ixtisoslik:</div>
-                <div class="info-value">Специальность ______</div>
-            </div>
-        </div>
-        
-        <div class="footer">
-            <div class="footer-text">
-                <p><strong>Test qoidalari:</strong> Вч. ботані об'єднаний відповідно до Правил з питань комітету, а також надано право використовуватися.</p>
-            </div>
-            
-            <div class="test-number-block">
-                <div class="test-number-label">Test raqamini belgilang:</div>
-                <div class="test-number-grid" id="testNumberGrid">
-                    <!-- JavaScript orqali 9x10 raqamlar yaratiladi -->
-                </div>
-            </div>
-        </div>
-    </div>
+<h2>Javob Varaqasi — 108 ta savol (A–D variantlar)</h2>
+<div id="container"></div>
 
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            const answersGrid = document.querySelector('.answers-grid');
-            const testNumberGrid = document.getElementById('testNumberGrid');
-            
-            // 108 ta savol uchun javob bloklarini yaratish
-            for (let i = 1; i <= 108; i++) {
-                const answerItem = document.createElement('div');
-                answerItem.className = 'answer-item';
-                
-                const questionNumber = document.createElement('div');
-                questionNumber.className = 'question-number';
-                questionNumber.textContent = i;
-                
-                const options = document.createElement('div');
-                options.className = 'options';
-                
-                // A, B, C, D variantlari
-                ['A', 'B', 'C', 'D'].forEach(option => {
-                    const optionCircle = document.createElement('div');
-                    optionCircle.className = 'option-circle';
-                    optionCircle.textContent = option;
-                    
-                    // Aylanalarni bosganda tanlanish funksiyasi
-                    optionCircle.addEventListener('click', function() {
-                        // Boshqa variantlardan tanlovni olib tashlash
-                        const siblings = this.parentElement.children;
-                        for (let sibling of siblings) {
-                            sibling.classList.remove('selected');
-                        }
-                        
-                        // Tanlangan variantni belgilash
-                        this.classList.add('selected');
-                    });
-                    
-                    options.appendChild(optionCircle);
-                });
-                
-                answerItem.appendChild(questionNumber);
-                answerItem.appendChild(options);
-                
-                answersGrid.appendChild(answerItem);
-            }
-            
-            // Test raqami uchun 9x10 katakchalar yaratish
-            for (let row = 1; row < 5; row++) {
-                for (let col = 0; col < 10; col++) {
-                    const number =  col;
-                    const numberCell = document.createElement('div');
-                    numberCell.className = 'option-circle';
-                    numberCell.textContent = number;
-                    numberCell.setAttribute('data-number', number);
-                    
-                    // Raqamni bosganda tanlanish funksiyasi
-                    numberCell.addEventListener('click', function() {
-                        // Boshqa katakchalardan tanlovni olib tashlash
-                        const siblings = this.parentElement.children;
-                        for (let sibling of siblings) {
-                            sibling.classList.remove('selected');
-                        }
-                        
-                        // Tanlangan katakchani belgilash
-                        this.classList.add('selected');
-                    });
-                    
-                    testNumberGrid.appendChild(numberCell);
-                }
-            }
-        });
-    </script>
+<script>
+const container = document.getElementById("container");
+const total = 25;
+const perBlock = 18;
+const blocks = Math.ceil(total / perBlock);
+
+for (let b = 0; b < blocks; b++) {
+  const section = document.createElement("div");
+  section.className = "section";
+  const table = document.createElement("table");
+
+  const head = document.createElement("tr");
+  ["#", "A", "B", "C", "D"].forEach(t => {
+    const th = document.createElement("th");
+    th.textContent = t;
+    head.appendChild(th);
+  });
+  table.appendChild(head);
+
+  for (let i = 1; i <= perBlock; i++) {
+    const n = b * perBlock + i;
+    if (n > total) break;
+    const tr = document.createElement("tr");
+    const num = document.createElement("td");
+    num.className = "num";
+    num.textContent = n;
+    tr.appendChild(num);
+    for (const v of ["A", "B", "C", "D"]) {
+      const td = document.createElement("td");
+      td.className = "option";
+      const c = document.createElement("div");
+      c.className = "circle";
+      c.textContent = v;
+      td.appendChild(c);
+      td.onclick = () => {
+        tr.querySelectorAll(".option").forEach(o => o.classList.remove("selected"));
+        td.classList.add("selected");
+      };
+      tr.appendChild(td);
+    }
+    table.appendChild(tr);
+  }
+  section.appendChild(table);
+  container.appendChild(section);
+}
+</script>
 </body>
 </html>

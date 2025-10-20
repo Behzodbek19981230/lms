@@ -4,6 +4,7 @@ import { TestsService } from './tests.service';
 import { TestsController } from './tests.controller';
 import { TestGeneratorService } from './test-generator.service';
 import { LatexProcessorService } from './latex-processor.service';
+import { AnswerSheetScannerService } from './answer-sheet-scanner.service';
 import { Test } from './entities/test.entity';
 import {
   GeneratedTest,
@@ -27,7 +28,17 @@ import { LogsModule } from 'src/logs/logs.module';
     LogsModule,
   ],
   controllers: [TestsController],
-  providers: [TestsService, TestGeneratorService, LatexProcessorService],
-  exports: [TestsService, TestGeneratorService, LatexProcessorService],
+  providers: [
+    TestsService,
+    TestGeneratorService,
+    LatexProcessorService,
+    AnswerSheetScannerService,
+  ],
+  exports: [
+    TestsService,
+    TestGeneratorService,
+    LatexProcessorService,
+    AnswerSheetScannerService,
+  ],
 })
 export class TestsModule {}

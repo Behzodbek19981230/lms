@@ -36,6 +36,7 @@ import Profile from './pages/Profile';
 import NoCenterAssigned from './pages/NoCenterAssigned';
 import TelegramConnect from './pages/TelegramConnect';
 import Logs from './pages/Logs';
+import ScannerPage from './pages/Scanner';
 
 const queryClient = new QueryClient();
 
@@ -86,6 +87,7 @@ const App = () => (
 							<Route path='student-payments' element={<StudentPayments />} />
 							<Route path='profile' element={<Profile />} />
 							<Route path='logs' element={<Logs />} />
+	                            <Route path='scanner' element={<ScannerPage />} />
 						</Route>
 
 						<Route path='*' element={<NotFound />} />

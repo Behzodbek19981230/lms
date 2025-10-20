@@ -32,6 +32,11 @@ import {
   type GenerateTestDto,
 } from './test-generator.service';
 import { TestVariant } from './test-generator.service';
+import { AnswerSheetScannerService } from './answer-sheet-scanner.service';
+import { UploadedFile, UseInterceptors } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import * as multer from 'multer';
+const memoryStorage = multer.memoryStorage();
 
 @ApiTags('Tests')
 @Controller('tests')
@@ -41,6 +46,7 @@ export class TestsController {
   constructor(
     private readonly testsService: TestsService,
     private readonly testGeneratorService: TestGeneratorService,
+    private readonly scanner: AnswerSheetScannerService,
   ) {}
 
   @Post()
@@ -58,6 +64,351 @@ export class TestsController {
       typeof req.user.id === 'string' ? parseInt(req.user.id, 10) : req.user.id;
 
     return this.testsService.create(createTestDto, userId);
+  }
+
+  // Upload an image of the filled answer-sheet and return detected answers (letters) for grading
+  @Post('scanner/answer-sheet/upload')
+  @UseInterceptors(FileInterceptor('file', { storage: memoryStorage }))
+  @ApiOperation({ summary: 'Javob varagi rasmini skanerlash (telefon surat)' })
+  @ApiResponse({ status: 200, description: 'Skaner natijalari' })
+  async scanAnswerSheet(
+    @UploadedFile() file: Express.Multer.File,
+    @Body('totalQuestions') totalQuestionsRaw?: string,
+  ) {
+    if (!file?.buffer?.length) {
+      return { statusCode: 400, message: 'Fayl topilmadi' };
+    }
+
+    // 1) Detect uniqueNumber (grid -> OCR)
+    const detect = await this.scanner.scanAndDetectUnique(file.buffer);
+
+    // 2) Determine total questions: prefer DB by unique, fallback to provided totalQuestions
+    let totalQuestions = Number(totalQuestionsRaw || '0') || 0;
+    if (!totalQuestions && detect.uniqueNumber) {
+      try {
+        type AnswerKey =
+          | { total?: number; answers?: string[] }
+          | null
+          | undefined;
+        const variantInfoRaw =
+          await this.testGeneratorService.getVariantByUniqueNumber(
+            detect.uniqueNumber,
+          );
+        const variantInfo = variantInfoRaw as { answerKey?: AnswerKey };
+        const key = variantInfo?.answerKey;
+        if (Array.isArray(key?.answers) && key.answers.length > 0) {
+          totalQuestions = key.answers.length;
+        } else if (typeof key?.total === 'number' && key.total > 0) {
+          totalQuestions = key.total;
+        }
+      } catch {
+        // ignore — maybe unique not found in DB
+      }
+    }
+
+    // 3) If we have totalQuestions, detect answers from image
+    if (totalQuestions > 0) {
+      const detected = await this.scanner.detectAnswersFromImage(
+        file.buffer,
+        totalQuestions,
+      );
+      return {
+        uniqueNumber: detect.uniqueNumber,
+        method: detect.method,
+        totalQuestions,
+        answers: detected.answers,
+      };
+    }
+
+    // 4) Try auto-detect totalQuestions and answers without prior knowledge
+    const auto = await this.scanner.detectAnswersAuto(file.buffer);
+    if (auto.totalQuestions > 0) {
+      return {
+        uniqueNumber: detect.uniqueNumber,
+        method: detect.method,
+        totalQuestions: auto.totalQuestions,
+        answers: auto.answers,
+      };
+    }
+
+    // Still unknown — return just unique and ask for clearer input
+    return {
+      uniqueNumber: detect.uniqueNumber,
+      method: detect.method,
+      needsTotalQuestions: true,
+      message:
+        'Savollar soni aniqlanmadi. Iltimos, yanada tiniq rasm yuklang yoki totalQuestions yuboring.',
+    };
+  }
+
+  // Detect only answers (A/B/C/D) from the uploaded answer-sheet image with a heuristics-based approach
+  @Post('scanner/answer-sheet/detect-answers')
+  @UseInterceptors(FileInterceptor('file', { storage: memoryStorage }))
+  @ApiOperation({
+    summary: 'Rasm ichidan belgilangan javoblarni aniqlash (A/B/C/D) — beta',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Aniqlangan javoblar massivi qaytariladi',
+  })
+  async detectAnswersOnly(
+    @UploadedFile() file: Express.Multer.File,
+    @Body('totalQuestions') totalQuestionsRaw?: string,
+  ) {
+    if (!file?.buffer?.length) {
+      return { statusCode: 400, message: 'Fayl topilmadi' };
+    }
+    const totalQuestions = Number(totalQuestionsRaw || '0') || 0;
+    if (!totalQuestions || totalQuestions < 0) {
+      return { statusCode: 400, message: "totalQuestions noto'g'ri" };
+    }
+    const detected = await this.scanner.detectAnswersFromImage(
+      file.buffer,
+      totalQuestions,
+    );
+    return detected;
+  }
+
+  // OCR uniqueNumber from uploaded image
+  @Post('scanner/answer-sheet/ocr-unique')
+  @UseInterceptors(FileInterceptor('file', { storage: memoryStorage }))
+  @ApiOperation({ summary: 'Rasmda uniqueNumber (ID)ni OCR bilan topish' })
+  @ApiResponse({ status: 200, description: 'Topilgan ID qaytariladi' })
+  async ocrUnique(@UploadedFile() file: Express.Multer.File) {
+    if (!file?.buffer?.length) {
+      return { statusCode: 400, message: 'Fayl topilmadi' };
+    }
+    return this.scanner.ocrUniqueNumber(file.buffer);
+  }
+
+  // One-shot: upload image -> detect uniqueNumber (grid/OCR) -> returns uniqueNumber only
+  @Post('scanner/answer-sheet/detect-unique')
+  @UseInterceptors(FileInterceptor('file', { storage: memoryStorage }))
+  @ApiOperation({ summary: "UniqueNumber (ID)ni to'g'ridan-to'g'ri aniqlash" })
+  @ApiResponse({ status: 200, description: 'Topilgan ID qaytariladi' })
+  async detectUnique(@UploadedFile() file: Express.Multer.File) {
+    if (!file?.buffer?.length) {
+      return { statusCode: 400, message: 'Fayl topilmadi' };
+    }
+    return this.scanner.scanAndDetectUnique(file.buffer);
+  }
+
+  // One-shot: upload image -> detect unique -> then later frontend calls /grade with answers[]
+
+  @Post('scanner/answer-sheet/auto-grade')
+  @UseInterceptors(FileInterceptor('file', { storage: memoryStorage }))
+  @ApiOperation({
+    summary:
+      'Rasmni yuklab: ID ni topish va ixtiyoriy answers bilan darhol tekshirish',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Auto-grade natijasi yoki uniqueNumber',
+  })
+  async autoGrade(
+    @UploadedFile() file: Express.Multer.File,
+    @Body('answers') answersRaw?: string,
+    @Body('totalQuestions') totalQuestionsRaw?: string,
+  ) {
+    if (!file?.buffer?.length) {
+      return { statusCode: 400, message: 'Fayl topilmadi' };
+    }
+
+    const detect = await this.scanner.scanAndDetectUnique(file.buffer);
+    if (!detect.uniqueNumber) {
+      return {
+        statusCode: 422,
+        message:
+          "UniqueNumber topilmadi. Iltimos, rasm sifatini yaxshilang yoki ID blok aniq ko'rinsin.",
+      };
+    }
+
+    // Optional answers JSON
+    let parsed: unknown = undefined;
+    if (typeof answersRaw === 'string' && answersRaw.trim().length > 0) {
+      try {
+        parsed = JSON.parse(answersRaw);
+      } catch {
+        return { statusCode: 400, message: "answers noto'g'ri JSON" };
+      }
+    }
+
+    if (Array.isArray(parsed)) {
+      const res = await this.testGeneratorService.gradeScannedAnswers(
+        detect.uniqueNumber,
+        parsed as string[],
+      );
+      return {
+        uniqueNumber: detect.uniqueNumber,
+        method: detect.method,
+        result: res,
+      };
+    }
+
+    // No answers provided — attempt auto detection from image if we know totalQuestions
+    let totalQuestions = Number(totalQuestionsRaw || '0') || 0;
+    if (!totalQuestions && detect.uniqueNumber) {
+      try {
+        type AnswerKey =
+          | { total?: number; answers?: string[] }
+          | null
+          | undefined;
+        const variantInfoRaw =
+          await this.testGeneratorService.getVariantByUniqueNumber(
+            detect.uniqueNumber,
+          );
+        const variantInfo = variantInfoRaw as { answerKey?: AnswerKey };
+        const key = variantInfo?.answerKey;
+        if (Array.isArray(key?.answers) && key.answers.length > 0) {
+          totalQuestions = key.answers.length;
+        } else if (typeof key?.total === 'number' && key.total > 0) {
+          totalQuestions = key.total;
+        }
+      } catch {
+        // ignore
+      }
+    }
+    if (totalQuestions > 0) {
+      const detected = await this.scanner.detectAnswersFromImage(
+        file.buffer,
+        totalQuestions,
+      );
+      const graded = await this.testGeneratorService.gradeScannedAnswers(
+        detect.uniqueNumber,
+        detected.answers,
+      );
+      return {
+        uniqueNumber: detect.uniqueNumber,
+        method: detect.method,
+        autoDetectedAnswers: detected.answers,
+        result: graded,
+      };
+    }
+    // Try fully automatic detection
+    const autoA = await this.scanner.detectAnswersAuto(file.buffer);
+    if (autoA.totalQuestions > 0) {
+      const graded = await this.testGeneratorService.gradeScannedAnswers(
+        detect.uniqueNumber,
+        autoA.answers,
+      );
+      return {
+        uniqueNumber: detect.uniqueNumber,
+        method: detect.method,
+        autoDetectedAnswers: autoA.answers,
+        result: graded,
+      };
+    }
+
+    // Try fully automatic detection of totalQuestions and answers from the image
+    const autoB = await this.scanner.detectAnswersAuto(file.buffer);
+    if (autoB.totalQuestions > 0) {
+      const graded = await this.testGeneratorService.gradeScannedAnswers(
+        detect.uniqueNumber,
+        autoB.answers,
+      );
+      return {
+        uniqueNumber: detect.uniqueNumber,
+        method: detect.method,
+        autoDetectedAnswers: autoB.answers,
+        result: graded,
+      };
+    }
+
+    // Still no answers — return unique and let client call /grade later
+    return {
+      uniqueNumber: detect.uniqueNumber,
+      method: detect.method,
+      needsAnswers: true,
+    };
+  }
+
+  // Alias: more intuitive path name that does the same as auto-grade
+  @Post('scanner/answer-sheet/grade')
+  @UseInterceptors(FileInterceptor('file', { storage: memoryStorage }))
+  @ApiOperation({
+    summary:
+      'Rasmni yuklab baholash: ID autodetect va ixtiyoriy answers bilan tekshirish',
+  })
+  @ApiResponse({ status: 200, description: 'Grade natijasi yoki uniqueNumber' })
+  async gradeFromUpload(
+    @UploadedFile() file: Express.Multer.File,
+    @Body('answers') answersRaw?: string,
+    @Body('totalQuestions') totalQuestionsRaw?: string,
+  ) {
+    if (!file?.buffer?.length) {
+      return { statusCode: 400, message: 'Fayl topilmadi' };
+    }
+    const detect = await this.scanner.scanAndDetectUnique(file.buffer);
+    if (!detect.uniqueNumber) {
+      return {
+        statusCode: 422,
+        message:
+          "UniqueNumber topilmadi. Iltimos, rasm sifatini yaxshilang yoki ID blok aniq ko'rinsin.",
+      };
+    }
+    let parsed: unknown = undefined;
+    if (typeof answersRaw === 'string' && answersRaw.trim().length > 0) {
+      try {
+        parsed = JSON.parse(answersRaw);
+      } catch {
+        return { statusCode: 400, message: "answers noto'g'ri JSON" };
+      }
+    }
+    if (Array.isArray(parsed)) {
+      const res = await this.testGeneratorService.gradeScannedAnswers(
+        detect.uniqueNumber,
+        parsed as string[],
+      );
+      return {
+        uniqueNumber: detect.uniqueNumber,
+        method: detect.method,
+        result: res,
+      };
+    }
+    // If answers not provided, try auto-detect, deriving totalQuestions from DB if possible
+    let totalQuestions = Number(totalQuestionsRaw || '0') || 0;
+    if (!totalQuestions && detect.uniqueNumber) {
+      try {
+        type AnswerKey =
+          | { total?: number; answers?: string[] }
+          | null
+          | undefined;
+        const variantInfoRaw =
+          await this.testGeneratorService.getVariantByUniqueNumber(
+            detect.uniqueNumber,
+          );
+        const variantInfo = variantInfoRaw as { answerKey?: AnswerKey };
+        const key = variantInfo?.answerKey;
+        if (Array.isArray(key?.answers) && key.answers.length > 0) {
+          totalQuestions = key.answers.length;
+        } else if (typeof key?.total === 'number' && key.total > 0) {
+          totalQuestions = key.total;
+        }
+      } catch {
+        // ignore
+      }
+    }
+    if (totalQuestions > 0) {
+      const detected = await this.scanner.detectAnswersFromImage(
+        file.buffer,
+        totalQuestions,
+      );
+      const graded = await this.testGeneratorService.gradeScannedAnswers(
+        detect.uniqueNumber,
+        detected.answers,
+      );
+      return {
+        uniqueNumber: detect.uniqueNumber,
+        method: detect.method,
+        autoDetectedAnswers: detected.answers,
+        result: graded,
+      };
+    }
+    return {
+      uniqueNumber: detect.uniqueNumber,
+      method: detect.method,
+      needsAnswers: true,
+    };
   }
 
   @Get()
@@ -154,21 +505,26 @@ export class TestsController {
     return this.testGeneratorService.listGeneratedTestVariants(id, userId);
   }
 
-  @Post('generated/variant/:uniqueNumber/answer-sheet')
-  @ApiOperation({
-    summary:
-      'Variant uchun answer-sheet (titul varaq) yaratilgan HTMLni qaytarish',
-  })
-  @ApiResponse({ status: 200, description: 'Answer sheet URL' })
-  async generateAnswerSheetForVariant(
+  @Post('generated/variant/:uniqueNumber/grade')
+  @ApiOperation({ summary: 'Telefon skanerdan olingan javoblarni tekshirish' })
+  @ApiResponse({ status: 200, description: 'Natijalar qaytariladi' })
+  async gradeScanned(
     @Param('uniqueNumber') uniqueNumber: string,
-    @Request() req: { user: { id: number | string } },
-  ): Promise<{ url: string; fileName: string }> {
-    const userId =
-      typeof req.user.id === 'string' ? parseInt(req.user.id, 10) : req.user.id;
-    return this.testGeneratorService.generateAnswerSheetForVariantUnique(
+    @Body()
+    body: {
+      // Example: ["A","C","-","B", ...]
+      answers: string[];
+    },
+  ) {
+    if (!Array.isArray(body?.answers)) {
+      return {
+        statusCode: 400,
+        message: "answers massiv bo'lishi kerak",
+      };
+    }
+    return this.testGeneratorService.gradeScannedAnswers(
       uniqueNumber,
-      userId,
+      body.answers,
     );
   }
 
