@@ -52,7 +52,7 @@ export class AuthService {
 
     const hashedPassword = await bcrypt.hash(password, 12);
 
-    const user = this.userRepository.create({
+    const user: User = this.userRepository.create({
       username,
       password: hashedPassword,
       firstName,
@@ -61,7 +61,7 @@ export class AuthService {
       role,
     });
 
-    const savedUser = await this.userRepository.save(user);
+    const savedUser: User = await this.userRepository.save(user);
 
     const payload = {
       sub: savedUser.id,

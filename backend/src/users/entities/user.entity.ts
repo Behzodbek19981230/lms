@@ -34,7 +34,7 @@ export class User extends BaseEntity {
   lastName: string;
 
   @Column({ nullable: true })
-  phone: string;
+  phone?: string;
 
   @Column({
     type: 'enum',

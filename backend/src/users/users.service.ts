@@ -160,8 +160,12 @@ export class UsersService {
 
   async getTelegramStatus(userId: number) {
     const user = await this.findOne(userId);
+    const isConnected =
+      typeof user.telegramConnected === 'boolean'
+        ? user.telegramConnected
+        : false;
     return {
-      isConnected: user.telegramConnected || false,
+      isConnected,
       telegramId: user.telegramId,
       telegramUsername: user.username, // This might need to be a separate field
       firstName: user.firstName,

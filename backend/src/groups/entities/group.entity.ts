@@ -21,7 +21,7 @@ export class Group extends BaseEntity {
   @ManyToOne(() => Center, { nullable: false, onDelete: 'CASCADE' })
   center: Center;
 
-  @ManyToMany(() => User)
+  @ManyToMany(() => User, (user) => user.groups)
   @JoinTable({
     name: 'group_students',
     joinColumn: { name: 'groupId', referencedColumnName: 'id' },
