@@ -5,11 +5,11 @@ const API_BASE = process.env.API_BASE || 'http://localhost:3003/api';
 const TOKEN =
     process.env.TOKEN ||
     // Teacher token placeholder; replace or export TOKEN env var
-    'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOjI1LCJ1c2VybmFtZSI6InRlYWNoZXIiLCJyb2xlIjoidGVhY2hlciIsImlhdCI6MTc2MDA5NzkwOCwiZXhwIjoxNzYwNzAyNzA4fQ.0oSlMotGrfqA0HC07aB0nZMguH7BAi9Bdpod4N_kSWM';
+    'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOjQsInVzZXJuYW1lIjoidGVhY2hlciIsInJvbGUiOiJ0ZWFjaGVyIiwiaWF0IjoxNzYxMTk4MzQ3LCJleHAiOjE3NjE4MDMxNDd9.ZiVOwD5buiW_GhYJA2kSdBo_HAcY9zahv3Ntc4q0kuk';
 
 // Determine file to import (default: 2.6_latex.json)
 const CLI_FILE = process.argv.find((a) => a.endsWith('.json'));
-const FILE_TO_IMPORT =  '4.7_latex.json';
+const FILE_TO_IMPORT =  '3.8_latex.json';
 
 // 🧠 Fetch orqali POST funksiyasi
 const postData = async (url, data) => {
@@ -43,7 +43,7 @@ const questions = JSON.parse(fs.readFileSync(`./${FILE_TO_IMPORT}`, 'utf-8'));
 // 🧠 Test yaratish
 const getTestId = async () => {
     const topic = indexItem.title || FILE_TO_IMPORT;
-    const subjectId = 11;
+    const subjectId = 1;
     const createdTest = await postData('tests', {
         title: topic,
         description: `Avtomatik yuklangan test: ${topic} [${indexItem.key}]`,
