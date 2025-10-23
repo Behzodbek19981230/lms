@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -10,6 +11,11 @@ import axios from 'axios';
 
 
 export default function ScannerPage() {
+    // Detect mobile device
+    const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+    const [liveMode, setLiveMode] = useState(false);
+    const [scanning, setScanning] = useState(false);
+    const liveInputRef = useRef<HTMLInputElement>(null);
     const [file, setFile] = useState<File | null>(null);
     const [loading, setLoading] = useState(false);
     const [result, setResult] = useState<GradeResult | null>(null);
@@ -29,6 +35,61 @@ export default function ScannerPage() {
             setVariantId('');
             setAnswers({});
         }
+    };
+
+    // Live scan loop
+    const liveScanLoop = async (imageFile: File) => {
+        setScanning(true);
+        setError(null);
+        setResult(null);
+        while (scanning) {
+            try {
+                const imageBase64 = await new Promise<string>((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = () => {
+                        const result = reader.result;
+                        if (typeof result === 'string') {
+                            resolve(result.split(',')[1]);
+                        } else {
+                            reject('Failed to read file');
+                        }
+                    };
+                    reader.readAsDataURL(imageFile);
+                });
+                const response = await axios.post(
+                    'http://45.138.159.166:8011/analyze',
+                    { image: imageBase64 },
+                    {
+                        auth: {
+                            username: 'admin',
+                            password: 'secret123',
+                        },
+                    },
+                );
+                if (response.data.variant_id) {
+                    const variantId = response.data.variant_id;
+                    setVariantId(variantId);
+                    const answersArray: string[] = [];
+                    const maxKey = Object.keys(response.data.answers).sort((a,b) => parseInt(b)-parseInt(a));
+                    for(let i = 1; i <= parseInt(maxKey[0]); i++) {
+                        const ans = response.data.answers[i.toString()];
+                        answersArray.push(ans || '-');
+                    }
+                    const gradeRes = await gradeByUnique(variantId, answersArray);
+                    setResult(gradeRes);
+                    setScanning(false);
+                    break;
+                }
+                if (response.data.answers) {
+                    setAnswers(response.data.answers);
+                }
+            } catch (e: any) {
+                setError(e?.message || 'Xatolik yuz berdi');
+                // Wait before next try
+                await new Promise(res => setTimeout(res, 1500));
+            }
+        }
+        setScanning(false);
     };
 
     const handleScan = async () => {
@@ -100,13 +161,54 @@ export default function ScannerPage() {
                 <Card>
                     <CardHeader>
                         <CardTitle>Telefon skaner — Javob varaqni tekshirish</CardTitle>
-                        <CardDescription>Rasm yuklang. Variant va javoblar avtomatik aniqlanadi, natija chiqadi.</CardDescription>
+                        <CardDescription>Rasm yuklang yoki telefon kamerasidan "Live Scan" tanlang. Variant va javoblar avtomatik aniqlanadi, natija chiqadi.</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
                         <div className="grid gap-4 md:grid-cols-[1fr_260px]">
                             <div className="space-y-2">
                                 <label className="text-sm font-medium">Rasm (answer-sheet surati)</label>
                                 <Input type="file" accept="image/*" onChange={onFileChange} />
+                                {isMobile && (
+                                    <Button
+                                        variant={liveMode ? "destructive" : "default"}
+                                        className="mt-2"
+                                        onClick={() => {
+                                            if (liveMode) {
+                                                setLiveMode(false); setScanning(false);
+                                            } else {
+                                                setLiveMode(true); setScanning(true);
+                                                setResult(null); setError(null); setVariantId(''); setAnswers({});
+                                            }
+                                        }}
+                                    >{liveMode ? "Live Scan to‘xtatish" : "Live Scan (kamera)"}</Button>
+                                )}
+                                {liveMode && (
+                                    <input
+                                        ref={liveInputRef}
+                                        type="file"
+                                        accept="image/*"
+                                        capture="environment"
+                                        style={{ display: 'none' }}
+                                        onChange={async (e) => {
+                                            const f = e.target.files?.[0];
+                                            if (f) {
+                                                setImagePreview(URL.createObjectURL(f));
+                                                await liveScanLoop(f);
+                                            }
+                                            if (liveInputRef.current) liveInputRef.current.value = '';
+                                        }}
+                                    />
+                                )}
+                                {liveMode && (
+                                    <Button
+                                        variant="secondary"
+                                        className="mt-2"
+                                        disabled={scanning}
+                                        onClick={() => {
+                                            if (liveInputRef.current) liveInputRef.current.click();
+                                        }}
+                                    >Kamera orqali suratga olish</Button>
+                                )}
                                 <p className="text-xs text-muted-foreground">Maslahat: Sahifa to‘liq sig‘sin, pastki o‘ng burchakdagi ID blok aniq ko‘rinsin.</p>
                             </div>
                             <div className="border rounded-md overflow-hidden bg-muted/20 aspect-[3/4] flex items-center justify-center">
@@ -114,30 +216,31 @@ export default function ScannerPage() {
                                     <img src={imagePreview} alt="Preview" className="h-full w-full object-contain" />
                                 ) : (
                                     <div className="text-xs text-muted-foreground px-3 text-center">
-                                        Rasm tanlang — bu yerda preview ko‘rinadi
+                                        Rasm tanlang yoki "Live Scan" — bu yerda preview ko‘rinadi
                                     </div>
                                 )}
                             </div>
                         </div>
-
                         <div className="flex gap-2">
-                            <Button onClick={handleScan} disabled={!file || loading} variant="secondary">Skanerlash va tekshirish</Button>
+                            <Button onClick={handleScan} disabled={!file || loading || liveMode} variant="secondary">Skanerlash va tekshirish</Button>
                         </div>
-
                         {loading && (
                             <div className="space-y-2">
                                 <div className="text-xs text-muted-foreground">Yuklanmoqda...</div>
                                 <Progress value={uploadPercent} className="h-2" />
                             </div>
                         )}
-
+                        {liveMode && scanning && (
+                            <div className="space-y-2">
+                                <div className="text-xs text-blue-600">Live Scan: Kamera orqali suratga oling va natija chiqishini kuting...</div>
+                            </div>
+                        )}
                         {variantId && (
                             <div className="text-xs text-muted-foreground">Aniqlangan variant ID: <b>{variantId}</b></div>
                         )}
                         {answers && Object.keys(answers).length > 0 && (
                             <div className="text-xs text-muted-foreground">Aniqlangan javoblar: {Object.entries(answers).map(([k, v]) => `${k}: ${v}`).join(', ')}</div>
                         )}
-
                         {error && <div className="text-sm text-red-600">{error}</div>}
                         {result && (
                             <div className="mt-4 rounded border p-3">
