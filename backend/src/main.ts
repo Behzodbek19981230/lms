@@ -20,6 +20,9 @@ async function bootstrap() {
 
   app.enableCors({
     origin: '*',
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
+    allowedHeaders: '*',
+    credentials: true,
   });
 
   // Swagger documentation
@@ -38,4 +41,4 @@ async function bootstrap() {
   const port = process.env.PORT || 3003;
   await app.listen(port);
 }
-bootstrap();
+void bootstrap();
