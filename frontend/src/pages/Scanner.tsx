@@ -50,7 +50,7 @@ export default function ScannerPage() {
             });
 
             const response = await axios.post(
-                'http://localhost:5000/analyze',
+                'http://45.138.159.166:8011/analyze',
                 { image: imageBase64 },
 
                     {
