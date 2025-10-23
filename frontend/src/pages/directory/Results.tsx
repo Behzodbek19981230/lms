@@ -9,8 +9,8 @@ import moment from 'moment';
 
 interface ResultType {
     id: number;
-    student_id?: number;
-    center_id?: number;
+    student_name?: string;
+    center_name?: string;
     uniqueNumber: string;
     total: number;
     correctCount: number;
@@ -30,8 +30,8 @@ export default function Results() {
 
     const columns: Column<ResultType>[] = [
         { header: () => "ID", cell: r => r.id },
-        { header: () => "Talaba ID", cell: r => r.student_id ?? '-' },
-        { header: () => "Markaz ID", cell: r => r.center_id ?? '-' },
+        { header: () => "O'quvchi", cell: r => r.student_name ?? '-' },
+        { header: () => "Markaz", cell: r => r.center_name ?? '-' },
         { header: () => "Variant raqami", cell: r => r.uniqueNumber },
         { header: () => "Savollar soni", cell: r => r.total },
         { header: () => "To'g'ri javoblar", cell: r => r.correctCount },

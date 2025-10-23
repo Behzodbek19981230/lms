@@ -19,6 +19,7 @@ import { LogsService } from 'src/logs/logs.service';
 import { promises as fs } from 'fs';
 import { join } from 'path';
 import * as katex from 'katex';
+// import { User } from 'src/users/entities/user.entity';
 
 export interface GenerateTestDto {
   title: string;
@@ -78,19 +79,43 @@ export class TestGeneratorService {
     if (options?.centerId !== undefined) {
       where.center_id = options.centerId;
     }
-    const results = await this.resultsRepository.find({ where });
-    return results.map((r) => ({
-      id: r.id,
-      student_id: r.student_id,
-      center_id: r.center_id,
-      uniqueNumber: r.uniqueNumber,
-      total: r.total,
-      correctCount: r.correctCount,
-      wrongCount: r.wrongCount,
-      blankCount: r.blankCount,
-      perQuestion: r.perQuestion,
-      createdAt: r.createdAt,
-    }));
+    // If centerId is present, join with Center entity to get center name
+    let results: Results[];
+    // Always join user relation to get student name
+    if (options?.centerId !== undefined) {
+      results = await this.resultsRepository.find({
+        where,
+        relations: ['center', 'user'],
+      });
+    } else {
+      results = await this.resultsRepository.find({
+        where,
+        relations: ['user'],
+      });
+    }
+    return results.map(
+      (
+        r: Results & {
+          center?: { name?: string };
+          user?: { firstName?: string; lastName?: string };
+        },
+      ) => ({
+        id: r.id,
+        student_id: r.student_id,
+        student_name: r.user
+          ? `${r.user.firstName ?? ''} ${r.user.lastName ?? ''}`.trim()
+          : undefined,
+        center_id: r.center_id,
+        center_name: r.center?.name ?? undefined,
+        uniqueNumber: r.uniqueNumber,
+        total: r.total,
+        correctCount: r.correctCount,
+        wrongCount: r.wrongCount,
+        blankCount: r.blankCount,
+        perQuestion: r.perQuestion,
+        createdAt: r.createdAt,
+      }),
+    );
   }
 
   /**

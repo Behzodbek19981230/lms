@@ -12,6 +12,10 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { gradeByUnique, GradeResult } from "@/services/scanner.service";
 import axios from "axios";
+import useSWR from "swr";
+import { request } from "@/configs/request";
+import { User } from "@/types/user";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export default function ScannerPage() {
     const [file, setFile] = useState<File | null>(null);
@@ -26,6 +30,13 @@ export default function ScannerPage() {
     const videoRef = useRef<HTMLVideoElement>(null);
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const uploadPercent = useMemo(() => (loading ? 66 : 0), [loading]);
+    const [studentId, setStudentId] = useState<number | undefined>(undefined);
+    const {data}=useSWR("/users?role=student",async(url:string)=>{
+        const res=await request.get(url);
+        return res.data;
+    });
+    
+    const students:User[]=data||[];
 
     // 🎥 Kamera ishga tushirish
     const startCamera = async () => {
@@ -144,7 +155,7 @@ export default function ScannerPage() {
                     answersArray.push(ans || "-");
                 }
                 try {
-                const gradeRes = await gradeByUnique(variantId, answersArray);
+                const gradeRes = await gradeByUnique(variantId, answersArray, studentId);
                 setResult(gradeRes);
                 } catch (e) {
                     
@@ -221,6 +232,7 @@ export default function ScannerPage() {
                             </p>
                         </div>
 
+
                         <div className="border rounded-md overflow-hidden bg-muted/20 aspect-[3/4] flex items-center justify-center relative">
                             {liveMode ? (
                                 <video
@@ -242,6 +254,21 @@ export default function ScannerPage() {
                                 </div>
                             )}
                             <canvas ref={canvasRef} className="hidden" />
+                        </div>
+
+                        <div>
+                            <Select value={studentId?.toString() || ''} onValueChange={(value) => setStudentId(Number(value))}>
+                <SelectTrigger>
+                  <SelectValue placeholder="O‘quvchini tanlang" />
+                </SelectTrigger>
+                <SelectContent>
+                  {students?.map((student) => (
+                    <SelectItem key={student.id} value={student.id.toString()}>
+                      {student.lastName} {student.firstName} (ID: {student.id})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
                         </div>
                     </div>
 

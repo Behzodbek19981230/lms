@@ -18,7 +18,7 @@ export class Results {
 
   @ManyToOne(() => User, { nullable: true })
   @JoinColumn({ name: 'student_id' })
-  student?: User;
+  user?: User;
 
   @Column({ nullable: true })
   center_id?: number;

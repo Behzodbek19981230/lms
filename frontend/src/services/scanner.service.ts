@@ -26,8 +26,8 @@ export type GradeResult = {
 
 
 
- async function gradeByUnique(uniqueNumber: string, answers: string[]): Promise<GradeResult> {
-  const { data } = await request.post(`/tests/generated/variant/${uniqueNumber}/grade`, { answers });
+async function gradeByUnique(uniqueNumber: string, answers: string[], studentId?: number): Promise<GradeResult> {
+  const { data } = await request.post(`/tests/generated/variant/${uniqueNumber}/grade`, { answers, studentId });
   return data;
 }
 
