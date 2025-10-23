@@ -400,9 +400,9 @@ const TelegramManagement: React.FC = () => {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold">Telegram Integratsiyasi</h1>
+        <h1 className="text-2xl md:text-3xl font-bold">Telegram Integratsiyasi</h1>
         <Button onClick={fetchData} disabled={loading}>
-          {loading ? 'Yuklanmoqda...' : 'Yangilash'}
+          {loading ? <span className="text-xs md:text-sm">Yuklanmoqda...</span> : <span className="text-xs md:text-sm">Yangilash</span>}
         </Button>
       </div>
 
@@ -480,12 +480,12 @@ const TelegramManagement: React.FC = () => {
                 </SelectContent>
               </Select>
               {!currentUser?.center && centers.length === 0 && (
-                <p className="text-sm text-muted-foreground mt-1">
+                <p className="text-xs md:text-sm text-muted-foreground mt-1">
                   Sizga markaz tayinlanmagan. Administratorga murojaat qiling.
                 </p>
               )}
               {(currentUser?.center || centers.length === 1) && (
-                <p className="text-sm text-muted-foreground mt-1">
+                <p className="text-xs md:text-sm text-muted-foreground mt-1">
                   Sizning markazingiz: {currentUser?.center?.name || centers[0]?.name}
                 </p>
               )}
@@ -513,8 +513,8 @@ const TelegramManagement: React.FC = () => {
           {/* Auto-generated suggestion */}
           {newChat.centerId && newChat.subjectId && (
             <div className="p-3 bg-blue-50 border border-blue-200 rounded-md">
-              <p className="text-sm text-blue-700">
-                <strong>Tavsiya etilgan kanal nomi:</strong> {generateChannelName()}
+              <p className="text-xs md:text-sm text-blue-700">
+                <strong className="text-xs md:text-sm">Tavsiya etilgan kanal nomi:</strong> {generateChannelName()}
               </p>
             </div>
           )}
@@ -532,7 +532,7 @@ const TelegramManagement: React.FC = () => {
         </CardHeader>
         <CardContent className="space-y-4">
           {unlinkedUsers.length === 0 ? (
-            <p className="text-gray-500 text-center py-4">
+            <p className="text-xs md:text-sm text-gray-500 text-center py-4">
               Bog'lanmagan Telegram foydalanuvchilari yo'q. Foydalanuvchilar avval botni ishga tushirishlari kerak.
             </p>
           ) : (
@@ -680,7 +680,7 @@ const TelegramManagement: React.FC = () => {
         </CardHeader>
         <CardContent>
           {filteredChats.length === 0 ? (
-            <p className="text-gray-500 text-center py-4">Hech qanday Telegram chat hali ro'yxatga olinmagan.</p>
+            <p className="text-xs md:text-sm text-gray-500 text-center py-4">Hech qanday Telegram chat hali ro'yxatga olinmagan.</p>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {filteredChats.map((chat) => (
@@ -696,24 +696,24 @@ const TelegramManagement: React.FC = () => {
                       {getChatTypeText(chat.type)}
                     </Badge>
                     {chat.username && (
-                      <span className="text-sm text-gray-500">{chat.username}</span>
+                      <span className="text-xs md:text-sm text-gray-500">{chat.username}</span>
                     )}
                   </div>
-                  <p className="text-xs text-gray-500">
+                  <p className="text-xs md:text-sm text-gray-500">
                     ID: {chat.chatId}
                   </p>
                   {chat.centerName && (
-                    <p className="text-xs text-gray-600">
+                    <p className="text-xs md:text-sm text-gray-600">
                       Markaz: {chat.centerName}
                     </p>
                   )}
                   {chat.subjectName && (
-                    <p className="text-xs text-gray-600">
+                    <p className="text-xs md:text-sm text-gray-600">
                       Fan: {chat.subjectName}
                     </p>
                   )}
                   {chat.lastActivity && (
-                    <p className="text-xs text-gray-500">
+                    <p className="text-xs md:text-sm text-gray-500">
                       Oxirgi faollik: {new Date(chat.lastActivity).toLocaleDateString()}
                     </p>
                   )}
@@ -737,13 +737,13 @@ const TelegramManagement: React.FC = () => {
                             variant="outline"
                             onClick={() => navigator.clipboard?.writeText(chat.inviteLink!)}
                           >
-                            Havolani nusxalash
+                            <span className="text-xs md:text-sm">Havolani nusxalash</span>
                           </Button>
                         )}
                       </div>
                       
                       {chat.inviteLink && (
-                        <p className="text-xs text-gray-500 truncate">
+                        <p className="text-xs md:text-sm text-gray-500 truncate">
                           {chat.inviteLink}
                         </p>
                       )}
@@ -753,13 +753,13 @@ const TelegramManagement: React.FC = () => {
                   {chat.type === 'channel' && tests.length > 0 && (
                     <div className="pt-2 space-y-2">
                       <hr />
-                      <p className="text-xs font-medium">Tezkor amallar:</p>
+                      <p className="text-xs md:text-sm font-medium">Tezkor amallar:</p>
                       {tests.slice(0, 2).map((test) => (
                         <Button
                           key={test.id}
                           size="sm"
                           variant="outline"
-                          className="w-full text-xs"
+                          className="w-full text-xs md:text-sm"
                           onClick={() => handlePublishResults(test.id, chat.chatId)}
                           disabled={loading}
                         >
@@ -778,13 +778,13 @@ const TelegramManagement: React.FC = () => {
       {/* Instructions */}
       <Card>
         <CardHeader>
-          <CardTitle>Telegram integratsiyasidan qanday foydalanish</CardTitle>
+          <CardTitle className="text-lg md:text-2xl">Telegram integratsiyasidan qanday foydalanish</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-3">
             <div>
-              <h4 className="font-semibold">📤 O'qituvchilar uchun:</h4>
-              <ul className="list-disc list-inside text-sm text-gray-600 space-y-1">
+              <h4 className="font-semibold text-xs md:text-base">📤 O'qituvchilar uchun:</h4>
+              <ul className="list-disc list-inside text-xs md:text-sm text-gray-600 space-y-1">
                 <li>Yuqoridagi forma yordamida Telegram kanallaringizni ro'yxatga oling</li>
                 <li>Testlarni talabalar ko'radigan kanallarga yuboring</li>
                 <li>Javoblarni kuzating va natijalarni avtomatik e'lon qiling</li>
@@ -792,8 +792,8 @@ const TelegramManagement: React.FC = () => {
             </div>
             
             <div>
-              <h4 className="font-semibold">📝 Talabalar uchun:</h4>
-              <ul className="list-disc list-inside text-sm text-gray-600 space-y-1">
+              <h4 className="font-semibold text-xs md:text-base">📝 Talabalar uchun:</h4>
+              <ul className="list-disc list-inside text-xs md:text-sm text-gray-600 space-y-1">
                 <li>Testlarni ko'rish uchun sinf Telegram kanaliga qo'shiling</li>
                 <li>Savollarga quyidagi formatda javob bering: <code className="bg-gray-100 px-1 rounded">#T123Q1 A</code></li>
                 <li>Javoblaringizga darhol fikr-mulohaza oling</li>
@@ -802,8 +802,8 @@ const TelegramManagement: React.FC = () => {
             </div>
 
             <div>
-              <h4 className="font-semibold">👨‍👩‍👧‍👦 Ota-onalar uchun:</h4>
-              <ul className="list-disc list-inside text-sm text-gray-600 space-y-1">
+              <h4 className="font-semibold text-xs md:text-base">👨‍👩‍👧‍👦 Ota-onalar uchun:</h4>
+              <ul className="list-disc list-inside text-xs md:text-sm text-gray-600 space-y-1">
                 <li>Farzandingizning testlarini kuzatish uchun sinf kanallariga qo'shiling</li>
                 <li>Test natijalarini va taraqqiyot yangiliklarini ko'ring</li>
                 <li>Yangi topshiriqlar haqida xabardor bo'ling</li>

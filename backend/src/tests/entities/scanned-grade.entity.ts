@@ -4,7 +4,10 @@ import { GeneratedTestVariant } from './generated-test.entity';
 
 @Entity('scanned_grades')
 export class ScannedGrade extends BaseEntity {
-  @ManyToOne(() => GeneratedTestVariant, { nullable: false, onDelete: 'CASCADE' })
+  @ManyToOne(() => GeneratedTestVariant, {
+    nullable: false,
+    onDelete: 'CASCADE',
+  })
   @JoinColumn({ name: 'variantId' })
   variant: GeneratedTestVariant;
 

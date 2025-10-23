@@ -15,6 +15,7 @@ import SubjectTests from '@/pages/test/subject-tests.tsx';
 import TestQuestions from '@/pages/test/test-questions.tsx';
 import TestEditPage from '@/pages/test/edit';
 import Subjects from '@/pages/directory/Subjects.tsx';
+import Results from '@/pages/directory/Results.tsx';
 import SuperAdminDashboard from './pages/SuperAdminDashboard';
 import CenterAdminDashboard from './pages/CenterAdminDashboard';
 import CenterStudentsPage from './pages/CenterStudentsPage';
@@ -41,61 +42,62 @@ import ScannerPage from './pages/Scanner';
 const queryClient = new QueryClient();
 
 const App = () => (
-	<QueryClientProvider client={queryClient}>
-		<TooltipProvider>
-			<AuthProvider>
-				<Toaster />
-				<Sonner />
-				<BrowserRouter>
-					<Routes>
-						<Route path='/' element={<Index />} />
-						<Route path='/login' element={<Login />} />
-						<Route path='/register' element={<Register />} />
-						<Route path='/no-center' element={<NoCenterAssigned />} />
-						<Route path='/telegram-connect' element={<TelegramConnect />} />
+    <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
+            <AuthProvider>
+                <Toaster />
+                <Sonner />
+                <BrowserRouter>
+                    <Routes>
+                        <Route path='/' element={<Index />} />
+                        <Route path='/login' element={<Login />} />
+                        <Route path='/register' element={<Register />} />
+                        <Route path='/no-center' element={<NoCenterAssigned />} />
+                        <Route path='/telegram-connect' element={<TelegramConnect />} />
 
-						{/* Dashboard routes */}
-						<Route
-							path='/account'
-							element={
-								<ProtectedRoute>
-									<DashboardLayout />
-								</ProtectedRoute>
-							}
-						>
-							<Route path='superadmin' element={<SuperAdminDashboard />} />
-							<Route path='admin' element={<CenterAdminDashboard />} />
-							<Route path='students' element={<CenterStudentsPage />} />
-							<Route path='teachers' element={<CenterTeachersPage />} />
-							<Route path='teacher' element={<TeacherDashboard />} />
-							<Route path='groups' element={<GroupsPage />} />
-							<Route path='exams' element={<ExamsPage />} />
-							<Route path='exams/:examId' element={<ExamDetail />} />
-							<Route path='exams/:examId/variants' element={<ExamVariants />} />
-							<Route path='generated-tests' element={<GeneratedTestsPage />} />
-							<Route path='test-generator' element={<TestGeneratorPage />} />
-							<Route path='test/create' element={<CreateTestPage />} />
-							<Route path='test/edit/:testId' element={<TestEditPage />} />
-							<Route path='subject/:subjectId/tests' element={<SubjectTests />} />
-							<Route path='test/:testId/questions' element={<TestQuestions />} />
-							<Route path='subjects' element={<Subjects />} />
-							<Route path='student' element={<StudentDashboard />} />
-							<Route path='telegram' element={<TelegramManagement />} />
-							<Route path='telegram-user' element={<TelegramUserDashboard />} />
-							<Route path='center-users' element={<CenterUsersManagement />} />
-							<Route path='teacher-payments' element={<TeacherPayments />} />
-							<Route path='student-payments' element={<StudentPayments />} />
-							<Route path='profile' element={<Profile />} />
-							<Route path='logs' element={<Logs />} />
-	                            <Route path='scanner' element={<ScannerPage />} />
-						</Route>
+                        {/* Dashboard routes */}
+                        <Route
+                            path='/account'
+                            element={
+                                <ProtectedRoute>
+                                    <DashboardLayout />
+                                </ProtectedRoute>
+                            }
+                        >
+                            <Route path='superadmin' element={<SuperAdminDashboard />} />
+                            <Route path='admin' element={<CenterAdminDashboard />} />
+                            <Route path='students' element={<CenterStudentsPage />} />
+                            <Route path='teachers' element={<CenterTeachersPage />} />
+                            <Route path='teacher' element={<TeacherDashboard />} />
+                            <Route path='groups' element={<GroupsPage />} />
+                            <Route path='exams' element={<ExamsPage />} />
+                            <Route path='exams/:examId' element={<ExamDetail />} />
+                            <Route path='exams/:examId/variants' element={<ExamVariants />} />
+                            <Route path='generated-tests' element={<GeneratedTestsPage />} />
+                            <Route path='test-generator' element={<TestGeneratorPage />} />
+                            <Route path='test/create' element={<CreateTestPage />} />
+                            <Route path='test/edit/:testId' element={<TestEditPage />} />
+                            <Route path='subject/:subjectId/tests' element={<SubjectTests />} />
+                            <Route path='test/:testId/questions' element={<TestQuestions />} />
+                            <Route path='subjects' element={<Subjects />} />
+                            <Route path='results' element={<Results />} />
+                            <Route path='student' element={<StudentDashboard />} />
+                            <Route path='telegram' element={<TelegramManagement />} />
+                            <Route path='telegram-user' element={<TelegramUserDashboard />} />
+                            <Route path='center-users' element={<CenterUsersManagement />} />
+                            <Route path='teacher-payments' element={<TeacherPayments />} />
+                            <Route path='student-payments' element={<StudentPayments />} />
+                            <Route path='profile' element={<Profile />} />
+                            <Route path='logs' element={<Logs />} />
+                            <Route path='scanner' element={<ScannerPage />} />
+                        </Route>
 
-						<Route path='*' element={<NotFound />} />
-					</Routes>
-				</BrowserRouter>
-			</AuthProvider>
-		</TooltipProvider>
-	</QueryClientProvider>
+                        <Route path='*' element={<NotFound />} />
+                    </Routes>
+                </BrowserRouter>
+            </AuthProvider>
+        </TooltipProvider>
+    </QueryClientProvider>
 );
 
 export default App;

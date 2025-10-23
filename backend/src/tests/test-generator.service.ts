@@ -13,6 +13,7 @@ import {
   GeneratedTest,
   GeneratedTestVariant,
 } from './entities/generated-test.entity';
+import { Results } from './entities/results.entity';
 import { LatexProcessorService } from './latex-processor.service';
 import { LogsService } from 'src/logs/logs.service';
 import { promises as fs } from 'fs';
@@ -53,9 +54,44 @@ export class TestGeneratorService {
     private generatedTestRepository: Repository<GeneratedTest>,
     @InjectRepository(GeneratedTestVariant)
     private generatedTestVariantRepository: Repository<GeneratedTestVariant>,
+    @InjectRepository(Results)
+    private resultsRepository: Repository<Results>,
     private latexProcessor: LatexProcessorService,
     private logService: LogsService,
   ) {}
+
+  /**
+   * List all grading results, optionally filtered by student_id or uniqueNumber
+   */
+  async listResults(options?: {
+    studentId?: number;
+    uniqueNumber?: string;
+    centerId?: number;
+  }) {
+    const where: any = {};
+    if (options?.studentId !== undefined) {
+      where.student_id = options.studentId;
+    }
+    if (options?.uniqueNumber) {
+      where.uniqueNumber = options.uniqueNumber;
+    }
+    if (options?.centerId !== undefined) {
+      where.center_id = options.centerId;
+    }
+    const results = await this.resultsRepository.find({ where });
+    return results.map((r) => ({
+      id: r.id,
+      student_id: r.student_id,
+      center_id: r.center_id,
+      uniqueNumber: r.uniqueNumber,
+      total: r.total,
+      correctCount: r.correctCount,
+      wrongCount: r.wrongCount,
+      blankCount: r.blankCount,
+      perQuestion: r.perQuestion,
+      createdAt: r.createdAt,
+    }));
+  }
 
   /**
    * Generate printable HTML files for provided variants and return public URLs
@@ -104,7 +140,7 @@ export class TestGeneratorService {
       const fileName = `${slug(title)}-variant-${slug(variant.variantNumber)}-${timestamp}.html`;
       const absolutePath = join(uploadsDir, fileName);
       await fs.writeFile(absolutePath, html, 'utf8');
-      const url = `/print/uploads/${fileName}`;
+      const url = `/uploads/${fileName}`;
 
       files.push({
         variantNumber: variant.variantNumber,
@@ -151,7 +187,7 @@ export class TestGeneratorService {
       const combinedFileName = `${slug(title)}-combined-${timestamp}.html`;
       const combinedAbsolutePath = join(uploadsDir, combinedFileName);
       await fs.writeFile(combinedAbsolutePath, combinedHtml, 'utf8');
-      combinedUrl = `/print/uploads/${combinedFileName}`;
+      combinedUrl = `/uploads/${combinedFileName}`;
     } catch (e) {
       void this.logService.log(
         `Failed to build combined HTML: ${String(e)}`,
@@ -859,6 +895,8 @@ export class TestGeneratorService {
   async gradeScannedAnswers(
     uniqueNumber: string,
     scannedAnswers: string[],
+    studentId?: number,
+    centerId?: number,
   ): Promise<{
     uniqueNumber: string;
     total: number;
@@ -871,6 +909,7 @@ export class TestGeneratorService {
       correct: string; // 'A'..'F' or '-' or 'X'
       isCorrect: boolean;
     }>;
+    resultId: number;
   }> {
     const variant = await this.generatedTestVariantRepository.findOne({
       where: { uniqueNumber },
@@ -904,6 +943,36 @@ export class TestGeneratorService {
       perQuestion.push({ index: i, scanned, correct, isCorrect });
     }
     const wrongCount = total - correctCount - blankCount;
+
+    // Save or update result by uniqueNumber
+    let result = await this.resultsRepository.findOne({
+      where: { uniqueNumber },
+    });
+    if (result) {
+      // Update existing result
+      result.student_id = studentId;
+      result.center_id = centerId;
+      result.total = total;
+      result.correctCount = correctCount;
+      result.wrongCount = wrongCount;
+      result.blankCount = blankCount;
+      result.perQuestion = perQuestion;
+      await this.resultsRepository.save(result);
+    } else {
+      // Create new result
+      result = this.resultsRepository.create({
+        student_id: studentId,
+        center_id: centerId,
+        uniqueNumber,
+        total,
+        correctCount,
+        wrongCount,
+        blankCount,
+        perQuestion,
+      });
+      await this.resultsRepository.save(result);
+    }
+
     return {
       uniqueNumber,
       total,
@@ -911,6 +980,7 @@ export class TestGeneratorService {
       wrongCount,
       blankCount,
       perQuestion,
+      resultId: result.id,
     };
   }
 

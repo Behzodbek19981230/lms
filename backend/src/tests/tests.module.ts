@@ -13,6 +13,7 @@ import { Subject } from '../subjects/entities/subject.entity';
 import { User } from '../users/entities/user.entity';
 import { Question } from '../questions/entities/question.entity';
 import { LogsModule } from 'src/logs/logs.module';
+import { Results } from './entities/results.entity';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { LogsModule } from 'src/logs/logs.module';
       Question,
       GeneratedTest,
       GeneratedTestVariant,
+      Results,
     ]),
     LogsModule,
   ],

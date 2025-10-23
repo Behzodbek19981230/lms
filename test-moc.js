@@ -9,7 +9,7 @@ const TOKEN =
 
 // Determine file to import (default: 2.6_latex.json)
 const CLI_FILE = process.argv.find((a) => a.endsWith('.json'));
-const FILE_TO_IMPORT =  '2.2_latex.json';
+const FILE_TO_IMPORT =  '2.3_latex.json';
 
 // 🧠 Fetch orqali POST funksiyasi
 const postData = async (url, data) => {

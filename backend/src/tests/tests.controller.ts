@@ -159,10 +159,12 @@ export class TestsController {
   @ApiResponse({ status: 200, description: 'Natijalar qaytariladi' })
   async gradeScanned(
     @Param('uniqueNumber') uniqueNumber: string,
+    @Request() req: any,
     @Body()
     body: {
       // Example: ["A","C","-","B", ...]
       answers: string[];
+      studentId?: number;
     },
   ) {
     if (!Array.isArray(body?.answers)) {
@@ -171,10 +173,44 @@ export class TestsController {
         message: "answers massiv bo'lishi kerak",
       };
     }
+
     return this.testGeneratorService.gradeScannedAnswers(
       uniqueNumber,
       body.answers,
+      body.studentId,
+      req.user?.center?.id,
     );
+  }
+
+  @Get('results-list')
+  @ApiOperation({ summary: "Test natijalari ro'yxati" })
+  @ApiResponse({ status: 200, description: 'Test natijalari', type: Object })
+  async resultsList(
+    @Request()
+    req: { user?: { center?: { id?: number }; role?: string } },
+    @Query('studentId') studentId?: number,
+    @Query('uniqueNumber') uniqueNumber?: string,
+    @Query('centerId') centerId?: number,
+  ) {
+    const requestCenterId =
+      typeof req.user?.center?.id === 'number' ? req.user.center.id : undefined;
+    centerId = centerId === undefined ? requestCenterId : centerId;
+    // Only allow admin and teacher roles
+    const role: string | undefined =
+      typeof req.user === 'object' && req.user !== null
+        ? (req.user as { role?: string }).role
+        : undefined;
+    if (role !== 'admin' && role !== 'teacher') {
+      return {
+        statusCode: 403,
+        message: 'Faqat admin va o‘qituvchi ko‘ra oladi',
+      };
+    }
+    return this.testGeneratorService.listResults({
+      studentId,
+      uniqueNumber,
+      centerId,
+    });
   }
 
   @Get(':id')

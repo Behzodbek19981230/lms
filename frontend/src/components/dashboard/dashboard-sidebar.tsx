@@ -39,6 +39,8 @@ const centerAdminMenuItems = [
      },
     { title: 'Telegram Management', url: '/account/telegram', icon: Send },
 ];
+// Add Results menu item for admin
+centerAdminMenuItems.splice(4, 0, { title: 'Natijalar', url: '/account/results', icon: FileText });
 const teacherMenuItems = [
     { title: 'Dashboard', url: '/account/teacher', icon: LayoutDashboard },
     { title: 'Imtihonlar', url: '/account/exams', icon: AlertCircle },
@@ -50,6 +52,8 @@ const teacherMenuItems = [
     { title: 'Skaner', url: '/account/scanner', icon: Scan },
     { title: 'Telegram Management', url: '/account/telegram', icon: Send },
 ];
+// Add Results menu item for teacher
+teacherMenuItems.splice(4, 0, { title: 'Natijalar', url: '/account/results', icon: FileText });
 const studentMenuItems = [
     { title: 'Dashboard', url: '/account/student', icon: LayoutDashboard },
     { title: 'Mening to\'lovlarim', url: '/account/student-payments', icon: DollarSign },

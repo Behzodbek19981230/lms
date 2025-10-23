@@ -622,7 +622,7 @@ export class ExamsService {
     await fs.writeFile(absolutePath, html, 'utf8');
 
     // Public URL via static assets (configured in main.ts)
-    const url = `/print/uploads/${fileName}`;
+    const url = `/uploads/${fileName}`;
 
     // Persist path for reuse
     await this.examVariantRepository.update(variantId, { printHtmlPath: url });

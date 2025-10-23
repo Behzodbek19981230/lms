@@ -14,7 +14,7 @@ type TableSimpleProps<T> = {
 
 export default function DataTable<T>({columns, data}: TableSimpleProps<T>) {
     return (
-        <Table>
+        <Table className='max-h-[600px] overflow-y-auto'>
             <TableHeader className=' bg-primaryLighter'>
                 <TableRow>
                     {columns.map((column, i) => (

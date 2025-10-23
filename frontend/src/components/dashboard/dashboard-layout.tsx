@@ -15,7 +15,7 @@ export const DashboardLayout = () => {
                     <DashboardHeader />
 
                     {/* Main content */}
-                    <main className="flex-1 p-6 bg-muted/30">
+                    <main className="flex-1 p-6 bg-muted/30 overflow-x-auto">
                         <Outlet /> {/* Nested routes shu yerda ko‘rinadi */}
                     </main>
                 </div>

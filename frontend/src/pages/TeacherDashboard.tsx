@@ -117,13 +117,13 @@ export default function TeacherDashboard() {
     ];
     console.log(user);
     return (
-        <div className='min-h-screen bg-gradient-subtle'>
+    <div className='min-h-screen bg-gradient-subtle'>
             {/* Header */}
-            <header className='bg-card border-b border-border p-6'>
-                <div className='flex justify-between items-center'>
+            <header className='bg-card border-b border-border p-3 md:p-6'>
+                <div className='flex flex-wrap justify-between items-center gap-2'>
                     <div>
-                        <h1 className='text-3xl font-bold text-foreground'>O'qituvchi paneli</h1>
-                        <p className='text-muted-foreground'>
+                        <h1 className='text-xl md:text-3xl font-bold text-foreground'>O'qituvchi paneli</h1>
+                        <p className='text-xs md:text-base text-muted-foreground'>
                             {`${user?.firstName}  ${user?.lastName}`} — {subjects[0]?.name || user?.center?.name || ''}
                         </p>
                     </div>
@@ -140,81 +140,81 @@ export default function TeacherDashboard() {
                 </div>
             </header>
 
-            <div className='p-6'>
+            <div className='p-2 md:p-6'>
                 {/* Loading / Error */}
 
 
                 {/* Stats Grid */}
-                <div className='grid grid-cols-1 md:grid-cols-5 gap-6 mb-8'>
+                <div className='grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 md:gap-6 mb-8 overflow-x-auto'>
                     <Card className='border-border'>
                         <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
-                            <CardTitle className='text-sm font-medium text-muted-foreground'>Fanlarim</CardTitle>
+                            <CardTitle className='text-xs md:text-sm font-medium text-muted-foreground'>Fanlarim</CardTitle>
                             <Users className='h-4 w-4 text-primary' />
                         </CardHeader>
                         <CardContent>
-                            <div className='text-2xl font-bold text-foreground'>{subjects.length}</div>
-                            <p className='text-xs text-muted-foreground'>Jami fanlar</p>
+                            <div className='text-lg md:text-2xl font-bold text-foreground'>{subjects.length}</div>
+                            <p className='text-xs md:text-xs text-muted-foreground'>Jami fanlar</p>
                         </CardContent>
                     </Card>
 
                     <Card className='border-border'>
                         <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
-                            <CardTitle className='text-sm font-medium text-muted-foreground'>Faol fanlar</CardTitle>
+                            <CardTitle className='text-xs md:text-sm font-medium text-muted-foreground'>Faol fanlar</CardTitle>
                             <BookOpen className='h-4 w-4 text-accent' />
                         </CardHeader>
                         <CardContent>
-                            <div className='text-2xl font-bold text-foreground'>
+                            <div className='text-lg md:text-2xl font-bold text-foreground'>
                                 {subjectStats?.activeSubjects ?? 0}
                             </div>
-                            <p className='text-xs text-accent'>Faol holatda</p>
+                            <p className='text-xs md:text-xs text-accent'>Faol holatda</p>
                         </CardContent>
                     </Card>
 
                     <Card className='border-border'>
                         <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
-                            <CardTitle className='text-sm font-medium text-muted-foreground'>Testlar</CardTitle>
+                            <CardTitle className='text-xs md:text-sm font-medium text-muted-foreground'>Testlar</CardTitle>
                             <Calendar className='h-4 w-4 text-primary' />
                         </CardHeader>
                         <CardContent>
-                            <div className='text-2xl font-bold text-foreground'>
+                            <div className='text-lg md:text-2xl font-bold text-foreground'>
                                 {testStats?.totalTests ?? subjectStats?.totalTests ?? 0}
                             </div>
-                            <p className='text-xs text-muted-foreground'>Jami testlar</p>
+                            <p className='text-xs md:text-xs text-muted-foreground'>Jami testlar</p>
                         </CardContent>
                     </Card>
 
                     <Card className='border-border'>
                         <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
-                            <CardTitle className='text-sm font-medium text-muted-foreground'>
+                            <CardTitle className='text-xs md:text-sm font-medium text-muted-foreground'>
                                 Kutilayotgan testlar
                             </CardTitle>
                             <FileText className='h-4 w-4 text-accent' />
                         </CardHeader>
                         <CardContent>
-                            <div className='text-2xl font-bold text-foreground'>{testStats?.draftTests ?? 0}</div>
-                            <p className='text-xs text-accent'>Qoralama testlar</p>
+                            <div className='text-lg md:text-2xl font-bold text-foreground'>{testStats?.draftTests ?? 0}</div>
+                            <p className='text-xs md:text-xs text-accent'>Qoralama testlar</p>
                         </CardContent>
                     </Card>
 
                     <Card className='border-border'>
                         <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
-                            <CardTitle className='text-sm font-medium text-muted-foreground'>
+                            <CardTitle className='text-xs md:text-sm font-medium text-muted-foreground'>
                                 Formulali fanlar
                             </CardTitle>
                             <CheckCircle className='h-4 w-4 text-primary' />
                         </CardHeader>
                         <CardContent>
-                            <div className='text-2xl font-bold text-foreground'>{groups?.length ?? 0}</div>
-                            <p className='text-xs text-muted-foreground'>Mening guruhlarim</p>
+                            <div className='text-lg md:text-2xl font-bold text-foreground'>{groups?.length ?? 0}</div>
+                            <p className='text-xs md:text-xs text-muted-foreground'>Mening guruhlarim</p>
                         </CardContent>
                     </Card>
                 </div>
 
-                <div className='grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6'>
+                <div className='grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 xl:grid-cols-3 gap-4 md:gap-6'>
                     {/* Today's Schedule */}
                     <Card className='border-border'>
                         <CardHeader>
-                            <CardTitle className='text-card-foreground flex items-center'>
+                            <CardTitle className='text-xs md:text-base text-card-foreground flex items-center'>
                                 <Calendar className='h-5 w-5 mr-2' />
                                 Bugungi jadval
                             </CardTitle>
@@ -228,7 +228,7 @@ export default function TeacherDashboard() {
                                     >
                                         <div className='flex items-center space-x-3'>
                                             <div className='text-center'>
-                                                <div className='text-sm font-medium text-foreground'>{lesson.time}</div>
+                                                <div className='text-xs md:text-sm font-medium text-foreground'>{lesson.time}</div>
                                                 <Badge
                                                     variant={lesson.type === 'online' ? 'default' : 'secondary'}
                                                     className='text-xs'
@@ -237,9 +237,9 @@ export default function TeacherDashboard() {
                                                 </Badge>
                                             </div>
                                             <div>
-                                                <h4 className='font-medium text-foreground'>{lesson.subject}</h4>
-                                                <p className='text-sm text-muted-foreground'>{lesson.group}</p>
-                                                <p className='text-xs text-muted-foreground'>
+                                                <h4 className='text-xs md:text-base font-medium text-foreground'>{lesson.subject}</h4>
+                                                <p className='text-xs md:text-sm text-muted-foreground'>{lesson.group}</p>
+                                                <p className='text-xs md:text-xs text-muted-foreground'>
                                                     {lesson.students} student • {lesson.room}
                                                 </p>
                                             </div>
@@ -268,14 +268,14 @@ export default function TeacherDashboard() {
                             <div className='space-y-4'>
                                 {myGroups.map((group) => (
                                     <div key={group.id} className='p-3 bg-muted rounded-lg'>
-                                        <div className='flex justify-between items-start mb-2'>
-                                            <h4 className='font-medium text-foreground'>{group.name}</h4>
+                                        <div className='flex flex-wrap justify-between items-start mb-2 gap-2'>
+                                            <h4 className='text-xs md:text-base font-medium text-foreground'>{group.name}</h4>
                                             <Badge variant='outline' className='text-xs'>
                                                 {group.attendance}% yo'qlama
                                             </Badge>
                                         </div>
-                                        <p className='text-sm text-muted-foreground mb-1'>{group.students} student</p>
-                                        <div className='flex items-center text-xs text-muted-foreground'>
+                                        <p className='text-xs md:text-sm text-muted-foreground mb-1'>{group.students} student</p>
+                                        <div className='flex items-center text-xs md:text-xs text-muted-foreground'>
                                             <Clock className='h-3 w-3 mr-1' />
                                             Keyingi dars: {moment(group.nextLesson).format('DD.MM.YYYY')}
                                         </div>
@@ -296,14 +296,14 @@ export default function TeacherDashboard() {
                 </div>
 
                 {/* Present Students Section */}
-                <div className='grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6 mt-8'>
+                <div className='grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 xl:grid-cols-3 gap-4 md:gap-6 mt-8'>
                     <div className='lg:col-span-2 xl:col-span-2'>
                         <PresentStudentsCard />
                     </div>
                 </div>
 
                 {/* Additional Dashboard Sections */}
-                <div className='grid grid-cols-1 lg:grid-cols-3 gap-6 mt-8'>
+                <div className='grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 mt-8'>
                     {/* Quick Actions & Recent Activity */}
                     <div className='space-y-6'>
                         {/* Telegram Personal Connection */}
@@ -318,7 +318,7 @@ export default function TeacherDashboard() {
                 {/* Subjects Section */}
                 <div className='mt-8'>
                     <div className='flex items-center justify-between mb-6'>
-                        <h2 className='text-2xl font-bold text-foreground'>Mening fanlarim</h2>
+                        <h2 className='text-lg md:text-2xl font-bold text-foreground'>Mening fanlarim</h2>
                         <Button variant='outline' onClick={() => navigate('/account/test/create')}>
                             <Plus className='h-4 w-4 mr-2' />
                             Yangi test yaratish
@@ -330,12 +330,12 @@ export default function TeacherDashboard() {
                         <Card className='border-border'>
                             <CardContent className='flex flex-col items-center justify-center py-12'>
                                 <BookOpen className='h-12 w-12 text-muted-foreground mb-4' />
-                                <h3 className='text-lg font-medium text-foreground mb-2'>Fanlar mavjud emas</h3>
-                                <p className='text-muted-foreground mb-4'>Sizga hali fanlar tayinlanmagan</p>
+                                <h3 className='text-xs md:text-lg font-medium text-foreground mb-2'>Fanlar mavjud emas</h3>
+                                <p className='text-xs md:text-base text-muted-foreground mb-4'>Sizga hali fanlar tayinlanmagan</p>
                             </CardContent>
                         </Card>
                     ) : (
-                        <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6'>
+                        <div className='grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6'>
                             {subjects.map((subject) => (
                                 <Card
                                     key={subject.id}
@@ -361,10 +361,10 @@ export default function TeacherDashboard() {
                                                 <div className='text-xs text-muted-foreground'>test</div>
                                             </div>
                                         </div>
-                                        <CardTitle className='text-lg text-card-foreground'>{subject.name}</CardTitle>
+                                        <CardTitle className='text-xs md:text-lg text-card-foreground'>{subject.name}</CardTitle>
                                     </CardHeader>
                                     <CardContent>
-                                        <p className='text-sm text-muted-foreground mb-4 line-clamp-2'>
+                                        <p className='text-xs md:text-sm text-muted-foreground mb-4 line-clamp-2'>
                                             {subject.description || 'Tavsif mavjud emas'}
                                         </p>
 

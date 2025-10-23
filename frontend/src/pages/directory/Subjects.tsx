@@ -175,7 +175,7 @@ export default function Subjects() {
             </CardHeader>
 
             <CardContent>
-                <div className='rounded-lg border bg-card/50 backdrop-blur'>
+                <div className='rounded-lg border bg-card/50 backdrop-blur  overflow-x-scroll'>
                     <DataTable columns={columns} data={subjects} />
                 </div>
             </CardContent>

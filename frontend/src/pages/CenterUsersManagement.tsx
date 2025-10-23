@@ -398,7 +398,7 @@ const CenterUsersManagement = () => {
                                     Bu foydalanuvchilar hali hech qanday markazga biriktirilmagan. 
                                     Ularni tegishli markazlarga biriktiring.
                                 </p>
-                                <Table>
+                                <Table className="">
                                     <TableHeader>
                                         <TableRow>
                                             <TableHead>Foydalanuvchi</TableHead>
