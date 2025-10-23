@@ -10,7 +10,7 @@ import { useAuth } from '@/contexts/AuthContext.tsx';
 
 const Login = () => {
 	const [username, setUsername] = useState('');
-	const [password, setPassword] = useState('123456');
+	const [password, setPassword] = useState('');
 	const [showPassword, setShowPassword] = useState(false);
 	const [isLoading, setIsLoading] = useState(false);
 	const { login } = useAuth();
@@ -117,7 +117,7 @@ const Login = () => {
 									<Input
 										id='username'
 										type='text'
-										placeholder='teacher123'
+										placeholder=''
 										value={username}
 										onChange={(e) => setUsername(e.target.value)}
 										className='pl-10'
