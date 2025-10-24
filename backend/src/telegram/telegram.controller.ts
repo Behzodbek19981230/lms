@@ -466,7 +466,13 @@ export class TelegramController {
     try {
       // Set bot commands menu for this user (only if chatId exists)
       if (chatId !== undefined) {
-        await this.telegramService.setBotCommands(chatId);
+        const numericChatId = Number(chatId);
+        if (!Number.isNaN(numericChatId)) {
+          await this.telegramService.setBotCommands(numericChatId);
+        } else {
+          // chatId is non-numeric (e.g. channel username); service expects a numeric chat id, so skip.
+          this.logger.log(`Skipping setBotCommands for non-numeric chatId: ${chatId}`);
+        }
       }
 
       // Use new authentication method that auto-connects users
