@@ -85,7 +85,7 @@ const App = () => (
                             <Route path='telegram' element={<TelegramManagement />} />
                             <Route path='telegram-user' element={<TelegramUserDashboard />} />
                             <Route path='center-users' element={<CenterUsersManagement />} />
-                            <Route path='teacher-payments' element={<TeacherPayments />} />
+                            <Route path='payments' element={<TeacherPayments />} />
                             <Route path='student-payments' element={<StudentPayments />} />
                             <Route path='profile' element={<Profile />} />
                             <Route path='logs' element={<Logs />} />

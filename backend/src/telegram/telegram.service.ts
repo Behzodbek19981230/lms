@@ -35,6 +35,16 @@ import {
 
 @Injectable()
 export class TelegramService {
+  async deleteChatById(id: number): Promise<void> {
+    const chat = await this.telegramChatRepo.findOne({ where: { id } });
+    if (!chat) throw new BadRequestException('Chat topilmadi');
+    await this.telegramChatRepo.remove(chat);
+  }
+  async deleteChatById(id: number): Promise<void> {
+    const chat = await this.telegramChatRepo.findOne({ where: { id } });
+    if (!chat) throw new BadRequestException('Chat topilmadi');
+    await this.telegramChatRepo.remove(chat);
+  }
   /**
    * Asosiy bot nomi va ID-sini qaytaradi
    */
@@ -263,7 +273,24 @@ export class TelegramService {
     }
 
     const newChat = this.telegramChatRepo.create(newChatData);
-    return this.telegramChatRepo.save(newChat);
+    const savedChat = await this.telegramChatRepo.save(newChat);
+
+    // Botdan tabrik xabari yuborish
+    if (this.bot && dto.chatId) {
+      let welcomeMsg = `🎉 Universal LMS tizimiga xush kelibsiz!\n\nSizning chat/kanaingiz ro'yxatga olindi.`;
+      if (dto.title) welcomeMsg += `\nKanal nomi: ${dto.title}`;
+      welcomeMsg += `\nEndi testlar va natijalar shu chat/kanaal orqali yuboriladi.`;
+      try {
+        await this.bot.sendMessage(dto.chatId, welcomeMsg);
+      } catch (err) {
+        await this.logsService.error(
+          `Tabrik xabarini yuborib bo'lmadi: ${err?.message}`,
+          'TelegramService',
+        );
+      }
+    }
+
+    return savedChat;
   }
 
   async linkUserToChat(userId: number, chatId: string): Promise<TelegramChat> {

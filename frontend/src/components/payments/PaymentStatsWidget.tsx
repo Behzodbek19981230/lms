@@ -123,7 +123,7 @@ const PaymentStatsWidget: React.FC = () => {
               variant="outline" 
               size="sm" 
               className="w-full"
-              onClick={() => window.location.href = '/teacher-payments'}
+              onClick={() => window.location.href = '/payments'}
             >
               Barcha to'lovlarni ko'rish
             </Button>

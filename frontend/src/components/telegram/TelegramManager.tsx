@@ -143,11 +143,6 @@ const TelegramManager: React.FC<TelegramManagerProps> = ({
 
   return (
     <div className="w-full space-y-6">
-      {/* Yangi Telegram Chat/Kanal qo'shish formasi */}
-      <AddTelegramChatForm
-        onSuccess={handleSuccess}
-        onError={handleError}
-      />
       {/* Header */}
       <Card>
         <CardHeader>

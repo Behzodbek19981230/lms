@@ -59,6 +59,27 @@ const TelegramManagement: React.FC = () => {
   // Bot admin bo'lgan kanallar ro'yxati
   const [adminChannels, setAdminChannels] = useState<TelegramChat[]>([]);
   const [showAdminChannels, setShowAdminChannels] = useState(false);
+  // Chatni o'chirish
+  const handleDeleteChat = async (chatId: number) => {
+    if (!window.confirm('Chatni o\'chirishni tasdiqlaysizmi?')) return;
+    setLoading(true);
+    try {
+      await request.delete(`/telegram/chats/${chatId}`);
+      toast({
+        title: 'Muvaffaqiyat',
+        description: 'Chat o\'chirildi',
+      });
+      fetchData();
+    } catch (error) {
+      toast({
+        title: 'Xato',
+        description: 'Chatni o\'chirishda xatolik',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Bot admin bo'lgan kanallarni olish
   const handleShowAdminChannels = async () => {
@@ -421,33 +442,8 @@ const TelegramManagement: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Bot admin bo'lgan kanallar ro'yxatini chiqarish knopkasi */}
-      <div className="flex items-center gap-4">
-        <Button onClick={handleShowAdminChannels} disabled={loading}>
-          Bot admin bo'lgan kanallarni ko'rsatish
-        </Button>
-      </div>
-      {showAdminChannels && (
-        <Card className="mt-4">
-          <CardHeader>
-            <CardTitle>Bot admin bo'lgan kanallar ro'yxati</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {adminChannels.length === 0 ? (
-              <p className="text-xs md:text-sm text-gray-500">Hech qanday kanal topilmadi.</p>
-            ) : (
-              <ul className="space-y-2">
-                {adminChannels.map((channel) => (
-                  <li key={channel.chatId} className="flex items-center gap-4">
-                    <span className="font-semibold">{channel.title || channel.chatId}</span>
-                    <span className="text-xs text-muted-foreground">ID: {channel.chatId}</span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </CardContent>
-        </Card>
-      )}
+    
+    
       <div className="flex items-center justify-between">
         <h1 className="text-2xl md:text-3xl font-bold">Telegram Integratsiyasi</h1>
         <Button onClick={fetchData} disabled={loading}>
@@ -470,6 +466,12 @@ const TelegramManagement: React.FC = () => {
                 value={newChat.chatId}
                 onChange={(e) => setNewChat({ ...newChat, chatId: e.target.value })}
               />
+              <p className="text-xs md:text-sm text-muted-foreground mt-1">
+                Eslatma: Kanal yoki guruhning chat id olish uchun, botni admin qiling va quyidagi botga xabar yuboring:
+                <a href="https://t.me/RawDataBot" target="_blank" rel="noopener noreferrer" className="text-blue-600 underline ml-1">Chat ID olish</a>
+                Kanal yoki guruhdagi biror xabarni yuqoridagi botga ulashing va botdan qaytgan ma'lumotlardan "chat id" ni oling.
+                </p>
+                
             </div>
             <div>
               <Label htmlFor="type">Turi</Label>
@@ -733,7 +735,18 @@ const TelegramManagement: React.FC = () => {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {filteredChats.map((chat) => (
-                <div key={chat.id} className="border rounded-lg p-4 space-y-2">
+                <div key={chat.id} className="relative border rounded-lg p-4 space-y-2">
+                  {/* O'chirish tugmasi yuqori o'ngda, ikon ko'rinishida */}
+                  <button
+                    className="absolute top-2 right-2 text-red-500 hover:text-red-700"
+                    title="O'chirish"
+                    onClick={() => handleDeleteChat(chat.id)}
+                    disabled={loading}
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 7h12M9 7V5a3 3 0 013-3v0a3 3 0 013 3v2m-7 0h8m-8 0a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V9a2 2 0 00-2-2H6z" />
+                    </svg>
+                  </button>
                   <div className="flex items-center justify-between">
                     <h3 className="font-semibold truncate">{chat.title || chat.chatId}</h3>
                     <Badge className={getStatusColor(chat.status)}>
@@ -766,7 +779,6 @@ const TelegramManagement: React.FC = () => {
                       Oxirgi faollik: {new Date(chat.lastActivity).toLocaleDateString()}
                     </p>
                   )}
-                  
                   {chat.type === 'channel' && (
                     <div className="pt-2 space-y-2">
                       <hr />
@@ -779,7 +791,6 @@ const TelegramManagement: React.FC = () => {
                         >
                           Taklifnoma havolasini yaratish
                         </Button>
-                        
                         {chat.inviteLink && (
                           <Button
                             size="sm"
@@ -790,7 +801,6 @@ const TelegramManagement: React.FC = () => {
                           </Button>
                         )}
                       </div>
-                      
                       {chat.inviteLink && (
                         <p className="text-xs md:text-sm text-gray-500 truncate">
                           {chat.inviteLink}
@@ -798,7 +808,6 @@ const TelegramManagement: React.FC = () => {
                       )}
                     </div>
                   )}
-                  
                   {chat.type === 'channel' && tests.length > 0 && (
                     <div className="pt-2 space-y-2">
                       <hr />

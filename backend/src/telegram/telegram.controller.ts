@@ -8,6 +8,8 @@ import {
   Request,
   BadRequestException,
   Logger,
+  Delete,
+  Delete,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -32,6 +34,17 @@ import {
 @ApiTags('Telegram')
 @Controller('telegram')
 export class TelegramController {
+  @Delete('chats/:id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.TEACHER, UserRole.ADMIN, UserRole.SUPERADMIN)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: "Telegram chatni o'chirish" })
+  @ApiResponse({ status: 200, description: "Chat o'chirildi" })
+  async deleteChat(@Param('id') id: string) {
+    await this.telegramService.deleteChatById(+id);
+    return { success: true, message: "Chat o'chirildi" };
+  }
+
   private readonly logger = new Logger(TelegramController.name);
 
   constructor(
@@ -471,7 +484,9 @@ export class TelegramController {
           await this.telegramService.setBotCommands(numericChatId);
         } else {
           // chatId is non-numeric (e.g. channel username); service expects a numeric chat id, so skip.
-          this.logger.log(`Skipping setBotCommands for non-numeric chatId: ${chatId}`);
+          this.logger.log(
+            `Skipping setBotCommands for non-numeric chatId: ${chatId}`,
+          );
         }
       }
 

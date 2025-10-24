@@ -45,7 +45,7 @@ const teacherMenuItems = [
     { title: 'Dashboard', url: '/account/teacher', icon: LayoutDashboard },
     { title: 'Imtihonlar', url: '/account/exams', icon: AlertCircle },
     { title: 'Mening guruhlarim', url: '/account/groups', icon: Users2 },
-    { title: 'To\'lovlar', url: '/account/teacher-payments', icon: DollarSign },
+    { title: 'To\'lovlar', url: '/account/payments', icon: DollarSign },
     { title: 'Mening fanlarim', url: '/account/subjects', icon: Book
      },
     { title: 'Yaratilgan testlar', url: '/account/generated-tests', icon: FileText },
