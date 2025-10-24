@@ -32,6 +32,22 @@ import {
 @ApiTags('Telegram')
 @Controller('telegram')
 export class TelegramController {
+  // ==================== Bot admin bo'lgan kanallar ro'yxati ====================
+
+  @Get('admin-channels')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.TEACHER, UserRole.ADMIN, UserRole.SUPERADMIN)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Bot admin bo‘lgan kanallar ro‘yxati (chatId va title)',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Bot admin bo‘lgan kanallar ro‘yxati',
+  })
+  async getAdminChannels() {
+    return this.telegramService.getBotAdminChannels();
+  }
   private readonly logger = new Logger(TelegramController.name);
 
   constructor(
@@ -372,19 +388,26 @@ export class TelegramController {
     console.log(`Unhandled message: ${message.text}`);
   }
 
-  private processChannelPost(channelPost: any): void {
-    console.log(
-      'Processing channel post:',
-      channelPost.text?.substring(0, 100),
-    );
+  private async processChannelPost(channelPost: unknown): Promise<void> {
+    let preview: string | undefined;
+    if (
+      channelPost &&
+      typeof channelPost === 'object' &&
+      'text' in channelPost &&
+      typeof (channelPost as any).text === 'string'
+    ) {
+      preview = (channelPost as { text: string }).text.substring(0, 100);
+    }
+
+    console.log('Processing channel post:', preview);
     // Handle channel posts if needed
   }
 
   private async processAnswerSubmission(message: any) {
     try {
       // Parse the answer format: #T123Q1 A
-      const text: string =
-        typeof message.text === 'string' ? message.text.trim() : '';
+      // Soddalashtirilgan universal olish
+      const text = String(message?.text ?? '').trim();
       const match: RegExpMatchArray | null = text.match(
         /^#T(\d+)Q(\d+)\s+(.+)$/i,
       );
@@ -397,12 +420,12 @@ export class TelegramController {
       const [, testId, questionNumber, answerText] = match;
 
       const dto: SubmitAnswerDto = {
-        messageId: message.message_id.toString(),
+        messageId: String(message?.message_id ?? ''),
         testId: parseInt(testId),
         questionNumber: parseInt(questionNumber),
-        answerText: answerText.trim(),
-        chatId: message.chat.id.toString(),
-        telegramUserId: message.from.id.toString(),
+        answerText: String(answerText ?? '').trim(),
+        chatId: String(message?.chat?.id ?? ''),
+        telegramUserId: String(message?.from?.id ?? ''),
       };
 
       await this.telegramService.processAnswer(dto);
@@ -414,15 +437,59 @@ export class TelegramController {
     }
   }
 
-  private async handleRegistration(message: any) {
-    const telegramUserId = message.from.id.toString();
-    const username = message.from.username;
-    const firstName = message.from.first_name;
-    const lastName = message.from.last_name;
+  private async handleRegistration(message: unknown) {
+    // Safely extract and normalize incoming values from an `unknown` message object
+    const msg =
+      typeof message === 'object' && message !== null
+        ? (message as Record<string, unknown>)
+        : undefined;
+
+    const from =
+      msg && typeof msg['from'] === 'object' && msg['from'] !== null
+        ? (msg['from'] as Record<string, unknown>)
+        : undefined;
+
+    const chat =
+      msg && typeof msg['chat'] === 'object' && msg['chat'] !== null
+        ? (msg['chat'] as Record<string, unknown>)
+        : undefined;
+
+    const telegramUserId =
+      from && (typeof from['id'] === 'number' || typeof from['id'] === 'string')
+        ? String(from['id'])
+        : '';
+
+    const username =
+      from && typeof from['username'] === 'string'
+        ? from['username']
+        : undefined;
+
+    const firstName =
+      from && typeof from['first_name'] === 'string'
+        ? from['first_name']
+        : undefined;
+
+    const lastName =
+      from && typeof from['last_name'] === 'string'
+        ? from['last_name']
+        : undefined;
+
+    const chatId =
+      chat && (typeof chat['id'] === 'number' || typeof chat['id'] === 'string')
+        ? chat['id']
+        : undefined;
 
     try {
-      // Set bot commands menu for this user
-      await this.telegramService.setBotCommands(message.chat.id);
+      // Set bot commands menu for this user (only if chatId exists)
+      if (chatId !== undefined) {
+        const numericChatId =
+          typeof chatId === 'number' ? chatId : parseInt(String(chatId), 10);
+        if (!Number.isNaN(numericChatId)) {
+          await this.telegramService.setBotCommands(numericChatId);
+        } else {
+          this.logger.warn(`Invalid chatId for setBotCommands: ${chatId}`);
+        }
+      }
 
       // Use new authentication method that auto-connects users
       const result = await this.telegramService.authenticateAndConnectUser(
@@ -455,23 +522,21 @@ export class TelegramController {
         welcomeMessage += `\n\n🔗 <b>Hisobni ulash uchun:</b>\nO'qituvchingiz bilan bog'laning`;
       }
 
-      if (this.telegramService['bot']) {
-        await this.telegramService['bot'].sendMessage(
-          message.chat.id,
-          welcomeMessage,
-          { parse_mode: 'HTML' },
-        );
+      if (chatId !== undefined && this.telegramService['bot']) {
+        await this.telegramService['bot'].sendMessage(chatId, welcomeMessage, {
+          parse_mode: 'HTML',
+        });
       }
 
       console.log(
-        `Registration handled for ${username}: ${result.success}, auto-connected: ${result.autoConnected}`,
+        `Registration handled for ${username ?? ''}: ${result.success}, auto-connected: ${result.autoConnected}`,
       );
     } catch (error) {
       console.error('Error handling registration:', error);
 
-      if (this.telegramService['bot']) {
+      if (chatId !== undefined && this.telegramService['bot']) {
         await this.telegramService['bot'].sendMessage(
-          message.chat.id,
+          chatId,
           "Kechirasiz, ro'yxatdan o'tishda xatolik. Keyinroq qayta urinib ko'ring.",
         );
       }

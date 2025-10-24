@@ -35,6 +35,33 @@ import {
 
 @Injectable()
 export class TelegramService {
+  /**
+   * Bot admin bo'lgan kanallar ro'yxatini qaytaradi (chatId va title)
+   */
+  async getBotAdminChannels(): Promise<{ chatId: string; title?: string }[]> {
+    if (!this.bot) return [];
+    // Faqat CHANNEL turidagi chatlar
+    const allChannels = await this.telegramChatRepo.find({
+      where: { type: ChatType.CHANNEL, status: ChatStatus.ACTIVE },
+    });
+    const botInfo = await this.bot.getMe();
+    const adminChannels: { chatId: string; title?: string }[] = [];
+    for (const channel of allChannels) {
+      try {
+        const chatMember = await this.bot.getChatMember(
+          channel.chatId,
+          botInfo.id,
+        );
+        if (['administrator', 'creator'].includes(chatMember.status)) {
+          adminChannels.push({ chatId: channel.chatId, title: channel.title });
+        }
+      } catch (err) {
+        // Kanalga bot admin emas yoki chatId noto'g'ri bo'lishi mumkin
+        continue;
+      }
+    }
+    return adminChannels;
+  }
   private readonly logger = new Logger(TelegramService.name);
   private bot: TelegramBot;
 

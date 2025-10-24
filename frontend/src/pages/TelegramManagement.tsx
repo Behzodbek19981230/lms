@@ -56,6 +56,28 @@ interface Subject {
 }
 
 const TelegramManagement: React.FC = () => {
+  // Bot admin bo'lgan kanallar ro'yxati
+  const [adminChannels, setAdminChannels] = useState<TelegramChat[]>([]);
+  const [showAdminChannels, setShowAdminChannels] = useState(false);
+
+  // Bot admin bo'lgan kanallarni olish
+  const handleShowAdminChannels = async () => {
+    setLoading(true);
+    try {
+      // Backendda bot admin bo'lgan kanallarni qaytaradigan endpoint bo'lishi kerak
+      const response = await request.get('/telegram/admin-channels');
+      setAdminChannels(response.data || []);
+      setShowAdminChannels(true);
+    } catch (error) {
+      toast({
+        title: 'Xato',
+        description: 'Bot admin bo‘lgan kanallarni olishda xatolik',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
   const { toast } = useToast();
   const [chats, setChats] = useState<TelegramChat[]>([]);
   const [tests, setTests] = useState<Test[]>([]);
@@ -399,6 +421,33 @@ const TelegramManagement: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      {/* Bot admin bo'lgan kanallar ro'yxatini chiqarish knopkasi */}
+      <div className="flex items-center gap-4">
+        <Button onClick={handleShowAdminChannels} disabled={loading}>
+          Bot admin bo'lgan kanallarni ko'rsatish
+        </Button>
+      </div>
+      {showAdminChannels && (
+        <Card className="mt-4">
+          <CardHeader>
+            <CardTitle>Bot admin bo'lgan kanallar ro'yxati</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {adminChannels.length === 0 ? (
+              <p className="text-xs md:text-sm text-gray-500">Hech qanday kanal topilmadi.</p>
+            ) : (
+              <ul className="space-y-2">
+                {adminChannels.map((channel) => (
+                  <li key={channel.chatId} className="flex items-center gap-4">
+                    <span className="font-semibold">{channel.title || channel.chatId}</span>
+                    <span className="text-xs text-muted-foreground">ID: {channel.chatId}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </CardContent>
+        </Card>
+      )}
       <div className="flex items-center justify-between">
         <h1 className="text-2xl md:text-3xl font-bold">Telegram Integratsiyasi</h1>
         <Button onClick={fetchData} disabled={loading}>

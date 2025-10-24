@@ -18,6 +18,7 @@ interface TelegramAuthData {
   photoUrl?: string;
   authDate: number;
   hash: string;
+  userId?: number;
 }
 
 export interface TelegramConnectionResult {
@@ -347,26 +348,20 @@ export class TelegramAuthService {
         };
       }
 
-      // Try to find matching user by name
+      // Agar userId bor bo'lsa, to'g'ridan-to'g'ri ulash
+      if (authData.userId) {
+        return this.connectUserToTelegram(authData.userId, authData);
+      }
+
+      // Legacy: matching by name
       const matchingUsers = await this.findMatchingUsers(
         authData.firstName,
         authData.lastName,
         authData.username,
       );
-
       if (matchingUsers.length === 1) {
-        // Auto-connect to the matching user
         return this.connectUserToTelegram(matchingUsers[0].id, authData);
-      } else if (matchingUsers.length > 1) {
-        // Multiple matches - store for manual linking
-        await this.storeUnlinkedTelegramUser(authData);
-        return {
-          success: false,
-          message:
-            "Bir nechta mos foydalanuvchi topildi. Admin bilan bog'laning.",
-        };
       } else {
-        // No matches - store for manual linking
         await this.storeUnlinkedTelegramUser(authData);
         return {
           success: false,

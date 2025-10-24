@@ -76,17 +76,17 @@ export interface TelegramAnswer {
 
 // API Request/Response Types
 export interface CreateTelegramChatDto {
-  chatId: string;
-  type: ChatType;
-  title?: string;
-  username?: string;
-  telegramUserId?: string;
-  firstName?: string;
-  lastName?: string;
-  telegramUsername?: string;
-  centerId?: number;
-  subjectId?: number;
-  userId?: number;
+  chatId: string; // Telegram chat yoki kanalning unikal identifikatori (majburiy)
+  type: ChatType; // Chat turi: 'private', 'group', 'channel' (majburiy)
+  title?: string; // Kanal yoki guruh nomi (ixtiyoriy)
+  username?: string; // Kanal yoki guruhning Telegram username (ixtiyoriy)
+  telegramUserId?: string; // Agar bu shaxsiy chat bo'lsa, Telegram foydalanuvchi ID-si (ixtiyoriy)
+  firstName?: string; // Foydalanuvchi ismi (ixtiyoriy)
+  lastName?: string; // Foydalanuvchi familiyasi (ixtiyoriy)
+  telegramUsername?: string; // Foydalanuvchi Telegram username (ixtiyoriy)
+  centerId?: number; // Ushbu chat/kanal qaysi markazga tegishli (ixtiyoriy, lekin ko'pincha kerak)
+  subjectId?: number; // Agar chat/kanal fanga bog'liq bo'lsa, fan ID-si (ixtiyoriy)
+  userId?: number; // LMS foydalanuvchi ID-si (ixtiyoriy)
 }
 
 export interface SendTestPDFsDto {
