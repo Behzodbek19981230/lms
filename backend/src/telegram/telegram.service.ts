@@ -64,12 +64,7 @@ export class TelegramService {
         const msg = `📊 Test natijasi\nStudent: ${student?.firstName ?? ''} ${student?.lastName ?? ''}\nFan: ${subject?.name ?? ''}\nMarkaz: ${center?.name ?? ''}\nTo'g'ri javoblar: ${correctCount}/${total}`;
         await this.bot.sendMessage(telegramChannel.chatId, msg);
       }
-    } catch (err) {
-      void this.logsService.log(
-        `Test natijasini kanalga yuborishda xatolik: ${err.message}`,
-        'TelegramService',
-      );
-    }
+    } catch (err) {}
   }
   /**
    * Fanga biriktirilgan kanal/guruhga kelmaganlar ro'yxatini yuboradi
@@ -2045,14 +2040,6 @@ export class TelegramService {
         where: { telegramUserId },
         relations: ['user', 'user.center'],
       });
-      this.logsService.log(
-        `Fetching groups for Telegram user ID: ${telegramUserId}`,
-        'TelegramService',
-      );
-      this.logsService.log(
-        `Found chat: ${JSON.stringify(chat)}`,
-        'TelegramService',
-      );
 
       if (!chat || !chat.user) {
         return "❌ Hisobingiz ulanmagan. Avval /start buyrug'ini yuboring va admin bilan bog'laning.";

@@ -67,7 +67,7 @@ export class TelegramController {
       }
 
       if (update.channel_post) {
-        await this.processChannelPost(update.channel_post);
+        this.processChannelPost(update.channel_post);
       }
 
       return { ok: true };

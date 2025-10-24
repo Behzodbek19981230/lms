@@ -4,6 +4,7 @@ import {
   NotFoundException,
   BadRequestException,
 } from '@nestjs/common';
+import { ModuleRef } from '@nestjs/core';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from '../users/entities/user.entity';
@@ -22,6 +23,7 @@ import { LogsService } from 'src/logs/logs.service';
 import { promises as fs } from 'fs';
 import { join } from 'path';
 import * as katex from 'katex';
+import { TelegramService } from 'src/telegram/telegram.service';
 // import { User } from 'src/users/entities/user.entity';
 
 export interface GenerateTestDto {
@@ -48,6 +50,7 @@ export interface TestVariant {
 @Injectable()
 export class TestGeneratorService {
   constructor(
+    private moduleRef: ModuleRef,
     @InjectRepository(Test)
     private testRepository: Repository<Test>,
     @InjectRepository(Question)
@@ -62,7 +65,6 @@ export class TestGeneratorService {
     private resultsRepository: Repository<Results>,
     private latexProcessor: LatexProcessorService,
     private logService: LogsService,
-    private telegramService: import('../telegram/telegram.service').TelegramService,
     @InjectRepository(User)
     private userRepo: Repository<User>,
     @InjectRepository(Center)
@@ -1023,7 +1025,10 @@ export class TestGeneratorService {
       const subject = variantEntity?.generatedTest?.subject;
 
       // Kanalga xabar yuborish uchun TelegramService dan foydalanamiz
-      await this.telegramService.sendTestResultToChannel({
+      const telegramService = this.moduleRef.get(TelegramService, {
+        strict: false,
+      });
+      await telegramService.sendTestResultToChannel({
         student: student ?? undefined,
         center: center ?? undefined,
         subject,

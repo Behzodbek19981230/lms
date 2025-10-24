@@ -14,6 +14,8 @@ import { User } from '../users/entities/user.entity';
 import { Question } from '../questions/entities/question.entity';
 import { LogsModule } from 'src/logs/logs.module';
 import { Results } from './entities/results.entity';
+import { Center } from 'src/centers/entities/center.entity';
+import { TelegramChat } from 'src/telegram/entities/telegram-chat.entity';
 
 @Module({
   imports: [
@@ -25,6 +27,9 @@ import { Results } from './entities/results.entity';
       GeneratedTest,
       GeneratedTestVariant,
       Results,
+      Center,
+      TelegramChat,
+      
     ]),
     LogsModule,
   ],

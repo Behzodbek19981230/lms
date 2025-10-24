@@ -2,16 +2,14 @@ import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import * as bodyParser from 'body-parser';
-import { CustomLogger } from './logs/custom-logger';
+// import { CustomLogger } from './logs/custom-logger';
 import * as express from 'express';
 import { join } from 'path';
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule, {
-    logger: false,
-  });
+  const app = await NestFactory.create(AppModule);
 
-  const customLogger = app.get(CustomLogger);
-  app.useLogger(customLogger);
+  //   const customLogger = app.get(CustomLogger);
+  //   app.useLogger(customLogger);
 
   app.use(bodyParser.json({ limit: '10mb' }));
   app.use(bodyParser.urlencoded({ limit: '10mb', extended: true }));
