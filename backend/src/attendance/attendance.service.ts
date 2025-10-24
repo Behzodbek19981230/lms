@@ -95,19 +95,18 @@ export class AttendanceService {
 
     const savedAttendance = await this.attendanceRepo.save(attendance);
 
-    // Send notification to Telegram channels
+    // Agar group.subject biriktirilgan bo'lsa, kelmaganlar ro'yxatini yuborish
     try {
-      await this.telegramService.notifyAttendanceTaken(
-        group.name,
-        `${teacher.firstName} ${teacher.lastName}`,
-        dto.status === AttendanceStatus.PRESENT ? 1 : 0,
-        1,
-      );
+      if (group.subject && dto.status === AttendanceStatus.ABSENT) {
+        await this.telegramService.sendAbsentListToSubjectChat(
+          group.subject.id,
+          group.name,
+          dto.date,
+          [`${student.firstName} ${student.lastName}`],
+        );
+      }
     } catch (error) {
-      console.warn(
-        'Failed to send attendance notification to Telegram:',
-        error,
-      );
+      console.warn('Failed to send absent notification to Telegram:', error);
     }
 
     return savedAttendance;
@@ -171,24 +170,24 @@ export class AttendanceService {
 
     const savedAttendances = await this.attendanceRepo.save(attendanceRecords);
 
-    // Send bulk notification to Telegram channels
+    // Agar group.subject biriktirilgan bo'lsa, kelmaganlar ro'yxatini yuborish
     try {
-      const presentCount = attendanceRecords.filter(
-        (record) => record.status === AttendanceStatus.PRESENT,
-      ).length;
-      const totalCount = attendanceRecords.length;
-
-      await this.telegramService.notifyAttendanceTaken(
-        group.name,
-        `${teacher.firstName} ${teacher.lastName}`,
-        presentCount,
-        totalCount,
-      );
+      if (group.subject) {
+        const absentStudents = attendanceRecords
+          .filter((record) => record.status === AttendanceStatus.ABSENT)
+          .map(
+            (record) =>
+              `${record.student.firstName} ${record.student.lastName}`,
+          );
+        await this.telegramService.sendAbsentListToSubjectChat(
+          group.subject.id,
+          group.name,
+          dto.date,
+          absentStudents,
+        );
+      }
     } catch (error) {
-      console.warn(
-        'Failed to send bulk attendance notification to Telegram:',
-        error,
-      );
+      console.warn('Failed to send absent notification to Telegram:', error);
     }
 
     return savedAttendances;

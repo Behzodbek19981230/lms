@@ -35,10 +35,22 @@ import {
 
 @Injectable()
 export class TelegramService {
-  async deleteChatById(id: number): Promise<void> {
-    const chat = await this.telegramChatRepo.findOne({ where: { id } });
-    if (!chat) throw new BadRequestException('Chat topilmadi');
-    await this.telegramChatRepo.remove(chat);
+  /**
+   * Fanga biriktirilgan kanal/guruhga kelmaganlar ro'yxatini yuboradi
+   */
+  async sendAbsentListToSubjectChat(
+    subjectId: number,
+    groupName: string,
+    date: string,
+    absentStudents: string[],
+  ): Promise<void> {
+    const chat = await this.telegramChatRepo.findOne({
+      where: { subject: { id: subjectId } },
+    });
+    if (chat && chat.chatId && absentStudents.length > 0 && this.bot) {
+      const msg = `📢 Davomat natijasi\nFan: ${chat.subject?.name}\nGuruh: ${groupName}\nSana: ${date}\n\n❌ Darsga kelmaganlar:\n${absentStudents.map((s, i) => `${i + 1}. ${s}`).join('\n')}`;
+      await this.bot.sendMessage(chat.chatId, msg);
+    }
   }
   async deleteChatById(id: number): Promise<void> {
     const chat = await this.telegramChatRepo.findOne({ where: { id } });
