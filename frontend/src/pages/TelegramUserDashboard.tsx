@@ -17,7 +17,7 @@ interface TelegramChat {
 }
 
 interface UserTelegramStatus {
-  isLinked: boolean;
+  autoConnected: boolean;
   telegramUsername?: string;
   firstName?: string;
   lastName?: string;
@@ -35,11 +35,14 @@ const TelegramUserDashboard: React.FC = () => {
     try {
       setLoading(true);
       const response = await request.get('/telegram/user-status');
-      setStatus(response.data);
+      setStatus({
+        ...response.data,
+        autoConnected: response.data.isLinked // Map isLinked to autoConnected
+      });
     } catch (error) {
       console.error('Failed to fetch Telegram status:', error);
       setStatus({
-        isLinked: false,
+        autoConnected: false,
         availableChannels: []
       });
     } finally {
@@ -206,9 +209,9 @@ const TelegramUserDashboard: React.FC = () => {
           <CardTitle>Telegram Ulanish Holati</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          {status?.isLinked ? (
+          {status?.autoConnected ? (
             <div className="flex items-center gap-4">
-              <Badge className="bg-green-100 text-green-800">Ulangan</Badge>
+              <Badge className="bg-green-100 text-green-800">Avtomatik ulangan</Badge>
               <div>
                 <p className="font-medium">
                   {status.firstName} {status.lastName}
@@ -220,20 +223,18 @@ const TelegramUserDashboard: React.FC = () => {
             </div>
           ) : (
             <div className="space-y-4">
-              <Badge className="bg-red-100 text-red-800">Ulanmagan</Badge>
+              <Badge className="bg-red-100 text-red-800">Avtomatik ulanmagan</Badge>
               <p className="text-gray-600">
-                Test xabarnomalari olish va Telegramda to'g'ridan-to'g'ri javob berish uchun Telegram hisobingizni ulang.
+                Test xabarnomalari olish va Telegramda to'g'ridan-to'g'ri javob berish uchun Telegram hisobingizni avtomatik ulang.
               </p>
-              
               {/* Enhanced authentication with auto-connect */}
               <TelegramAuthButton
                 onSuccess={handleAuthSuccess}
                 onError={handleAuthError}
                 className="w-full sm:w-auto"
               />
-              
               <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                <h4 className="font-semibold text-blue-800 mb-2">🚀 Avtomatik ulanish</h4>
+                <h4 className="font-semibold text-blue-800 mb-2">680 Avtomatik ulanish</h4>
                 <p className="text-sm text-blue-700">
                   Tizim sizning ismingiz asosida avtomatik ulanishga harakat qiladi. 
                   Agar avtomatik ulanish ishlamasa, o'qituvchingiz bilan bog'lanib qo'lda ulanishni so'rang.

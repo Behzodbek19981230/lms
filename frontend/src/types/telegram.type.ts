@@ -95,7 +95,7 @@ export interface SendTestPDFsDto {
 }
 
 export interface TelegramUserStatus {
-  isLinked: boolean;
+  autoConnected?: boolean;
   telegramUsername?: string;
   firstName?: string;
   lastName?: string;

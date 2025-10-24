@@ -29,7 +29,7 @@ const TelegramAuthWidget: React.FC<TelegramAuthWidgetProps> = ({
   compact = false
 }) => {
   const { user } = useAuth();
-  const [isLinked, setIsLinked] = useState(false);
+  const [autoConnected, setAutoConnected] = useState(false);
   const [telegramUser, setTelegramUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [authInProgress, setAuthInProgress] = useState(false);
@@ -44,9 +44,9 @@ const TelegramAuthWidget: React.FC<TelegramAuthWidgetProps> = ({
     
     try {
       setLoading(true);
-      const status = await telegramService.checkTelegramLinkStatus(user.id);
-      setIsLinked(status.linked);
-      setTelegramUser(status.telegramUser);
+  const status = await telegramService.checkTelegramLinkStatus(user.id);
+  setAutoConnected(status.linked); // Map linked to autoConnected
+  setTelegramUser(status.telegramUser);
     } catch (error) {
       console.error('Failed to check Telegram link status:', error);
     } finally {
@@ -111,8 +111,7 @@ const TelegramAuthWidget: React.FC<TelegramAuthWidgetProps> = ({
       setLoading(true);
       // API call to unlink would go here
       // await telegramService.unlinkTelegramUser(user.id);
-      
-      setIsLinked(false);
+      setAutoConnected(false);
       setTelegramUser(null);
       onSuccess?.("Telegram hisobi muvaffaqiyatli uzildi");
     } catch (error: any) {
@@ -135,11 +134,11 @@ const TelegramAuthWidget: React.FC<TelegramAuthWidgetProps> = ({
     );
   }
 
-  if (compact && isLinked) {
+  if (compact && autoConnected) {
     return (
       <div className="flex items-center space-x-2 text-sm">
         <CheckCircle className="h-4 w-4 text-green-500" />
-        <span className="text-green-700">Telegram bog'langan</span>
+        <span className="text-green-700">Telegram avtomatik ulangan</span>
         <Badge variant="outline" className="text-xs">
           @{telegramUser?.username || telegramUser?.first_name}
         </Badge>
@@ -147,11 +146,11 @@ const TelegramAuthWidget: React.FC<TelegramAuthWidgetProps> = ({
     );
   }
 
-  if (compact && !isLinked) {
+  if (compact && !autoConnected) {
     return (
       <div className="flex items-center space-x-2 text-sm">
         <XCircle className="h-4 w-4 text-red-500" />
-        <span className="text-red-700">Telegram bog'lanmagan</span>
+        <span className="text-red-700">Telegram avtomatik ulanmagan</span>
       </div>
     );
   }
@@ -170,12 +169,12 @@ const TelegramAuthWidget: React.FC<TelegramAuthWidgetProps> = ({
         </CardHeader>
       )}
       <CardContent className="space-y-4">
-        {isLinked ? (
+  {autoConnected ? (
           <div className="space-y-4">
             <Alert className="border-green-200 bg-green-50">
               <CheckCircle className="h-4 w-4 text-green-600" />
               <AlertDescription className="text-green-800">
-                Telegram hisobingiz muvaffaqiyatli bog'langan!
+                Telegram hisobingiz avtomatik ulangan!
               </AlertDescription>
             </Alert>
             
@@ -194,7 +193,7 @@ const TelegramAuthWidget: React.FC<TelegramAuthWidgetProps> = ({
                 </div>
               </div>
               <Badge variant="default" className="bg-green-500">
-                Bog'langan
+                Avtomatik ulangan
               </Badge>
             </div>
 
@@ -217,7 +216,7 @@ const TelegramAuthWidget: React.FC<TelegramAuthWidgetProps> = ({
             <Alert className="border-yellow-200 bg-yellow-50">
               <AlertCircle className="h-4 w-4 text-yellow-600" />
               <AlertDescription className="text-yellow-800">
-                Telegram hisobingizni bog'lash orqali test xabarlarini avtomatik ola olasiz
+                Telegram hisobingizni avtomatik ulash orqali test xabarlarini avtomatik ola olasiz
               </AlertDescription>
             </Alert>
 

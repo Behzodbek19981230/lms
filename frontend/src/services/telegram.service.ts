@@ -170,6 +170,20 @@ class TelegramService {
 		return response.data;
 	}
 
+	// ==================== Telegram Widget Auth ====================
+	async authenticateViaWidget(authData: {
+		telegramUserId: string;
+		username?: string;
+		firstName?: string;
+		lastName?: string;
+		photoUrl?: string;
+		authDate?: number;
+		hash?: string;
+	}): Promise<{ success: boolean; message: string; user?: any }> {
+		const response = await request.post(`${this.baseURL}/auth/widget-auth`, authData);
+		return response.data;
+	}
+
 	async getTestStatistics(testId: number): Promise<TestStatistics> {
 		const response = await request.get(`${this.baseURL}/statistics/${testId}`);
 		return response.data;

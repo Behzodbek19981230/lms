@@ -9,7 +9,7 @@ import { useNavigate } from 'react-router-dom';
 import TelegramAuthButton from './TelegramAuthButton';
 
 interface TelegramStatus {
-  isLinked: boolean;
+  autoConnected: boolean;
   telegramUsername?: string;
   firstName?: string;
   lastName?: string;
@@ -32,11 +32,14 @@ const TelegramConnectCard: React.FC = () => {
     try {
       setLoading(true);
       const response = await request.get('/telegram/user-status');
-      setStatus(response.data);
+      setStatus({
+        ...response.data,
+        autoConnected: response.data.isLinked // Map isLinked to autoConnected
+      });
     } catch (error) {
       console.error('Failed to fetch Telegram status:', error);
       setStatus({
-        isLinked: false,
+        autoConnected: false,
         availableChannels: []
       });
     } finally {
@@ -101,7 +104,7 @@ const TelegramConnectCard: React.FC = () => {
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        {status.isLinked ? (
+        {status.autoConnected ? (
           <div className="space-y-4 animate-fade-in">
             <div className="flex items-center justify-between p-3 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg border border-green-200">
               <div className="flex items-center gap-3">
@@ -110,7 +113,7 @@ const TelegramConnectCard: React.FC = () => {
                 </div>
                 <div>
                   <Badge className="bg-gradient-to-r from-green-500 to-emerald-500 text-white shadow-sm font-semibold">
-                    Ulangan
+                    Avtomatik ulangan
                   </Badge>
                   <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse mt-1"></div>
                 </div>
@@ -193,7 +196,7 @@ const TelegramConnectCard: React.FC = () => {
                 </div>
                 <div>
                   <Badge className="bg-gradient-to-r from-orange-500 to-yellow-500 text-white shadow-sm font-semibold">
-                    Ulanmagan
+                    Avtomatik ulanmagan
                   </Badge>
                   <div className="w-2 h-2 bg-orange-400 rounded-full animate-pulse mt-1"></div>
                 </div>

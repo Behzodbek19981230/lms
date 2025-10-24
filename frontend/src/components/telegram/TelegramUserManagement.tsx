@@ -159,13 +159,13 @@ const TelegramUserManagement: React.FC<TelegramUserManagementProps> = ({
             <div className="flex items-center justify-between p-4 border rounded-lg">
               <div className="flex items-center space-x-3">
                 <div className="flex items-center space-x-2">
-                  {userStatus.isLinked ? (
+                  {userStatus.autoConnected ? (
                     <CheckCircle className="h-5 w-5 text-green-500" />
                   ) : (
                     <XCircle className="h-5 w-5 text-red-500" />
                   )}
                   <span className="font-medium">
-                    {userStatus.isLinked ? 'Connected' : 'Not Connected'}
+                    {userStatus.autoConnected ? 'Avtomatik ulangan' : 'Avtomatik ulanmagan'}
                   </span>
                 </div>
                 {userStatus.telegramUsername && (

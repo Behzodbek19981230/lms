@@ -259,9 +259,11 @@ export class TelegramService {
   async authenticateUser({
     dto,
     user,
+    fromWidget = false,
   }: {
     dto: AuthenticateUserDto;
     user: User;
+    fromWidget?: boolean;
   }): Promise<{
     success: boolean;
     message: string;
@@ -269,28 +271,126 @@ export class TelegramService {
     autoConnected?: boolean;
   }> {
     try {
-      // Use the enhanced authentication method
-      this.logsService.log(
-        `Authenticating user ${user?.id} with Telegram ID ${dto.telegramUserId}`,
+      await this.logsService.log(
+        `Authenticating user ${user?.id} with Telegram ID ${dto.telegramUserId} (fromWidget=${fromWidget})`,
         'TelegramService',
       );
-      const currentUser = await this.userRepo.findOne({
-        where: { id: user?.id },
-      });
-      if (currentUser?.telegramId) {
+      if (fromWidget) {
+        // Widget-based authentication: auto-link user to center if available, skip some checks
+        const currentUser = await this.userRepo.findOne({
+          where: { id: user?.id },
+          relations: ['center'],
+        });
+        if (!currentUser) {
+          return {
+            success: false,
+            message: 'Foydalanuvchi topilmadi',
+            autoConnected: false,
+          };
+        }
+        // Update user's Telegram info
+        if (dto.telegramUserId) {
+          currentUser.telegramId = dto.telegramUserId;
+          currentUser.telegramConnected = true;
+          await this.userRepo.save(currentUser);
+        }
+        // Centerni avtomatik ulash (req.user.center bo'lsa)
+        let center: Center | undefined = undefined;
+        if (currentUser.center) {
+          const foundCenter = await this.centerRepo.findOne({
+            where: { id: currentUser.center.id },
+          });
+          center = foundCenter ?? undefined;
+        }
+        // Create or update chat with linked user and center
+        let chat = await this.telegramChatRepo.findOne({
+          where: { telegramUserId: dto.telegramUserId },
+        });
+        if (!chat) {
+          chat = this.telegramChatRepo.create({
+            chatId: dto.telegramUserId,
+            type: ChatType.PRIVATE,
+            telegramUserId: dto.telegramUserId,
+            telegramUsername: dto.username,
+            firstName: dto.firstName,
+            lastName: dto.lastName,
+            status: ChatStatus.ACTIVE,
+            center: center,
+          });
+        }
+        chat.user = currentUser;
+        if (center) chat.center = center;
+        await this.telegramChatRepo.save(chat);
+        // Send invitations and pending PDFs
+        await this.sendUserChannelsAndInvitation(currentUser.id);
+        try {
+          const pendingResult = await this.sendAllPendingPdfs(currentUser.id);
+          if (pendingResult.sent > 0) {
+            await this.logsService.log(
+              `Successfully sent ${pendingResult.sent} pending PDFs to user ${currentUser.id} after widget connection`,
+              'TelegramService',
+            );
+            const userChat = await this.telegramChatRepo.findOne({
+              where: { user: { id: currentUser.id }, type: ChatType.PRIVATE },
+            });
+            if (userChat && userChat.telegramUserId && this.bot) {
+              const pdfMessage = `📄 Sizga ${pendingResult.sent} ta kutilayotgan PDF yuborildi!`;
+              await this.bot.sendMessage(userChat.telegramUserId, pdfMessage, {
+                parse_mode: 'HTML',
+              });
+            }
+          }
+        } catch (error) {
+          let stack: string | undefined = undefined;
+          if (
+            typeof error === 'object' &&
+            error !== null &&
+            'stack' in error &&
+            typeof error.stack === 'string'
+          ) {
+            stack = error.stack;
+          }
+          await this.logsService.error(
+            `Failed to send pending PDFs to user ${currentUser.id} after widget connection: ${error.message}`,
+            stack,
+            'TelegramService',
+          );
+        }
         return {
           success: true,
-          message: `Siz allaqachon Telegram hisobingiz bilan tizimga kirdingiz.`,
+          message: `🎉 Salom ${currentUser.firstName}! Hisobingiz avtomatik ulandi (widget orqali). Tegishli kanallarga qo'shilish uchun quyidagi havolalardan foydalaning.`,
           userId: currentUser.id,
           autoConnected: true,
         };
       } else {
-        return await this.authenticateUserByOwn(dto, user);
+        // Standard authentication logic (existing)
+        const currentUser = await this.userRepo.findOne({
+          where: { id: user?.id },
+        });
+        if (currentUser?.telegramId) {
+          return {
+            success: true,
+            message: `Siz allaqachon Telegram hisobingiz bilan tizimga kirdingiz.`,
+            userId: currentUser.id,
+            autoConnected: true,
+          };
+        } else {
+          return await this.authenticateUserByOwn(dto, user);
+        }
       }
     } catch (error) {
-      this.logsService.error(
+      let stack: string | undefined = undefined;
+      if (
+        typeof error === 'object' &&
+        error !== null &&
+        'stack' in error &&
+        typeof error.stack === 'string'
+      ) {
+        stack = error.stack;
+      }
+      await this.logsService.error(
         `Failed to authenticate user: ${error.message}`,
-        error.stack,
+        stack,
         'TelegramService',
       );
       return {
@@ -313,7 +413,7 @@ export class TelegramService {
     autoConnected?: boolean;
   }> {
     try {
-      this.logsService.log(
+      await this.logsService.log(
         `Authenticating Telegram user ${telegramUserId}`,
         'TelegramService',
       );
@@ -327,7 +427,7 @@ export class TelegramService {
         // User already connected, send updated channel list
         await this.sendUserChannelsAndInvitation(existingChat.user.id);
 
-        this.logsService.log(
+        await this.logsService.log(
           `User ${existingChat.user.id} is already connected`,
           'TelegramService',
         );
@@ -379,7 +479,7 @@ export class TelegramService {
       if (potentialUsers.length > 0) {
         // Take the first matching user for auto-linking
         linkedUser = potentialUsers[0];
-        this.logsService.log(
+        await this.logsService.log(
           `Auto-linking user ${linkedUser.firstName} ${linkedUser.lastName} with Telegram user ${telegramUserId}`,
           'TelegramService',
         );
@@ -397,14 +497,23 @@ export class TelegramService {
             }),
           );
 
-          this.logsService.log(
+          await this.logsService.log(
             `Created temporary user ${linkedUser.id} for Telegram user ${telegramUserId}`,
             'TelegramService',
           );
         } catch (error) {
-          this.logsService.error(
+          let stack: string | undefined = undefined;
+          if (
+            typeof error === 'object' &&
+            error !== null &&
+            'stack' in error &&
+            typeof error.stack === 'string'
+          ) {
+            stack = error.stack;
+          }
+          await this.logsService.error(
             `Failed to create temporary user: ${error.message}`,
-            error.stack,
+            stack,
             'TelegramService',
           );
           // Fallback - create chat without user link for manual processing later
@@ -493,9 +602,18 @@ export class TelegramService {
         autoConnected: true,
       };
     } catch (error) {
-      this.logsService.error(
+      let stack: string | undefined = undefined;
+      if (
+        typeof error === 'object' &&
+        error !== null &&
+        'stack' in error &&
+        typeof error.stack === 'string'
+      ) {
+        stack = error.stack;
+      }
+      await this.logsService.error(
         `Failed to authenticate and connect user: ${error.message}`,
-        error.stack,
+        stack,
         'TelegramService',
       );
       return {
@@ -532,7 +650,7 @@ export class TelegramService {
         // User already connected, send updated channel list
         await this.sendUserChannelsAndInvitation(existingChat.user.id);
 
-        this.logsService.log(
+        await this.logsService.log(
           `User ${existingChat.user.id} is already connected`,
           'TelegramService',
         );
@@ -584,14 +702,14 @@ export class TelegramService {
       if (potentialUsers.length > 0) {
         // Take the first matching user for auto-linking
         linkedUser = potentialUsers[0];
-        this.logsService.log(
+        await this.logsService.log(
           `Auto-linking user ${linkedUser.firstName} ${linkedUser.lastName} with Telegram user ${telegramUserId}`,
           'TelegramService',
         );
       } else {
         // Use the passed user instead of creating a new one
         linkedUser = user;
-        this.logsService.log(
+        await this.logsService.log(
           `Linking existing user ${linkedUser.firstName} ${linkedUser.lastName} with Telegram user ${telegramUserId}`,
           'TelegramService',
         );
@@ -605,7 +723,7 @@ export class TelegramService {
       }
 
       // Centerni avtomatik ulash (req.user.center bo'lsa)
-      let center = undefined;
+      let center;
       if (user.center) {
         center = await this.centerRepo.findOne({
           where: { id: user.center.id },
@@ -623,7 +741,7 @@ export class TelegramService {
           firstName,
           lastName,
           status: ChatStatus.ACTIVE,
-          center: center || undefined,
+          center: center,
         });
 
       chat.user = linkedUser;
@@ -637,7 +755,7 @@ export class TelegramService {
       try {
         const pendingResult = await this.sendAllPendingPdfs(linkedUser.id);
         if (pendingResult.sent > 0) {
-          this.logsService.log(
+          await this.logsService.log(
             `Successfully sent ${pendingResult.sent} pending PDFs to user ${linkedUser.id} after connection`,
             'TelegramService',
           );
@@ -655,9 +773,18 @@ export class TelegramService {
           }
         }
       } catch (error) {
-        this.logsService.error(
+        let stack: string | undefined = undefined;
+        if (
+          typeof error === 'object' &&
+          error !== null &&
+          'stack' in error &&
+          typeof error.stack === 'string'
+        ) {
+          stack = error.stack;
+        }
+        await this.logsService.error(
           `Failed to send pending PDFs to user ${linkedUser.id} after connection: ${error.message}`,
-          error.stack,
+          stack,
           'TelegramService',
         );
       }
@@ -669,9 +796,18 @@ export class TelegramService {
         autoConnected: true,
       };
     } catch (error) {
-      this.logsService.error(
+      let stack: string | undefined = undefined;
+      if (
+        typeof error === 'object' &&
+        error !== null &&
+        'stack' in error &&
+        typeof error.stack === 'string'
+      ) {
+        stack = error.stack;
+      }
+      await this.logsService.error(
         `Failed to authenticate and connect user: ${error.message}`,
-        error.stack,
+        stack,
         'TelegramService',
       );
       return {
