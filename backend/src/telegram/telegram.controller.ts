@@ -32,32 +32,6 @@ import {
 @ApiTags('Telegram')
 @Controller('telegram')
 export class TelegramController {
-  // ==================== Asosiy bot ma'lumotlari ====================
-  @Get('main-bot-info')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.TEACHER, UserRole.ADMIN, UserRole.SUPERADMIN)
-  @ApiBearerAuth()
-  @ApiOperation({ summary: 'Asosiy Telegram bot nomi va ID-si' })
-  @ApiResponse({ status: 200, description: 'Bot nomi va ID' })
-  async getMainBotInfo() {
-    return await this.telegramService.getMainBotInfo();
-  }
-  // ==================== Bot admin bo'lgan kanallar ro'yxati ====================
-
-  @Get('admin-channels')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.TEACHER, UserRole.ADMIN, UserRole.SUPERADMIN)
-  @ApiBearerAuth()
-  @ApiOperation({
-    summary: 'Bot admin bo‘lgan kanallar ro‘yxati (chatId va title)',
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Bot admin bo‘lgan kanallar ro‘yxati',
-  })
-  async getAdminChannels() {
-    return this.telegramService.getBotAdminChannels();
-  }
   private readonly logger = new Logger(TelegramController.name);
 
   constructor(
@@ -398,7 +372,7 @@ export class TelegramController {
     console.log(`Unhandled message: ${message.text}`);
   }
 
-  private async processChannelPost(channelPost: unknown): Promise<void> {
+  private processChannelPost(channelPost: unknown): void {
     let preview: string | undefined;
     if (
       channelPost &&
@@ -492,13 +466,7 @@ export class TelegramController {
     try {
       // Set bot commands menu for this user (only if chatId exists)
       if (chatId !== undefined) {
-        const numericChatId =
-          typeof chatId === 'number' ? chatId : parseInt(String(chatId), 10);
-        if (!Number.isNaN(numericChatId)) {
-          await this.telegramService.setBotCommands(numericChatId);
-        } else {
-          this.logger.warn(`Invalid chatId for setBotCommands: ${chatId}`);
-        }
+        await this.telegramService.setBotCommands(chatId);
       }
 
       // Use new authentication method that auto-connects users

@@ -49,6 +49,10 @@ export class TelegramService {
   async getBotAdminChannels(): Promise<{ chatId: string; title?: string }[]> {
     if (!this.bot) return [];
     const botInfo = await this.bot.getMe();
+    this.logsService.log(
+      `Fetched bot info: ${JSON.stringify(botInfo)}`,
+      'TelegramService',
+    );
     const adminChannels: { chatId: string; title?: string }[] = [];
 
     // 1. Get all dialogs/chats where bot is admin (using getUpdates or getChatAdministrators)
@@ -84,10 +88,17 @@ export class TelegramService {
             adminChannels.push({ chatId: chatId, title: chatInfo.title });
           }
         } catch (err) {
-          continue;
+          this.logsService.error(
+            `Failed to fetch chat member for chatId ${chatId}: ${err.message}`,
+            'TelegramService',
+          );
         }
       }
     } catch (err) {
+      this.logsService.error(
+        `Failed to fetch admin channels: ${err.message}`,
+        'TelegramService',
+      );
       // getUpdates may fail if polling is disabled, fallback to empty list
     }
     return adminChannels;
@@ -131,6 +142,37 @@ export class TelegramService {
         'TelegramService',
       );
     }
+  }
+
+  /**
+   * Bot admin bo'lgan barcha kanal va guruhlarga xabar yuboradi
+   */
+  async sendAnnouncementToAllAdminChats(
+    message: string,
+  ): Promise<{ success: boolean; sent: number; errors: any[] }> {
+    if (!this.bot)
+      return { success: false, sent: 0, errors: ['Bot not initialized'] };
+    const adminChats = await this.getBotAdminChannels();
+    let sent = 0;
+    const errors: { chatId: string; error: string }[] = [];
+    for (const chat of adminChats) {
+      try {
+        await this.bot.sendMessage(chat.chatId, message, {
+          parse_mode: 'HTML',
+        });
+        sent++;
+      } catch (err: any) {
+        errors.push({
+          chatId: chat.chatId,
+          error: err?.message ?? String(err),
+        });
+        this.logsService.error(
+          `Failed to send announcement to ${chat.chatId}: ${err?.message ?? String(err)}`,
+          'TelegramService',
+        );
+      }
+    }
+    return { success: errors.length === 0, sent, errors };
   }
 
   // ==================== Chat Management ====================
