@@ -32,6 +32,16 @@ import {
 @ApiTags('Telegram')
 @Controller('telegram')
 export class TelegramController {
+  // ==================== Asosiy bot ma'lumotlari ====================
+  @Get('main-bot-info')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.TEACHER, UserRole.ADMIN, UserRole.SUPERADMIN)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Asosiy Telegram bot nomi va ID-si' })
+  @ApiResponse({ status: 200, description: 'Bot nomi va ID' })
+  async getMainBotInfo() {
+    return await this.telegramService.getMainBotInfo();
+  }
   // ==================== Bot admin bo'lgan kanallar ro'yxati ====================
 
   @Get('admin-channels')

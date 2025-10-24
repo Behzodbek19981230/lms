@@ -36,29 +36,59 @@ import {
 @Injectable()
 export class TelegramService {
   /**
+   * Asosiy bot nomi va ID-sini qaytaradi
+   */
+  async getMainBotInfo(): Promise<{ username?: string; id?: number }> {
+    if (!this.bot) return {};
+    const botInfo = await this.bot.getMe();
+    return { username: botInfo.username, id: botInfo.id };
+  }
+  /**
    * Bot admin bo'lgan kanallar ro'yxatini qaytaradi (chatId va title)
    */
   async getBotAdminChannels(): Promise<{ chatId: string; title?: string }[]> {
     if (!this.bot) return [];
-    // Faqat CHANNEL turidagi chatlar
-    const allChannels = await this.telegramChatRepo.find({
-      where: { type: ChatType.CHANNEL, status: ChatStatus.ACTIVE },
-    });
     const botInfo = await this.bot.getMe();
     const adminChannels: { chatId: string; title?: string }[] = [];
-    for (const channel of allChannels) {
-      try {
-        const chatMember = await this.bot.getChatMember(
-          channel.chatId,
-          botInfo.id,
-        );
-        if (['administrator', 'creator'].includes(chatMember.status)) {
-          adminChannels.push({ chatId: channel.chatId, title: channel.title });
+
+    // 1. Get all dialogs/chats where bot is admin (using getUpdates or getChatAdministrators)
+    // Note: Telegram Bot API does not provide a direct way to list all channels/groups where bot is admin.
+    // Workaround: Use getUpdates to find all channels/groups bot has interacted with, then check admin status.
+    try {
+      const updates = await this.bot.getUpdates({
+        allowed_updates: ['channel_post', 'my_chat_member'],
+        limit: 100,
+      });
+      this.logsService.log(
+        `Fetched ${JSON.stringify(updates)} updates`,
+        'TelegramService',
+      );
+      const channelIds = new Set<string>();
+      for (const update of updates) {
+        if (update.channel_post && update.channel_post.chat) {
+          channelIds.add(update.channel_post.chat.id.toString());
         }
-      } catch (err) {
-        // Kanalga bot admin emas yoki chatId noto'g'ri bo'lishi mumkin
-        continue;
+        if (update.my_chat_member && update.my_chat_member.chat) {
+          channelIds.add(update.my_chat_member.chat.id.toString());
+        }
       }
+      for (const chatId of channelIds) {
+        try {
+          const chatMember = await this.bot.getChatMember(chatId, botInfo.id);
+          this.logsService.log(
+            `Fetched chat member for chatId ${chatId}: ${JSON.stringify(chatMember)}`,
+            'TelegramService',
+          );
+          if (['administrator', 'creator'].includes(chatMember.status)) {
+            const chatInfo = await this.bot.getChat(chatId);
+            adminChannels.push({ chatId: chatId, title: chatInfo.title });
+          }
+        } catch (err) {
+          continue;
+        }
+      }
+    } catch (err) {
+      // getUpdates may fail if polling is disabled, fallback to empty list
     }
     return adminChannels;
   }
@@ -574,7 +604,15 @@ export class TelegramService {
         await this.userRepo.save(linkedUser);
       }
 
-      // Create or update chat with linked user
+      // Centerni avtomatik ulash (req.user.center bo'lsa)
+      let center = undefined;
+      if (user.center) {
+        center = await this.centerRepo.findOne({
+          where: { id: user.center.id },
+        });
+      }
+
+      // Create or update chat with linked user and center
       const chat =
         existingChat ||
         this.telegramChatRepo.create({
@@ -585,9 +623,11 @@ export class TelegramService {
           firstName,
           lastName,
           status: ChatStatus.ACTIVE,
+          center: center || undefined,
         });
 
       chat.user = linkedUser;
+      if (center) chat.center = center;
       await this.telegramChatRepo.save(chat);
 
       // Automatically send invitations to relevant channels
