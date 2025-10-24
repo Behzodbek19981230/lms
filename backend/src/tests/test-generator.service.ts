@@ -6,6 +6,9 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { User } from '../users/entities/user.entity';
+import { Center } from '../centers/entities/center.entity';
+import { TelegramChat } from '../telegram/entities/telegram-chat.entity';
 import { Test } from './entities/test.entity';
 import { Question, QuestionType } from '../questions/entities/question.entity';
 import { Subject } from '../subjects/entities/subject.entity';
@@ -59,6 +62,13 @@ export class TestGeneratorService {
     private resultsRepository: Repository<Results>,
     private latexProcessor: LatexProcessorService,
     private logService: LogsService,
+    private telegramService: import('../telegram/telegram.service').TelegramService,
+    @InjectRepository(User)
+    private userRepo: Repository<User>,
+    @InjectRepository(Center)
+    private centerRepo: Repository<Center>,
+    @InjectRepository(TelegramChat)
+    private telegramChatRepo: Repository<TelegramChat>,
   ) {}
 
   /**
@@ -996,6 +1006,35 @@ export class TestGeneratorService {
         perQuestion,
       });
       await this.resultsRepository.save(result);
+    }
+
+    // --- Yangi kod: Telegram kanalga natija yuborish ---
+    try {
+      const student = result.student_id
+        ? await this.userRepo.findOne({ where: { id: result.student_id } })
+        : undefined;
+      const center = result.center_id
+        ? await this.centerRepo.findOne({ where: { id: result.center_id } })
+        : undefined;
+      const variantEntity = await this.generatedTestVariantRepository.findOne({
+        where: { uniqueNumber },
+        relations: ['generatedTest', 'generatedTest.subject'],
+      });
+      const subject = variantEntity?.generatedTest?.subject;
+
+      // Kanalga xabar yuborish uchun TelegramService dan foydalanamiz
+      await this.telegramService.sendTestResultToChannel({
+        student: student ?? undefined,
+        center: center ?? undefined,
+        subject,
+        correctCount,
+        total,
+      });
+    } catch (err) {
+      void this.logService.log(
+        `Telegram kanalga natija yuborishda xatolik: ${err.message}`,
+        'TestGenerator',
+      );
     }
 
     return {

@@ -468,8 +468,9 @@ const TelegramManagement: React.FC = () => {
               />
               <p className="text-xs md:text-sm text-muted-foreground mt-1">
                 Eslatma: Kanal yoki guruhning chat id olish uchun, botni admin qiling va quyidagi botga xabar yuboring:
-                <a href="https://t.me/RawDataBot" target="_blank" rel="noopener noreferrer" className="text-blue-600 underline ml-1">Chat ID olish</a>
-                Kanal yoki guruhdagi biror xabarni yuqoridagi botga ulashing va botdan qaytgan ma'lumotlardan "chat id" ni oling.
+                <a href="https://t.me/getidsbot" target="_blank" rel="noopener noreferrer" className="text-blue-600 underline ml-1">Chat ID olish</a>
+                Kanaldagi biror xabarni yuqoridagi botga ulashing va botdan qaytgan ma'lumotlardan "chat id" ni oling.
+                Guruh bo'lsa borga guruh qo'shish qilasiz, chat id ni oling.
                 </p>
                 
             </div>
@@ -634,7 +635,7 @@ const TelegramManagement: React.FC = () => {
       </Card>
 
       {/* Send Test to Channel */}
-      <Card>
+      {/* <Card>
         <CardHeader>
           <CardTitle>Testni Telegram kanaliga yuborish</CardTitle>
         </CardHeader>
@@ -685,7 +686,7 @@ const TelegramManagement: React.FC = () => {
             Testni kanalga yuborish
           </Button>
         </CardContent>
-      </Card>
+      </Card> */}
 
       {/* Registered Chats */}
       <Card>

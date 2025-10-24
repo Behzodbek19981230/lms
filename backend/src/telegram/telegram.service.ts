@@ -36,6 +36,42 @@ import {
 @Injectable()
 export class TelegramService {
   /**
+   * Test natijasini mos center va subjectga biriktirilgan kanal/guruhga yuboradi
+   */
+  async sendTestResultToChannel({
+    student,
+    center,
+    subject,
+    correctCount,
+    total,
+  }: {
+    student?: { firstName?: string; lastName?: string };
+    center?: { id?: number; name?: string };
+    subject?: { id?: number; name?: string };
+    correctCount: number;
+    total: number;
+  }) {
+    try {
+      const telegramChannel = await this.telegramChatRepo.findOne({
+        where: {
+          type: 'channel',
+          status: 'active',
+          center: center?.id ? { id: center.id } : undefined,
+          subject: subject?.id ? { id: subject.id } : undefined,
+        },
+      });
+      if (telegramChannel && telegramChannel.chatId && this.bot) {
+        const msg = `📊 Test natijasi\nStudent: ${student?.firstName ?? ''} ${student?.lastName ?? ''}\nFan: ${subject?.name ?? ''}\nMarkaz: ${center?.name ?? ''}\nTo'g'ri javoblar: ${correctCount}/${total}`;
+        await this.bot.sendMessage(telegramChannel.chatId, msg);
+      }
+    } catch (err) {
+      this.logsService.log(
+        `Test natijasini kanalga yuborishda xatolik: ${err.message}`,
+        'TelegramService',
+      );
+    }
+  }
+  /**
    * Fanga biriktirilgan kanal/guruhga kelmaganlar ro'yxatini yuboradi
    */
   async sendAbsentListToSubjectChat(

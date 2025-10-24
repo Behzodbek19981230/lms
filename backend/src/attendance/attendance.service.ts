@@ -98,12 +98,19 @@ export class AttendanceService {
     // Agar group.subject biriktirilgan bo'lsa, kelmaganlar ro'yxatini yuborish
     try {
       if (group.subject && dto.status === AttendanceStatus.ABSENT) {
+        console.log('[DAVOMAT] Telegram absent notification:', {
+          subjectId: group.subject.id,
+          groupName: group.name,
+          date: dto.date,
+          absentStudents: [`${student.firstName} ${student.lastName}`],
+        });
         await this.telegramService.sendAbsentListToSubjectChat(
           group.subject.id,
           group.name,
           dto.date,
           [`${student.firstName} ${student.lastName}`],
         );
+        console.log('[DAVOMAT] Telegram absent notification sent!');
       }
     } catch (error) {
       console.warn('Failed to send absent notification to Telegram:', error);
@@ -169,6 +176,33 @@ export class AttendanceService {
     }
 
     const savedAttendances = await this.attendanceRepo.save(attendanceRecords);
+
+    // Agar group.subject biriktirilgan bo'lsa, kelmaganlar ro'yxatini yuborish
+    try {
+      if (group.subject) {
+        const absentStudents = attendanceRecords
+          .filter((record) => record.status === AttendanceStatus.ABSENT)
+          .map(
+            (record) =>
+              `${record.student.firstName} ${record.student.lastName}`,
+          );
+        console.log('[DAVOMAT] Telegram absent notification (bulk):', {
+          subjectId: group.subject.id,
+          groupName: group.name,
+          date: dto.date,
+          absentStudents,
+        });
+        await this.telegramService.sendAbsentListToSubjectChat(
+          group.subject.id,
+          group.name,
+          dto.date,
+          absentStudents,
+        );
+        console.log('[DAVOMAT] Telegram absent notification sent (bulk)!');
+      }
+    } catch (error) {
+      console.warn('Failed to send absent notification to Telegram:', error);
+    }
 
     // Agar group.subject biriktirilgan bo'lsa, kelmaganlar ro'yxatini yuborish
     try {
