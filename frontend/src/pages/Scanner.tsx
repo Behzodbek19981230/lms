@@ -136,7 +136,7 @@ export default function ScannerPage() {
             const imageBase64 = await fileToBase64(f);
 
             const response = await axios.post(
-                "http://45.138.159.166:8011/analyze",
+                "https://fast.universal-uz.uz/analyze",
                 { image: imageBase64 },
                 {
                     auth: { username: "admin", password: "secret123" },
