@@ -2045,6 +2045,14 @@ export class TelegramService {
         where: { telegramUserId },
         relations: ['user', 'user.center'],
       });
+      this.logsService.log(
+        `Fetching groups for Telegram user ID: ${telegramUserId}`,
+        'TelegramService',
+      );
+      this.logsService.log(
+        `Found chat: ${JSON.stringify(chat)}`,
+        'TelegramService',
+      );
 
       if (!chat || !chat.user) {
         return "❌ Hisobingiz ulanmagan. Avval /start buyrug'ini yuboring va admin bilan bog'laning.";
