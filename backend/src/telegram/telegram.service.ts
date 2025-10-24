@@ -54,8 +54,8 @@ export class TelegramService {
     try {
       const telegramChannel = await this.telegramChatRepo.findOne({
         where: {
-          type: 'channel',
-          status: 'active',
+          type: ChatType.CHANNEL,
+          status: ChatStatus.ACTIVE,
           center: center?.id ? { id: center.id } : undefined,
           subject: subject?.id ? { id: subject.id } : undefined,
         },
@@ -65,7 +65,7 @@ export class TelegramService {
         await this.bot.sendMessage(telegramChannel.chatId, msg);
       }
     } catch (err) {
-      this.logsService.log(
+      void this.logsService.log(
         `Test natijasini kanalga yuborishda xatolik: ${err.message}`,
         'TelegramService',
       );
