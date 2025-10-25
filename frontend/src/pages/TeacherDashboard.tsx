@@ -124,7 +124,7 @@ export default function TeacherDashboard() {
                     <div>
                         <h1 className='text-xl md:text-3xl font-bold text-foreground'>O'qituvchi paneli</h1>
                         <p className='text-xs md:text-base text-muted-foreground'>
-                            {`${user?.firstName}  ${user?.lastName}`} — {subjects[0]?.name || user?.center?.name || ''}
+                            {`${user?.firstName}  ${user?.lastName}`} — {subjects.map(res=>res.name).join(', ') || user?.center?.name || ''}
                         </p>
                     </div>
                     <div className='flex items-center space-x-4'>
@@ -296,18 +296,18 @@ export default function TeacherDashboard() {
                 </div>
 
                 {/* Present Students Section */}
-                <div className='grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 xl:grid-cols-3 gap-4 md:gap-6 mt-8'>
+                {/* <div className='grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 xl:grid-cols-3 gap-4 md:gap-6 mt-8'>
                     <div className='lg:col-span-2 xl:col-span-2'>
                         <PresentStudentsCard />
                     </div>
-                </div>
+                </div> */}
 
                 {/* Additional Dashboard Sections */}
                 <div className='grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 mt-8'>
                     {/* Quick Actions & Recent Activity */}
                     <div className='space-y-6'>
                         {/* Telegram Personal Connection */}
-                        <TelegramConnectCard />
+                        {/* <TelegramConnectCard /> */}
 
                         {/* Telegram Management */}
                         <TelegramManagementCard />

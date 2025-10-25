@@ -531,7 +531,7 @@ export function TestGenerator({ subject }: TestGeneratorProps) {
               </Select>
             </div>
 
-            <div className="space-y-3">
+            {/* <div className="space-y-3">
               <Label htmlFor="timeLimit" className="text-sm font-medium text-gray-700 dark:text-gray-300">
                 Vaqt chegarasi (daqiqa)
               </Label>
@@ -566,7 +566,7 @@ export function TestGenerator({ subject }: TestGeneratorProps) {
                   <SelectItem value="hard">Qiyin</SelectItem>
                 </SelectContent>
               </Select>
-            </div>
+            </div> */}
           </div>
 
          
@@ -596,7 +596,7 @@ export function TestGenerator({ subject }: TestGeneratorProps) {
                 <Button
                   onClick={generateHTML}
                   variant="outline"
-                  className="border-primary text-primary hover:bg-primary/5"
+                  className="bg-primary hover:bg-primary/90 text-white disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <Printer className="h-4 w-4 mr-2" />
                   Chop etish 
@@ -604,14 +604,19 @@ export function TestGenerator({ subject }: TestGeneratorProps) {
                 {combinedUrl && (
                   <div className="flex gap-2">
                     <a href={combinedUrl} target="_blank" rel="noreferrer">
-                      <Button variant="outline" className="border-primary text-primary hover:bg-primary/5">
+                      <Button variant="outline"  className="bg-primary hover:bg-primary/90 text-white disabled:opacity-50 disabled:cursor-not-allowed">
                         <Printer className="h-4 w-4 mr-2" /> Barchasini chop etish 
                       </Button>
                     </a>
                  
                     <a href={`/sheet.png`} target="_blank" rel="noreferrer">
-                      <Button variant="outline" className="border-primary text-primary hover:bg-primary/5">
-                        Javob varag'ini yuklab olish
+                      <Button variant="outline"  className="bg-primary hover:bg-primary/90 text-white disabled:opacity-50 disabled:cursor-not-allowed">
+                        Javob varag'ini yuklab olish(rasm)
+                      </Button>
+                    </a>
+                    <a href={`/Javoblar_Varogi.pdf`} target="_blank" rel="noreferrer">
+                      <Button variant="outline"  className="bg-primary hover:bg-primary/90 text-white disabled:opacity-50 disabled:cursor-not-allowed">
+                        Javob varag'ini yuklab olish(PDF)
                       </Button>
                     </a>
                   </div>
