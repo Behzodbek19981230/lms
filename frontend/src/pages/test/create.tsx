@@ -208,40 +208,25 @@ export default function CreateTestPage() {
 	};
 
 	const downloadExcelTemplate = () => {
-		// Create Excel template with sample data
+		// Faqat multiple-choice savollar uchun soddalashtirilgan shablon
 		const templateData = [
 			{
-				'Savol turi': 'multiple-choice',
 				'Savol matni': '2+2 nechaga teng?',
-				'A) Birinchi variant': '2',
-				'B) Ikkinchi variant': '3',
-				'C) Uchinchi variant': '4',
-				"D) To'rtinchi variant": '5',
+				'A)': '2',
+				'B)': '3',
+				'C)': '4',
+				"D)": '5',
 				"To'g'ri javob": 'C',
 				Ball: '1',
-				Izoh: 'Oddiy matematika savoli',
 			},
 			{
-				'Savol turi': 'true-false',
-				'Savol matni': 'Yer yassi shaklda',
-				'A) Birinchi variant': "To'g'ri",
-				'B) Ikkinchi variant': "Noto'g'ri",
-				'C) Uchinchi variant': '',
-				"D) To'rtinchi variant": '',
-				"To'g'ri javob": 'B',
+				'Savol matni': 'Eng katta daryo?',
+				'A)': 'Nil',
+				'B)': 'Amazonka',
+				'C)': 'Missisipi',
+				"D)": 'Volga',
+				"To'g'ri javob": 'A',
 				Ball: '1',
-				Izoh: 'Geografiya savoli',
-			},
-			{
-				'Savol turi': 'essay',
-				'Savol matni': "O'zbekiston haqida gapirib bering",
-				'A) Birinchi variant': '',
-				'B) Ikkinchi variant': '',
-				'C) Uchinchi variant': '',
-				"D) To'rtinchi variant": '',
-				"To'g'ri javob": "Javob o'quvchi tomonidan yoziladi",
-				Ball: '5',
-				Izoh: 'Essa turidagi savol',
 			},
 		];
 
@@ -249,17 +234,15 @@ export default function CreateTestPage() {
 		const wb = XLSX.utils.book_new();
 		XLSX.utils.book_append_sheet(wb, ws, 'Test Savollari');
 
-		// Set column widths
+		// Ustun kengliklari
 		ws['!cols'] = [
-			{ width: 15 }, // Savol turi
 			{ width: 40 }, // Savol matni
-			{ width: 20 }, // A) Birinchi variant
-			{ width: 20 }, // B) Ikkinchi variant
-			{ width: 20 }, // C) Uchinchi variant
-			{ width: 20 }, // D) To'rtinchi variant
-			{ width: 20 }, // To'g'ri javob
+			{ width: 20 }, // A)
+			{ width: 20 }, // B)
+			{ width: 20 }, // C)
+			{ width: 20 }, // D)
+			{ width: 15 }, // To'g'ri javob
 			{ width: 10 }, // Ball
-			{ width: 30 }, // Izoh
 		];
 
 		const excelBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
@@ -306,120 +289,70 @@ export default function CreateTestPage() {
 
 				for (let i = 1; i < jsonData.length; i++) {
 					const row = jsonData[i] as any[];
-
 					// Skip empty rows
 					if (!row || row.length === 0) continue;
 
-					// Ensure row has minimum required data
-					if (row.length < 8 || !row[0] || !row[1]) {
-						console.log(`Skipping row ${i + 1}: insufficient data`, row);
+					// Ensure row has minimum required data (savol matni, 4 variant, to'g'ri javob, ball)
+					if (row.length < 7 || !row[0] || !row[1] || !row[2] || !row[3] || !row[4] || !row[5]) {
+						errors.push(`Qator ${i + 1}: Ma'lumot yetarli emas`);
 						continue;
 					}
 
-					const questionType = String(row[0] || '').toLowerCase();
-					const questionText = String(row[1] || '');
-					const optionA = String(row[2] || '');
-					const optionB = String(row[3] || '');
-					const optionC = String(row[4] || '');
-					const optionD = String(row[5] || '');
-					const correctAnswer = String(row[6] || '');
-					const points = parseInt(String(row[7] || '1')) || 1;
-					const explanation = String(row[8] || '');
-
-					// Validate question type
-					if (
-						!['multiple-choice', 'true-false', 'essay', 'multiple', 'choice', 'true', 'false'].some(
-							(type) => questionType.includes(type)
-						)
-					) {
-						errors.push(`Qator ${i + 1}: Noto'g'ri savol turi "${questionType}"`);
-						continue;
-					}
+					const questionText = String(row[0] || '');
+					const optionA = String(row[1] || '');
+					const optionB = String(row[2] || '');
+					const optionC = String(row[3] || '');
+					const optionD = String(row[4] || '');
+					const correctAnswer = String(row[5] || '');
+					const points = parseInt(String(row[6] || '1')) || 1;
 
 					// Validate question text
 					if (!questionText.trim()) {
 						errors.push(`Qator ${i + 1}: Savol matni bo'sh`);
 						continue;
 					}
-
 					// Validate points
 					if (points < 1 || points > 10) {
 						errors.push(`Qator ${i + 1}: Ball 1-10 oralig'ida bo'lishi kerak`);
 						continue;
 					}
 
-					let type: 'multiple-choice' | 'essay' | 'true-false';
-					let options: string[] = [];
+					const options: string[] = [];
 					let correctAnswerIndex: number | undefined;
 
-					if (questionType.includes('multiple') || questionType.includes('choice')) {
-						type = 'multiple-choice';
+					// Barcha variantlarni to'plash
+					if (optionA.trim()) options.push(optionA);
+					if (optionB.trim()) options.push(optionB);
+					if (optionC.trim()) options.push(optionC);
+					if (optionD.trim()) options.push(optionD);
 
-						// Barcha variantlarni to'plash
-						if (optionA.trim()) options.push(optionA);
-						if (optionB.trim()) options.push(optionB);
-						if (optionC.trim()) options.push(optionC);
-						if (optionD.trim()) options.push(optionD);
-
-						// To'g'ri javobni indeksga aylantirish
-						const correctAnswerLetter = correctAnswer.toUpperCase();
-
-						if (correctAnswerLetter === 'A' && optionA.trim()) {
-							correctAnswerIndex = 0;
-						} else if (correctAnswerLetter === 'B' && optionB.trim()) {
-							correctAnswerIndex = 1;
-						} else if (correctAnswerLetter === 'C' && optionC.trim()) {
-							correctAnswerIndex = 2;
-						} else if (correctAnswerLetter === 'D' && optionD.trim()) {
-							correctAnswerIndex = 3;
-						} else {
-							errors.push(
-								`Qator ${
-									i + 1
-								}: To'g'ri javob A, B, C yoki D bo'lishi kerak va variant mavjud bo'lishi kerak`
-							);
-							continue;
-						}
-
-						if (options.length < 2) {
-							errors.push(`Qator ${i + 1}: Kamida 2 ta variant bo'lishi kerak`);
-							continue;
-						}
-					} else if (questionType.includes('true') || questionType.includes('false')) {
-						type = 'true-false';
-						options = ["To'g'ri", "Noto'g'ri"];
-
-						// To'g'ri javobni aniqlash
-						const correctAnswerUpper = correctAnswer.toUpperCase();
-						if (
-							correctAnswerUpper === 'A' ||
-							correctAnswerUpper.includes('TRUE') ||
-							correctAnswerUpper.includes('TOGRI')
-						) {
-							correctAnswerIndex = 0;
-						} else if (
-							correctAnswerUpper === 'B' ||
-							correctAnswerUpper.includes('FALSE') ||
-							correctAnswerUpper.includes('NOTOGRI')
-						) {
-							correctAnswerIndex = 1;
-						} else {
-							errors.push(`Qator ${i + 1}: To'g'ri javob A/To'g'ri yoki B/Noto'g'ri bo'lishi kerak`);
-							continue;
-						}
+					// To'g'ri javobni indeksga aylantirish
+					const correctAnswerLetter = correctAnswer.toUpperCase();
+					if (correctAnswerLetter === 'A' && optionA.trim()) {
+						correctAnswerIndex = 0;
+					} else if (correctAnswerLetter === 'B' && optionB.trim()) {
+						correctAnswerIndex = 1;
+					} else if (correctAnswerLetter === 'C' && optionC.trim()) {
+						correctAnswerIndex = 2;
+					} else if (correctAnswerLetter === 'D' && optionD.trim()) {
+						correctAnswerIndex = 3;
 					} else {
-						type = 'essay';
-						// Essay savollari uchun variantlar kerak emas
+						errors.push(`Qator ${i + 1}: To'g'ri javob A, B, C yoki D bo'lishi kerak va variant mavjud bo'lishi kerak`);
+						continue;
+					}
+
+					if (options.length < 2) {
+						errors.push(`Qator ${i + 1}: Kamida 2 ta variant bo'lishi kerak`);
+						continue;
 					}
 
 					questions.push({
 						id: Date.now() + i,
-						type,
+						type: 'multiple-choice',
 						question: questionText,
-						options: options.length > 0 ? options : undefined,
+						options,
 						correctAnswer: correctAnswerIndex,
 						points,
-						explanation,
 					});
 				}
 
@@ -540,23 +473,7 @@ export default function CreateTestPage() {
 							)}
 						</div>
 
-						{/* Test Type */}
-						<div className='space-y-2'>
-							<Label>Test turi</Label>
-							<RadioGroup
-								value={testType}
-								onValueChange={(value: 'open' | 'closed') => setTestType(value)}
-							>
-								<div className='flex items-center space-x-2'>
-									<RadioGroupItem value='open' id='open' />
-									<Label htmlFor='open'>Ochiq test (variantli)</Label>
-								</div>
-								<div className='flex items-center space-x-2'>
-									<RadioGroupItem value='closed' id='closed' />
-									<Label htmlFor='closed'>Yopiq test (variantsiz)</Label>
-								</div>
-							</RadioGroup>
-						</div>
+					
 
 						{/* Test Title */}
 						<div className='space-y-2'>
@@ -580,18 +497,7 @@ export default function CreateTestPage() {
 							/>
 						</div>
 
-						{/* Time Limit */}
-						<div className='space-y-2'>
-							<Label htmlFor='timeLimit'>Vaqt chegarasi (daqiqa)</Label>
-							<Input
-								id='timeLimit'
-								type='number'
-								value={timeLimit}
-								onChange={(e) => setTimeLimit(Number(e.target.value))}
-								min='1'
-								max='180'
-							/>
-						</div>
+						
 
 						{/* Test Stats */}
 						<div className='pt-4 border-t space-y-2'>
@@ -979,25 +885,20 @@ export default function CreateTestPage() {
 											📋 Excel shablon tuzilishi:
 										</h4>
 										<div className='text-sm text-yellow-700 space-y-1'>
+											
 											<p>
-												<strong>1-ustun:</strong> Savol turi (multiple-choice, true-false,
-												essay)
+												<strong>1-ustun:</strong> Savol matni
 											</p>
 											<p>
-												<strong>2-ustun:</strong> Savol matni
+												<strong>2-5 ustunlar:</strong> Javob variantlari (A, B, C, D)
 											</p>
 											<p>
-												<strong>3-6 ustunlar:</strong> Javob variantlari (A, B, C, D)
+												<strong>6-ustun:</strong> To'g'ri javob (A, B, C yoki D)
 											</p>
 											<p>
-												<strong>7-ustun:</strong> To'g'ri javob (A, B, C yoki D)
+												<strong>7-ustun:</strong> Ball (1-10)
 											</p>
-											<p>
-												<strong>8-ustun:</strong> Ball (1-10)
-											</p>
-											<p>
-												<strong>9-ustun:</strong> Izoh (ixtiyoriy)
-											</p>
+											
 											<p className='text-red-600 font-medium'>
 												⚠️ Muhim: Ko'p variantli savollar uchun faqat to'g'ri javob variantini
 												to'ldiring!
