@@ -442,6 +442,77 @@ export class TestGeneratorService {
               document.body.classList.add('print-sheets');
               document.body.classList.remove('print-variants');
             } else {
+        @page { size: A4; margin: 12mm; }
+        * { box-sizing: border-box; }
+        body { font-family: Times, 'Times New Roman', serif; margin: 0; color: #111; font-size: 12px; }
+        .toolbar { position: sticky; top: 0; background: #fff; border-bottom: 1px solid #eee; padding: 8px 12px; display:flex; gap:8px; align-items:center; z-index: 10; }
+        .toolbar button { padding: 6px 10px; font-size: 14px; }
+        .section { padding: 8px 12px; }
+        .section-title { font-size: 18px; font-weight: 700; margin: 8px 0 12px; }
+        .page-break { page-break-after: always; }
+
+        /* Variants grid: show variants in two columns with centered separator */
+        .variants-container {
+          column-count: 1;
+          column-gap: 36px;
+          padding: 8px 12px;
+        }
+      
+        .variant-item {
+          display: block; /* each variant becomes a block constrained by the column */
+          break-inside: avoid;
+          -webkit-column-break-inside: avoid;
+          -moz-column-break-inside: avoid;
+          margin-bottom: 18px;
+          /* ensure the inner .page layout uses full column width */
+        }
+           /* Two-column questions container with centered vertical separator */
+  .questions-container {
+    column-count: 2;
+    column-gap: 36px;
+    position: relative; /* needed for centered separator */
+    padding: 8px 12px;
+    font-size: 12px;
+  }
+  .questions-container:before {
+    content: "";
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 50%;
+    width: 1px;
+    background: #ddd;
+    transform: translateX(-0.5px);
+    pointer-events: none;
+  }
+
+        /* Print: force each .variant-item to start on a new page, but only for the left column */
+  @media print {
+  .toolbar {
+    display: none;
+  }
+    
+
+
+  /* Savollar ichida sahifa bo‘linmasin */
+  .question {
+    page-break-inside: avoid;
+    font-size: 12px;
+  }
+
+  /* Keraksiz sahifa bo‘shliqlarini yo‘qotish */
+  html, body {
+    margin: 0 !important;
+    padding: 0 !important;
+    font-size: 12px !important;
+  }
+
+  /* Oxirida bo‘sh sahifa chiqmasligi uchun */
+  .variant-item:last-child {
+    page-break-after: avoid;
+  }
+}
+
               document.body.classList.remove('print-variants');
               document.body.classList.remove('print-sheets');
             }
@@ -1201,43 +1272,34 @@ export class TestGeneratorService {
     // eslint-disable-next-line @typescript-eslint/no-unsafe-call
     doc
       .font('Times-Bold')
-      .fontSize(18)
+      .fontSize(12)
       .text(config.title || `${subjectName} testi`, margin, margin + 80, {
         width: pageWidth - margin * 2,
         align: 'center',
       });
 
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
     doc.moveDown(1);
 
-    // Variant info
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
     doc
       .font('Times-Roman')
-      .fontSize(14)
+      .fontSize(12)
       .text(`Variant ${variant.variantNumber}`, {
         align: 'center',
       });
 
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
     doc.fontSize(12).text(`Unique ID: #${variant.uniqueNumber}`, {
       align: 'center',
     });
 
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
     doc.moveDown(2);
 
-    // Test info box
     const infoStartY = doc.y;
     const boxHeight = 120;
 
-    // Draw box
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
     doc
       .rect(margin + 50, infoStartY, pageWidth - margin * 2 - 100, boxHeight)
       .stroke();
 
-    // Test info
     const testInfo = [
       `Fan: ${subjectName}`,
       `Vaqt: ${config.timeLimit} daqiqa`,
@@ -1247,7 +1309,6 @@ export class TestGeneratorService {
 
     let infoY = infoStartY + 20;
     testInfo.forEach((info) => {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
       doc
         .font('Times-Roman')
         .fontSize(12)
@@ -1255,51 +1316,36 @@ export class TestGeneratorService {
       infoY += 20;
     });
 
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
     doc.moveDown(3);
 
-    // Student info section
     const studentInfoY = doc.y;
 
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-    doc.font('Times-Bold').fontSize(14);
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+    doc.font('Times-Bold').fontSize(12);
     doc.text("Talaba ma'lumotlari:", margin, studentInfoY);
 
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
     doc.font('Times-Roman').fontSize(12);
 
     const fieldY = studentInfoY + 40;
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
     doc.text('Ism-familiya:', margin, fieldY);
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
     doc
       .moveTo(margin + 80, fieldY + 15)
       .lineTo(pageWidth - margin, fieldY + 15)
       .stroke();
 
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
     doc.text('Guruh:', margin, fieldY + 40);
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
     doc
       .moveTo(margin + 50, fieldY + 55)
       .lineTo(margin + 200, fieldY + 55)
       .stroke();
 
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
     doc.text('Variant:', margin + 250, fieldY + 40);
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
     doc
       .moveTo(margin + 300, fieldY + 55)
       .lineTo(pageWidth - margin, fieldY + 55)
       .stroke();
 
-    // Instructions
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
     doc.moveDown(4);
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
     doc.font('Times-Bold').fontSize(12);
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
     doc.text("Ko'rsatmalar:", margin, doc.y);
 
     const instructions = [
@@ -1309,10 +1355,8 @@ export class TestGeneratorService {
       '• Berilgan vaqt ichida ishni yakunlang',
     ];
 
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-    doc.font('Times-Roman').fontSize(11);
+    doc.font('Times-Roman').fontSize(12);
     instructions.forEach((instruction) => {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
       doc.text(instruction, margin, doc.y + 15);
     });
   }
@@ -1487,11 +1531,11 @@ export class TestGeneratorService {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-call
       doc
         .font('Times-Roman')
-        .fontSize(13)
+        .fontSize(12)
         .text(questionDisplayText, xPos, yPos, {
           width: columnWidth - 10,
           align: 'left',
-          lineGap: 3, // Increased line gap for better readability
+          lineGap: 3,
         });
 
       let currentYPos = yPos + textHeight + 10; // Dynamic spacing based on text height      // Handle Base64 images in question if any
@@ -1752,11 +1796,11 @@ export class TestGeneratorService {
                     // eslint-disable-next-line @typescript-eslint/no-unsafe-call
                     doc
                       .font('Times-Roman')
-                      .fontSize(9)
-                      .text('   [Rasm]', xPos + 20, currentYPos, {
-                        width: columnWidth - 30,
+                      .fontSize(12)
+                      .text(answerText, xPos + 10, currentYPos, {
+                        width: columnWidth - 20,
+                        lineGap: 2,
                       });
-                    currentYPos += 12;
                   }
                 }
               } else {
@@ -1819,7 +1863,7 @@ export class TestGeneratorService {
     // eslint-disable-next-line @typescript-eslint/no-unsafe-call
     doc
       .font('Times-Roman')
-      .fontSize(8)
+      .fontSize(12)
       .text(
         `EduOne LMS • ${new Date().toLocaleDateString('uz-UZ')} • Variant: ${variant.uniqueNumber}`,
         margin,
