@@ -340,9 +340,7 @@ export function MathQuestionEditor({ questionId, mode = 'create' }: MathQuestion
 						);
 					} else {
 						return (
-							<span key={index} className='inline'>
-								{part}
-							</span>
+							<span key={index} className='inline' dangerouslySetInnerHTML={{ __html: part }} />
 						);
 					}
 				})}

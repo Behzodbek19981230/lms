@@ -38,11 +38,13 @@ import { Test, TestStatus, TestTypeEnum } from '@/types/test.type';
 import { useAuth } from '@/contexts/AuthContext';
 import moment from 'moment';
 import PageLoader from '@/components/PageLoader';
+import { toast } from '@/hooks/use-toast';
+import { MathRenderer } from '@/components/math-renderer';
 
 interface Question {
 	id: number;
 	text: string;
-	type: 'multiple_choice' | 'true_false' | 'essay' | 'short_answer' | 'fill_blank';
+	type: 'multiple_choice' | 'true_false' | 'essay' | 'short_answer' | 'fill_blank'; // already correct
 	points: number;
 	answers?: Answer[];
 	testId: number;
@@ -81,7 +83,7 @@ export default function TestQuestions() {
 
 	const [questionForm, setQuestionForm] = useState<QuestionForm>({
 		text: '',
-		type: 'multiple_choice',
+		 type: 'multiple_choice',
 		points: 1,
 		answers: [{ text: '', isCorrect: false, order: 0 }],
 	});
@@ -192,7 +194,7 @@ export default function TestQuestions() {
 	const resetQuestionForm = () => {
 		setQuestionForm({
 			text: '',
-			type: 'multiple_choice',
+			 type: 'multiple_choice',
 			points: 1,
 			answers: [{ text: '', isCorrect: false, order: 0 }],
 		});
@@ -225,67 +227,53 @@ export default function TestQuestions() {
 	};
 
 	const needsAnswers = (type: string) => {
-		return type === 'multiple_choice' || type === 'true_false' || type === 'fill_blank';
+		 return type === 'multiple_choice' || type === 'true_false' || type === 'fill_blank'; // already correct
 	};
 
 	// Excel import functions
 	const downloadExcelTemplate = () => {
-		const templateData = [
-			{
-				'Savol turi': 'multiple_choice',
-				'Savol matni': '2+2 nechaga teng?',
-				'A) Birinchi variant': '2',
-				'B) Ikkinchi variant': '3',
-				'C) Uchinchi variant': '4',
-				"D) To'rtinchi variant": '5',
-				"To'g'ri javob": 'C',
-				Ball: '1',
-				Izoh: 'Oddiy matematika savoli',
-			},
-			{
-				'Savol turi': 'true_false',
-				'Savol matni': 'Yer yassi shaklda',
-				'A) Birinchi variant': "To'g'ri",
-				'B) Ikkinchi variant': "Noto'g'ri",
-				'C) Uchinchi variant': '',
-				"D) To'rtinchi variant": '',
-				"To'g'ri javob": 'B',
-				Ball: '1',
-				Izoh: 'Geografiya savoli',
-			},
-			{
-				'Savol turi': 'essay',
-				'Savol matni': "O'zbekiston haqida gapirib bering",
-				'A) Birinchi variant': '',
-				'B) Ikkinchi variant': '',
-				'C) Uchinchi variant': '',
-				"D) To'rtinchi variant": '',
-				"To'g'ri javob": "Javob o'quvchi tomonidan yoziladi",
-				Ball: '5',
-				Izoh: 'Essa turidagi savol',
-			},
-		];
-
-		const ws = XLSX.utils.json_to_sheet(templateData);
-		const wb = XLSX.utils.book_new();
-		XLSX.utils.book_append_sheet(wb, ws, 'Test Savollari');
-
-		ws['!cols'] = [
-			{ width: 15 }, // Savol turi
-			{ width: 40 }, // Savol matni
-			{ width: 20 }, // A) Birinchi variant
-			{ width: 20 }, // B) Ikkinchi variant
-			{ width: 20 }, // C) Uchinchi variant
-			{ width: 20 }, // D) To'rtinchi variant
-			{ width: 20 }, // To'g'ri javob
-			{ width: 10 }, // Ball
-			{ width: 30 }, // Izoh
-		];
-
-		const excelBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
-		const data = new Blob([excelBuffer], {
-			type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-		});
+		// Faqat multiple_choice savollar uchun soddalashtirilgan shablon
+            const templateData = [
+                {
+                    'Savol matni': '2+2 nechaga teng?',
+                    'A)': '2',
+                    'B)': '3',
+                    'C)': '4',
+                    "D)": '5',
+                    "To'g'ri javob": 'C',
+                    Ball: '1',
+                },
+                {
+                    'Savol matni': 'Eng katta daryo?',
+                    'A)': 'Nil',
+                    'B)': 'Amazonka',
+                    'C)': 'Missisipi',
+                    "D)": 'Volga',
+                    "To'g'ri javob": 'A',
+                    Ball: '1',
+                },
+            ];
+    
+            const ws = XLSX.utils.json_to_sheet(templateData);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Test Savollari');
+    
+            // Ustun kengliklari
+            ws['!cols'] = [
+                { width: 40 }, // Savol matni
+                { width: 20 }, // A)
+                { width: 20 }, // B)
+                { width: 20 }, // C)
+                { width: 20 }, // D)
+                { width: 15 }, // To'g'ri javob
+                { width: 10 }, // Ball
+            ];
+    
+            const excelBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+            const data = new Blob([excelBuffer], {
+                type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            });
+	
 		saveAs(data, `test_shabloni_${test?.subject?.name || 'umumiy'}.xlsx`);
 	};
 
@@ -304,132 +292,124 @@ export default function TestQuestions() {
 		}
 	};
 
-	const parseExcelFile = (file: File) => {
-		const reader = new FileReader();
-		reader.onload = (e) => {
-			try {
-				const data = new Uint8Array(e.target?.result as ArrayBuffer);
-				const workbook = XLSX.read(data, { type: 'array' });
-				const sheetName = workbook.SheetNames[0];
-				const worksheet = workbook.Sheets[sheetName];
-				const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+const parseExcelFile = (file: File) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                const data = new Uint8Array(e.target?.result as ArrayBuffer);
+                const workbook = XLSX.read(data, { type: 'array' });
+                const sheetName = workbook.SheetNames[0];
+                const worksheet = workbook.Sheets[sheetName];
+                const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
 
-				const questions: Question[] = [];
-				const errors: string[] = [];
+                // Skip header row and parse data
+                const questions: Question[] = [];
+                const errors: string[] = [];
 
-				for (let i = 1; i < jsonData.length; i++) {
-					const row = jsonData[i] as any[];
+                for (let i = 1; i < jsonData.length; i++) {
+                    const row = jsonData[i] as any[];
+                    // Skip empty rows
+                    if (!row || row.length === 0) continue;
 
-					if (!row || row.length === 0) continue;
+                    // Ensure row has minimum required data (savol matni, 4 variant, to'g'ri javob, ball)
+                    if (row.length < 7 || !row[0] || !row[1] || !row[2] || !row[3] || !row[4] || !row[5]) {
+                        errors.push(`Qator ${i + 1}: Ma'lumot yetarli emas`);
+                        continue;
+                    }
 
-					if (row.length < 8 || !row[0] || !row[1]) {
-						continue;
-					}
+                    const questionText = String(row[0] || '');
+                    const optionA = String(row[1] || '');
+                    const optionB = String(row[2] || '');
+                    const optionC = String(row[3] || '');
+                    const optionD = String(row[4] || '');
+                    const correctAnswer = String(row[5] || '');
+                    const points = parseInt(String(row[6] || '1')) || 1;
 
-					const questionType = String(row[0] || '').toLowerCase();
-					const questionText = String(row[1] || '');
-					const optionA = String(row[2] || '');
-					const optionB = String(row[3] || '');
-					const optionC = String(row[4] || '');
-					const optionD = String(row[5] || '');
-					const correctAnswer = String(row[6] || '');
-					const points = parseInt(String(row[7] || '1')) || 1;
+                    // Validate question text
+                    if (!questionText.trim()) {
+                        errors.push(`Qator ${i + 1}: Savol matni bo'sh`);
+                        continue;
+                    }
+                    // Validate points
+                    if (points < 1 || points > 10) {
+                        errors.push(`Qator ${i + 1}: Ball 1-10 oralig'ida bo'lishi kerak`);
+                        continue;
+                    }
 
-					if (!questionText.trim()) {
-						errors.push(`Qator ${i + 1}: Savol matni bo'sh`);
-						continue;
-					}
+                    const options: string[] = [];
+                    let correctAnswerIndex: number | undefined;
 
-					if (points < 1 || points > 10) {
-						errors.push(`Qator ${i + 1}: Ball 1-10 oralig'ida bo'lishi kerak`);
-						continue;
-					}
+                    // Barcha variantlarni to'plash
+                    if (optionA.trim()) options.push(optionA);
+                    if (optionB.trim()) options.push(optionB);
+                    if (optionC.trim()) options.push(optionC);
+                    if (optionD.trim()) options.push(optionD);
 
-					let type: 'multiple_choice' | 'true_false' | 'essay' | 'short_answer' | 'fill_blank';
-					let answers: any[] = [];
+                    // To'g'ri javobni indeksga aylantirish
+                    const correctAnswerLetter = correctAnswer.toUpperCase();
+                    if (correctAnswerLetter === 'A' && optionA.trim()) {
+                        correctAnswerIndex = 0;
+                    } else if (correctAnswerLetter === 'B' && optionB.trim()) {
+                        correctAnswerIndex = 1;
+                    } else if (correctAnswerLetter === 'C' && optionC.trim()) {
+                        correctAnswerIndex = 2;
+                    } else if (correctAnswerLetter === 'D' && optionD.trim()) {
+                        correctAnswerIndex = 3;
+                    } else {
+                        errors.push(`Qator ${i + 1}: To'g'ri javob A, B, C yoki D bo'lishi kerak va variant mavjud bo'lishi kerak`);
+                        continue;
+                    }
 
-					if (questionType.includes('multiple') || questionType.includes('choice')) {
-						type = 'multiple_choice';
-
-						if (optionA.trim()) answers.push({ text: optionA, isCorrect: false, order: 0 });
-						if (optionB.trim()) answers.push({ text: optionB, isCorrect: false, order: 1 });
-						if (optionC.trim()) answers.push({ text: optionC, isCorrect: false, order: 2 });
-						if (optionD.trim()) answers.push({ text: optionD, isCorrect: false, order: 3 });
-
-						const correctAnswerLetter = correctAnswer.toUpperCase();
-						const correctIndex =
-							correctAnswerLetter === 'A'
-								? 0
-								: correctAnswerLetter === 'B'
-								? 1
-								: correctAnswerLetter === 'C'
-								? 2
-								: correctAnswerLetter === 'D'
-								? 3
-								: -1;
-
-						if (correctIndex >= 0 && correctIndex < answers.length) {
-							answers[correctIndex].isCorrect = true;
-						} else {
-							errors.push(`Qator ${i + 1}: To'g'ri javob A, B, C yoki D bo'lishi kerak`);
-							continue;
-						}
-
-						if (answers.length < 2) {
-							errors.push(`Qator ${i + 1}: Kamida 2 ta variant bo'lishi kerak`);
-							continue;
-						}
-					} else if (questionType.includes('true') || questionType.includes('false')) {
-						type = 'true_false';
-						answers = [
-							{ text: "To'g'ri", isCorrect: false, order: 0 },
-							{ text: "Noto'g'ri", isCorrect: false, order: 1 },
-						];
-
-						const correctAnswerUpper = correctAnswer.toUpperCase();
-						if (
-							correctAnswerUpper === 'A' ||
-							correctAnswerUpper.includes('TRUE') ||
-							correctAnswerUpper.includes('TOGRI')
-						) {
-							answers[0].isCorrect = true;
-						} else if (
-							correctAnswerUpper === 'B' ||
-							correctAnswerUpper.includes('FALSE') ||
-							correctAnswerUpper.includes('NOTOGRI')
-						) {
-							answers[1].isCorrect = true;
-						} else {
-							errors.push(`Qator ${i + 1}: To'g'ri javob A/To'g'ri yoki B/Noto'g'ri bo'lishi kerak`);
-							continue;
-						}
-					} else {
-						type = 'essay';
-					}
+                    if (options.length < 2) {
+                        errors.push(`Qator ${i + 1}: Kamida 2 ta variant bo'lishi kerak`);
+                        continue;
+                    }
 
 					questions.push({
 						id: Date.now() + i,
+						 type: 'multiple_choice',
 						text: questionText,
-						type,
 						points,
-						answers: answers.length > 0 ? answers : undefined,
-						testId: parseInt(testId!),
+						answers: options.map((opt, idx) => ({
+							id: Date.now() + i * 10 + idx,
+							text: opt,
+							isCorrect: idx === correctAnswerIndex,
+							order: idx,
+							questionId: 0,
+						})),
+						testId: Number(testId),
 						createdAt: new Date().toISOString(),
 						updatedAt: new Date().toISOString(),
 					});
-				}
+                }
 
-				if (errors.length > 0) {
-					setErrorMessage(`${errors.length} ta xatolik topildi. Iltimos, Excel faylini tekshiring.`);
-				}
+                if (errors.length > 0) {
+                    toast({
+                        title: 'Xatoliklar topildi',
+                        description: `${errors.length} ta xatolik. Iltimos, Excel faylini tekshiring.`,
+                        variant: 'destructive',
+                    });
+                    console.log('Excel import errors:', errors);
+                }
 
-				setImportedQuestions(questions);
-			} catch (error) {
-				setErrorMessage("Excel faylini o'qishda xatolik yuz berdi");
-			}
-		};
-		reader.readAsArrayBuffer(file);
-	};
+                setImportedQuestions(questions);
+                toast({
+                    title: 'Fayl muvaffaqiyatli yuklandi',
+                    description: `${questions.length} ta savol topildi${
+                        errors.length > 0 ? `, ${errors.length} ta xatolik` : ''
+                    }`,
+                });
+            } catch (error) {
+                toast({
+                    title: 'Xatolik',
+                    description: "Excel faylini o'qishda xatolik yuz berdi",
+                    variant: 'destructive',
+                });
+                console.error('Excel parse error:', error);
+            }
+        };
+        reader.readAsArrayBuffer(file);
+    };
 
 	const applyImportedQuestions = async () => {
 		if (importedQuestions.length > 0) {
@@ -460,6 +440,27 @@ export default function TestQuestions() {
 			throw new Error(e?.response?.data?.message || "Savolni qo'shib bo'lmadi");
 		}
 	};
+    	const renderVariantContent = (text: string) => {
+		const parts = text.split(/(\$\$?[^$]+\$\$?)/g);
+
+		return (
+			<div className='inline-block w-full'>
+				{parts.map((part, index) => {
+					if (part.includes('$')) {
+						return (
+							<span key={index} className='inline-block'>
+								<MathRenderer latex={part} />
+							</span>
+						);
+					} else {
+						return (
+							<span key={index} className='inline' dangerouslySetInnerHTML={{ __html: part }} />
+						);
+					}
+				})}
+			</div>
+		);
+	};
 
 	const clearImportedQuestions = () => {
 		setImportedQuestions([]);
@@ -468,7 +469,7 @@ export default function TestQuestions() {
 
 	const getQuestionTypeText = (type: string) => {
 		switch (type) {
-			case 'multiple_choice':
+			 case 'multiple_choice':
 				return "Ko'p tanlovli";
 			case 'true_false':
 				return "To'g'ri/Noto'g'ri";
@@ -648,13 +649,7 @@ export default function TestQuestions() {
 														</div>
 													</div>
 													<CardTitle className='text-lg text-card-foreground'>
-														{ /<\s*\w+[^>]*>/.test(question.text || '') ? (
-															<HtmlRenderer content={question.text} />
-														) : test?.subject?.hasFormulas ? (
-															<LaTeXRenderer content={question.text} />
-														) : (
-															<span>{question.text}</span>
-														)}
+												{renderVariantContent(question.text)}
 													</CardTitle>
 												</CardHeader>
 												<CardContent>
@@ -679,13 +674,7 @@ export default function TestQuestions() {
 																				}`}
 																			></div>
 																			<span className='text-sm'>
-																				{ /<\s*\w+[^>]*>/.test(answer.text || '') ? (
-																					<HtmlRenderer content={answer.text} inline />
-																				) : test?.subject?.hasFormulas ? (
-																					<LaTeXRenderer content={answer.text} inline />
-																				) : (
-																					<span>{answer.text}</span>
-																				)}
+																				{renderVariantContent(answer.text)}
 																			</span>
 																		</div>
 																	))}
@@ -729,26 +718,7 @@ export default function TestQuestions() {
 											)}
 										</div>
 										{/* Question Type */}
-										<div className='space-y-2'>
-											<Label>Savol turi</Label>
-											<Select
-												value={questionForm.type}
-												onValueChange={(value: any) =>
-													setQuestionForm({ ...questionForm, type: value })
-												}
-											>
-												<SelectTrigger>
-													<SelectValue />
-												</SelectTrigger>
-												<SelectContent>
-													<SelectItem value='multiple_choice'>Ko'p tanlovli</SelectItem>
-													<SelectItem value='true_false'>To'g'ri/Noto'g'ri</SelectItem>
-													<SelectItem value='essay'>Ochiq savol</SelectItem>
-													<SelectItem value='short_answer'>Qisqa javob</SelectItem>
-													<SelectItem value='fill_blank'>Bo'sh joyni to'ldirish</SelectItem>
-												</SelectContent>
-											</Select>
-										</div>
+									
 
 										{/* Question Text */}
 										<div className='space-y-2'>
@@ -902,11 +872,11 @@ export default function TestQuestions() {
 													</div>
 												)}
 
-												{questionForm.answers &&
-													questionForm.answers.length > 0 &&
-													(questionForm.type === 'multiple_choice' ||
-														questionForm.type === 'true_false' ||
-														questionForm.type === 'fill_blank') && (
+												 {questionForm.answers &&
+												 questionForm.answers.length > 0 &&
+												 (questionForm.type === 'multiple_choice' ||
+												 questionForm.type === 'true_false' ||
+												 questionForm.type === 'fill_blank') && (
 														<div>
 															<Label className='text-sm text-blue-700'>Javoblar:</Label>
 															<div className='mt-1 space-y-1'>

@@ -33,10 +33,11 @@ import { useToast } from '@/components/ui/use-toast';
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
 import TelegramManager from '@/components/telegram/TelegramManager';
+import { MathRenderer } from '@/components/math-renderer';
 
 interface Question {
 	id: string | number;
-	type: 'multiple-choice' | 'essay' | 'true-false';
+	type: 'multiple_choice' | 'essay' | 'true_false';
 	question: string;
 	options?: string[];
 	correctAnswer?: string | number;
@@ -69,7 +70,7 @@ export default function CreateTestPage() {
 	const [questions, setQuestions] = useState<Question[]>([]);
 	const [currentQuestion, setCurrentQuestion] = useState<Question>({
 		id: '',
-		type: 'multiple-choice',
+		 type: 'multiple_choice',
 		question: '',
 		options: ['', '', '', ''],
 		correctAnswer: 0,
@@ -118,9 +119,9 @@ export default function CreateTestPage() {
 				id: Date.now().toString(),
 			};
 			setQuestions([...questions, newQuestion]);
-			setCurrentQuestion({
-				id: '',
-				type: testType === 'open' ? 'multiple-choice' : 'essay',
+			 setCurrentQuestion({
+			 id: '',
+			 type: testType === 'open' ? 'multiple_choice' : 'essay',
 				question: '',
 				options: testType === 'open' ? ['', '', '', ''] : undefined,
 				correctAnswer: testType === 'open' ? 0 : undefined,
@@ -170,11 +171,11 @@ export default function CreateTestPage() {
 
 			// 2) Create questions
 			for (const [idx, q] of questions.entries()) {
-				const isMC = q.type === 'multiple-choice';
+				 const isMC = q.type === 'multiple_choice';
 				await request.post('/questions', {
 					text: q.question,
 					explanation: q.explanation || undefined,
-					type: isMC ? 'multiple_choice' : q.type === 'true-false' ? 'true_false' : 'essay',
+					 type: isMC ? 'multiple_choice' : q.type === 'true_false' ? 'true_false' : 'essay',
 					points: q.points,
 					order: idx,
 					hasFormula: !!selectedSubject?.hasFormulas,
@@ -208,7 +209,7 @@ export default function CreateTestPage() {
 	};
 
 	const downloadExcelTemplate = () => {
-		// Faqat multiple-choice savollar uchun soddalashtirilgan shablon
+		 // Faqat multiple_choice savollar uchun soddalashtirilgan shablon
 		const templateData = [
 			{
 				'Savol matni': '2+2 nechaga teng?',
@@ -272,6 +273,27 @@ export default function CreateTestPage() {
 			}
 		}
 	};
+        const renderVariantContent = (text: string) => {
+            const parts = text.split(/(\$\$?[^$]+\$\$?)/g);
+    
+            return (
+                <div className='inline-block w-full'>
+                    {parts.map((part, index) => {
+                        if (part.includes('$')) {
+                            return (
+                                <span key={index} className='inline-block'>
+                                    <MathRenderer latex={part} />
+                                </span>
+                            );
+                        } else {
+                            return (
+                                <span key={index} className='inline' dangerouslySetInnerHTML={{ __html: part }} />
+                            );
+                        }
+                    })}
+                </div>
+            );
+        };
 
 	const parseExcelFile = (file: File) => {
 		const reader = new FileReader();
@@ -348,7 +370,7 @@ export default function CreateTestPage() {
 
 					questions.push({
 						id: Date.now() + i,
-						type: 'multiple-choice',
+						 type: 'multiple_choice',
 						question: questionText,
 						options,
 						correctAnswer: correctAnswerIndex,
@@ -537,25 +559,26 @@ export default function CreateTestPage() {
 
 							<TabsContent value='create' className='space-y-4'>
 								{/* Question Type */}
-								{testType === 'open' && (
+								{/* {testType === 'open' && (
 									<div className='space-y-2'>
 										<Label>Savol turi</Label>
 										<Select
 											value={currentQuestion.type}
-											onValueChange={(value: 'multiple-choice' | 'essay' | 'true-false') =>
-												updateCurrentQuestion('type', value)
+											 onValueChange={(value: 'multiple_choice' | 'essay' | 'true_false') =>
+											 updateCurrentQuestion('type', value)
 											}
 										>
 											<SelectTrigger>
 												<SelectValue />
 											</SelectTrigger>
 											<SelectContent>
-												<SelectItem value='multiple-choice'>Ko'p variantli</SelectItem>
-												<SelectItem value='true-false'>To'g'ri/Noto'g'ri</SelectItem>
+												<SelectItem value='multiple_choice'>Ko'p variantli</SelectItem>
+ <SelectItem value='multiple_choice'>Ko'p variantli</SelectItem>
+												<SelectItem value='true_false'>To'g'ri/Noto'g'ri</SelectItem>
 											</SelectContent>
 										</Select>
 									</div>
-								)}
+								)} */}
 
 								{/* Question Text */}
 								<div className='space-y-2'>
@@ -579,7 +602,7 @@ export default function CreateTestPage() {
 								</div>
 
 								{/* Answer Options */}
-								{testType === 'open' && currentQuestion.type === 'multiple-choice' && (
+								{testType === 'open' && currentQuestion.type === 'multiple_choice' && (
 									<div className='space-y-2'>
 										<Label>Javob variantlari</Label>
 										<div className='space-y-2'>
@@ -619,7 +642,7 @@ export default function CreateTestPage() {
 									</div>
 								)}
 
-								{testType === 'open' && currentQuestion.type === 'true-false' && (
+								{testType === 'open' && currentQuestion.type === 'true_false' && (
 									<div className='space-y-2'>
 										<Label>To'g'ri javob</Label>
 										<RadioGroup
@@ -702,10 +725,10 @@ export default function CreateTestPage() {
 																<Badge variant='secondary'>
 																	{question.points} ball
 																</Badge>
-																{question.type === 'multiple-choice' && (
+																 {question.type === 'multiple_choice' && (
 																	<Badge variant='outline'>Ko'p variantli</Badge>
 																)}
-																{question.type === 'true-false' && (
+																 {question.type === 'true_false' && (
 																	<Badge variant='outline'>To'g'ri/Noto'g'ri</Badge>
 																)}
 																{question.type === 'essay' && (
@@ -848,14 +871,14 @@ export default function CreateTestPage() {
 																{question.points} ball
 															</Badge>
 															<Badge variant='outline' className='text-xs'>
-																{question.type === 'multiple-choice'
+																 {question.type === 'multiple_choice'
 																	? "Ko'p variantli"
-																	: question.type === 'true-false'
+																	 : question.type === 'true_false'
 																	? "To'g'ri/Noto'g'ri"
 																	: 'Ochiq'}
 															</Badge>
 														</div>
-														<p className='text-sm mb-2'>{question.question}</p>
+													{renderVariantContent(question.question)}
 														{question.options && (
 															<div className='space-y-1'>
 																{question.options.map((option, optIndex) => (
