@@ -34,6 +34,8 @@ import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
 import TelegramManager from '@/components/telegram/TelegramManager';
 import { MathRenderer } from '@/components/math-renderer';
+import { Document, Packer, Paragraph, Table, TableRow, TableCell, WidthType, TextRun } from 'docx';
+	const docx = await import('docx');
 
 interface Question {
 	id: string | number;
@@ -56,6 +58,65 @@ interface Subject {
 }
 
 export default function CreateTestPage() {
+// Download Word (.docx) template for test import
+const downloadWordTemplate = async () => {
+	// npm install docx
+	const { Document, Packer, Paragraph, Table, TableRow, TableCell, WidthType, TextRun } = docx;
+	const table = new Table({
+		rows: [
+			new TableRow({
+				children: [
+					new TableCell({ children: [new Paragraph('Savol matni')], width: { size: 40, type: WidthType.PERCENTAGE } }),
+					new TableCell({ children: [new Paragraph('A)')], width: { size: 20, type: WidthType.PERCENTAGE } }),
+					new TableCell({ children: [new Paragraph('B)')], width: { size: 20, type: WidthType.PERCENTAGE } }),
+					new TableCell({ children: [new Paragraph('C)')], width: { size: 20, type: WidthType.PERCENTAGE } }),
+					new TableCell({ children: [new Paragraph('D)')], width: { size: 20, type: WidthType.PERCENTAGE } }),
+					new TableCell({ children: [new Paragraph("To'g'ri javob")], width: { size: 15, type: WidthType.PERCENTAGE } }),
+					new TableCell({ children: [new Paragraph('Ball')], width: { size: 10, type: WidthType.PERCENTAGE } }),
+				],
+			}),
+			new TableRow({
+				children: [
+					new TableCell({ children: [new Paragraph('2+2 nechaga teng?')] }),
+					new TableCell({ children: [new Paragraph('2')] }),
+					new TableCell({ children: [new Paragraph('3')] }),
+					new TableCell({ children: [new Paragraph('4')] }),
+					new TableCell({ children: [new Paragraph('5')] }),
+					new TableCell({ children: [new Paragraph('C')] }),
+					new TableCell({ children: [new Paragraph('1')] }),
+				],
+			}),
+			new TableRow({
+				children: [
+					new TableCell({ children: [new Paragraph('Eng katta daryo?')] }),
+					new TableCell({ children: [new Paragraph('Nil')] }),
+					new TableCell({ children: [new Paragraph('Amazonka')] }),
+					new TableCell({ children: [new Paragraph('Missisipi')] }),
+					new TableCell({ children: [new Paragraph('Volga')] }),
+					new TableCell({ children: [new Paragraph('A')] }),
+					new TableCell({ children: [new Paragraph('1')] }),
+				],
+			}),
+		],
+		width: { size: 100, type: WidthType.PERCENTAGE },
+	});
+	const doc = new Document({
+		sections: [
+			{
+				children: [
+					new Paragraph({ text: 'Test savollarini Word orqali import qilish uchun shablon', heading: 'HEADING_1' }),
+					table,
+					new Paragraph({ text: "1-ustun: Savol matni\n2-5 ustunlar: Javob variantlari (A, B, C, D)\n6-ustun: To'g'ri javob (A, B, C yoki D)\n7-ustun: Ball (1-10)", spacing: { before: 200, after: 200 } }),
+					new Paragraph({ text: "⚠️ Muhim: Ko'p variantli savollar uchun faqat to'g'ri javob variantini to'ldiring!", bold: true, spacing: { before: 200 } }),
+				],
+			},
+		],
+	});
+	const buffer = await Packer.toBlob(doc);
+	const fileName = `test_shabloni_${selectedSubject?.name || 'umumiy'}.docx`;
+	saveAs(buffer, fileName);
+	toast({ title: 'Word shablon yuklandi', description: "Word faylini to'ldiring va qayta yuklang" });
+};
 	const navigate = useNavigate();
 	const [searchParams, setSearchParams] = useSearchParams();
 	const subjectId = searchParams.get('subject');
@@ -80,6 +141,7 @@ export default function CreateTestPage() {
 
 	const [subjects, setSubjects] = useState<Subject[]>([]);
 	const [excelFile, setExcelFile] = useState<File | null>(null);
+	const [wordFile, setWordFile] = useState<File | null>(null);
 	const [importedQuestions, setImportedQuestions] = useState<Question[]>([]);
 	const [savedTestId, setSavedTestId] = useState<number | null>(null);
 
@@ -264,15 +326,117 @@ export default function CreateTestPage() {
 			) {
 				setExcelFile(file);
 				parseExcelFile(file);
+			} else if (
+				file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+			) {
+				setWordFile(file);
+				parseWordFile(file);
 			} else {
 				toast({
 					title: "Noto'g'ri fayl turi",
-					description: 'Iltimos, Excel faylini (.xlsx yoki .xls) yuklang',
+					description: 'Iltimos, Excel (.xlsx/.xls) yoki Word (.docx) faylini yuklang',
 					variant: 'destructive',
 				});
 			}
 		}
 	};
+// Word (.docx) parsing logic
+const parseWordFile = async (file: File) => {
+	toast({ title: 'Word fayl o‘qilmoqda...', description: 'Yangi import funksiyasi test rejimida.' });
+	try {
+		// Dynamically import mammoth (npm install mammoth)
+		const mammoth = await import('mammoth');
+		const reader = new FileReader();
+		reader.onload = async (e) => {
+			try {
+				const arrayBuffer = e.target?.result as ArrayBuffer;
+				const { value } = await mammoth.convertToHtml({ arrayBuffer });
+				// Parse HTML to extract table rows
+				const parser = new DOMParser();
+				const doc = parser.parseFromString(value, 'text/html');
+				const table = doc.querySelector('table');
+				if (!table) {
+					toast({ title: 'Word faylda jadval topilmadi', variant: 'destructive' });
+					return;
+				}
+				const rows = Array.from(table.querySelectorAll('tr'));
+				const questions: Question[] = [];
+				const errors: string[] = [];
+				for (let i = 1; i < rows.length; i++) { // skip header
+					const cells = Array.from(rows[i].querySelectorAll('td')).map((td) => td.textContent?.trim() || '');
+					if (cells.length < 7) {
+						errors.push(`Qator ${i + 1}: Ma'lumot yetarli emas`);
+						continue;
+					}
+					const questionText = cells[0];
+					const optionA = cells[1];
+					const optionB = cells[2];
+					const optionC = cells[3];
+					const optionD = cells[4];
+					const correctAnswer = cells[5];
+					const points = parseInt(cells[6] || '1') || 1;
+					if (!questionText) {
+						errors.push(`Qator ${i + 1}: Savol matni bo'sh`);
+						continue;
+					}
+					if (points < 1 || points > 10) {
+						errors.push(`Qator ${i + 1}: Ball 1-10 oralig'ida bo'lishi kerak`);
+						continue;
+					}
+					const options: string[] = [];
+					let correctAnswerIndex: number | undefined;
+					if (optionA) options.push(optionA);
+					if (optionB) options.push(optionB);
+					if (optionC) options.push(optionC);
+					if (optionD) options.push(optionD);
+					const correctAnswerLetter = correctAnswer.toUpperCase();
+					if (correctAnswerLetter === 'A' && optionA) {
+						correctAnswerIndex = 0;
+					} else if (correctAnswerLetter === 'B' && optionB) {
+						correctAnswerIndex = 1;
+					} else if (correctAnswerLetter === 'C' && optionC) {
+						correctAnswerIndex = 2;
+					} else if (correctAnswerLetter === 'D' && optionD) {
+						correctAnswerIndex = 3;
+					} else {
+						errors.push(`Qator ${i + 1}: To'g'ri javob A, B, C yoki D bo'lishi kerak va variant mavjud bo'lishi kerak`);
+						continue;
+					}
+					if (options.length < 2) {
+						errors.push(`Qator ${i + 1}: Kamida 2 ta variant bo'lishi kerak`);
+						continue;
+					}
+					questions.push({
+						id: Date.now() + i,
+						type: 'multiple_choice',
+						question: questionText,
+						options,
+						correctAnswer: correctAnswerIndex,
+						points,
+					});
+				}
+				setImportedQuestions(questions);
+				toast({
+					title: 'Word fayl import qilindi',
+					description: `${questions.length} ta savol topildi${errors.length > 0 ? `, ${errors.length} ta xatolik` : ''}`,
+				});
+				if (errors.length > 0) {
+					toast({
+						title: 'Xatoliklar topildi',
+						description: `${errors.length} ta xatolik. Iltimos, Word faylini tekshiring.`,
+						variant: 'destructive',
+					});
+					console.log('Word import errors:', errors);
+				}
+			} catch (err) {
+				toast({ title: 'Word faylni o‘qishda xatolik', variant: 'destructive' });
+			}
+		};
+		reader.readAsArrayBuffer(file);
+	} catch (err) {
+		toast({ title: 'Word import xatolik', variant: 'destructive' });
+	}
+};
         const renderVariantContent = (text: string) => {
             const parts = text.split(/(\$\$?[^$]+\$\$?)/g);
     
@@ -808,30 +972,34 @@ export default function CreateTestPage() {
 							<TabsContent value='excel' className='space-y-4'>
 								<div className='text-center py-8'>
 									<FileSpreadsheet className='h-12 w-12 text-muted-foreground mx-auto mb-4' />
-									<h3 className='text-lg font-semibold mb-2'>Excel orqali savollar yuklash</h3>
+									<h3 className='text-lg font-semibold mb-2'>Excel yoki Word orqali savollar yuklash</h3>
 									<p className='text-muted-foreground mb-6'>
-										Excel faylini yuklab oling, to'ldiring va qayta yuklang. Har bir fan uchun
+										Excel yoki Word faylini yuklab oling, to'ldiring va qayta yuklang. Har bir fan uchun
 										alohida shablon yaratiladi.
 									</p>
 
 									<div className='flex flex-col sm:flex-row gap-4 justify-center mb-6'>
 										<Button onClick={downloadExcelTemplate} variant='outline'>
 											<Download className='h-4 w-4 mr-2' />
-											Shablon yuklash
+											Excel shablon yuklash
+										</Button>
+										<Button onClick={downloadWordTemplate} variant='outline'>
+											<Download className='h-4 w-4 mr-2' />
+											Word shablon yuklash
 										</Button>
 
 										<div className='relative'>
 											<input
 												type='file'
-												accept='.xlsx,.xls'
+												accept='.xlsx,.xls,.docx'
 												onChange={handleFileUpload}
 												className='absolute inset-0 w-full h-full opacity-0 cursor-pointer'
-												id='excel-upload'
+												id='excel-word-upload'
 											/>
 											<Button variant='outline' asChild>
-												<label htmlFor='excel-upload'>
+												<label htmlFor='excel-word-upload'>
 													<Upload className='h-4 w-4 mr-2' />
-													Excel fayl yuklash
+													Excel yoki Word fayl yuklash
 												</label>
 											</Button>
 										</div>

@@ -315,6 +315,8 @@ export class TestGeneratorService {
     variantInners: string[];
   }): string {
     const title = `${escapeHtml(input.title)} — Barcha variantlar va javoblar varagi`;
+    // Ensure question numbers start from 1 for each variant
+    // Remove extra page breaks at the top
     const variantsSection = input.variantInners
       .map((inner) => `<div class="variant-item">${inner}</div>`)
       .join('');
@@ -330,75 +332,55 @@ export class TestGeneratorService {
       <style>
         @page { size: A4; margin: 12mm; }
         * { box-sizing: border-box; }
-        body { font-family: Times, 'Times New Roman', serif; margin: 0; color: #111; }
+        body { font-family: Times, 'Times New Roman', serif; margin: 0; color: #111; font-size: 12px; }
         .toolbar { position: sticky; top: 0; background: #fff; border-bottom: 1px solid #eee; padding: 8px 12px; display:flex; gap:8px; align-items:center; z-index: 10; }
         .toolbar button { padding: 6px 10px; font-size: 14px; }
         .section { padding: 8px 12px; }
         .section-title { font-size: 18px; font-weight: 700; margin: 8px 0 12px; }
         .page-break { page-break-after: always; }
-
-        /* Variants grid: show variants in two columns with centered separator */
         .variants-container {
           column-count: 1;
           column-gap: 36px;
           padding: 8px 12px;
         }
-      
         .variant-item {
-          display: block; /* each variant becomes a block constrained by the column */
+          display: block;
           break-inside: avoid;
           -webkit-column-break-inside: avoid;
           -moz-column-break-inside: avoid;
           margin-bottom: 18px;
-          /* ensure the inner .page layout uses full column width */
         }
-           /* Two-column questions container with centered vertical separator */
-  .questions-container {
-    column-count: 2;
-    column-gap: 36px;
-    position: relative; /* needed for centered separator */
-    padding: 8px 12px;
-  }
-  .questions-container:before {
-    content: "";
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    left: 50%;
-    width: 1px;
-    background: #ddd;
-    transform: translateX(-0.5px);
-    pointer-events: none;
-  }
-
-        /* Print: force each .variant-item to start on a new page, but only for the left column */
-  @media print {
-  .toolbar {
-    display: none;
-  }
-    
-
-
-
-  /* Savollar ichida sahifa bo‘linmasin */
-  .question {
-    page-break-inside: avoid;
-  }
-
-  /* Keraksiz sahifa bo‘shliqlarini yo‘qotish */
-  html, body {
-    margin: 0 !important;
-    padding: 0 !important;
-  }
-
-  /* Oxirida bo‘sh sahifa chiqmasligi uchun */
-  .variant-item:last-child {
-    page-break-after: avoid;
-  }
-}
-
- 
-  
+        .questions-container {
+          column-count: 2;
+          column-gap: 36px;
+          position: relative;
+          padding: 8px 12px;
+          font-size: 12px;
+        }
+        .questions-container:before {
+          content: "";
+          position: absolute;
+          top: 0;
+          bottom: 0;
+          left: 50%;
+          width: 1px;
+          background: #ddd;
+          transform: translateX(-0.5px);
+          pointer-events: none;
+        }
+        @media print {
+          .toolbar { display: none; }
+          .question { page-break-inside: avoid; font-size: 12px; }
+          html, body { margin: 0 !important; padding: 0 !important; font-size: 12px !important; }
+          .variant-item { page-break-before: auto !important; }
+          .variant-item:first-child { page-break-before: avoid !important; }
+          .variant-item:last-child { page-break-after: avoid; }
+        }
+        /* Hide center separator on small screens when columns drop to one */
+        @media screen and (max-width: 900px) {
+          .questions-container { column-count: 1; }
+          .questions-container:before { display: none; }
+        }
       </style>
       <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
       <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
@@ -412,11 +394,8 @@ export class TestGeneratorService {
         <div class="section-title">Barcha variantlar</div>
         <div class="variants-container">${variantsSection}</div>
       </div>
-     
       <script>
-
         window.addEventListener('DOMContentLoaded', function() {
-          // Render math if available
           if (window.renderMathInElement) {
             try {
               window.renderMathInElement(document.body, {
@@ -430,96 +409,7 @@ export class TestGeneratorService {
               });
             } catch (e) { console.warn('KaTeX render error', e); }
           }
-
-          // Handle query params: ?mode=variants|sheets|all and ?print=1
-          try {
-            var params = new URLSearchParams(window.location.search);
-            var mode = (params.get('mode') || '').toLowerCase();
-            if (mode === 'variants') {
-              document.body.classList.add('print-variants');
-              document.body.classList.remove('print-sheets');
-            } else if (mode === 'sheets') {
-              document.body.classList.add('print-sheets');
-              document.body.classList.remove('print-variants');
-            } else {
-        @page { size: A4; margin: 12mm; }
-        * { box-sizing: border-box; }
-        body { font-family: Times, 'Times New Roman', serif; margin: 0; color: #111; font-size: 12px; }
-        .toolbar { position: sticky; top: 0; background: #fff; border-bottom: 1px solid #eee; padding: 8px 12px; display:flex; gap:8px; align-items:center; z-index: 10; }
-        .toolbar button { padding: 6px 10px; font-size: 14px; }
-        .section { padding: 8px 12px; }
-        .section-title { font-size: 18px; font-weight: 700; margin: 8px 0 12px; }
-        .page-break { page-break-after: always; }
-
-        /* Variants grid: show variants in two columns with centered separator */
-        .variants-container {
-          column-count: 1;
-          column-gap: 36px;
-          padding: 8px 12px;
-        }
-      
-        .variant-item {
-          display: block; /* each variant becomes a block constrained by the column */
-          break-inside: avoid;
-          -webkit-column-break-inside: avoid;
-          -moz-column-break-inside: avoid;
-          margin-bottom: 18px;
-          /* ensure the inner .page layout uses full column width */
-        }
-           /* Two-column questions container with centered vertical separator */
-  .questions-container {
-    column-count: 2;
-    column-gap: 36px;
-    position: relative; /* needed for centered separator */
-    padding: 8px 12px;
-    font-size: 12px;
-  }
-  .questions-container:before {
-    content: "";
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    left: 50%;
-    width: 1px;
-    background: #ddd;
-    transform: translateX(-0.5px);
-    pointer-events: none;
-  }
-
-        /* Print: force each .variant-item to start on a new page, but only for the left column */
-  @media print {
-  .toolbar {
-    display: none;
-  }
-    
-
-
-  /* Savollar ichida sahifa bo‘linmasin */
-  .question {
-    page-break-inside: avoid;
-    font-size: 12px;
-  }
-
-  /* Keraksiz sahifa bo‘shliqlarini yo‘qotish */
-  html, body {
-    margin: 0 !important;
-    padding: 0 !important;
-    font-size: 12px !important;
-  }
-
-  /* Oxirida bo‘sh sahifa chiqmasligi uchun */
-  .variant-item:last-child {
-    page-break-after: avoid;
-  }
-}
-
-              document.body.classList.remove('print-variants');
-              document.body.classList.remove('print-sheets');
-            }
-            if (params.get('print') === '1') {
-              setTimeout(function(){ window.print(); }, 0);
-            }
-          } catch (e) { /* ignore */ }
+          // No extra page breaks at top
         });
       </script>
     </body>
