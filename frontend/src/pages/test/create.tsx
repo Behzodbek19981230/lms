@@ -34,8 +34,6 @@ import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
 import TelegramManager from '@/components/telegram/TelegramManager';
 import { MathRenderer } from '@/components/math-renderer';
-import { Document, Packer, Paragraph, Table, TableRow, TableCell, WidthType, TextRun } from 'docx';
-	const docx = await import('docx');
 
 interface Question {
 	id: string | number;
@@ -61,6 +59,7 @@ export default function CreateTestPage() {
 // Download Word (.docx) template for test import
 const downloadWordTemplate = async () => {
 	// npm install docx
+	const docx = await import('docx');
 	const { Document, Packer, Paragraph, Table, TableRow, TableCell, WidthType, TextRun } = docx;
 	const table = new Table({
 		rows: [
