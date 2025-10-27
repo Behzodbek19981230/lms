@@ -8,7 +8,7 @@ import { Repository, Between } from 'typeorm';
 import { Attendance, AttendanceStatus } from './entities/attendance.entity';
 import { User, UserRole } from '../users/entities/user.entity';
 import { Group } from '../groups/entities/group.entity';
-import { TelegramService } from '../telegram/telegram.service';
+import { TelegramNotificationService } from '../telegram/telegram-notification.service';
 import {
   CreateAttendanceDto,
   BulkAttendanceDto,
@@ -25,7 +25,7 @@ export class AttendanceService {
     private userRepo: Repository<User>,
     @InjectRepository(Group)
     private groupRepo: Repository<Group>,
-    private telegramService: TelegramService,
+    private telegramNotificationService: TelegramNotificationService,
   ) {}
 
   async create(
@@ -95,12 +95,11 @@ export class AttendanceService {
 
     const savedAttendance = await this.attendanceRepo.save(attendance);
 
-    // Agar group.subject biriktirilgan bo'lsa, kelmaganlar ro'yxatini yuborish
+    // ✅ IMPROVED: Send to group-specific channel, not subject-wide
     try {
-      if (group.subject && dto.status === AttendanceStatus.ABSENT) {
-        await this.telegramService.sendAbsentListToSubjectChat(
-          group.subject.id,
-          group.name,
+      if (dto.status === AttendanceStatus.ABSENT) {
+        await this.telegramNotificationService.sendAbsentListToGroupChat(
+          group.id,
           dto.date,
           [`${student.firstName} ${student.lastName}`],
         );
@@ -170,39 +169,17 @@ export class AttendanceService {
 
     const savedAttendances = await this.attendanceRepo.save(attendanceRecords);
 
-    // Agar group.subject biriktirilgan bo'lsa, kelmaganlar ro'yxatini yuborish
+    // ✅ IMPROVED: Send to group-specific channel (removed duplicate code)
     try {
-      if (group.subject) {
-        const absentStudents = attendanceRecords
-          .filter((record) => record.status === AttendanceStatus.ABSENT)
-          .map(
-            (record) =>
-              `${record.student.firstName} ${record.student.lastName}`,
-          );
-
-        await this.telegramService.sendAbsentListToSubjectChat(
-          group.subject.id,
-          group.name,
-          dto.date,
-          absentStudents,
+      const absentStudents = attendanceRecords
+        .filter((record) => record.status === AttendanceStatus.ABSENT)
+        .map(
+          (record) => `${record.student.firstName} ${record.student.lastName}`,
         );
-      }
-    } catch (error) {
-      console.log('Failed to send absent notification to Telegram:', error);
-    }
 
-    // Agar group.subject biriktirilgan bo'lsa, kelmaganlar ro'yxatini yuborish
-    try {
-      if (group.subject) {
-        const absentStudents = attendanceRecords
-          .filter((record) => record.status === AttendanceStatus.ABSENT)
-          .map(
-            (record) =>
-              `${record.student.firstName} ${record.student.lastName}`,
-          );
-        await this.telegramService.sendAbsentListToSubjectChat(
-          group.subject.id,
-          group.name,
+      if (absentStudents.length > 0) {
+        await this.telegramNotificationService.sendAbsentListToGroupChat(
+          group.id,
           dto.date,
           absentStudents,
         );

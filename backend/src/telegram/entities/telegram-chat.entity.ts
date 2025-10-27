@@ -3,11 +3,12 @@ import { BaseEntity } from '../../common/entities/base.entity';
 import { User } from '../../users/entities/user.entity';
 import { Center } from '../../centers/entities/center.entity';
 import { Subject } from '../../subjects/entities/subject.entity';
+import { Group } from '../../groups/entities/group.entity';
 
 export enum ChatType {
   CHANNEL = 'channel', // For sending tests and results
-  PRIVATE = 'private',  // For receiving answers
-  GROUP = 'group'       // For group discussions
+  PRIVATE = 'private', // For receiving answers
+  GROUP = 'group', // For group discussions
 }
 
 export enum ChatStatus {
@@ -26,14 +27,14 @@ export class TelegramChat extends BaseEntity {
   @Column({
     type: 'enum',
     enum: ChatType,
-    default: ChatType.PRIVATE
+    default: ChatType.PRIVATE,
   })
   type: ChatType;
 
   @Column({
     type: 'enum',
     enum: ChatStatus,
-    default: ChatStatus.ACTIVE
+    default: ChatStatus.ACTIVE,
   })
   status: ChatStatus;
 
@@ -73,6 +74,11 @@ export class TelegramChat extends BaseEntity {
   @ManyToOne(() => Subject, { nullable: true, onDelete: 'CASCADE' })
   subject: Subject;
 
+  // Link to group (for channels associated with specific groups)
+  // This provides more granular control than subject-level mapping
+  @ManyToOne(() => Group, { nullable: true, onDelete: 'CASCADE' })
+  group: Group;
+
   // For channels/groups - store invitation link
   @Column({ nullable: true })
   inviteLink: string;
@@ -90,14 +96,20 @@ export class TelegramChat extends BaseEntity {
     return this.subject?.name;
   }
 
+  get groupName(): string | undefined {
+    return this.group?.name;
+  }
+
   // Transform for JSON serialization
   toJSON() {
     return {
       ...this,
       centerName: this.centerName,
       subjectName: this.subjectName,
+      groupName: this.groupName,
       centerId: this.center?.id,
       subjectId: this.subject?.id,
+      groupId: this.group?.id,
     };
   }
 }

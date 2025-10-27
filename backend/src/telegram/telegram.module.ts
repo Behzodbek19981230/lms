@@ -1,13 +1,18 @@
 import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule } from '@nestjs/config';
+import { ScheduleModule } from '@nestjs/schedule';
 import { TelegramService } from './telegram.service';
 import { TelegramController } from './telegram.controller';
+import { TelegramQueueController } from './telegram-queue.controller';
 import { TelegramAuthController } from './telegram-auth.controller';
 import { TelegramAuthService } from './telegram-auth.service';
 import { AnswerProcessorService } from './answer-processor.service';
+import { TelegramQueueService } from './telegram-queue.service';
+import { TelegramNotificationService } from './telegram-notification.service';
 import { TelegramChat } from './entities/telegram-chat.entity';
 import { TelegramAnswer } from './entities/telegram-answer.entity';
+import { TelegramMessageLog } from './entities/telegram-message-log.entity';
 import { PendingPdf } from './entities/pending-pdf.entity';
 import { User } from '../users/entities/user.entity';
 import { Center } from '../centers/entities/center.entity';
@@ -26,6 +31,7 @@ import { LogsModule } from '../logs/logs.module';
     TypeOrmModule.forFeature([
       TelegramChat,
       TelegramAnswer,
+      TelegramMessageLog,
       PendingPdf,
       User,
       Center,
@@ -37,12 +43,29 @@ import { LogsModule } from '../logs/logs.module';
       Group,
     ]),
     ConfigModule,
+    ScheduleModule.forRoot(),
     forwardRef(() => NotificationsModule),
     forwardRef(() => TestsModule),
     LogsModule,
   ],
-  controllers: [TelegramController, TelegramAuthController],
-  providers: [TelegramService, TelegramAuthService, AnswerProcessorService],
-  exports: [TelegramService, TelegramAuthService, AnswerProcessorService],
+  controllers: [
+    TelegramController,
+    TelegramQueueController,
+    TelegramAuthController,
+  ],
+  providers: [
+    TelegramService,
+    TelegramAuthService,
+    AnswerProcessorService,
+    TelegramQueueService,
+    TelegramNotificationService,
+  ],
+  exports: [
+    TelegramService,
+    TelegramAuthService,
+    AnswerProcessorService,
+    TelegramQueueService,
+    TelegramNotificationService,
+  ],
 })
 export class TelegramModule {}

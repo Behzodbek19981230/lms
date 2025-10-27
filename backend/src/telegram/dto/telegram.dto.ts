@@ -55,6 +55,11 @@ export class CreateTelegramChatDto {
   @IsOptional()
   @IsNumber()
   subjectId?: number;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsNumber()
+  groupId?: number;
 }
 
 export class AuthenticateUserDto {

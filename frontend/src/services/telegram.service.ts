@@ -11,6 +11,8 @@ import {
 	AuthenticateUserDto,
 	AuthenticationResult,
 	TelegramAnswer,
+	MessageQueueStats,
+	TelegramMessageLog,
 } from '@/types/telegram.type';
 
 class TelegramService {
@@ -186,6 +188,67 @@ class TelegramService {
 
 	async getTestStatistics(testId: number): Promise<TestStatistics> {
 		const response = await request.get(`${this.baseURL}/statistics/${testId}`);
+		return response.data;
+	}
+
+	// ==================== Message Queue Monitoring (NEW) ====================
+
+	/**
+	 * Get message queue statistics
+	 */
+	async getMessageQueueStats(startDate?: Date, endDate?: Date): Promise<MessageQueueStats> {
+		const params: Record<string, string> = {};
+		if (startDate) params.startDate = startDate.toISOString();
+		if (endDate) params.endDate = endDate.toISOString();
+
+		const response = await request.get(`${this.baseURL}/queue/statistics`, { params });
+		return response.data;
+	}
+
+	/**
+	 * Get pending message count
+	 */
+	async getPendingMessageCount(): Promise<number> {
+		const response = await request.get(`${this.baseURL}/queue/pending-count`);
+		return response.data.count || 0;
+	}
+
+	/**
+	 * Get failed message count
+	 */
+	async getFailedMessageCount(): Promise<number> {
+		const response = await request.get(`${this.baseURL}/queue/failed-count`);
+		return response.data.count || 0;
+	}
+
+	/**
+	 * Get recent message logs
+	 */
+	async getRecentMessageLogs(limit: number = 50): Promise<TelegramMessageLog[]> {
+		const response = await request.get(`${this.baseURL}/queue/recent-logs`, {
+			params: { limit },
+		});
+		return response.data;
+	}
+
+	/**
+	 * Retry all failed messages (admin action)
+	 */
+	async retryFailedMessages(): Promise<{ retried: number; message: string }> {
+		const response = await request.post(`${this.baseURL}/queue/retry-failed`);
+		return response.data;
+	}
+
+	/**
+	 * Get message logs filtered by status
+	 */
+	async getMessageLogsByStatus(
+		status: 'pending' | 'sent' | 'failed' | 'retrying',
+		limit: number = 50
+	): Promise<TelegramMessageLog[]> {
+		const response = await request.get(`${this.baseURL}/queue/logs`, {
+			params: { status, limit },
+		});
 		return response.data;
 	}
 
