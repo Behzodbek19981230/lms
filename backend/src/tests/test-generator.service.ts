@@ -350,6 +350,10 @@ export class TestGeneratorService {
           -webkit-column-break-inside: avoid;
           -moz-column-break-inside: avoid;
           margin-bottom: 18px;
+          page-break-before: always;
+        }
+        .variant-item:first-child {
+          page-break-before: auto;
         }
         .questions-container {
           column-count: 2;
@@ -397,7 +401,6 @@ export class TestGeneratorService {
         <span style="color:#666; font-size:13px;">Chop etish oynasida "Save as PDF"ni tanlang.</span>
       </div>
       <div class="section no-page-break" id="variants">
-        <div class="section-title no-page-break">Barcha variantlar</div>
         <div class="variants-container no-page-break">${variantsSection}</div>
       </div>
       <script>
@@ -468,11 +471,12 @@ export class TestGeneratorService {
             break-inside: avoid-column;
             -webkit-column-break-inside: avoid;
             -moz-column-break-inside: avoid;
+            page-break-inside: avoid;
           }
           .q-row { display: flex; align-items: flex-start; gap: 8px; }
-          .q-no { color: #000; font-weight: 600; min-width: 20px; flex-shrink: 0; }
-          .q-content { flex: 1; }
-          .q-text { margin-bottom: 6px; }
+          .q-no { color: #000; font-weight: 600; min-width: 30px; flex-shrink: 0; text-align: left; }
+          .q-content { flex: 1; padding-top: 0; }
+          .q-text { padding-top: 0; margin-top: 0; margin-bottom: 6px; }
           .points { color: #666; font-size: 10px; font-weight: 500; align-self: flex-start; flex-shrink: 0; margin-left: 8px; }
           .answers { margin-top: 6px; padding-left: 0; }
           .answer { margin: 2px 0; }
@@ -485,7 +489,12 @@ export class TestGeneratorService {
           .key-table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 8px; }
           .key-table th, .key-table td { border: 1px solid #ccc; padding: 6px 8px; text-align: center; }
           .key-table th { background: #f7f7f7; }
-          @media print { .toolbar { display: none; } }
+          @media print { 
+            .toolbar { display: none; }
+            .question { page-break-inside: avoid !important; }
+            .q-no { vertical-align: top; }
+            .q-content { vertical-align: top; }
+          }
 
           /* Hide center separator on small screens when columns drop to one */
           @media screen and (max-width: 900px) {
