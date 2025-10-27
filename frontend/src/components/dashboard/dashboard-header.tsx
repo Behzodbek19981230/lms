@@ -46,17 +46,25 @@ export const DashboardHeader = () => {
     };
 
     return (
-        <header className='h-16 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 flex items-center justify-between px-6'>
+        <header className='h-16 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 flex items-center justify-between px-6 shadow-sm'>
             <div className='flex items-center gap-4'>
                 <SidebarTrigger />
 
-                <div className='flex items-center gap-2'>
-                    <div className='w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-secondary flex items-center justify-center'>
+                <div className='flex items-center gap-3'>
+                    <div className='w-10 h-10 rounded-xl bg-gradient-to-br from-primary via-primary/90 to-secondary flex items-center justify-center shadow-lg'>
                         <BookOpen className='h-5 w-5 text-white' />
                     </div>
-                    <span className='text-xl font-bold bg-primary  bg-clip-text text-transparent'>
-                        {user.center?.name || 'EduOne'}
-                    </span>
+                    <div>
+                        <span className='text-xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent'>
+                            {user.center?.name || 'EduOne'}
+                        </span>
+                        <p className='text-xs text-muted-foreground'>
+                            {user?.role === 'superadmin' && 'Super Admin Panel'}
+                            {user?.role === 'admin' && 'Markaz Admini'}
+                            {user?.role === 'teacher' && 'O\'qituvchi Panel'}
+                            {user?.role === 'student' && 'Talaba Panel'}
+                        </p>
+                    </div>
                 </div>
             </div>
 
@@ -112,12 +120,12 @@ export const DashboardHeader = () => {
                         </DropdownMenuItem>
                         <DropdownMenuItem>
                             <Settings className='mr-2 h-4 w-4' />
-                            Settings
+                            Sozlamalar
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem onClick={handleLogout} className='text-destructive'>
                             <LogOut className='mr-2 h-4 w-4' />
-                            Sign Out
+                            Chiqish
                         </DropdownMenuItem>
                     </DropdownMenuContent>
                 </DropdownMenu>

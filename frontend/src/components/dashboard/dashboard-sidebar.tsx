@@ -113,18 +113,24 @@ export function DashboardSidebar() {
                                 const isOpen = openMenus[item.title] || false;
                                 const hasChildren = Array.isArray((item as any).children) && (item as any).children.length > 0;
 
+                                const itemActive = isActive(item.url);
                                 return (
                                     <SidebarMenuItem key={item.title}>
                                         <SidebarMenuButton
                                             onClick={() => hasChildren && toggleMenu(item.title)}
                                             asChild={!hasChildren}
+                                            isActive={itemActive}
                                         >
                                             {hasChildren ? (
                                                 <NavLink
                                                     to={item.url || '#'}
-                                                    className={`flex items-center w-full ${getNavClass(
-                                                        item.url || ''
-                                                    )}`}
+                                                    className={({ isActive }) => `
+                                                        flex items-center w-full px-3 py-2 rounded-lg transition-all
+                                                        ${isActive 
+                                                            ? 'bg-primary text-primary-foreground shadow-md font-semibold' 
+                                                            : 'hover:bg-accent hover:text-accent-foreground'
+                                                        }
+                                                    `}
                                                 >
                                                     <item.icon className='mr-2 h-4 w-4' />
                                                     {!isCollapsed && <span>{item.title}</span>}
@@ -135,9 +141,13 @@ export function DashboardSidebar() {
                                             ) : (
                                                 <NavLink
                                                     to={item.url}
-                                                    className={`flex items-center w-full ${getNavClass(
-                                                        item.url || ''
-                                                    )}`}
+                                                    className={({ isActive }) => `
+                                                        flex items-center w-full px-3 py-2 rounded-lg transition-all
+                                                        ${isActive 
+                                                            ? 'bg-primary text-primary-foreground shadow-md font-semibold' 
+                                                            : 'hover:bg-accent hover:text-accent-foreground'
+                                                        }
+                                                    `}
                                                 >
                                                     <item.icon className='mr-2 h-4 w-4' />
                                                     {!isCollapsed && <span>{item.title}</span>}
