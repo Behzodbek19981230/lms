@@ -1,3 +1,7 @@
+# ===========================================
+# EduNimbus Connect - Complete .gitignore
+# ===========================================
+
 # Logs
 logs
 *.log
@@ -6,27 +10,450 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
+error.log
 
-node_modules
-dist
-# dist-ssr
-*.local
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
 
-# Editor directories and files
-.vscode/*
-!.vscode/extensions.json
-.idea
-.DS_Store
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
+# Coverage directory used by tools like istanbul
+coverage
+*.lcov
 
+# nyc test coverage
+.nyc_output
+
+# Grunt intermediate storage
+.grunt
+
+# Bower dependency directory
+bower_components
+
+# node-waf configuration
+.lock-wscript
+
+# Compiled binary addons
+build/Release
 
 # Dependency directories
-backend/node_modules
-backend/dist
-backend/src/migrations
-# Keep public/uploads tracked for printable HTML outputs
-backend/public/uploads
+node_modules/
+jspm_packages/
+
+# TypeScript cache
+*.tsbuildinfo
+
+# Optional npm cache directory
+.npm
+
+# Optional eslint cache
+.eslintcache
+
+# Microbundle cache
+.rpt2_cache/
+.rts2_cache_cjs/
+.rts2_cache_es/
+.rts2_cache_umd/
+
+# Optional REPL history
+.node_repl_history
+
+# Output of 'npm pack'
+*.tgz
+
+# Yarn Integrity file
+.yarn-integrity
+
+# dotenv environment variables file
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# parcel-bundler cache
+.cache
+.parcel-cache
+
+# Next.js build output
+.next
+
+# Nuxt.js build / generate output
+.nuxt
+dist
+
+# Gatsby files
+.cache/
+public
+
+# Storybook build outputs
+.out
+.storybook-out
+
+# Temporary folders
+tmp/
+temp/
+
+# ===========================================
+# Backend (NestJS) Specific
+# ===========================================
+
+# Backend dependencies
+backend/node_modules/
+backend/dist/
+backend/build/
+
+# Backend logs
+backend/logs/
+backend/*.log
+
+# Backend environment files
+backend/.env
+backend/.env.local
+backend/.env.development.local
+backend/.env.test.local
+backend/.env.production.local
+
+# Backend database
+backend/database.sqlite
+backend/database.sqlite3
+backend/*.db
+
+# Backend uploads (keep some tracked)
+backend/public/uploads/*
+!backend/public/uploads/.gitkeep
+
+# Backend migrations (keep tracked)
+# backend/src/migrations/
+
+# Backend build artifacts
+backend/coverage/
+backend/.nyc_output/
+
+# ===========================================
+# Frontend (React + Vite) Specific
+# ===========================================
+
+# Frontend dependencies
+frontend/node_modules/
+frontend/dist/
+frontend/build/
+
+# Frontend environment files
+frontend/.env
+frontend/.env.local
+frontend/.env.development.local
+frontend/.env.test.local
+frontend/.env.production.local
+
+# Frontend build outputs
+frontend/dist-ssr/
+frontend/.vite/
+
+# Frontend cache
+frontend/.cache/
+frontend/.parcel-cache/
+
+# ===========================================
+# React Native Mobile App Specific
+# ===========================================
+
+# React Native dependencies
+EduNimbusMobile/node_modules/
+EduNimbusMobile/.expo/
+
+# React Native build outputs
+EduNimbusMobile/android/app/build/
+EduNimbusMobile/android/build/
+EduNimbusMobile/android/.gradle/
+EduNimbusMobile/android/local.properties
+
+# iOS build outputs
+EduNimbusMobile/ios/build/
+EduNimbusMobile/ios/Pods/
+EduNimbusMobile/ios/Podfile.lock
+EduNimbusMobile/ios/*.xcworkspace/xcuserdata/
+EduNimbusMobile/ios/*.xcodeproj/xcuserdata/
+EduNimbusMobile/ios/*.xcodeproj/project.xcworkspace/xcuserdata/
+
+# React Native Metro
+EduNimbusMobile/.metro/
+EduNimbusMobile/metro.config.js.bak
+
+# React Native environment files
+EduNimbusMobile/.env
+EduNimbusMobile/.env.local
+EduNimbusMobile/.env.development.local
+EduNimbusMobile/.env.test.local
+EduNimbusMobile/.env.production.local
+
+# React Native logs
+EduNimbusMobile/*.log
+EduNimbusMobile/logs/
+
+# React Native bundle
+EduNimbusMobile/.bundle/
+
+# React Native watchman
+EduNimbusMobile/.watchmanconfig.bak
+
+# ===========================================
+# IDE and Editor Files
+# ===========================================
+
+# VSCode
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+
+# IntelliJ IDEA
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# Vim
+*.swp
+*.swo
+*~
+
+# Emacs
+*~
+\#*\#
+/.emacs.desktop
+/.emacs.desktop.lock
+*.elc
+auto-save-list
+tramp
+.\#*
+
+# ===========================================
+# OS Generated Files
+# ===========================================
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+._*
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+.AppleDB
+.AppleDesktop
+Network Trash Folder
+Temporary Items
+.apdisk
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+*.stackdump
+[Dd]esktop.ini
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msix
+*.msm
+*.msp
+*.lnk
+
+# Linux
+*~
+.fuse_hidden*
+.directory
+.Trash-*
+.nfs*
+
+# ===========================================
+# Build and Deployment
+# ===========================================
+
+# Build outputs
+build/
+dist/
+out/
+
+# Deployment files
+deployment/
+deploy/
+.dockerignore
+
+# Docker
+.dockerignore
+docker-compose.override.yml
+
+# ===========================================
+# Testing and Coverage
+# ===========================================
+
+# Test coverage
+coverage/
+.nyc_output/
+*.lcov
+
+# Jest
+jest.config.js.bak
+
+# Cypress
+cypress/videos/
+cypress/screenshots/
+
+# ===========================================
+# Documentation and Assets
+# ===========================================
+
+# Generated documentation
+docs/build/
+docs/_build/
+
+# Large media files (uncomment if needed)
+# *.mp4
+# *.mov
+# *.avi
+# *.mkv
+# *.wmv
+# *.flv
+# *.webm
+
+# Large images (uncomment if needed)
+# *.psd
+# *.ai
+# *.sketch
+
+# ===========================================
+# Security and Secrets
+# ===========================================
+
+# API keys and secrets
+*.key
+*.pem
+*.p12
+*.pfx
+secrets/
+.secrets/
+
+# SSL certificates
+*.crt
+*.cer
+*.der
+ssl/
+
+# ===========================================
+# Backup and Temporary Files
+# ===========================================
+
+# Backup files
+*.bak
+*.backup
+*.old
+*.orig
+*.rej
+*.swp
+*.tmp
+
+# Temporary files
+temp/
+tmp/
+.tmp/
+.temp/
+
+# ===========================================
+# Package Managers
+# ===========================================
+
+# Yarn
+.yarn/cache
+.yarn/unplugged
+.yarn/build-state.yml
+.yarn/install-state.gz
+.pnp.*
+
+# pnpm
+.pnpm-debug.log*
+
+# ===========================================
+# Custom Project Files
+# ===========================================
+
+# Keep important files tracked
+!README.md
+!package.json
+!package-lock.json
+!yarn.lock
+!pnpm-lock.yaml
+
+# Keep configuration files tracked
+!tsconfig.json
+!tsconfig.*.json
+!vite.config.ts
+!tailwind.config.ts
+!postcss.config.js
+!eslint.config.*
+!.eslintrc.*
+!prettier.config.*
+!.prettierrc.*
+
+# Keep mobile app configs tracked
+!EduNimbusMobile/android/app/build.gradle
+!EduNimbusMobile/android/build.gradle
+!EduNimbusMobile/android/gradle.properties
+!EduNimbusMobile/android/settings.gradle
+!EduNimbusMobile/ios/Podfile
+!EduNimbusMobile/metro.config.js
+!EduNimbusMobile/babel.config.js
+!EduNimbusMobile/app.json
+
+# Keep backend configs tracked
+!backend/nest-cli.json
+!backend/tsconfig.json
+!backend/tsconfig.build.json
+!backend/package.json
+!backend/package-lock.json
+
+# Keep frontend configs tracked
+!frontend/vite.config.ts
+!frontend/tailwind.config.ts
+!frontend/postcss.config.js
+!frontend/tsconfig.json
+!frontend/tsconfig.*.json
+!frontend/package.json
+!frontend/package-lock.json
+
+# Keep scripts tracked
+!scripts/
+!scripts/*.sh
+!scripts/*.js
+!scripts/*.ts
+
+# Keep documentation tracked
+!docs/
+!*.md
+!LICENSE
+!CHANGELOG.md
+
+# Keep CI/CD tracked
+!.github/
+!.github/workflows/
+!.github/workflows/*.yml
+!.github/workflows/*.yaml
+
+# Keep deployment configs tracked
+!docker-compose.yml
+!Dockerfile*
+!nginx.conf
+!nginx-*.conf
