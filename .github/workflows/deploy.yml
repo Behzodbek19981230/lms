@@ -92,6 +92,6 @@ jobs:
                       export PATH=$NVM_DIR/versions/node/v22.18.0/bin:$PATH
                       cd /var/www/lms/frontend
                       git pull origin main
-                      npm install --legacy-peer-deps
-                      npm run build
-                      echo "${{ secrets.SERVER_PASS }}" | sudo -S systemctl reload nginx
+                      # npm install --legacy-peer-deps
+                      # npm run build
+                      # echo "${{ secrets.SERVER_PASS }}" | sudo -S systemctl reload nginx

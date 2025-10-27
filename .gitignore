@@ -79,9 +79,7 @@ jspm_packages/
 # Next.js build output
 .next
 
-# Nuxt.js build / generate output
-.nuxt
-dist
+
 
 # Gatsby files
 .cache/
@@ -137,8 +135,8 @@ backend/.nyc_output/
 
 # Frontend dependencies
 frontend/node_modules/
-frontend/dist/
-frontend/build/
+# frontend/dist/
+# frontend/build/
 
 # Frontend environment files
 frontend/.env
@@ -148,7 +146,7 @@ frontend/.env.test.local
 frontend/.env.production.local
 
 # Frontend build outputs
-frontend/dist-ssr/
+# frontend/dist-ssr/
 frontend/.vite/
 
 # Frontend cache
@@ -285,7 +283,7 @@ $RECYCLE.BIN/
 
 # Build outputs
 build/
-dist/
+# dist/
 out/
 
 # Deployment files
