@@ -350,7 +350,6 @@ export class TestGeneratorService {
           -webkit-column-break-inside: avoid;
           -moz-column-break-inside: avoid;
           margin-bottom: 18px;
-          page-break-before: always;
         }
         .variant-item:first-child {
           page-break-before: auto;
@@ -380,8 +379,8 @@ export class TestGeneratorService {
           .section#variants { page-break-before: auto !important; }
           .section-title { page-break-after: avoid !important; margin-bottom: 4px !important; padding-bottom: 4px !important; }
           .variants-container { page-break-before: avoid !important; margin-top: 0 !important; padding-top: 0 !important; }
-          .variant-item { page-break-before: avoid !important; page-break-after: auto !important; }
-          .variant-item:first-child { page-break-before: avoid !important; margin-top: 0 !important; }
+          .variant-item { page-break-before: always !important; page-break-after: auto !important; page-break-inside: avoid; }
+          .variant-item:first-child { page-break-before: auto !important; margin-top: 0 !important; }
           .variant-item:last-child { page-break-after: avoid; }
           .no-page-break { page-break-after: avoid !important; page-break-before: avoid !important; }
           .section { page-break-inside: avoid; }
