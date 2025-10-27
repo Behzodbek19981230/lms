@@ -31,12 +31,12 @@ export default function ScannerPage() {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const uploadPercent = useMemo(() => (loading ? 66 : 0), [loading]);
     const [studentId, setStudentId] = useState<number | undefined>(undefined);
-    const {data}=useSWR("/users?role=student",async(url:string)=>{
-        const res=await request.get(url);
+    const { data } = useSWR("/users?role=student", async (url: string) => {
+        const res = await request.get(url);
         return res.data;
     });
-    
-    const students:User[]=data||[];
+
+    const students: User[] = data || [];
 
     // 🎥 Kamera ishga tushirish
     const startCamera = async () => {
@@ -134,7 +134,6 @@ export default function ScannerPage() {
 
         try {
             const imageBase64 = await fileToBase64(f);
-
             const response = await axios.post(
                 "https://fast.universal-uz.uz/analyze",
                 { image: imageBase64 },
@@ -155,10 +154,10 @@ export default function ScannerPage() {
                     answersArray.push(ans || "-");
                 }
                 try {
-                const gradeRes = await gradeByUnique(variantId, answersArray, studentId);
-                setResult(gradeRes);
+                    const gradeRes = await gradeByUnique(variantId, answersArray, studentId);
+                    setResult(gradeRes);
                 } catch (e) {
-                    
+
                     if (e?.response?.status === 500) {
                         setError("Bu rasmni skanerlashda ichki server xatosi yuz berdi. Iltimos, boshqa rasmni sinab ko‘ring.");
                     } else {
@@ -168,14 +167,15 @@ export default function ScannerPage() {
             }
             if (response.data.answers) setAnswers(response.data.answers);
         } catch (e: any) {
-            if(e?.response?.status === 500){
+            if (e?.response?.status === 500) {
                 setError("Bu rasmni skanerlashda ichki server xatosi yuz berdi. Iltimos, boshqa rasmni sinab ko‘ring.");
             }
-            
-            
-            else{
-                  setError(e?.message || "Xatolik yuz berdi");
-                console.log(e.response?.data);}
+
+
+            else {
+                setError(e?.message || "Xatolik yuz berdi");
+                console.log(e.response?.data);
+            }
         } finally {
             setLoading(false);
         }
@@ -205,7 +205,7 @@ export default function ScannerPage() {
                 <CardContent className="space-y-4">
                     <div className="grid gap-4 md:grid-cols-[1fr_260px]">
                         <div className="space-y-2">
-                                <label className="text-xs md:text-sm font-medium">
+                            <label className="text-xs md:text-sm font-medium">
                                 Rasm (javob varaq surati)
                             </label>
                             <Input type="file" accept="image/*" onChange={onFileChange} />
@@ -226,7 +226,7 @@ export default function ScannerPage() {
                                     Suratga olish va tekshirish
                                 </Button>
                             )}
-                                <p className="text-xs md:text-sm text-muted-foreground">
+                            <p className="text-xs md:text-sm text-muted-foreground">
                                 Maslahat: Sahifa to‘liq sig‘sin, pastki o‘ng burchakdagi ID
                                 blok aniq ko‘rinsin.
                             </p>
@@ -258,17 +258,17 @@ export default function ScannerPage() {
 
                         <div>
                             <Select value={studentId?.toString() || ''} onValueChange={(value) => setStudentId(Number(value))}>
-                <SelectTrigger>
-                  <SelectValue placeholder="O‘quvchini tanlang" />
-                </SelectTrigger>
-                <SelectContent>
-                  {students?.map((student) => (
-                    <SelectItem key={student.id} value={student.id.toString()}>
-                      {student.lastName} {student.firstName} (ID: {student.id})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                                <SelectTrigger>
+                                    <SelectValue placeholder="O‘quvchini tanlang" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {students?.map((student) => (
+                                        <SelectItem key={student.id} value={student.id.toString()}>
+                                            {student.lastName} {student.firstName} (ID: {student.id})
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
                         </div>
                     </div>
 
@@ -284,19 +284,19 @@ export default function ScannerPage() {
 
                     {loading && (
                         <div className="space-y-2">
-                                <div className="text-xs md:text-sm text-muted-foreground">Yuklanmoqda...</div>
+                            <div className="text-xs md:text-sm text-muted-foreground">Yuklanmoqda...</div>
                             <Progress value={uploadPercent} className="h-2" />
                         </div>
                     )}
 
                     {variantId && (
                         <div className="text-xs text-muted-foreground">
-                                Aniqlangan variant ID: <b>{variantId}</b>
+                            Aniqlangan variant ID: <b>{variantId}</b>
                         </div>
                     )}
                     {answers && Object.keys(answers).length > 0 && (
                         <div className="text-xs text-muted-foreground">
-                                Aniqlangan javoblar:{" "}
+                            Aniqlangan javoblar:{" "}
                             {Object.entries(answers)
                                 .map(([k, v]) => `${k}: ${v}`)
                                 .join(", ")}
@@ -333,10 +333,10 @@ export default function ScannerPage() {
                                                 <tr
                                                     key={d.index}
                                                     className={`border-b ${d.isCorrect
-                                                            ? "bg-green-50/50"
-                                                            : d.scanned === "-"
-                                                                ? ""
-                                                                : "bg-red-50/50"
+                                                        ? "bg-green-50/50"
+                                                        : d.scanned === "-"
+                                                            ? ""
+                                                            : "bg-red-50/50"
                                                         }`}
                                                 >
                                                     <td className="py-1 pr-2">{d.index + 1}</td>
@@ -344,10 +344,10 @@ export default function ScannerPage() {
                                                     <td className="py-1 pr-2">{d.scanned}</td>
                                                     <td
                                                         className={`py-1 pr-2 ${d.isCorrect
-                                                                ? "text-green-600"
-                                                                : d.scanned === "-"
-                                                                    ? "text-muted-foreground"
-                                                                    : "text-red-600"
+                                                            ? "text-green-600"
+                                                            : d.scanned === "-"
+                                                                ? "text-muted-foreground"
+                                                                : "text-red-600"
                                                             }`}
                                                     >
                                                         {d.isCorrect ? "✓" : d.scanned === "-" ? "-" : "×"}
