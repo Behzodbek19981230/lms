@@ -80,9 +80,9 @@ const TelegramManager: React.FC<TelegramManagerProps> = ({
       }
 
     } catch (error: any) {
-      const errorMessage = error?.response?.data?.message || 'Failed to load Telegram data';
+      const errorMessage = error?.response?.data?.message || 'Telegram ma\'lumotlarini yuklab bo\'lmadi';
       toast({
-        title: 'Error',
+        title: 'Xato',
         description: errorMessage,
         variant: 'destructive'
       });
@@ -98,7 +98,7 @@ const TelegramManager: React.FC<TelegramManagerProps> = ({
 
   const handleSuccess = (message: string) => {
     toast({
-      title: 'Success',
+      title: 'Muvaffaqiyat',
       description: message,
       variant: 'default'
     });
@@ -109,7 +109,7 @@ const TelegramManager: React.FC<TelegramManagerProps> = ({
 
   const handleError = (error: string) => {
     toast({
-      title: 'Error',
+      title: 'Xato',
       description: error,
       variant: 'destructive'
     });
@@ -134,7 +134,7 @@ const TelegramManager: React.FC<TelegramManagerProps> = ({
         <CardContent className="p-6">
           <div className="flex items-center justify-center space-x-2">
             <RefreshCw className="h-4 w-4 animate-spin" />
-            <span>Loading Telegram data...</span>
+            <span>Telegram ma'lumotlari yuklanmoqda...</span>
           </div>
         </CardContent>
       </Card>

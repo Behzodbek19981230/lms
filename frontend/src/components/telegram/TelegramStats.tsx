@@ -63,7 +63,7 @@ const TelegramStats: React.FC<TelegramStatsProps> = ({
         <CardContent className="p-6">
           <div className="flex items-center justify-center space-x-2">
             <RefreshCw className="h-4 w-4 animate-spin" />
-            <span>Loading statistics...</span>
+            <span>Statistika yuklanmoqda...</span>
           </div>
         </CardContent>
       </Card>

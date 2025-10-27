@@ -111,7 +111,7 @@ const TelegramUserManagement: React.FC<TelegramUserManagementProps> = ({
         <CardContent className="p-6">
           <div className="flex items-center justify-center space-x-2">
             <RefreshCw className="h-4 w-4 animate-spin" />
-            <span>Loading user management data...</span>
+            <span>Foydalanuvchi boshqaruvi ma'lumotlari yuklanmoqda...</span>
           </div>
         </CardContent>
       </Card>

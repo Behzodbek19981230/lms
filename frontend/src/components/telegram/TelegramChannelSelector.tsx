@@ -37,7 +37,7 @@ const TelegramChannelSelector: React.FC<TelegramChannelSelectorProps> = ({
   return (
     <Select value={selectedChannelId} onValueChange={onChannelSelect} disabled={loading}>
       <SelectTrigger>
-        <SelectValue placeholder={loading ? "Loading channels..." : "Select a channel"} />
+        <SelectValue placeholder={loading ? "Kanal yuklanmoqda..." : "Kanal tanlang"} />
       </SelectTrigger>
       <SelectContent>
         {displayChannels.map((channel) => (

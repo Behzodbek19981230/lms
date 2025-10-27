@@ -86,7 +86,7 @@ const TelegramWidget: React.FC<TelegramWidgetProps> = ({
       {!loaded && (
         <div className="animate-pulse bg-blue-100 rounded" style={{ width: '200px', height: '34px' }}>
           <div className="flex items-center justify-center h-full text-xs text-blue-600">
-            Loading Telegram...
+            Telegram yuklanmoqda...
           </div>
         </div>
       )}
