@@ -9,23 +9,24 @@ All colors MUST be HSL.
 @layer base {
     :root {
         --background: 0 0% 100%;
-        --foreground: 220 14% 8%;
+        --foreground: 222 47% 11%;
 
         --card: 0 0% 100%;
-        --card-foreground: 220 14% 8%;
+        --card-foreground: 222 47% 11%;
 
         --popover: 0 0% 100%;
         --popover-foreground: 220 14% 8%;
 
-        --primary: 220 93% 64%;
+        /* Optivora Blue Primary Palette */
+        --primary: 210 96% 26%;
         --primary-foreground: 0 0% 100%;
-        --primary-glow: 218 95% 78%;
+        --primary-glow: 210 85% 45%;
 
-        --secondary: 210 40% 96%;
+        --secondary: 214 43% 96%;
         --secondary-foreground: 217 19% 27%;
 
-        --muted: 220 14% 96%;
-        --muted-foreground: 220 8% 46%;
+        --muted: 212 40% 96%;
+        --muted-foreground: 215 16% 47%;
 
         --accent: 160 84% 39%;
         --accent-foreground: 0 0% 100%;
@@ -34,33 +35,33 @@ All colors MUST be HSL.
         --destructive: 0 84% 60%;
         --destructive-foreground: 210 40% 98%;
 
-        --border: 214 32% 91%;
-        --input: 214 32% 91%;
-        --ring: 217 91% 59%;
+        --border: 214 30% 88%;
+        --input: 214 30% 88%;
+        --ring: 210 85% 38%;
 
         --radius: 0.75rem;
 
-        /* Educational design tokens */
-        --gradient-primary: linear-gradient(135deg, hsl(220 93% 64%), hsl(218 95% 78%));
+        /* Educational design tokens with Optivora blues */
+        --gradient-primary: linear-gradient(135deg, hsl(210 96% 26%), hsl(210 85% 45%));
         --gradient-accent: linear-gradient(135deg, hsl(160 84% 39%), hsl(160 77% 54%));
-        --gradient-hero: linear-gradient(135deg, hsl(220 93% 64%), hsl(218 95% 78%), hsl(160 84% 39%));
-        --gradient-subtle: linear-gradient(180deg, hsl(0 0% 100%), hsl(220 14% 98%));
-        --gradient-card: linear-gradient(145deg, hsl(0 0% 100%), hsl(220 14% 99%));
-        --gradient-shimmer: linear-gradient(90deg, transparent 0%, hsl(220 93% 64% / 0.1) 50%, transparent 100%);
+        --gradient-hero: linear-gradient(135deg, hsl(210 96% 26%), hsl(210 85% 45%), hsl(160 84% 39%));
+        --gradient-subtle: linear-gradient(180deg, hsl(0 0% 100%), hsl(212 40% 96%));
+        --gradient-card: linear-gradient(145deg, hsl(0 0% 100%), hsl(212 40% 98%));
+        --gradient-shimmer: linear-gradient(90deg, transparent 0%, hsl(210 85% 45% / 0.1) 50%, transparent 100%);
 
-        /* Enhanced shadows with new color scheme */
-        --shadow-elegant: 0 10px 30px -5px hsl(220 93% 64% / 0.12), 0 4px 15px -2px hsl(220 93% 64% / 0.08);
-        --shadow-glow: 0 0 25px hsl(220 93% 64% / 0.2), 0 0 50px hsl(220 93% 64% / 0.1);
-        --shadow-card: 0 4px 20px -2px hsl(220 50% 20% / 0.1), 0 2px 8px -1px hsl(220 50% 20% / 0.06);
-        --shadow-hover: 0 8px 35px -8px hsl(220 93% 64% / 0.15), 0 4px 20px -4px hsl(220 93% 64% / 0.1);
+        /* Enhanced shadows with Optivora blue tones */
+        --shadow-elegant: 0 10px 30px -5px hsl(210 96% 26% / 0.12), 0 4px 15px -2px hsl(210 85% 45% / 0.08);
+        --shadow-glow: 0 0 25px hsl(210 85% 45% / 0.2), 0 0 50px hsl(210 85% 45% / 0.1);
+        --shadow-card: 0 4px 20px -2px hsl(210 96% 26% / 0.08), 0 2px 8px -1px hsl(210 85% 45% / 0.04);
+        --shadow-hover: 0 8px 35px -8px hsl(210 85% 45% / 0.15), 0 4px 20px -4px hsl(210 96% 26% / 0.08);
 
         /* Animations */
         --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         --transition-bounce: all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
 
-        --sidebar-background: 0 0% 98%;
+        --sidebar-background: 0 0% 99%;
 
-        --sidebar-foreground: 240 5.3% 26.1%;
+        --sidebar-foreground: 222 47% 11%;
 
         --sidebar-primary: 240 5.9% 10%;
 
@@ -76,41 +77,43 @@ All colors MUST be HSL.
     }
 
     .dark {
-        --background: 222.2 84% 4.9%;
+        --background: 215 35% 7%;
         --foreground: 210 40% 98%;
 
-        --card: 222.2 84% 4.9%;
+        --card: 215 35% 8%;
         --card-foreground: 210 40% 98%;
 
-        --popover: 222.2 84% 4.9%;
+        --popover: 215 35% 8%;
         --popover-foreground: 210 40% 98%;
 
-        --primary: 210 40% 98%;
-        --primary-foreground: 222.2 47.4% 11.2%;
+        /* Optivora Blue for Dark Mode */
+        --primary: 210 85% 55%;
+        --primary-foreground: 215 35% 7%;
 
-        --secondary: 217.2 32.6% 17.5%;
+        --secondary: 217 30% 20%;
         --secondary-foreground: 210 40% 98%;
 
-        --muted: 217.2 32.6% 17.5%;
-        --muted-foreground: 215 20.2% 65.1%;
+        --muted: 217 30% 20%;
+        --muted-foreground: 215 20% 65%;
 
-        --accent: 217.2 32.6% 17.5%;
-        --accent-foreground: 210 40% 98%;
+        --accent: 160 75% 45%;
+        --accent-foreground: 215 35% 7%;
 
-        --destructive: 0 62.8% 30.6%;
+        --destructive: 0 70% 50%;
         --destructive-foreground: 210 40% 98%;
 
-        --border: 217.2 32.6% 17.5%;
-        --input: 217.2 32.6% 17.5%;
-        --ring: 212.7 26.8% 83.9%;
-        --sidebar-background: 240 5.9% 10%;
-        --sidebar-foreground: 240 4.8% 95.9%;
-        --sidebar-primary: 224.3 76.3% 48%;
-        --sidebar-primary-foreground: 0 0% 100%;
-        --sidebar-accent: 240 3.7% 15.9%;
-        --sidebar-accent-foreground: 240 4.8% 95.9%;
-        --sidebar-border: 240 3.7% 15.9%;
-        --sidebar-ring: 217.2 91.2% 59.8%;
+        --border: 217 25% 22%;
+        --input: 217 25% 22%;
+        --ring: 210 85% 55%;
+        
+        --sidebar-background: 215 30% 11%;
+        --sidebar-foreground: 210 20% 85%;
+        --sidebar-primary: 210 85% 55%;
+        --sidebar-primary-foreground: 215 35% 7%;
+        --sidebar-accent: 210 50% 20%;
+        --sidebar-accent-foreground: 210 20% 85%;
+        --sidebar-border: 217 25% 22%;
+        --sidebar-ring: 210 85% 55%;
     }
 }
 
@@ -128,6 +131,37 @@ All colors MUST be HSL.
     overflow: hidden;
 }
 
+/* Responsive Container Utilities */
+.container-responsive {
+    @apply w-full mx-auto px-3 sm:px-4 md:px-6 lg:px-8;
+}
+
+/* Responsive Grid Utilities */
+.grid-responsive-1 {
+    @apply grid grid-cols-1;
+}
+
+.grid-responsive-2 {
+    @apply grid grid-cols-1 sm:grid-cols-2;
+}
+
+.grid-responsive-3 {
+    @apply grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3;
+}
+
+.grid-responsive-4 {
+    @apply grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4;
+}
+
+/* Responsive Spacing */
+.section-spacing {
+    @apply py-8 sm:py-12 md:py-16 lg:py-20;
+}
+
+.element-spacing {
+    @apply space-y-4 sm:space-y-6 md:space-y-8;
+}
+
 
 @layer base {
     * {
@@ -135,7 +169,70 @@ All colors MUST be HSL.
     }
 
     body {
-        @apply bg-background text-foreground;
+        @apply bg-background text-foreground text-sm sm:text-base;
+    }
+
+    /* Responsive Typography */
+    h1 {
+        @apply text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold tracking-tight;
+    }
+    
+    h2 {
+        @apply text-xl sm:text-2xl md:text-3xl lg:text-4xl font-semibold tracking-tight;
+    }
+    
+    h3 {
+        @apply text-lg sm:text-xl md:text-2xl lg:text-3xl font-semibold tracking-tight;
+    }
+    
+    h4 {
+        @apply text-base sm:text-lg md:text-xl font-semibold;
+    }
+    
+    h5 {
+        @apply text-sm sm:text-base md:text-lg font-medium;
+    }
+    
+    h6 {
+        @apply text-xs sm:text-sm md:text-base font-medium;
+    }
+    
+    p {
+        @apply text-sm sm:text-base leading-relaxed;
+    }
+
+    /* Added custom keyframe animations */
+    @keyframes fadeInUp {
+        from {
+            opacity: 0;
+            transform: translateY(30px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    @keyframes slideIn {
+        from {
+            opacity: 0;
+            transform: translateX(100%);
+        }
+        to {
+            opacity: 1;
+            transform: translateX(0);
+        }
+    }
+
+    @keyframes slideOut {
+        from {
+            opacity: 1;
+            transform: translateX(0);
+        }
+        to {
+            opacity: 0;
+            transform: translateX(-100%);
+        }
     }
 }
 

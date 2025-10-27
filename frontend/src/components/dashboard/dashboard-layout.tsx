@@ -6,18 +6,18 @@ import { Outlet } from 'react-router-dom';
 export const DashboardLayout = () => {
 	return (
 		<SidebarProvider>
-			<div className='min-h-screen flex w-full bg-gradient-to-br from-background via-background/95 to-muted/20'>
+			<div className='min-h-screen flex w-full bg-background'>
 				{/* Sidebar */}
-				<div className='border-r border-border/40'>
+				<div className='hidden md:block border-r border-primary/10 bg-sidebar'>
 					<DashboardSidebar />
 				</div>
 
-				<div className='flex-1 flex flex-col'>
+				<div className='flex-1 flex flex-col w-full'>
 					{/* Header */}
 					<DashboardHeader />
 
 					{/* Main content */}
-					<main className='flex-1 p-6 bg-gradient-to-br from-background/80 to-muted/10 overflow-x-auto'>
+					<main className='flex-1 p-3 sm:p-4 md:p-6 bg-gradient-to-br from-muted/20 via-background to-primary/5 overflow-x-auto'>
 						<Outlet /> {/* Nested routes shu yerda ko'rinadi */}
 					</main>
 				</div>

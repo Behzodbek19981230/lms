@@ -196,7 +196,9 @@ export default function ExamsPage() {
 			// 2) Move exam to in_progress (will trigger Telegram notify inside status handler)
 			await handleUpdateExamStatus(exam.id, 'in_progress');
 		} catch (e: any) {
-			const msg = e?.response?.data?.message || "Boshlashda xatolik: variantlar generatsiyasi yoki holat yangilanishi amalga oshmadi";
+			const msg =
+				e?.response?.data?.message ||
+				'Boshlashda xatolik: variantlar generatsiyasi yoki holat yangilanishi amalga oshmadi';
 			setErrorMessage(msg);
 			toast({ title: 'Xatolik', description: msg, variant: 'destructive' });
 		}
@@ -283,7 +285,7 @@ export default function ExamsPage() {
 		try {
 			await request.delete(`/exams/${examId}`);
 			setExams(exams.filter((exam) => exam.id !== examId));
-			toast({ title: "O'chirildi", description: 'Imtihon muvaffaqiyatli o\'chirildi.' });
+			toast({ title: "O'chirildi", description: "Imtihon muvaffaqiyatli o'chirildi." });
 		} catch (e: any) {
 			const msg = e?.response?.data?.message || "Imtihonni o'chirib bo'lmadi";
 			setErrorMessage(msg);
@@ -379,80 +381,90 @@ export default function ExamsPage() {
 	return (
 		<div className='min-h-screen bg-gradient-subtle'>
 			{/* Header */}
-			<header className='bg-card border-b border-border p-6'>
-				<div className='flex items-center justify-between'>
+			<header className='bg-card border-b border-border p-3 sm:p-4 md:p-6'>
+				<div className='flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4'>
 					<div>
-						<h1 className='text-3xl font-bold text-foreground'>Imtihonlar</h1>
-						<p className='text-muted-foreground'>
+						<h1 className='text-xl sm:text-2xl md:text-3xl font-bold text-foreground'>Imtihonlar</h1>
+						<p className='text-xs sm:text-sm text-muted-foreground'>
 							Imtihonlarni boshqarish va variantlar generatsiya qilish
 						</p>
 					</div>
-					<div className='flex items-center space-x-4'>
-						<Button variant='outline' onClick={() => navigate('/account/test-generator')}>
-							<FileText className='h-4 w-4 mr-2' />
-							Test generatsiya
+					<div className='flex flex-wrap items-center gap-2 sm:gap-3 md:gap-4 w-full sm:w-auto'>
+						<Button
+							variant='outline'
+							size='sm'
+							onClick={() => navigate('/account/test-generator')}
+							className='flex-1 sm:flex-initial'
+						>
+							<FileText className='h-3.5 w-3.5 sm:h-4 sm:w-4 sm:mr-2' />
+							<span className='text-xs sm:text-sm'>Test generatsiya</span>
 						</Button>
-						<Button variant='hero' onClick={() => setIsCreateDialogOpen(true)}>
-							<Plus className='h-4 w-4 mr-2' />
-							Yangi imtihon
+						<Button
+							variant='hero'
+							size='sm'
+							onClick={() => setIsCreateDialogOpen(true)}
+							className='flex-1 sm:flex-initial'
+						>
+							<Plus className='h-3.5 w-3.5 sm:h-4 sm:w-4 sm:mr-2' />
+							<span className='text-xs sm:text-sm'>Yangi imtihon</span>
 						</Button>
 					</div>
 				</div>
 			</header>
 
-			<div className='p-6'>
+			<div className='p-3 sm:p-4 md:p-6'>
 				{/* Stats */}
-				<div className='grid grid-cols-1 md:grid-cols-4 gap-6 mb-6'>
+				<div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6 mb-6'>
 					<Card className='border-border'>
-						<CardContent className='p-6'>
+						<CardContent className='p-4 sm:p-5 md:p-6'>
 							<div className='flex items-center justify-between'>
 								<div>
-									<p className='text-sm text-muted-foreground'>Jami imtihonlar</p>
-									<p className='text-2xl font-bold'>{exams.length}</p>
+									<p className='text-xs sm:text-sm text-muted-foreground'>Jami imtihonlar</p>
+									<p className='text-xl sm:text-2xl font-bold'>{exams.length}</p>
 								</div>
-								<BookOpen className='h-8 w-8 text-blue-500' />
+								<BookOpen className='h-6 w-6 sm:h-7 sm:w-7 md:h-8 md:w-8 text-blue-500' />
 							</div>
 						</CardContent>
 					</Card>
 
 					<Card className='border-border'>
-						<CardContent className='p-6'>
+						<CardContent className='p-4 sm:p-5 md:p-6'>
 							<div className='flex items-center justify-between'>
 								<div>
-									<p className='text-sm text-muted-foreground'>Faol imtihonlar</p>
-									<p className='text-2xl font-bold'>
+									<p className='text-xs sm:text-sm text-muted-foreground'>Faol imtihonlar</p>
+									<p className='text-xl sm:text-2xl font-bold'>
 										{exams.filter((e) => e.status === 'in_progress').length}
 									</p>
 								</div>
-								<Play className='h-8 w-8 text-green-500' />
+								<Play className='h-6 w-6 sm:h-7 sm:w-7 md:h-8 md:w-8 text-green-500' />
 							</div>
 						</CardContent>
 					</Card>
 
 					<Card className='border-border'>
-						<CardContent className='p-6'>
+						<CardContent className='p-4 sm:p-5 md:p-6'>
 							<div className='flex items-center justify-between'>
 								<div>
-									<p className='text-sm text-muted-foreground'>Tugallangan</p>
-									<p className='text-2xl font-bold'>
+									<p className='text-xs sm:text-sm text-muted-foreground'>Tugallangan</p>
+									<p className='text-xl sm:text-2xl font-bold'>
 										{exams.filter((e) => e.status === 'completed').length}
 									</p>
 								</div>
-								<CheckCircle className='h-8 w-8 text-green-600' />
+								<CheckCircle className='h-6 w-6 sm:h-7 sm:w-7 md:h-8 md:w-8 text-green-600' />
 							</div>
 						</CardContent>
 					</Card>
 
 					<Card className='border-border'>
-						<CardContent className='p-6'>
+						<CardContent className='p-4 sm:p-5 md:p-6'>
 							<div className='flex items-center justify-between'>
 								<div>
-									<p className='text-sm text-muted-foreground'>Jami o'quvchilar</p>
-									<p className='text-2xl font-bold'>
+									<p className='text-xs sm:text-sm text-muted-foreground'>Jami o'quvchilar</p>
+									<p className='text-xl sm:text-2xl font-bold'>
 										{exams.reduce((sum, exam) => sum + exam.totalStudents, 0)}
 									</p>
 								</div>
-								<Users className='h-8 w-8 text-purple-500' />
+								<Users className='h-6 w-6 sm:h-7 sm:w-7 md:h-8 md:w-8 text-purple-500' />
 							</div>
 						</CardContent>
 					</Card>

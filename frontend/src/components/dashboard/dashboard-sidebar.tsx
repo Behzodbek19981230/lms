@@ -11,6 +11,7 @@ import {
 	SidebarMenuSub,
 	SidebarMenuSubButton,
 	SidebarMenuSubItem,
+	SidebarFooter,
 	useSidebar,
 } from '@/components/ui/sidebar';
 import {
@@ -29,9 +30,12 @@ import {
 	DollarSign,
 	FileText,
 	Scan,
+	ChevronsLeft,
+	ChevronsRight,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useEffect, useState } from 'react';
+import { Button } from '@/components/ui/button';
 
 const adminItems = [
 	{ title: 'User Management', url: '/dashboard/users', icon: Users },
@@ -75,7 +79,7 @@ const studentMenuItems = [
 ];
 
 export function DashboardSidebar() {
-	const { state } = useSidebar();
+	const { state, toggleSidebar } = useSidebar();
 	const location = useLocation();
 	const { user } = useAuth();
 	const currentPath = location.pathname;
@@ -84,12 +88,6 @@ export function DashboardSidebar() {
 		if (!path) return false;
 		if (path === '/account') return currentPath === '/account';
 		return currentPath.startsWith(path);
-	};
-
-	const getNavClass = (path: string) => {
-		return isActive(path)
-			? 'bg-primary text-primary-foreground font-medium'
-			: 'hover:bg-muted/50 hover:text-foreground';
 	};
 
 	const isCollapsed = state === 'collapsed';
@@ -116,9 +114,11 @@ export function DashboardSidebar() {
 
 	return (
 		<Sidebar collapsible='icon'>
-			<SidebarContent>
+			<SidebarContent className='pt-4 pb-2'>
 				<SidebarGroup>
-					<SidebarGroupLabel>Main Menu</SidebarGroupLabel>
+					<SidebarGroupLabel className='text-xs uppercase tracking-wider text-foreground/50 font-semibold px-4 mb-2'>
+						Main Menu
+					</SidebarGroupLabel>
 					<SidebarGroupContent>
 						<SidebarMenu>
 							{mainItems.map((item) => {
@@ -133,39 +133,50 @@ export function DashboardSidebar() {
 											onClick={() => hasChildren && toggleMenu(item.title)}
 											asChild={!hasChildren}
 											isActive={itemActive}
+											className='group relative'
 										>
 											{hasChildren ? (
 												<NavLink
 													to={item.url || '#'}
 													className={({ isActive }) => `
-                                                        flex items-center w-full px-3 py-2 rounded-lg transition-all
+                                                        flex items-center gap-3 w-full px-4 py-2.5 rounded-md transition-all duration-200
                                                         ${
 															isActive
-																? 'bg-primary text-primary-foreground shadow-md font-semibold'
-																: 'hover:bg-accent hover:text-accent-foreground'
+																? 'text-primary font-semibold'
+																: 'text-foreground/70 hover:text-primary hover:bg-muted/50'
 														}
                                                     `}
 												>
-													<item.icon className='mr-2 h-4 w-4' />
-													{!isCollapsed && <span>{item.title}</span>}
+													<item.icon
+														className={`h-5 w-5 transition-all duration-200 ${
+															isActive ? 'text-primary' : 'text-foreground/60'
+														} ${isOpen ? 'rotate-90' : ''}`}
+													/>
+													{!isCollapsed && <span className='flex-1'>{item.title}</span>}
 													{!isCollapsed && (
-														<span className='ml-auto'>{isOpen ? '▾' : '▸'}</span>
+														<span className='transition-transform duration-200 text-xs opacity-60'>
+															{isOpen ? '▾' : '▸'}
+														</span>
 													)}
 												</NavLink>
 											) : (
 												<NavLink
 													to={item.url}
 													className={({ isActive }) => `
-                                                        flex items-center w-full px-3 py-2 rounded-lg transition-all
+                                                        flex items-center gap-3 w-full px-4 py-2.5 rounded-md transition-all duration-200
                                                         ${
 															isActive
-																? 'bg-primary text-primary-foreground shadow-md font-semibold'
-																: 'hover:bg-accent hover:text-accent-foreground'
+																? 'text-primary font-semibold'
+																: 'text-foreground/70 hover:text-primary hover:bg-muted/50'
 														}
                                                     `}
 												>
-													<item.icon className='mr-2 h-4 w-4' />
-													{!isCollapsed && <span>{item.title}</span>}
+													<item.icon
+														className={`h-5 w-5 transition-all duration-200 ${
+															isActive ? 'text-primary' : 'text-foreground/60'
+														}`}
+													/>
+													{!isCollapsed && <span className='flex-1'>{item.title}</span>}
 												</NavLink>
 											)}
 										</SidebarMenuButton>
@@ -175,11 +186,16 @@ export function DashboardSidebar() {
 											<SidebarMenuSub>
 												{(item as any).children.map((child: any) => (
 													<SidebarMenuSubItem key={child.title}>
-														<SidebarMenuSubButton
-															asChild
-															className={getNavClass(child.url)}
-														>
-															<NavLink to={child.url}>{child.title}</NavLink>
+														<SidebarMenuSubButton asChild>
+															<NavLink
+																to={child.url}
+																className={({ isActive }) => `
+																	flex items-center px-4 py-2 rounded-md transition-all duration-200 text-sm
+																	${isActive ? 'text-primary font-semibold' : 'text-foreground/60 hover:text-primary hover:bg-muted/50'}
+																`}
+															>
+																{child.title}
+															</NavLink>
 														</SidebarMenuSubButton>
 													</SidebarMenuSubItem>
 												))}
@@ -192,6 +208,29 @@ export function DashboardSidebar() {
 					</SidebarGroupContent>
 				</SidebarGroup>
 			</SidebarContent>
+
+			{/* Sidebar Toggle Footer */}
+			<SidebarFooter className='p-2 border-t border-primary/10'>
+				<Button
+					variant='ghost'
+					onClick={toggleSidebar}
+					className='w-full justify-center group hover:bg-primary/5 transition-all duration-200 relative overflow-hidden'
+					title={isCollapsed ? 'Kengaytirish' : "Yig'ish"}
+				>
+					<div className='flex items-center gap-3 px-4 py-2.5'>
+						{isCollapsed ? (
+							<ChevronsRight className='h-5 w-5 text-primary animate-pulse hover:animate-none transition-all duration-300' />
+						) : (
+							<>
+								<ChevronsLeft className='h-5 w-5 text-primary transition-all duration-300 group-hover:scale-110' />
+								<span className='text-sm font-medium text-foreground/70 group-hover:text-primary transition-colors'>
+									Yig'ish
+								</span>
+							</>
+						)}
+					</div>
+				</Button>
+			</SidebarFooter>
 		</Sidebar>
 	);
 }
