@@ -338,6 +338,7 @@ export class TestGeneratorService {
         .section { padding: 8px 12px; }
         .section-title { font-size: 18px; font-weight: 700; margin: 8px 0 12px; }
         .page-break { page-break-after: always; }
+        .no-page-break { page-break-after: avoid !important; }
         .variants-container {
           column-count: 1;
           column-gap: 36px;
@@ -375,6 +376,12 @@ export class TestGeneratorService {
           .variant-item { page-break-before: auto !important; }
           .variant-item:first-child { page-break-before: avoid !important; }
           .variant-item:last-child { page-break-after: avoid; }
+          .section-title { page-break-after: avoid !important; margin-bottom: 8px !important; }
+          .variants-container { page-break-inside: avoid; }
+          .section { page-break-inside: avoid; }
+          .no-page-break { page-break-after: avoid !important; page-break-before: avoid !important; }
+          .variants-container .variant-item:first-child { margin-top: 0 !important; }
+          .section-title + .variants-container { margin-top: 0 !important; }
         }
         /* Hide center separator on small screens when columns drop to one */
         @media screen and (max-width: 900px) {
@@ -390,9 +397,9 @@ export class TestGeneratorService {
         <button onclick="(function(){ document.body.classList.remove('print-sheets'); document.body.classList.add('print-variants'); setTimeout(function(){ window.print(); setTimeout(function(){ document.body.classList.remove('print-variants'); }, 100); }, 0); })()">Faqat variantlar</button>
         <span style="color:#666; font-size:13px;">Chop etish oynasida "Save as PDF"ni tanlang.</span>
       </div>
-      <div class="section" id="variants">
-        <div class="section-title">Barcha variantlar</div>
-        <div class="variants-container">${variantsSection}</div>
+      <div class="section no-page-break" id="variants">
+        <div class="section-title no-page-break">Barcha variantlar</div>
+        <div class="variants-container no-page-break">${variantsSection}</div>
       </div>
       <script>
         window.addEventListener('DOMContentLoaded', function() {
