@@ -497,7 +497,7 @@ export class TelegramController {
         lastName,
       );
 
-      let welcomeMessage = `🎓 <b>Assalomu alaykum, Universal LMS botiga xush kelibsiz!</b>\n\n`;
+      let welcomeMessage = `🎓 <b>Assalomu alaykum, EduOne LMS botiga xush kelibsiz!</b>\n\n`;
 
       if (result.autoConnected) {
         welcomeMessage += result.message;
@@ -556,7 +556,7 @@ export class TelegramController {
   }
 
   private async handleMainMenu(message: any) {
-    const menuMessage = `🎓 <b>Universal LMS - Asosiy Menu</b>\n\nQuyidagi bo'limlardan birini tanlang:\n\n📊 /natijalarim - Test natijalarim\n📅 /davomatim - Davomat hisobotim\n👤 /hisobim - Shaxsiy ma'lumotlar\n\n---\n📚 <b>Ta'lim jarayoni:</b>\n✅ /yoklama - Yo'qlama olish (o'qituvchilar)\n📢 /elon - E'lonlar va xabarlar\n📝 /testlar - Aktiv testlar\n\n---\n📞 <b>Yordam:</b>\n❓ /help - To'liq yordam\n📞 /aloqa - Aloqa ma'lumotlari`;
+    const menuMessage = `🎓 <b>EduOne LMS - Asosiy Menu</b>\n\nQuyidagi bo'limlardan birini tanlang:\n\n📊 /natijalarim - Test natijalarim\n📅 /davomatim - Davomat hisobotim\n👤 /hisobim - Shaxsiy ma'lumotlar\n\n---\n📚 <b>Ta'lim jarayoni:</b>\n✅ /yoklama - Yo'qlama olish (o'qituvchilar)\n📢 /elon - E'lonlar va xabarlar\n📝 /testlar - Aktiv testlar\n\n---\n📞 <b>Yordam:</b>\n❓ /help - To'liq yordam\n📞 /aloqa - Aloqa ma'lumotlari`;
 
     if (this.telegramService['bot']) {
       await this.telegramService['bot'].sendMessage(
@@ -757,7 +757,7 @@ export class TelegramController {
   }
 
   private async handleContact(message: any) {
-    const contactMessage = `📞 <b>Aloqa Ma'lumotlari</b>\n\n🏢 <b>Universal LMS</b>\n\n📧 Email: info@universal-lms.uz\n📱 Telefon: +998 90 123 45 67\n🌐 Website: https://universal-lms.uz\n\n👨‍🏫 <b>O'qituvchi bilan bog'lanish:</b>\nO'z guruhingiz o'qituvchisi bilan to'g'ridan-to'g'ri bog'lanish uchun /menu bo'limidan foydalaning.\n\n💬 <b>Texnik yordam:</b>\nBot bilan bog'liq muammolar uchun admin bilan bog'laning.`;
+    const contactMessage = `📞 <b>Aloqa Ma'lumotlari</b>\n\n🏢 <b>EduOne LMS</b>\n\n📧 Email: info@eduone-lms.uz\n📱 Telefon: +998 90 123 45 67\n🌐 Website: https://eduone-lms.uz\n\n👨‍🏫 <b>O'qituvchi bilan bog'lanish:</b>\nO'z guruhingiz o'qituvchisi bilan to'g'ridan-to'g'ri bog'lanish uchun /menu bo'limidan foydalaning.\n\n💬 <b>Texnik yordam:</b>\nBot bilan bog'liq muammolar uchun admin bilan bog'laning.`;
 
     if (this.telegramService['bot']) {
       await this.telegramService['bot'].sendMessage(
@@ -773,6 +773,6 @@ export class TelegramController {
   }
 
   private getHelpMessage(): string {
-    return `🤖 <b>Universal LMS Bot</b>\n\n📋 <b>Mavjud buyruqlar:</b>\n/start - Botni ishga tushirish\n/menu - Asosiy menyu\n/natijalarim - Test natijalarim\n/davomatim - Davomat ma'lumotlarim\n/hisobim - Hisob ma'lumotlarim\n/help - Yordam\n\n📚 <b>Testlarga javob berish:</b>\nFormat: #T123Q1 A\n• T123 = Test ID\n• Q1 = Savol raqami\n• A = Javobingiz\n\n🔗 <b>Hisobni ulash kerakmi?</b>\nO'qituvchingiz bilan bog'laning:\n• Telegram username\n• To'liq ismingiz\n\n📞 <b>Yordam:</b>\nO'qituvchi yoki admin bilan bog'laning.`;
+    return `🤖 <b>EduOne LMS Bot</b>\n\n📋 <b>Mavjud buyruqlar:</b>\n/start - Botni ishga tushirish\n/menu - Asosiy menyu\n/natijalarim - Test natijalarim\n/davomatim - Davomat ma'lumotlarim\n/hisobim - Hisob ma'lumotlarim\n/help - Yordam\n\n📚 <b>Testlarga javob berish:</b>\nFormat: #T123Q1 A\n• T123 = Test ID\n• Q1 = Savol raqami\n• A = Javobingiz\n\n🔗 <b>Hisobni ulash kerakmi?</b>\nO'qituvchingiz bilan bog'laning:\n• Telegram username\n• To'liq ismingiz\n\n📞 <b>Yordam:</b>\nO'qituvchi yoki admin bilan bog'laning.`;
   }
 }

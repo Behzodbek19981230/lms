@@ -19,8 +19,8 @@ TELEGRAM_WEBHOOK_URL=https://yourdomain.com/telegram/webhook
 
 1. Telegram'da `@BotFather` ni toping
 2. `/newbot` buyrug'ini yuboring
-3. Bot nomini kiriting (masalan: "Universal LMS Bot")
-4. Bot username kiriting (masalan: "universal_lms_bot")
+3. Bot nomini kiriting (masalan: "EduOne LMS Bot")
+4. Bot username kiriting (masalan: "eduone_lms_bot")
 5. BotFather sizga token beradi - uni `.env` fayliga qo'shing
 
 ### 3. Webhook O'rnatish

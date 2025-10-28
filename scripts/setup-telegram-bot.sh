@@ -1,9 +1,9 @@
 #!/bin/bash
 
-# Telegram Bot Setup Script for Universal LMS
+# Telegram Bot Setup Script for EduOne LMS
 # This script helps you set up the Telegram bot webhook
 
-echo "🤖 Universal LMS Telegram Bot Setup"
+echo "🤖 EduOne LMS Telegram Bot Setup"
 echo "======================================"
 
 # Check if environment variables are set

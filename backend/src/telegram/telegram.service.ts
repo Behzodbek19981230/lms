@@ -320,7 +320,7 @@ export class TelegramService {
 
     // Botdan tabrik xabari yuborish
     if (this.bot && dto.chatId) {
-      let welcomeMsg = `🎉 Universal LMS tizimiga xush kelibsiz!\n\nSizning chat/kanaingiz ro'yxatga olindi.`;
+      let welcomeMsg = `🎉 EduOne LMS tizimiga xush kelibsiz!\n\nSizning chat/kanaingiz ro'yxatga olindi.`;
       if (dto.title) welcomeMsg += `\nKanal nomi: ${dto.title}`;
       welcomeMsg += `\nEndi testlar va natijalar shu chat/kanaal orqali yuboriladi.`;
       try {
@@ -1471,7 +1471,7 @@ export class TelegramService {
         )
         .join('\n\n');
 
-      const invitationMessage = `🎓 Universal LMS Telegram integratsiyasiga xush kelibsiz!\n\nDarslaringiz uchun quyidagi kanallarga qo'shiling:\n\n${channelList}\n\n📋 Ko'rsatmalar:\n• Yuqoridagi kanallarga qo'shiling\n• U yerda test xabarnomalari olasiz\n• Testlarga quyidagi formatda javob bering: #T123Q1 A\n• Javoblaringizga darhol fikr-mulohaza oling\n\n❓ Yordam kerakmi? O'qituvchingiz bilan bog'laning yoki /help yuboring`;
+      const invitationMessage = `🎓 EduOne LMS Telegram integratsiyasiga xush kelibsiz!\n\nDarslaringiz uchun quyidagi kanallarga qo'shiling:\n\n${channelList}\n\n📋 Ko'rsatmalar:\n• Yuqoridagi kanallarga qo'shiling\n• U yerda test xabarnomalari olasiz\n• Testlarga quyidagi formatda javob bering: #T123Q1 A\n• Javoblaringizga darhol fikr-mulohaza oling\n\n❓ Yordam kerakmi? O'qituvchingiz bilan bog'laning yoki /help yuboring`;
 
       if (this.bot) {
         await this.bot.sendMessage(userChat.telegramUserId, invitationMessage, {
