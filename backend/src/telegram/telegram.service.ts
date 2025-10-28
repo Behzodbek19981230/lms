@@ -2389,13 +2389,57 @@ export class TelegramService {
         `Attendance marked by teacher ${chat.user.firstName} (ID: ${chat.user.id}) for student ${student.firstName} ${student.lastName} (ID: ${student.id}): ${status}`,
       );
 
-      // Send notification about attendance
-      await this.notifyAttendanceTaken(
-        group.name,
-        chat.user.firstName + ' ' + (chat.user.lastName || ''),
-        status === 'keldi' ? 1 : 0,
-        1,
-      );
+      // Create detailed attendance message for channel
+      let attendanceMessage = `📋 <b>Yo'qlama Ma'lumoti</b>\n\n`;
+      attendanceMessage += `🏷️ <b>Guruh:</b> ${group.name}\n`;
+      if (group.subject) {
+        attendanceMessage += `📚 <b>Fan:</b> ${group.subject.name}\n`;
+      }
+      attendanceMessage += `👤 <b>Student:</b> ${student.firstName} ${student.lastName}\n`;
+      
+      const statusEmoji = status === 'keldi' ? '✅ Keldi' : status === 'kechikdi' ? '⏰ Kechikdi' : '❌ Kelmadi';
+      attendanceMessage += `📊 <b>Status:</b> ${statusEmoji}\n`;
+      attendanceMessage += `👨‍🏫 <b>O'qituvchi:</b> ${chat.user.firstName}\n`;
+      attendanceMessage += `📅 <b>Sana:</b> ${new Date().toLocaleDateString()}\n`;
+      attendanceMessage += `⏰ <b>Vaqt:</b> ${new Date().toLocaleTimeString()}`;
+
+      // Send to group-specific channel if exists
+      try {
+        const groupChat = await this.telegramChatRepo.findOne({
+          where: {
+            group: { id: group.id },
+            type: 'CHANNEL',
+            status: 'ACTIVE',
+          },
+        });
+
+        if (groupChat && this.bot) {
+          await this.bot.sendMessage(groupChat.chatId, attendanceMessage, {
+            parse_mode: 'HTML',
+          });
+          console.log(`📤 Attendance sent to channel for group ${group.name}`);
+        } else {
+          // If no group channel, try subject channel
+          if (group.subject) {
+            const subjectChat = await this.telegramChatRepo.findOne({
+              where: {
+                subject: { id: group.subject.id },
+                type: 'CHANNEL',
+                status: 'ACTIVE',
+              },
+            });
+
+            if (subjectChat && this.bot) {
+              await this.bot.sendMessage(subjectChat.chatId, attendanceMessage, {
+                parse_mode: 'HTML',
+              });
+              console.log(`📤 Attendance sent to subject channel for ${group.subject.name}`);
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Failed to send attendance to channel:', error);
+      }
 
       return resultMessage;
     } catch (error) {
