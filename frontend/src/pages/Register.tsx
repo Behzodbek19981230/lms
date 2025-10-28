@@ -5,9 +5,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { BookOpen, Eye, EyeOff, Lock, Mail, Phone, User } from 'lucide-react';
-import { Link, useNavigate } from 'react-router-dom';
-import { useToast } from '@/hooks/use-toast.ts';
-import { request } from '@/configs/request.ts';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useToast } from '@/hooks/use-toast';
+import { request } from '@/configs/request';
 
 const Register = () => {
 	const [formData, setFormData] = useState({
@@ -21,7 +22,7 @@ const Register = () => {
 	const [showPassword, setShowPassword] = useState(false);
 	const [isLoading, setIsLoading] = useState(false);
 	const { toast } = useToast();
-	const navigate = useNavigate();
+	const router = useRouter();
 
 	const handleInputChange = (field: string, value: string) => {
 		setFormData((prev) => ({ ...prev, [field]: value }));
@@ -54,11 +55,10 @@ const Register = () => {
 			toast({
 				title: "Ro'yxatdan o'tish muvaffaqiyatli!",
 				description: 'Hisobingiz muvaffaqiyatli yaratildi. Iltimos, tizimga kiring.',
-				variant: 'success',
 			});
 			setIsLoading(false);
 			// Redirect to no-center page after successful registration
-			navigate('/no-center');
+			router.push('/no-center');
 		} catch (error) {
 			console.error("Ro'yxatdan o'tishda xatolik:", error);
 			toast({
@@ -70,8 +70,6 @@ const Register = () => {
 			return;
 		}
 	};
-
-
 
 	return (
 		<div className='min-h-screen bg-gradient-subtle flex items-center justify-center p-4'>
@@ -217,12 +215,11 @@ const Register = () => {
 							</Button>
 						</form>
 
-
 						<div className='mt-6 text-center'>
 							<p className='text-sm text-muted-foreground'>
 								Allaqachon hisobingiz bormi?{' '}
 								<Link
-									to='/login'
+									href='/login'
 									className='text-primary hover:text-primary-glow font-medium transition-colors'
 								>
 									Kirish
@@ -234,7 +231,7 @@ const Register = () => {
 
 				{/* Back to home */}
 				<div className='text-center mt-6'>
-					<Link to='/' className='text-sm text-muted-foreground hover:text-foreground transition-colors'>
+					<Link href='/' className='text-sm text-muted-foreground hover:text-foreground transition-colors'>
 						← Bosh sahifaga qaytish
 					</Link>
 				</div>

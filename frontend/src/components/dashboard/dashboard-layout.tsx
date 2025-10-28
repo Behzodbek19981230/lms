@@ -1,9 +1,8 @@
 import { SidebarProvider } from '@/components/ui/sidebar';
 import { DashboardHeader } from '@/components/dashboard/dashboard-header';
 import { DashboardSidebar } from '@/components/dashboard/dashboard-sidebar';
-import { Outlet } from 'react-router-dom';
 
-export const DashboardLayout = () => {
+export const DashboardLayout = ({ children }: { children?: React.ReactNode }) => {
 	return (
 		<SidebarProvider>
 			<div className='min-h-screen flex w-full bg-background'>
@@ -18,7 +17,7 @@ export const DashboardLayout = () => {
 
 					{/* Main content */}
 					<main className='flex-1 p-3 sm:p-4 md:p-6 bg-gradient-to-br from-muted/20 via-background to-primary/5 overflow-x-auto'>
-						<Outlet /> {/* Nested routes shu yerda ko'rinadi */}
+						{children}
 					</main>
 				</div>
 			</div>

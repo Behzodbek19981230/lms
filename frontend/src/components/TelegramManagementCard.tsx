@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { request } from '@/configs/request';
 import { Send, Settings, Users, MessageSquare, ExternalLink } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useRouter } from 'next/navigation';
 
 interface TelegramStats {
 	totalChats: number;
@@ -17,7 +17,7 @@ interface TelegramStats {
 
 const TelegramManagementCard: React.FC = () => {
 	const { toast } = useToast();
-	const navigate = useNavigate();
+	const router = useRouter();
 	const [stats, setStats] = useState<TelegramStats | null>(null);
 	const [loading, setLoading] = useState(false);
 
@@ -59,7 +59,7 @@ const TelegramManagementCard: React.FC = () => {
 	}, []);
 
 	const handleManage = () => {
-		navigate('/account/telegram');
+		router.push('/account/telegram');
 	};
 
 	if (loading) {
@@ -121,11 +121,11 @@ const TelegramManagementCard: React.FC = () => {
 					</Button>
 
 					<div className='grid grid-cols-2 gap-2'>
-						<Button onClick={() => navigate('/account/telegram')} variant='outline' size='sm'>
+						<Button onClick={() => router.push('/account/telegram')} variant='outline' size='sm'>
 							<MessageSquare className='h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1' />
 							<span className='text-xs sm:text-sm'>Channels</span>
 						</Button>
-						<Button onClick={() => navigate('/account/telegram')} variant='outline' size='sm'>
+						<Button onClick={() => router.push('/account/telegram')} variant='outline' size='sm'>
 							<Users className='h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1' />
 							<span className='text-xs sm:text-sm'>Users</span>
 						</Button>

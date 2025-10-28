@@ -27,7 +27,7 @@ import {
 	FileSpreadsheet,
 	MessageCircle,
 } from 'lucide-react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { request } from '@/configs/request';
 import { useToast } from '@/components/ui/use-toast';
 import * as XLSX from 'xlsx';
@@ -56,71 +56,106 @@ interface Subject {
 }
 
 export default function CreateTestPage() {
-// Download Word (.docx) template for test import
-const downloadWordTemplate = async () => {
-	// npm install docx
-	const docx = await import('docx');
-	const { Document, Packer, Paragraph, Table, TableRow, TableCell, WidthType, TextRun } = docx;
-	const table = new Table({
-		rows: [
-			new TableRow({
-				children: [
-					new TableCell({ children: [new Paragraph('Savol matni')], width: { size: 40, type: WidthType.PERCENTAGE } }),
-					new TableCell({ children: [new Paragraph('A)')], width: { size: 20, type: WidthType.PERCENTAGE } }),
-					new TableCell({ children: [new Paragraph('B)')], width: { size: 20, type: WidthType.PERCENTAGE } }),
-					new TableCell({ children: [new Paragraph('C)')], width: { size: 20, type: WidthType.PERCENTAGE } }),
-					new TableCell({ children: [new Paragraph('D)')], width: { size: 20, type: WidthType.PERCENTAGE } }),
-					new TableCell({ children: [new Paragraph("To'g'ri javob")], width: { size: 15, type: WidthType.PERCENTAGE } }),
-					new TableCell({ children: [new Paragraph('Ball')], width: { size: 10, type: WidthType.PERCENTAGE } }),
-				],
-			}),
-			new TableRow({
-				children: [
-					new TableCell({ children: [new Paragraph('2+2 nechaga teng?')] }),
-					new TableCell({ children: [new Paragraph('2')] }),
-					new TableCell({ children: [new Paragraph('3')] }),
-					new TableCell({ children: [new Paragraph('4')] }),
-					new TableCell({ children: [new Paragraph('5')] }),
-					new TableCell({ children: [new Paragraph('C')] }),
-					new TableCell({ children: [new Paragraph('1')] }),
-				],
-			}),
-			new TableRow({
-				children: [
-					new TableCell({ children: [new Paragraph('Eng katta daryo?')] }),
-					new TableCell({ children: [new Paragraph('Nil')] }),
-					new TableCell({ children: [new Paragraph('Amazonka')] }),
-					new TableCell({ children: [new Paragraph('Missisipi')] }),
-					new TableCell({ children: [new Paragraph('Volga')] }),
-					new TableCell({ children: [new Paragraph('A')] }),
-					new TableCell({ children: [new Paragraph('1')] }),
-				],
-			}),
-		],
-		width: { size: 100, type: WidthType.PERCENTAGE },
-	});
-	const doc = new Document({
-		sections: [
-			{
-				children: [
-					new Paragraph({ text: 'Test savollarini Word orqali import qilish uchun shablon', heading: 'HEADING_1' }),
-					table,
-					new Paragraph({ text: "1-ustun: Savol matni\n2-5 ustunlar: Javob variantlari (A, B, C, D)\n6-ustun: To'g'ri javob (A, B, C yoki D)\n7-ustun: Ball (1-10)", spacing: { before: 200, after: 200 } }),
-					new Paragraph({ text: "⚠️ Muhim: Ko'p variantli savollar uchun faqat to'g'ri javob variantini to'ldiring!", bold: true, spacing: { before: 200 } }),
-				],
-			},
-		],
-	});
-	const buffer = await Packer.toBlob(doc);
-	const fileName = `test_shabloni_${selectedSubject?.name || 'umumiy'}.docx`;
-	saveAs(buffer, fileName);
-	toast({ title: 'Word shablon yuklandi', description: "Word faylini to'ldiring va qayta yuklang" });
-};
-	const navigate = useNavigate();
-	const [searchParams, setSearchParams] = useSearchParams();
-	const subjectId = searchParams.get('subject');
+	// Download Word (.docx) template for test import
+	const downloadWordTemplate = async () => {
+		// npm install docx
+		const docx = await import('docx');
+		const { Document, Packer, Paragraph, Table, TableRow, TableCell, WidthType, TextRun } = docx;
+		const table = new Table({
+			rows: [
+				new TableRow({
+					children: [
+						new TableCell({
+							children: [new Paragraph('Savol matni')],
+							width: { size: 40, type: WidthType.PERCENTAGE },
+						}),
+						new TableCell({
+							children: [new Paragraph('A)')],
+							width: { size: 20, type: WidthType.PERCENTAGE },
+						}),
+						new TableCell({
+							children: [new Paragraph('B)')],
+							width: { size: 20, type: WidthType.PERCENTAGE },
+						}),
+						new TableCell({
+							children: [new Paragraph('C)')],
+							width: { size: 20, type: WidthType.PERCENTAGE },
+						}),
+						new TableCell({
+							children: [new Paragraph('D)')],
+							width: { size: 20, type: WidthType.PERCENTAGE },
+						}),
+						new TableCell({
+							children: [new Paragraph("To'g'ri javob")],
+							width: { size: 15, type: WidthType.PERCENTAGE },
+						}),
+						new TableCell({
+							children: [new Paragraph('Ball')],
+							width: { size: 10, type: WidthType.PERCENTAGE },
+						}),
+					],
+				}),
+				new TableRow({
+					children: [
+						new TableCell({ children: [new Paragraph('2+2 nechaga teng?')] }),
+						new TableCell({ children: [new Paragraph('2')] }),
+						new TableCell({ children: [new Paragraph('3')] }),
+						new TableCell({ children: [new Paragraph('4')] }),
+						new TableCell({ children: [new Paragraph('5')] }),
+						new TableCell({ children: [new Paragraph('C')] }),
+						new TableCell({ children: [new Paragraph('1')] }),
+					],
+				}),
+				new TableRow({
+					children: [
+						new TableCell({ children: [new Paragraph('Eng katta daryo?')] }),
+						new TableCell({ children: [new Paragraph('Nil')] }),
+						new TableCell({ children: [new Paragraph('Amazonka')] }),
+						new TableCell({ children: [new Paragraph('Missisipi')] }),
+						new TableCell({ children: [new Paragraph('Volga')] }),
+						new TableCell({ children: [new Paragraph('A')] }),
+						new TableCell({ children: [new Paragraph('1')] }),
+					],
+				}),
+			],
+			width: { size: 100, type: WidthType.PERCENTAGE },
+		});
+		const doc = new Document({
+			sections: [
+				{
+					children: [
+						new Paragraph({
+							text: 'Test savollarini Word orqali import qilish uchun shablon',
+							heading: 'Heading1',
+						}),
+						table,
+						new Paragraph({
+							text: "1-ustun: Savol matni\n2-5 ustunlar: Javob variantlari (A, B, C, D)\n6-ustun: To'g'ri javob (A, B, C yoki D)\n7-ustun: Ball (1-10)",
+							spacing: { before: 200, after: 200 },
+						}),
+						new Paragraph({
+							children: [
+								new TextRun({
+									text: "⚠️ Muhim: Ko'p variantli savollar uchun faqat to'g'ri javob variantini to'ldiring!",
+									bold: true,
+								}),
+							],
+							spacing: { before: 200 },
+						}),
+					],
+				},
+			],
+		});
+		const buffer = await Packer.toBlob(doc);
+		const fileName = `test_shabloni_${selectedSubject?.name || 'umumiy'}.docx`;
+		saveAs(buffer, fileName);
+		toast({ title: 'Word shablon yuklandi', description: "Word faylini to'ldiring va qayta yuklang" });
+	};
+	const router = useRouter();
+	const searchParams = useSearchParams();
+	const subjectId = searchParams?.get('subject');
 	const { toast } = useToast();
-    const [isLoading, setIsLoading] = useState(false);
+	const [isLoading, setIsLoading] = useState(false);
 
 	const [selectedSubject, setSelectedSubject] = useState<Subject | null>(null);
 	const [testTitle, setTestTitle] = useState('');
@@ -130,7 +165,7 @@ const downloadWordTemplate = async () => {
 	const [questions, setQuestions] = useState<Question[]>([]);
 	const [currentQuestion, setCurrentQuestion] = useState<Question>({
 		id: '',
-		 type: 'multiple_choice',
+		type: 'multiple_choice',
 		question: '',
 		options: ['', '', '', ''],
 		correctAnswer: 0,
@@ -180,9 +215,9 @@ const downloadWordTemplate = async () => {
 				id: Date.now().toString(),
 			};
 			setQuestions([...questions, newQuestion]);
-			 setCurrentQuestion({
-			 id: '',
-			 type: testType === 'open' ? 'multiple_choice' : 'essay',
+			setCurrentQuestion({
+				id: '',
+				type: testType === 'open' ? 'multiple_choice' : 'essay',
 				question: '',
 				options: testType === 'open' ? ['', '', '', ''] : undefined,
 				correctAnswer: testType === 'open' ? 0 : undefined,
@@ -215,7 +250,7 @@ const downloadWordTemplate = async () => {
 			});
 			return;
 		}
-        setIsLoading(true);
+		setIsLoading(true);
 
 		try {
 			// 1) Create test
@@ -231,12 +266,13 @@ const downloadWordTemplate = async () => {
 			const testId = testRes?.id;
 
 			// 2) Create questions
-			for (const [idx, q] of questions.entries()) {
-				 const isMC = q.type === 'multiple_choice';
+			for (let idx = 0; idx < questions.length; idx++) {
+				const q = questions[idx];
+				const isMC = q.type === 'multiple_choice';
 				await request.post('/questions', {
 					text: q.question,
 					explanation: q.explanation || undefined,
-					 type: isMC ? 'multiple_choice' : q.type === 'true_false' ? 'true_false' : 'essay',
+					type: isMC ? 'multiple_choice' : q.type === 'true_false' ? 'true_false' : 'essay',
 					points: q.points,
 					order: idx,
 					hasFormula: !!selectedSubject?.hasFormulas,
@@ -253,9 +289,9 @@ const downloadWordTemplate = async () => {
 			}
 
 			setSavedTestId(Number(testId));
-			toast({ 
-				title: 'Test yaratildi', 
-				description: 'Test va savollar muvaffaqiyatli saqlandi. Endi Telegram orqali tarqatishingiz mumkin.' 
+			toast({
+				title: 'Test yaratildi',
+				description: 'Test va savollar muvaffaqiyatli saqlandi. Endi Telegram orqali tarqatishingiz mumkin.',
 			});
 		} catch (e: any) {
 			toast({
@@ -263,21 +299,20 @@ const downloadWordTemplate = async () => {
 				description: e?.response?.data?.message || 'Saqlashda xatolik yuz berdi',
 				variant: 'destructive',
 			});
+		} finally {
+			setIsLoading(false);
 		}
-        finally{
-            setIsLoading(false);
-        }
 	};
 
 	const downloadExcelTemplate = () => {
-		 // Faqat multiple_choice savollar uchun soddalashtirilgan shablon
+		// Faqat multiple_choice savollar uchun soddalashtirilgan shablon
 		const templateData = [
 			{
 				'Savol matni': '2+2 nechaga teng?',
 				'A)': '2',
 				'B)': '3',
 				'C)': '4',
-				"D)": '5',
+				'D)': '5',
 				"To'g'ri javob": 'C',
 				Ball: '1',
 			},
@@ -286,7 +321,7 @@ const downloadWordTemplate = async () => {
 				'A)': 'Nil',
 				'B)': 'Amazonka',
 				'C)': 'Missisipi',
-				"D)": 'Volga',
+				'D)': 'Volga',
 				"To'g'ri javob": 'A',
 				Ball: '1',
 			},
@@ -325,9 +360,7 @@ const downloadWordTemplate = async () => {
 			) {
 				setExcelFile(file);
 				parseExcelFile(file);
-			} else if (
-				file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-			) {
+			} else if (file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
 				setWordFile(file);
 				parseWordFile(file);
 			} else {
@@ -339,124 +372,131 @@ const downloadWordTemplate = async () => {
 			}
 		}
 	};
-// Word (.docx) parsing logic
-const parseWordFile = async (file: File) => {
-	toast({ title: 'Word fayl o‘qilmoqda...', description: 'Yangi import funksiyasi test rejimida.' });
-	try {
-		// Dynamically import mammoth (npm install mammoth)
-		const mammoth = await import('mammoth');
-		const reader = new FileReader();
-		reader.onload = async (e) => {
-			try {
-				const arrayBuffer = e.target?.result as ArrayBuffer;
-				const { value } = await mammoth.convertToHtml({ arrayBuffer });
-				// Parse HTML to extract table rows
-				const parser = new DOMParser();
-				const doc = parser.parseFromString(value, 'text/html');
-				const table = doc.querySelector('table');
-				if (!table) {
-					toast({ title: 'Word faylda jadval topilmadi', variant: 'destructive' });
-					return;
-				}
-				const rows = Array.from(table.querySelectorAll('tr'));
-				const questions: Question[] = [];
-				const errors: string[] = [];
-				for (let i = 1; i < rows.length; i++) { // skip header
-					const cells = Array.from(rows[i].querySelectorAll('td')).map((td) => td.textContent?.trim() || '');
-					if (cells.length < 7) {
-						errors.push(`Qator ${i + 1}: Ma'lumot yetarli emas`);
-						continue;
+	// Word (.docx) parsing logic
+	const parseWordFile = async (file: File) => {
+		toast({ title: 'Word fayl o‘qilmoqda...', description: 'Yangi import funksiyasi test rejimida.' });
+		try {
+			// Dynamically import mammoth (npm install mammoth)
+			const mammoth = await import('mammoth');
+			const reader = new FileReader();
+			reader.onload = async (e) => {
+				try {
+					const arrayBuffer = e.target?.result as ArrayBuffer;
+					const { value } = await mammoth.convertToHtml({ arrayBuffer });
+					// Parse HTML to extract table rows
+					const parser = new DOMParser();
+					const doc = parser.parseFromString(value, 'text/html');
+					const table = doc.querySelector('table');
+					if (!table) {
+						toast({ title: 'Word faylda jadval topilmadi', variant: 'destructive' });
+						return;
 					}
-					const questionText = cells[0];
-					const optionA = cells[1];
-					const optionB = cells[2];
-					const optionC = cells[3];
-					const optionD = cells[4];
-					const correctAnswer = cells[5];
-					const points = parseInt(cells[6] || '1') || 1;
-					if (!questionText) {
-						errors.push(`Qator ${i + 1}: Savol matni bo'sh`);
-						continue;
+					const rows = Array.from(table.querySelectorAll('tr'));
+					const questions: Question[] = [];
+					const errors: string[] = [];
+					for (let i = 1; i < rows.length; i++) {
+						// skip header
+						const cells = Array.from(rows[i].querySelectorAll('td')).map(
+							(td) => td.textContent?.trim() || ''
+						);
+						if (cells.length < 7) {
+							errors.push(`Qator ${i + 1}: Ma'lumot yetarli emas`);
+							continue;
+						}
+						const questionText = cells[0];
+						const optionA = cells[1];
+						const optionB = cells[2];
+						const optionC = cells[3];
+						const optionD = cells[4];
+						const correctAnswer = cells[5];
+						const points = parseInt(cells[6] || '1') || 1;
+						if (!questionText) {
+							errors.push(`Qator ${i + 1}: Savol matni bo'sh`);
+							continue;
+						}
+						if (points < 1 || points > 10) {
+							errors.push(`Qator ${i + 1}: Ball 1-10 oralig'ida bo'lishi kerak`);
+							continue;
+						}
+						const options: string[] = [];
+						let correctAnswerIndex: number | undefined;
+						if (optionA) options.push(optionA);
+						if (optionB) options.push(optionB);
+						if (optionC) options.push(optionC);
+						if (optionD) options.push(optionD);
+						const correctAnswerLetter = correctAnswer.toUpperCase();
+						if (correctAnswerLetter === 'A' && optionA) {
+							correctAnswerIndex = 0;
+						} else if (correctAnswerLetter === 'B' && optionB) {
+							correctAnswerIndex = 1;
+						} else if (correctAnswerLetter === 'C' && optionC) {
+							correctAnswerIndex = 2;
+						} else if (correctAnswerLetter === 'D' && optionD) {
+							correctAnswerIndex = 3;
+						} else {
+							errors.push(
+								`Qator ${
+									i + 1
+								}: To'g'ri javob A, B, C yoki D bo'lishi kerak va variant mavjud bo'lishi kerak`
+							);
+							continue;
+						}
+						if (options.length < 2) {
+							errors.push(`Qator ${i + 1}: Kamida 2 ta variant bo'lishi kerak`);
+							continue;
+						}
+						questions.push({
+							id: Date.now() + i,
+							type: 'multiple_choice',
+							question: questionText,
+							options,
+							correctAnswer: correctAnswerIndex,
+							points,
+						});
 					}
-					if (points < 1 || points > 10) {
-						errors.push(`Qator ${i + 1}: Ball 1-10 oralig'ida bo'lishi kerak`);
-						continue;
-					}
-					const options: string[] = [];
-					let correctAnswerIndex: number | undefined;
-					if (optionA) options.push(optionA);
-					if (optionB) options.push(optionB);
-					if (optionC) options.push(optionC);
-					if (optionD) options.push(optionD);
-					const correctAnswerLetter = correctAnswer.toUpperCase();
-					if (correctAnswerLetter === 'A' && optionA) {
-						correctAnswerIndex = 0;
-					} else if (correctAnswerLetter === 'B' && optionB) {
-						correctAnswerIndex = 1;
-					} else if (correctAnswerLetter === 'C' && optionC) {
-						correctAnswerIndex = 2;
-					} else if (correctAnswerLetter === 'D' && optionD) {
-						correctAnswerIndex = 3;
-					} else {
-						errors.push(`Qator ${i + 1}: To'g'ri javob A, B, C yoki D bo'lishi kerak va variant mavjud bo'lishi kerak`);
-						continue;
-					}
-					if (options.length < 2) {
-						errors.push(`Qator ${i + 1}: Kamida 2 ta variant bo'lishi kerak`);
-						continue;
-					}
-					questions.push({
-						id: Date.now() + i,
-						type: 'multiple_choice',
-						question: questionText,
-						options,
-						correctAnswer: correctAnswerIndex,
-						points,
-					});
-				}
-				setImportedQuestions(questions);
-				toast({
-					title: 'Word fayl import qilindi',
-					description: `${questions.length} ta savol topildi${errors.length > 0 ? `, ${errors.length} ta xatolik` : ''}`,
-				});
-				if (errors.length > 0) {
+					setImportedQuestions(questions);
 					toast({
-						title: 'Xatoliklar topildi',
-						description: `${errors.length} ta xatolik. Iltimos, Word faylini tekshiring.`,
-						variant: 'destructive',
+						title: 'Word fayl import qilindi',
+						description: `${questions.length} ta savol topildi${
+							errors.length > 0 ? `, ${errors.length} ta xatolik` : ''
+						}`,
 					});
-					console.log('Word import errors:', errors);
+					if (errors.length > 0) {
+						toast({
+							title: 'Xatoliklar topildi',
+							description: `${errors.length} ta xatolik. Iltimos, Word faylini tekshiring.`,
+							variant: 'destructive',
+						});
+						console.log('Word import errors:', errors);
+					}
+				} catch (err) {
+					toast({ title: 'Word faylni o‘qishda xatolik', variant: 'destructive' });
 				}
-			} catch (err) {
-				toast({ title: 'Word faylni o‘qishda xatolik', variant: 'destructive' });
-			}
-		};
-		reader.readAsArrayBuffer(file);
-	} catch (err) {
-		toast({ title: 'Word import xatolik', variant: 'destructive' });
-	}
-};
-        const renderVariantContent = (text: string) => {
-            const parts = text.split(/(\$\$?[^$]+\$\$?)/g);
-    
-            return (
-                <div className='inline-block w-full'>
-                    {parts.map((part, index) => {
-                        if (part.includes('$')) {
-                            return (
-                                <span key={index} className='inline-block'>
-                                    <MathRenderer latex={part} />
-                                </span>
-                            );
-                        } else {
-                            return (
-                                <span key={index} className='inline' dangerouslySetInnerHTML={{ __html: part }} />
-                            );
-                        }
-                    })}
-                </div>
-            );
-        };
+			};
+			reader.readAsArrayBuffer(file);
+		} catch (err) {
+			toast({ title: 'Word import xatolik', variant: 'destructive' });
+		}
+	};
+	const renderVariantContent = (text: string) => {
+		const parts = text.split(/(\$\$?[^$]+\$\$?)/g);
+
+		return (
+			<div className='inline-block w-full'>
+				{parts.map((part, index) => {
+					if (part.includes('$')) {
+						return (
+							<span key={index} className='inline-block'>
+								<MathRenderer latex={part} />
+							</span>
+						);
+					} else {
+						return <span key={index} className='inline' dangerouslySetInnerHTML={{ __html: part }} />;
+					}
+				})}
+			</div>
+		);
+	};
 
 	const parseExcelFile = (file: File) => {
 		const reader = new FileReader();
@@ -522,7 +562,11 @@ const parseWordFile = async (file: File) => {
 					} else if (correctAnswerLetter === 'D' && optionD.trim()) {
 						correctAnswerIndex = 3;
 					} else {
-						errors.push(`Qator ${i + 1}: To'g'ri javob A, B, C yoki D bo'lishi kerak va variant mavjud bo'lishi kerak`);
+						errors.push(
+							`Qator ${
+								i + 1
+							}: To'g'ri javob A, B, C yoki D bo'lishi kerak va variant mavjud bo'lishi kerak`
+						);
 						continue;
 					}
 
@@ -533,7 +577,7 @@ const parseWordFile = async (file: File) => {
 
 					questions.push({
 						id: Date.now() + i,
-						 type: 'multiple_choice',
+						type: 'multiple_choice',
 						question: questionText,
 						options,
 						correctAnswer: correctAnswerIndex,
@@ -609,7 +653,7 @@ const parseWordFile = async (file: File) => {
 						Ko'rib chiqish
 					</Button>
 					<Button onClick={saveTest} className='bg-primary hover:bg-primary/90' disabled={isLoading}>
-					{isLoading ? "Yuklanmoqda..." : "Saqlash"}
+						{isLoading ? 'Yuklanmoqda...' : 'Saqlash'}
 					</Button>
 				</div>
 			</div>
@@ -658,8 +702,6 @@ const parseWordFile = async (file: File) => {
 							)}
 						</div>
 
-					
-
 						{/* Test Title */}
 						<div className='space-y-2'>
 							<Label htmlFor='title'>Test nomi</Label>
@@ -681,8 +723,6 @@ const parseWordFile = async (file: File) => {
 								placeholder="Test haqida qisqacha ma'lumot"
 							/>
 						</div>
-
-						
 
 						{/* Test Stats */}
 						<div className='pt-4 border-t space-y-2'>
@@ -888,10 +928,10 @@ const parseWordFile = async (file: File) => {
 																<Badge variant='secondary'>
 																	{question.points} ball
 																</Badge>
-																 {question.type === 'multiple_choice' && (
+																{question.type === 'multiple_choice' && (
 																	<Badge variant='outline'>Ko'p variantli</Badge>
 																)}
-																 {question.type === 'true_false' && (
+																{question.type === 'true_false' && (
 																	<Badge variant='outline'>To'g'ri/Noto'g'ri</Badge>
 																)}
 																{question.type === 'essay' && (
@@ -971,10 +1011,12 @@ const parseWordFile = async (file: File) => {
 							<TabsContent value='excel' className='space-y-4'>
 								<div className='text-center py-8'>
 									<FileSpreadsheet className='h-12 w-12 text-muted-foreground mx-auto mb-4' />
-									<h3 className='text-lg font-semibold mb-2'>Excel yoki Word orqali savollar yuklash</h3>
+									<h3 className='text-lg font-semibold mb-2'>
+										Excel yoki Word orqali savollar yuklash
+									</h3>
 									<p className='text-muted-foreground mb-6'>
-										Excel yoki Word faylini yuklab oling, to'ldiring va qayta yuklang. Har bir fan uchun
-										alohida shablon yaratiladi.
+										Excel yoki Word faylini yuklab oling, to'ldiring va qayta yuklang. Har bir fan
+										uchun alohida shablon yaratiladi.
 									</p>
 
 									<div className='flex flex-col sm:flex-row gap-4 justify-center mb-6'>
@@ -1038,14 +1080,14 @@ const parseWordFile = async (file: File) => {
 																{question.points} ball
 															</Badge>
 															<Badge variant='outline' className='text-xs'>
-																 {question.type === 'multiple_choice'
+																{question.type === 'multiple_choice'
 																	? "Ko'p variantli"
-																	 : question.type === 'true_false'
+																	: question.type === 'true_false'
 																	? "To'g'ri/Noto'g'ri"
 																	: 'Ochiq'}
 															</Badge>
 														</div>
-													{renderVariantContent(question.question)}
+														{renderVariantContent(question.question)}
 														{question.options && (
 															<div className='space-y-1'>
 																{question.options.map((option, optIndex) => (
@@ -1075,7 +1117,6 @@ const parseWordFile = async (file: File) => {
 											📋 Excel shablon tuzilishi:
 										</h4>
 										<div className='text-sm text-yellow-700 space-y-1'>
-											
 											<p>
 												<strong>1-ustun:</strong> Savol matni
 											</p>
@@ -1088,7 +1129,7 @@ const parseWordFile = async (file: File) => {
 											<p>
 												<strong>7-ustun:</strong> Ball (1-10)
 											</p>
-											
+
 											<p className='text-red-600 font-medium'>
 												⚠️ Muhim: Ko'p variantli savollar uchun faqat to'g'ri javob variantini
 												to'ldiring!
@@ -1103,34 +1144,37 @@ const parseWordFile = async (file: File) => {
 									<div className='bg-green-50 border border-green-200 rounded-lg p-4 mb-4'>
 										<div className='flex items-center gap-2 mb-2'>
 											<CheckCircle className='h-4 w-4 text-green-600' />
-											<span className='font-medium text-green-800'>Test muvaffaqiyatli yaratildi!</span>
+											<span className='font-medium text-green-800'>
+												Test muvaffaqiyatli yaratildi!
+											</span>
 										</div>
 										<p className='text-sm text-green-700 mb-3'>
-											Endi testni Telegram orqali tarqatishingiz va natijalarni kuzatishingiz mumkin.
+											Endi testni Telegram orqali tarqatishingiz va natijalarni kuzatishingiz
+											mumkin.
 										</p>
 										<div className='flex gap-2'>
-											<Button 
-												variant='outline' 
+											<Button
+												variant='outline'
 												size='sm'
-												onClick={() => navigate('/account/teacher')}
+												onClick={() => router.push('/account/teacher')}
 											>
 												Testlar ro'yxatiga qaytish
 											</Button>
 										</div>
 									</div>
-									<TelegramManager 
+									<TelegramManager
 										testId={savedTestId}
 										onSuccess={(message) => {
 											toast({
 												title: 'Muvaffaqiyat',
-												description: message
+												description: message,
 											});
 										}}
 										onError={(error) => {
 											toast({
 												title: 'Xatolik',
 												description: error,
-												variant: 'destructive'
+												variant: 'destructive',
 											});
 										}}
 									/>

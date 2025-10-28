@@ -1,9 +1,5 @@
-import {ButtonProps} from "@/components/ui/button.tsx";
+import { ButtonProps } from '@/components/ui/button';
 
-
-export const buttonProps = (
-    children?: string | JSX.Element,
-): ButtonProps => ({
-    children,
-})
-
+export const buttonProps = (children?: string | JSX.Element): ButtonProps => ({
+	children,
+});

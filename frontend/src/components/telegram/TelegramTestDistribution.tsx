@@ -105,10 +105,10 @@ const TelegramTestDistribution: React.FC<TelegramTestDistributionProps> = ({
         </CardHeader>
         <CardContent>
           <TelegramAuthWidget 
-            onAuthSuccess={(data) => {
-              onSuccess(`User ${data.first_name} successfully linked their Telegram account!`);
+            onSuccess={(message) => {
+              onSuccess(message || 'Telegram account linked successfully!');
             }}
-            onAuthError={(error) => {
+            onError={(error) => {
               onError(`Telegram authentication failed: ${error}`);
             }}
           />

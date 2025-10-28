@@ -13,20 +13,20 @@ import { MathPopup } from '@/components/math-popup';
 import { request } from '@/configs/request';
 
 interface MathFormula {
-	id: number;
+    id: string;
 	latex: string;
 	position?: number;
 }
 
 interface UploadedImage {
-	id: number;
+    id: string;
 	url: string;
 	name: string;
 	position?: number;
 }
 
 interface QuestionVariant {
-	id: number;
+	id: string;
 	text: string;
 	isCorrect: boolean;
 }
@@ -53,7 +53,7 @@ export function MathQuestionEditor({ questionId, mode = 'create' }: MathQuestion
 	const [saveMessage, setSaveMessage] = useState('');
 	const [isLoading, setIsLoading] = useState(false);
 	const [editingVariantFormula, setEditingVariantFormula] = useState<{
-		variantid: number;
+		variantId: string;
 		formula: MathFormula | null;
 	}>({ variantId: '', formula: null });
 	const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -197,7 +197,7 @@ export function MathQuestionEditor({ questionId, mode = 'create' }: MathQuestion
 		}
 	};
 
-	const deleteImage = (imageid: number) => {
+	const deleteImage = (imageId: string) => {
 		const image = uploadedImages.find((img) => img.id === imageId);
 		if (image) {
 			const imagePlaceholder = `[IMAGE:${image.url}]`;
@@ -278,16 +278,16 @@ export function MathQuestionEditor({ questionId, mode = 'create' }: MathQuestion
 		setShowMathPopup(false);
 	};
 
-	const handleVariantTextareaChange = (variantid: number, value: string, selectionStart: number) => {
+	const handleVariantTextareaChange = (variantId: string, value: string, selectionStart: number) => {
 		updateVariantText(variantId, value);
 		setVariantCursorPositions((prev) => ({ ...prev, [variantId]: selectionStart }));
 	};
 
-	const handleVariantTextareaClick = (variantid: number, selectionStart: number) => {
+	const handleVariantTextareaClick = (variantId: string, selectionStart: number) => {
 		setVariantCursorPositions((prev) => ({ ...prev, [variantId]: selectionStart }));
 	};
 
-	const openVariantMathPopup = (variantid: number, formula?: MathFormula) => {
+	const openVariantMathPopup = (variantId: string, formula?: MathFormula) => {
 		if (formula) {
 			const variant = variants.find((v) => v.id === variantId);
 			if (variant) {
@@ -317,7 +317,7 @@ export function MathQuestionEditor({ questionId, mode = 'create' }: MathQuestion
 		return foundFormulas;
 	};
 
-	const deleteVariantFormula = (variantid: number, formula: MathFormula) => {
+	const deleteVariantFormula = (variantId: string, formula: MathFormula) => {
 		const variant = variants.find((v) => v.id === variantId);
 		if (variant) {
 			const formulaText = `$${formula.latex}$`;
@@ -348,11 +348,11 @@ export function MathQuestionEditor({ questionId, mode = 'create' }: MathQuestion
 		);
 	};
 
-	const updateVariantText = (id: number, text: string) => {
+	const updateVariantText = (id: string, text: string) => {
 		setVariants((prev) => prev.map((variant) => (variant.id === id ? { ...variant, text } : variant)));
 	};
 
-	const toggleCorrectVariant = (id: number) => {
+	const toggleCorrectVariant = (id: string) => {
 		setVariants((prev) =>
 			prev.map((variant) => ({
 				...variant,
@@ -371,7 +371,7 @@ export function MathQuestionEditor({ questionId, mode = 'create' }: MathQuestion
 		setVariants([...variants, newVariant]);
 	};
 
-	const removeVariant = (variantid: number) => {
+	const removeVariant = (variantId: string) => {
 		if (variants.length <= 2) return;
 		setVariants(variants.filter((variant) => variant.id !== variantId));
 	};
@@ -507,8 +507,8 @@ export function MathQuestionEditor({ questionId, mode = 'create' }: MathQuestion
 		return variantTexts.length === uniqueTexts.size;
 	};
 
-	const getVariantValidationErrors = () => {
-		const errors = [];
+    const getVariantValidationErrors = (): string[] => {
+        const errors: string[] = [];
 		if (!areAllVariantsNonEmpty()) {
 			errors.push("Barcha variantlarni to'ldiring");
 		}

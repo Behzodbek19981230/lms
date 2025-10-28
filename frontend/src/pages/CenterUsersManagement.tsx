@@ -204,8 +204,8 @@ const CenterUsersManagement = () => {
 		);
 	};
 
-	const exportUsersData = () => {
-		const csvData = [];
+    const exportUsersData = () => {
+        const csvData: string[][] = [];
 		csvData.push(['Markaz', 'Ism', 'Familiya', 'Foydalanuvchi nomi', 'Telefon', 'Rol', 'Holat', 'Oxirgi kirish']);
 
 		centers.forEach((center) => {

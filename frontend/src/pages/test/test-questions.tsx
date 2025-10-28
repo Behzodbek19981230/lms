@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useRouter } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -61,8 +62,9 @@ interface Answer {
 }
 
 export default function TestQuestions() {
-	const { testId } = useParams();
-	const navigate = useNavigate();
+	const params = useParams();
+	const testId = params?.testId as string | undefined;
+	const router = useRouter();
 	const { user } = useAuth();
 
 	const [test, setTest] = useState<Test | null>(null);
@@ -83,7 +85,7 @@ export default function TestQuestions() {
 
 	const [questionForm, setQuestionForm] = useState<QuestionForm>({
 		text: '',
-		 type: 'multiple_choice',
+		type: 'multiple_choice',
 		points: 1,
 		answers: [{ text: '', isCorrect: false, order: 0 }],
 	});
@@ -93,26 +95,26 @@ export default function TestQuestions() {
 	const [importedQuestions, setImportedQuestions] = useState<Question[]>([]);
 	const [activeTab, setActiveTab] = useState('list');
 
-		useEffect(() => {
-			if (!testId) return;
-			const isNumeric = /^\d+$/.test(String(testId));
-			if (!isNumeric) {
-				setIsLoading(false);
-				setErrorMessage("Noto'g'ri test ID");
-				return;
-			}
-			loadTestAndQuestions();
-		}, [testId]);
+	useEffect(() => {
+		if (!testId) return;
+		const isNumeric = /^\d+$/.test(String(testId));
+		if (!isNumeric) {
+			setIsLoading(false);
+			setErrorMessage("Noto'g'ri test ID");
+			return;
+		}
+		loadTestAndQuestions();
+	}, [testId]);
 
 	const loadTestAndQuestions = async () => {
 		try {
 			setIsLoading(true);
 			setErrorMessage('');
 
-					const [testRes, questionsRes] = await Promise.all([
-						request.get(`/tests/${Number(testId)}`),
-						request.get(`/questions?testId=${Number(testId)}`),
-					]);
+			const [testRes, questionsRes] = await Promise.all([
+				request.get(`/tests/${Number(testId)}`),
+				request.get(`/questions?testId=${Number(testId)}`),
+			]);
 
 			setTest(testRes.data);
 			setQuestions(questionsRes.data || []);
@@ -194,7 +196,7 @@ export default function TestQuestions() {
 	const resetQuestionForm = () => {
 		setQuestionForm({
 			text: '',
-			 type: 'multiple_choice',
+			type: 'multiple_choice',
 			points: 1,
 			answers: [{ text: '', isCorrect: false, order: 0 }],
 		});
@@ -227,53 +229,53 @@ export default function TestQuestions() {
 	};
 
 	const needsAnswers = (type: string) => {
-		 return type === 'multiple_choice' || type === 'true_false' || type === 'fill_blank'; // already correct
+		return type === 'multiple_choice' || type === 'true_false' || type === 'fill_blank'; // already correct
 	};
 
 	// Excel import functions
 	const downloadExcelTemplate = () => {
 		// Faqat multiple_choice savollar uchun soddalashtirilgan shablon
-            const templateData = [
-                {
-                    'Savol matni': '2+2 nechaga teng?',
-                    'A)': '2',
-                    'B)': '3',
-                    'C)': '4',
-                    "D)": '5',
-                    "To'g'ri javob": 'C',
-                    Ball: '1',
-                },
-                {
-                    'Savol matni': 'Eng katta daryo?',
-                    'A)': 'Nil',
-                    'B)': 'Amazonka',
-                    'C)': 'Missisipi',
-                    "D)": 'Volga',
-                    "To'g'ri javob": 'A',
-                    Ball: '1',
-                },
-            ];
-    
-            const ws = XLSX.utils.json_to_sheet(templateData);
-            const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, 'Test Savollari');
-    
-            // Ustun kengliklari
-            ws['!cols'] = [
-                { width: 40 }, // Savol matni
-                { width: 20 }, // A)
-                { width: 20 }, // B)
-                { width: 20 }, // C)
-                { width: 20 }, // D)
-                { width: 15 }, // To'g'ri javob
-                { width: 10 }, // Ball
-            ];
-    
-            const excelBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
-            const data = new Blob([excelBuffer], {
-                type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-            });
-	
+		const templateData = [
+			{
+				'Savol matni': '2+2 nechaga teng?',
+				'A)': '2',
+				'B)': '3',
+				'C)': '4',
+				'D)': '5',
+				"To'g'ri javob": 'C',
+				Ball: '1',
+			},
+			{
+				'Savol matni': 'Eng katta daryo?',
+				'A)': 'Nil',
+				'B)': 'Amazonka',
+				'C)': 'Missisipi',
+				'D)': 'Volga',
+				"To'g'ri javob": 'A',
+				Ball: '1',
+			},
+		];
+
+		const ws = XLSX.utils.json_to_sheet(templateData);
+		const wb = XLSX.utils.book_new();
+		XLSX.utils.book_append_sheet(wb, ws, 'Test Savollari');
+
+		// Ustun kengliklari
+		ws['!cols'] = [
+			{ width: 40 }, // Savol matni
+			{ width: 20 }, // A)
+			{ width: 20 }, // B)
+			{ width: 20 }, // C)
+			{ width: 20 }, // D)
+			{ width: 15 }, // To'g'ri javob
+			{ width: 10 }, // Ball
+		];
+
+		const excelBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+		const data = new Blob([excelBuffer], {
+			type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+		});
+
 		saveAs(data, `test_shabloni_${test?.subject?.name || 'umumiy'}.xlsx`);
 	};
 
@@ -292,82 +294,86 @@ export default function TestQuestions() {
 		}
 	};
 
-const parseExcelFile = (file: File) => {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            try {
-                const data = new Uint8Array(e.target?.result as ArrayBuffer);
-                const workbook = XLSX.read(data, { type: 'array' });
-                const sheetName = workbook.SheetNames[0];
-                const worksheet = workbook.Sheets[sheetName];
-                const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+	const parseExcelFile = (file: File) => {
+		const reader = new FileReader();
+		reader.onload = (e) => {
+			try {
+				const data = new Uint8Array(e.target?.result as ArrayBuffer);
+				const workbook = XLSX.read(data, { type: 'array' });
+				const sheetName = workbook.SheetNames[0];
+				const worksheet = workbook.Sheets[sheetName];
+				const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
 
-                // Skip header row and parse data
-                const questions: Question[] = [];
-                const errors: string[] = [];
+				// Skip header row and parse data
+				const questions: Question[] = [];
+				const errors: string[] = [];
 
-                for (let i = 1; i < jsonData.length; i++) {
-                    const row = jsonData[i] as any[];
-                    // Skip empty rows
-                    if (!row || row.length === 0) continue;
+				for (let i = 1; i < jsonData.length; i++) {
+					const row = jsonData[i] as any[];
+					// Skip empty rows
+					if (!row || row.length === 0) continue;
 
-                    // Ensure row has minimum required data (savol matni, 4 variant, to'g'ri javob, ball)
-                    if (row.length < 7 || !row[0] || !row[1] || !row[2] || !row[3] || !row[4] || !row[5]) {
-                        errors.push(`Qator ${i + 1}: Ma'lumot yetarli emas`);
-                        continue;
-                    }
+					// Ensure row has minimum required data (savol matni, 4 variant, to'g'ri javob, ball)
+					if (row.length < 7 || !row[0] || !row[1] || !row[2] || !row[3] || !row[4] || !row[5]) {
+						errors.push(`Qator ${i + 1}: Ma'lumot yetarli emas`);
+						continue;
+					}
 
-                    const questionText = String(row[0] || '');
-                    const optionA = String(row[1] || '');
-                    const optionB = String(row[2] || '');
-                    const optionC = String(row[3] || '');
-                    const optionD = String(row[4] || '');
-                    const correctAnswer = String(row[5] || '');
-                    const points = parseInt(String(row[6] || '1')) || 1;
+					const questionText = String(row[0] || '');
+					const optionA = String(row[1] || '');
+					const optionB = String(row[2] || '');
+					const optionC = String(row[3] || '');
+					const optionD = String(row[4] || '');
+					const correctAnswer = String(row[5] || '');
+					const points = parseInt(String(row[6] || '1')) || 1;
 
-                    // Validate question text
-                    if (!questionText.trim()) {
-                        errors.push(`Qator ${i + 1}: Savol matni bo'sh`);
-                        continue;
-                    }
-                    // Validate points
-                    if (points < 1 || points > 10) {
-                        errors.push(`Qator ${i + 1}: Ball 1-10 oralig'ida bo'lishi kerak`);
-                        continue;
-                    }
+					// Validate question text
+					if (!questionText.trim()) {
+						errors.push(`Qator ${i + 1}: Savol matni bo'sh`);
+						continue;
+					}
+					// Validate points
+					if (points < 1 || points > 10) {
+						errors.push(`Qator ${i + 1}: Ball 1-10 oralig'ida bo'lishi kerak`);
+						continue;
+					}
 
-                    const options: string[] = [];
-                    let correctAnswerIndex: number | undefined;
+					const options: string[] = [];
+					let correctAnswerIndex: number | undefined;
 
-                    // Barcha variantlarni to'plash
-                    if (optionA.trim()) options.push(optionA);
-                    if (optionB.trim()) options.push(optionB);
-                    if (optionC.trim()) options.push(optionC);
-                    if (optionD.trim()) options.push(optionD);
+					// Barcha variantlarni to'plash
+					if (optionA.trim()) options.push(optionA);
+					if (optionB.trim()) options.push(optionB);
+					if (optionC.trim()) options.push(optionC);
+					if (optionD.trim()) options.push(optionD);
 
-                    // To'g'ri javobni indeksga aylantirish
-                    const correctAnswerLetter = correctAnswer.toUpperCase();
-                    if (correctAnswerLetter === 'A' && optionA.trim()) {
-                        correctAnswerIndex = 0;
-                    } else if (correctAnswerLetter === 'B' && optionB.trim()) {
-                        correctAnswerIndex = 1;
-                    } else if (correctAnswerLetter === 'C' && optionC.trim()) {
-                        correctAnswerIndex = 2;
-                    } else if (correctAnswerLetter === 'D' && optionD.trim()) {
-                        correctAnswerIndex = 3;
-                    } else {
-                        errors.push(`Qator ${i + 1}: To'g'ri javob A, B, C yoki D bo'lishi kerak va variant mavjud bo'lishi kerak`);
-                        continue;
-                    }
+					// To'g'ri javobni indeksga aylantirish
+					const correctAnswerLetter = correctAnswer.toUpperCase();
+					if (correctAnswerLetter === 'A' && optionA.trim()) {
+						correctAnswerIndex = 0;
+					} else if (correctAnswerLetter === 'B' && optionB.trim()) {
+						correctAnswerIndex = 1;
+					} else if (correctAnswerLetter === 'C' && optionC.trim()) {
+						correctAnswerIndex = 2;
+					} else if (correctAnswerLetter === 'D' && optionD.trim()) {
+						correctAnswerIndex = 3;
+					} else {
+						errors.push(
+							`Qator ${
+								i + 1
+							}: To'g'ri javob A, B, C yoki D bo'lishi kerak va variant mavjud bo'lishi kerak`
+						);
+						continue;
+					}
 
-                    if (options.length < 2) {
-                        errors.push(`Qator ${i + 1}: Kamida 2 ta variant bo'lishi kerak`);
-                        continue;
-                    }
+					if (options.length < 2) {
+						errors.push(`Qator ${i + 1}: Kamida 2 ta variant bo'lishi kerak`);
+						continue;
+					}
 
 					questions.push({
 						id: Date.now() + i,
-						 type: 'multiple_choice',
+						type: 'multiple_choice',
 						text: questionText,
 						points,
 						answers: options.map((opt, idx) => ({
@@ -381,35 +387,35 @@ const parseExcelFile = (file: File) => {
 						createdAt: new Date().toISOString(),
 						updatedAt: new Date().toISOString(),
 					});
-                }
+				}
 
-                if (errors.length > 0) {
-                    toast({
-                        title: 'Xatoliklar topildi',
-                        description: `${errors.length} ta xatolik. Iltimos, Excel faylini tekshiring.`,
-                        variant: 'destructive',
-                    });
-                    console.log('Excel import errors:', errors);
-                }
+				if (errors.length > 0) {
+					toast({
+						title: 'Xatoliklar topildi',
+						description: `${errors.length} ta xatolik. Iltimos, Excel faylini tekshiring.`,
+						variant: 'destructive',
+					});
+					console.log('Excel import errors:', errors);
+				}
 
-                setImportedQuestions(questions);
-                toast({
-                    title: 'Fayl muvaffaqiyatli yuklandi',
-                    description: `${questions.length} ta savol topildi${
-                        errors.length > 0 ? `, ${errors.length} ta xatolik` : ''
-                    }`,
-                });
-            } catch (error) {
-                toast({
-                    title: 'Xatolik',
-                    description: "Excel faylini o'qishda xatolik yuz berdi",
-                    variant: 'destructive',
-                });
-                console.error('Excel parse error:', error);
-            }
-        };
-        reader.readAsArrayBuffer(file);
-    };
+				setImportedQuestions(questions);
+				toast({
+					title: 'Fayl muvaffaqiyatli yuklandi',
+					description: `${questions.length} ta savol topildi${
+						errors.length > 0 ? `, ${errors.length} ta xatolik` : ''
+					}`,
+				});
+			} catch (error) {
+				toast({
+					title: 'Xatolik',
+					description: "Excel faylini o'qishda xatolik yuz berdi",
+					variant: 'destructive',
+				});
+				console.error('Excel parse error:', error);
+			}
+		};
+		reader.readAsArrayBuffer(file);
+	};
 
 	const applyImportedQuestions = async () => {
 		if (importedQuestions.length > 0) {
@@ -440,7 +446,7 @@ const parseExcelFile = (file: File) => {
 			throw new Error(e?.response?.data?.message || "Savolni qo'shib bo'lmadi");
 		}
 	};
-    	const renderVariantContent = (text: string) => {
+	const renderVariantContent = (text: string) => {
 		const parts = text.split(/(\$\$?[^$]+\$\$?)/g);
 
 		return (
@@ -453,9 +459,7 @@ const parseExcelFile = (file: File) => {
 							</span>
 						);
 					} else {
-						return (
-							<span key={index} className='inline' dangerouslySetInnerHTML={{ __html: part }} />
-						);
+						return <span key={index} className='inline' dangerouslySetInnerHTML={{ __html: part }} />;
 					}
 				})}
 			</div>
@@ -469,7 +473,7 @@ const parseExcelFile = (file: File) => {
 
 	const getQuestionTypeText = (type: string) => {
 		switch (type) {
-			 case 'multiple_choice':
+			case 'multiple_choice':
 				return "Ko'p tanlovli";
 			case 'true_false':
 				return "To'g'ri/Noto'g'ri";
@@ -519,7 +523,7 @@ const parseExcelFile = (file: File) => {
 			<div className='min-h-screen bg-gradient-subtle flex items-center justify-center'>
 				<div className='text-center'>
 					<div className='text-lg text-destructive'>{errorMessage}</div>
-					<Button onClick={() => navigate(-1)} className='mt-4'>
+					<Button onClick={() => router.back()} className='mt-4'>
 						<ArrowLeft className='h-4 w-4 mr-2' />
 						Orqaga qaytish
 					</Button>
@@ -534,7 +538,7 @@ const parseExcelFile = (file: File) => {
 			<header className='bg-card border-b border-border p-6'>
 				<div className='flex items-center justify-between'>
 					<div className='flex items-center space-x-4'>
-						<Button variant='outline' size='sm' onClick={() => navigate(-1)}>
+						<Button variant='outline' size='sm' onClick={() => router.back()}>
 							<ArrowLeft className='h-4 w-4 mr-2' />
 							Orqaga
 						</Button>
@@ -649,7 +653,7 @@ const parseExcelFile = (file: File) => {
 														</div>
 													</div>
 													<CardTitle className='text-lg text-card-foreground'>
-												{renderVariantContent(question.text)}
+														{renderVariantContent(question.text)}
 													</CardTitle>
 												</CardHeader>
 												<CardContent>
@@ -718,7 +722,6 @@ const parseExcelFile = (file: File) => {
 											)}
 										</div>
 										{/* Question Type */}
-									
 
 										{/* Question Text */}
 										<div className='space-y-2'>
@@ -861,7 +864,7 @@ const parseExcelFile = (file: File) => {
 													<div>
 														<Label className='text-sm text-blue-700'>Savol:</Label>
 														<div className='mt-1 p-3 bg-white rounded border'>
-															{ /<\s*\w+[^>]*>/.test(questionForm.text || '') ? (
+															{/<\s*\w+[^>]*>/.test(questionForm.text || '') ? (
 																<HtmlRenderer content={questionForm.text} />
 															) : test?.subject?.hasFormulas ? (
 																<LaTeXRenderer content={questionForm.text} />
@@ -872,11 +875,11 @@ const parseExcelFile = (file: File) => {
 													</div>
 												)}
 
-												 {questionForm.answers &&
-												 questionForm.answers.length > 0 &&
-												 (questionForm.type === 'multiple_choice' ||
-												 questionForm.type === 'true_false' ||
-												 questionForm.type === 'fill_blank') && (
+												{questionForm.answers &&
+													questionForm.answers.length > 0 &&
+													(questionForm.type === 'multiple_choice' ||
+														questionForm.type === 'true_false' ||
+														questionForm.type === 'fill_blank') && (
 														<div>
 															<Label className='text-sm text-blue-700'>Javoblar:</Label>
 															<div className='mt-1 space-y-1'>
@@ -893,10 +896,16 @@ const parseExcelFile = (file: File) => {
 																			<span className='font-medium'>
 																				{String.fromCharCode(65 + index)}.
 																			</span>
-																			{ /<\s*\w+[^>]*>/.test(answer.text || '') ? (
-																				<HtmlRenderer content={answer.text} inline />
+																			{/<\s*\w+[^>]*>/.test(answer.text || '') ? (
+																				<HtmlRenderer
+																					content={answer.text}
+																					inline
+																				/>
 																			) : test?.subject?.hasFormulas ? (
-																				<LaTeXRenderer content={answer.text} inline />
+																				<LaTeXRenderer
+																					content={answer.text}
+																					inline
+																				/>
 																			) : (
 																				<span>{answer.text}</span>
 																			)}

@@ -24,7 +24,8 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { request } from '@/configs/request';
 import { useToast } from '@/components/ui/use-toast';
-import { Link, useNavigate } from 'react-router-dom';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 const TeacherStudentCreate = ({
 	label = 'Yangi foydalanuvchi',
 	defaultRole = 'teacher',
@@ -128,7 +129,7 @@ const CenterAdminDashboard = () => {
 	const [subjects, setSubjects] = useState<any[]>([]);
 	const [subjectModalOpen, setSubjectModalOpen] = useState(false);
 	const [newSubject, setNewSubject] = useState({ name: '', description: '' });
-	const navigate = useNavigate();
+	const router = useRouter();
 
 	useEffect(() => {
 		(async () => {
@@ -377,7 +378,7 @@ const CenterAdminDashboard = () => {
 							<Button
 								variant='outline'
 								className='w-full justify-start'
-								onClick={() => navigate('/account/subjects')}
+								onClick={() => router.push('/account/subjects')}
 							>
 								<BookOpen className='h-4 w-4 mr-2' />
 								Fanlarimni boshqarish

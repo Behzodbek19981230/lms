@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useRouter, useParams } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -31,8 +31,9 @@ import moment from 'moment';
 import PageLoader from '@/components/PageLoader';
 
 export default function SubjectTests() {
-	const { subjectId } = useParams();
-	const navigate = useNavigate();
+	const params = useParams();
+	const subjectId = params?.subjectId as string | undefined;
+	const router = useRouter();
 	const { user } = useAuth();
 
 	const [subject, setSubject] = useState<SubjectType | null>(null);
@@ -52,26 +53,26 @@ export default function SubjectTests() {
 		showResults: true,
 	});
 
-		useEffect(() => {
-			if (!subjectId) return;
-			const isNumeric = /^\d+$/.test(String(subjectId));
-			if (!isNumeric) {
-				setIsLoading(false);
-				setErrorMessage("Noto'g'ri fan ID");
-				return;
-			}
-			loadSubjectAndTests();
-		}, [subjectId]);
+	useEffect(() => {
+		if (!subjectId) return;
+		const isNumeric = /^\d+$/.test(String(subjectId));
+		if (!isNumeric) {
+			setIsLoading(false);
+			setErrorMessage("Noto'g'ri fan ID");
+			return;
+		}
+		loadSubjectAndTests();
+	}, [subjectId]);
 
 	const loadSubjectAndTests = async () => {
 		try {
 			setIsLoading(true);
 			setErrorMessage('');
 
-					const [subjectRes, testsRes] = await Promise.all([
-						request.get(`/subjects/${Number(subjectId)}`),
-						request.get(`/tests?subjectid=${Number(subjectId)}`),
-					]);
+			const [subjectRes, testsRes] = await Promise.all([
+				request.get(`/subjects/${Number(subjectId)}`),
+				request.get(`/tests?subjectid=${Number(subjectId)}`),
+			]);
 
 			setSubject(subjectRes.data);
 			setTests(testsRes.data || []);
@@ -167,7 +168,7 @@ export default function SubjectTests() {
 			<div className='min-h-screen bg-gradient-subtle flex items-center justify-center'>
 				<div className='text-center'>
 					<div className='text-lg text-destructive'>{errorMessage}</div>
-					<Button onClick={() => navigate(-1)} className='mt-4'>
+					<Button onClick={() => router.back()} className='mt-4'>
 						<ArrowLeft className='h-4 w-4 mr-2' />
 						Orqaga qaytish
 					</Button>
@@ -182,7 +183,7 @@ export default function SubjectTests() {
 			<header className='bg-card border-b border-border p-6'>
 				<div className='flex items-center justify-between'>
 					<div className='flex items-center space-x-4'>
-						<Button variant='outline' size='sm' onClick={() => navigate(-1)}>
+						<Button variant='outline' size='sm' onClick={() => router.back()}>
 							<ArrowLeft className='h-4 w-4 mr-2' />
 							Orqaga
 						</Button>
@@ -192,7 +193,7 @@ export default function SubjectTests() {
 						</div>
 					</div>
 					<div className='flex items-center space-x-4'>
-						<Button variant='hero' onClick={() => navigate('/account/test/create')}>
+						<Button variant='hero' onClick={() => router.push('/account/test/create')}>
 							<Plus className='h-4 w-4 mr-2' />
 							Yangi test yaratish
 						</Button>
@@ -214,7 +215,11 @@ export default function SubjectTests() {
 							</div>
 							<div>
 								<Label className='text-sm text-muted-foreground'>Kategoriya</Label>
-								<p className='font-medium'>{SubjectCategoryLabels[subject?.category]}</p>
+								<p className='font-medium'>
+									{subject?.category !== undefined && subject?.category in SubjectCategoryLabels
+										? SubjectCategoryLabels[subject.category]
+										: 'Nomaʼlum'}
+								</p>
 							</div>
 							<div>
 								<Label className='text-sm text-muted-foreground'>Testlar soni</Label>
@@ -237,7 +242,7 @@ export default function SubjectTests() {
 								<FileText className='h-12 w-12 text-muted-foreground mb-4' />
 								<h3 className='text-lg font-medium text-foreground mb-2'>Testlar mavjud emas</h3>
 								<p className='text-muted-foreground mb-4'>Bu fanga hali test yaratilmagan</p>
-								<Button onClick={() => navigate('/account/test/create')}>
+								<Button onClick={() => router.push('/account/test/create')}>
 									<Plus className='h-4 w-4 mr-2' />
 									Birinchi testni yarating
 								</Button>
@@ -320,7 +325,7 @@ export default function SubjectTests() {
 												variant='outline'
 												size='sm'
 												className='flex-1'
-												onClick={() => navigate(`/account/test/edit/${test.id}`)}
+												onClick={() => router.push(`/account/test/edit/${test.id}`)}
 											>
 												<Edit className='h-4 w-4 mr-2' />
 												Tahrirlash
@@ -329,7 +334,7 @@ export default function SubjectTests() {
 												variant='outline'
 												size='sm'
 												className='flex-1'
-												onClick={() => navigate(`/account/test/${test.id}/questions`)}
+												onClick={() => router.push(`/account/test/${test.id}/questions`)}
 											>
 												<FileText className='h-4 w-4 mr-2' />
 												Savollar

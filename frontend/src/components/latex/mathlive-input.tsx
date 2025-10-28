@@ -1,12 +1,17 @@
-"use client";
+'use client';
 import React from 'react';
 // MathLivePreview component for rendering LaTeX using MathLive
 function MathLivePreview({ latex, fontSize }: { latex: string; fontSize?: string }) {
 	return (
 		<math-field
-			style={{ fontSize: fontSize || '18px', background: 'transparent', border: 'none', width: '100%',cursor:'pointer' }}
+			style={{
+				fontSize: fontSize || '18px',
+				background: 'transparent',
+				border: 'none',
+				width: '100%',
+				cursor: 'pointer',
+			}}
 			tabIndex={-1}
-			readOnly={true}
 		>
 			{latex}
 		</math-field>
@@ -42,27 +47,25 @@ export function MathLiveInput({ value, onChange, placeholder, className }: MathL
 	const [copied, setCopied] = useState(false);
 	const [currentLatex, setCurrentLatex] = useState('');
 	const [activeCategory, setActiveCategory] = useState('matematik');
-    const renderVariantContent = (text: string) => {
-        const parts = text.split(/(\$\$?[^$]+\$\$?)/g);
+	const renderVariantContent = (text: string) => {
+		const parts = text.split(/(\$\$?[^$]+\$\$?)/g);
 
-        return (
-            <div className='inline-block w-full'>
-                {parts.map((part, index) => {
-                    if (part.includes('$')) {
-                        return (
-                            <span key={index} className='inline-block'>
-                                <MathRenderer latex={part} />
-                            </span>
-                        );
-                    } else {
-                        return (
-                            <span key={index} className='inline' dangerouslySetInnerHTML={{ __html: part }} />
-                        );
-                    }
-                })}
-            </div>
-        );
-    };
+		return (
+			<div className='inline-block w-full'>
+				{parts.map((part, index) => {
+					if (part.includes('$')) {
+						return (
+							<span key={index} className='inline-block'>
+								<MathRenderer latex={part} />
+							</span>
+						);
+					} else {
+						return <span key={index} className='inline' dangerouslySetInnerHTML={{ __html: part }} />;
+					}
+				})}
+			</div>
+		);
+	};
 	useEffect(() => {
 		// Dynamically import MathLive to avoid SSR issues
 		const loadMathLive = async () => {
@@ -110,39 +113,39 @@ export function MathLiveInput({ value, onChange, placeholder, className }: MathL
 		}
 	};
 
-	 const insertFormula = () => {
-		 if (currentLatex.trim()) {
-			 // Improved: Do NOT add spaces inside LaTeX commands or braces
-			 let cleanedLatex = currentLatex.trim();
+	const insertFormula = () => {
+		if (currentLatex.trim()) {
+			// Improved: Do NOT add spaces inside LaTeX commands or braces
+			let cleanedLatex = currentLatex.trim();
 
-			 // Protect LaTeX commands and groups
-			 cleanedLatex = cleanedLatex.replace(/(\\[a-zA-Z]+|\{[^}]*\}|\[[^\]]*\]|\([^)]+\))/g, (m) => `§${m}§`);
+			// Protect LaTeX commands and groups
+			cleanedLatex = cleanedLatex.replace(/(\\[a-zA-Z]+|\{[^}]*\}|\[[^\]]*\]|\([^)]+\))/g, (m) => `§${m}§`);
 
-			 // Only add spaces between variables/numbers and operators outside protected regions
-			 cleanedLatex = cleanedLatex.replace(/([a-zA-Z0-9])([+\-*/=])([a-zA-Z0-9])/g, (m, p1, p2, p3) => {
-				 // If any part is protected, skip
-				 if (p1.includes('§') || p2.includes('§') || p3.includes('§')) return m;
-				 return `${p1} ${p2} ${p3}`;
-			 });
-			 cleanedLatex = cleanedLatex.replace(/([+\-*/=])([a-zA-Z0-9])/g, (m, p1, p2) => {
-				 if (p1.includes('§') || p2.includes('§')) return m;
-				 return `${p1} ${p2}`;
-			 });
-			 cleanedLatex = cleanedLatex.replace(/([a-zA-Z0-9])([+\-*/=])/g, (m, p1, p2) => {
-				 if (p1.includes('§') || p2.includes('§')) return m;
-				 return `${p1} ${p2}`;
-			 });
-			 cleanedLatex = cleanedLatex.replace(/\s+/g, ' ');
+			// Only add spaces between variables/numbers and operators outside protected regions
+			cleanedLatex = cleanedLatex.replace(/([a-zA-Z0-9])([+\-*/=])([a-zA-Z0-9])/g, (m, p1, p2, p3) => {
+				// If any part is protected, skip
+				if (p1.includes('§') || p2.includes('§') || p3.includes('§')) return m;
+				return `${p1} ${p2} ${p3}`;
+			});
+			cleanedLatex = cleanedLatex.replace(/([+\-*/=])([a-zA-Z0-9])/g, (m, p1, p2) => {
+				if (p1.includes('§') || p2.includes('§')) return m;
+				return `${p1} ${p2}`;
+			});
+			cleanedLatex = cleanedLatex.replace(/([a-zA-Z0-9])([+\-*/=])/g, (m, p1, p2) => {
+				if (p1.includes('§') || p2.includes('§')) return m;
+				return `${p1} ${p2}`;
+			});
+			cleanedLatex = cleanedLatex.replace(/\s+/g, ' ');
 
-			 // Restore protected LaTeX commands and groups
-			 cleanedLatex = cleanedLatex.replace(/§(.*?)§/g, (m, g1) => g1);
+			// Restore protected LaTeX commands and groups
+			cleanedLatex = cleanedLatex.replace(/§(.*?)§/g, (m, g1) => g1);
 
-			 const newValue = value + (value ? ' ' : '') + `$$${cleanedLatex}$$`;
-			 onChange(newValue);
-			 setIsOpen(false);
-			 setCurrentLatex('');
-		 }
-	 };
+			const newValue = value + (value ? ' ' : '') + `$$${cleanedLatex}$$`;
+			onChange(newValue);
+			setIsOpen(false);
+			setCurrentLatex('');
+		}
+	};
 
 	const copyLatex = async () => {
 		if (currentLatex) {
@@ -153,7 +156,7 @@ export function MathLiveInput({ value, onChange, placeholder, className }: MathL
 	};
 
 	const formulaCategories = {
-        default: [],
+		default: [],
 
 		matematik: [
 			{ name: 'Kvadrat', latex: 'x^2' },
@@ -409,9 +412,10 @@ export function MathLiveInput({ value, onChange, placeholder, className }: MathL
 			const width = widthInput.value;
 			const height = heightInput.value;
 
-
 			// Build <img> tag with optional width/height
-			const imgTag = `<img src="${imageUrl}" alt="${fileName}" style="max-width:100%;height:auto;border-radius:6px;border:1px solid #eee;${width ? `width:${width}px;` : ''}${height ? `height:${height}px;` : ''}" />`;
+			const imgTag = `<img src="${imageUrl}" alt="${fileName}" style="max-width:100%;height:auto;border-radius:6px;border:1px solid #eee;${
+				width ? `width:${width}px;` : ''
+			}${height ? `height:${height}px;` : ''}" />`;
 
 			// Check if value already contains an img-row div
 			let newValue = value;
@@ -423,7 +427,10 @@ export function MathLiveInput({ value, onChange, placeholder, className }: MathL
 				});
 			} else {
 				// Create new img-row div
-				newValue = value + (value ? '\n\n' : '') + `<div class=\"img-row\" style=\"display:flex;flex-wrap:wrap;gap:8px;align-items:flex-start;margin-top:8px;\">${imgTag}</div>`;
+				newValue =
+					value +
+					(value ? '\n\n' : '') +
+					`<div class=\"img-row\" style=\"display:flex;flex-wrap:wrap;gap:8px;align-items:flex-start;margin-top:8px;\">${imgTag}</div>`;
 			}
 			onChange(newValue);
 
@@ -632,7 +639,7 @@ export function MathLiveInput({ value, onChange, placeholder, className }: MathL
 						</CardHeader>
 						<CardContent>
 							{/* If value contains HTML tags, render as HTML; otherwise, use MathLivePreview */}
-						{renderVariantContent(value)}
+							{renderVariantContent(value)}
 						</CardContent>
 					</Card>
 				)}
@@ -687,23 +694,23 @@ export function MathLiveInput({ value, onChange, placeholder, className }: MathL
 												: 'grid-cols-2 md:grid-cols-4 lg:grid-cols-6 max-h-32'
 										}`}
 									>
-										 {formulaCategories[activeCategory as keyof typeof formulaCategories].map(
-										 (formula, index) => (
-										<button
-											key={index}
-											type='button'
-											onClick={() => insertQuickFormula(formula.latex)}
-											className='text-xs h-auto p-2 flex flex-col items-center gap-1 border relative rounded bg-background hover:bg-muted transition cursor-pointer'
-										>
-											<div className='text-xs'>
-												<MathLivePreview latex={formula.latex} fontSize='18px' />
-											</div>
-                                            <div className='absolute bottom-1 right-1 opacity-50 bg-primary/10 rounded-full p-1'>
-                                                <Plus className='h-4 w-4' />
-                                            </div>
-										</button>
-										 )
-										 )}
+										{formulaCategories[activeCategory as keyof typeof formulaCategories].map(
+											(formula, index) => (
+												<button
+													key={index}
+													type='button'
+													onClick={() => insertQuickFormula(formula.latex)}
+													className='text-xs h-auto p-2 flex flex-col items-center gap-1 border relative rounded bg-background hover:bg-muted transition cursor-pointer'
+												>
+													<div className='text-xs'>
+														<MathLivePreview latex={formula.latex} fontSize='18px' />
+													</div>
+													<div className='absolute bottom-1 right-1 opacity-50 bg-primary/10 rounded-full p-1'>
+														<Plus className='h-4 w-4' />
+													</div>
+												</button>
+											)
+										)}
 									</div>
 								</div>
 

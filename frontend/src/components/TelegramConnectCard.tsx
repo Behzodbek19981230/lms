@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { request } from '@/configs/request';
 import { Send, CheckCircle, AlertCircle, ExternalLink, Users, Loader2 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useRouter } from 'next/navigation';
 import TelegramAuthButton from './TelegramAuthButton';
 
 interface TelegramStatus {
@@ -29,7 +29,7 @@ interface TelegramStatus {
 
 const TelegramConnectCard: React.FC = () => {
 	const { toast } = useToast();
-	const navigate = useNavigate();
+	const router = useRouter();
 	const [status, setStatus] = useState<TelegramStatus | null>(null);
 	const [loading, setLoading] = useState(false);
 	const [connecting, setConnecting] = useState(false);
@@ -58,7 +58,7 @@ const TelegramConnectCard: React.FC = () => {
 	}, []);
 
 	const handleConnect = () => {
-		navigate('/account/telegram-user');
+		router.push('/account/telegram-user');
 	};
 
 	const handleAuthSuccess = () => {

@@ -1,229 +1,134 @@
 import React, { useEffect, useState } from 'react';
-import {
-  Box,
-  Typography,
-  Card,
-  CardContent,
-  CircularProgress,
-  Button,
-  Alert,
-  Container,
-  Paper,
-  Grid,
-  Chip,
-  Avatar,
-} from '@mui/material';
-import {
-  HourglassEmpty,
-  AdminPanelSettings,
-  School,
-  ContactSupport,
-  Refresh,
-  ExitToApp,
-} from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
-import { useNavigate } from 'react-router-dom';
+import { useRouter } from 'next/navigation';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { User, RefreshCw, Phone, Hourglass, LogOut, Shield } from 'lucide-react';
 
 const PendingCenterAssignment: React.FC = () => {
-  const { user, logout, refreshUserData } = useAuth();
-  const navigate = useNavigate();
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
+	const { user, logout } = useAuth();
+	const router = useRouter();
+	const [isRefreshing, setIsRefreshing] = useState(false);
+	const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
 
-  const handleRefresh = async () => {
-    setIsRefreshing(true);
-    try {
-      await refreshUserData();
-      setLastRefresh(new Date());
-      
-      // Check if user now has center assigned
-      if (user?.center) {
-        navigate('/dashboard');
-      }
-    } catch (error) {
-      console.error('Error refreshing user data:', error);
-    } finally {
-      setIsRefreshing(false);
-    }
-  };
+	const handleRefresh = async () => {
+		setIsRefreshing(true);
+		try {
+			setLastRefresh(new Date());
+			if (typeof window !== 'undefined') window.location.reload();
+		} catch (error) {
+			console.error('Error refreshing user data:', error);
+		} finally {
+			setIsRefreshing(false);
+		}
+	};
 
-  const handleLogout = () => {
-    logout();
-    navigate('/login');
-  };
+	const handleLogout = () => {
+		logout();
+		router.push('/login');
+	};
 
-  useEffect(() => {
-    // Auto refresh every 30 seconds
-    const interval = setInterval(handleRefresh, 30000);
-    return () => clearInterval(interval);
-  }, []);
+	useEffect(() => {
+		// Auto refresh every 30 seconds
+		const interval = setInterval(handleRefresh, 30000);
+		return () => clearInterval(interval);
+	}, []);
 
-  if (!user) {
-    return (
-      <Container maxWidth="sm">
-        <Box
-          display="flex"
-          justifyContent="center"
-          alignItems="center"
-          minHeight="100vh"
-        >
-          <CircularProgress />
-        </Box>
-      </Container>
-    );
-  }
+	if (!user) {
+		return (
+			<div className='min-h-screen flex items-center justify-center'>
+				<div className='animate-pulse text-muted-foreground'>Yuklanmoqda...</div>
+			</div>
+		);
+	}
 
-  return (
-    <Container maxWidth="md">
-      <Box
-        display="flex"
-        flexDirection="column"
-        justifyContent="center"
-        alignItems="center"
-        minHeight="100vh"
-        py={4}
-      >
-        <Paper elevation={3} sx={{ width: '100%', p: 4 }}>
-          {/* Header */}
-          <Box display="flex" justifyContent="space-between" alignItems="center" mb={4}>
-            <Box display="flex" alignItems="center" gap={2}>
-              <Avatar sx={{ bgcolor: 'warning.main' }}>
-                <HourglassEmpty />
-              </Avatar>
-              <Typography variant="h4" component="h1" color="warning.main">
-                Kutilmoqda...
-              </Typography>
-            </Box>
-            <Button
-              variant="outlined"
-              color="error"
-              startIcon={<ExitToApp />}
-              onClick={handleLogout}
-              size="small"
-            >
-              Chiqish
-            </Button>
-          </Box>
+	return (
+		<div className='container max-w-3xl mx-auto py-6 min-h-screen flex items-center'>
+			<div className='w-full space-y-4'>
+				<div className='flex items-center justify-between'>
+					<div className='flex items-center gap-3'>
+						<div className='h-10 w-10 rounded-full bg-yellow-100 flex items-center justify-center'>
+							<Hourglass className='h-5 w-5 text-yellow-700' />
+						</div>
+						<h1 className='text-2xl font-semibold text-yellow-700'>Kutilmoqda...</h1>
+					</div>
+					<Button variant='outline' onClick={handleLogout} className='gap-2'>
+						<LogOut className='h-4 w-4' /> Chiqish
+					</Button>
+				</div>
 
-          {/* User Info */}
-          <Card sx={{ mb: 3 }}>
-            <CardContent>
-              <Grid container spacing={2} alignItems="center">
-                <Grid item>
-                  <Avatar sx={{ bgcolor: 'primary.main', width: 60, height: 60 }}>
-                    {user.firstName[0]}{user.lastName?.[0]}
-                  </Avatar>
-                </Grid>
-                <Grid item xs>
-                  <Typography variant="h6" gutterBottom>
-                    {user.firstName} {user.lastName}
-                  </Typography>
-                  <Typography color="textSecondary" gutterBottom>
-                    @{user.username}
-                  </Typography>
-                  <Chip 
-                    label={user.role === 'student' ? 'Talaba' : user.role === 'teacher' ? "O'qituvchi" : 'Admin'} 
-                    color="primary" 
-                    size="small"
-                  />
-                </Grid>
-              </Grid>
-            </CardContent>
-          </Card>
+				<Card>
+					<CardContent className='p-4'>
+						<div className='flex items-center gap-3'>
+							<div className='h-14 w-14 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold'>
+								{user.firstName?.[0]}
+							</div>
+							<div className='flex-1'>
+								<div className='font-semibold'>
+									{user.firstName} {user.lastName}
+								</div>
+								<div className='text-sm text-muted-foreground'>@{user.username}</div>
+								<div className='mt-1'>
+									<Badge variant='secondary'>
+										{user.role === 'student'
+											? 'Talaba'
+											: user.role === 'teacher'
+											? "O'qituvchi"
+											: 'Admin'}
+									</Badge>
+								</div>
+							</div>
+						</div>
+					</CardContent>
+				</Card>
 
-          {/* Main Alert */}
-          <Alert 
-            severity="warning" 
-            sx={{ mb: 3 }}
-            icon={<School />}
-          >
-            <Typography variant="h6" gutterBottom>
-              Sizga hali markaz biriktirilmagan
-            </Typography>
-            <Typography>
-              Tizimdan to'liq foydalanish uchun administrator tomonidan sizga markaz biriktirilishi kerak.
-            </Typography>
-          </Alert>
+				<Alert>
+					<AlertDescription>
+						Tizimdan to'liq foydalanish uchun administrator tomonidan sizga markaz biriktirilishi kerak.
+					</AlertDescription>
+				</Alert>
 
-          {/* Instructions */}
-          <Card sx={{ mb: 3 }}>
-            <CardContent>
-              <Typography variant="h6" gutterBottom color="primary">
-                <AdminPanelSettings sx={{ mr: 1, verticalAlign: 'middle' }} />
-                Keyingi qadamlar
-              </Typography>
-              
-              <Box component="ol" sx={{ pl: 2, mt: 2 }}>
-                <Box component="li" sx={{ mb: 2 }}>
-                  <Typography>
-                    <strong>Administrator bilan bog'laning:</strong> O'quv markazingizning administratori yoki IT xodimi bilan bog'laning
-                  </Typography>
-                </Box>
-                <Box component="li" sx={{ mb: 2 }}>
-                  <Typography>
-                    <strong>Ma'lumotlaringizni taqdim eting:</strong> Ismingiz va foydalanuvchi nomingiz: <code>@{user.username}</code>
-                  </Typography>
-                </Box>
-                <Box component="li" sx={{ mb: 2 }}>
-                  <Typography>
-                    <strong>Kutib turing:</strong> Administrator sizni tegishli markazga biriktiradi
-                  </Typography>
-                </Box>
-                <Box component="li">
-                  <Typography>
-                    <strong>Sahifani yangilang:</strong> Biriktirish jarayoni tugagach, bu sahifa avtomatik yangilanadi
-                  </Typography>
-                </Box>
-              </Box>
-            </CardContent>
-          </Card>
+				<Card>
+					<CardHeader>
+						<CardTitle className='flex items-center gap-2'>
+							<Shield className='h-4 w-4' /> Keyingi qadamlar
+						</CardTitle>
+					</CardHeader>
+					<CardContent className='space-y-2 text-sm'>
+						<div>
+							<strong>Administrator bilan bog'laning:</strong> O'quv markazingiz administratori bilan
+							bog'laning.
+						</div>
+						<div>
+							<strong>Ma'lumotlaringizni taqdim eting:</strong> @ {user.username}
+						</div>
+						<div>
+							<strong>Kutib turing:</strong> Biriktirish yakunlangach sahifa yangilanadi.
+						</div>
+					</CardContent>
+				</Card>
 
-          {/* Actions */}
-          <Box display="flex" gap={2} justifyContent="center" alignItems="center">
-            <Button
-              variant="contained"
-              color="primary"
-              startIcon={isRefreshing ? <CircularProgress size={16} /> : <Refresh />}
-              onClick={handleRefresh}
-              disabled={isRefreshing}
-            >
-              {isRefreshing ? 'Tekshirilmoqda...' : 'Holatni tekshirish'}
-            </Button>
-            
-            <Button
-              variant="outlined"
-              color="info"
-              startIcon={<ContactSupport />}
-              onClick={() => window.open('tel:+998900000000', '_self')}
-            >
-              Yordam
-            </Button>
-          </Box>
+				<div className='flex items-center gap-2'>
+					<Button onClick={handleRefresh} disabled={isRefreshing} className='gap-2'>
+						<RefreshCw className='h-4 w-4' /> {isRefreshing ? 'Tekshirilmoqda...' : 'Holatni tekshirish'}
+					</Button>
+					<Button
+						variant='outline'
+						onClick={() => window.open('tel:+998900000000', '_self')}
+						className='gap-2'
+					>
+						<Phone className='h-4 w-4' /> Yordam
+					</Button>
+				</div>
 
-          {/* Last Refresh Info */}
-          <Box textAlign="center" mt={3}>
-            <Typography variant="body2" color="textSecondary">
-              Oxirgi tekshiruv: {lastRefresh.toLocaleTimeString('uz-UZ')}
-            </Typography>
-            <Typography variant="body2" color="textSecondary">
-              Avtomatik yangilanish: har 30 soniyada
-            </Typography>
-          </Box>
-
-          {/* Support Info */}
-          <Card sx={{ mt: 3, bgcolor: 'grey.50' }}>
-            <CardContent>
-              <Typography variant="body2" color="textSecondary" textAlign="center">
-                <strong>Yordam kerakmi?</strong><br />
-                Agar uzun vaqt davomida markaz biriktirilmasa, quyidagi raqamga qo'ng'iroq qiling:<br />
-                📞 <strong>+998 (90) 000-00-00</strong> - Texnik yordam
-              </Typography>
-            </CardContent>
-          </Card>
-        </Paper>
-      </Box>
-    </Container>
-  );
+				<div className='text-xs text-muted-foreground'>
+					Oxirgi tekshiruv: {lastRefresh.toLocaleTimeString('uz-UZ')} • Avtomatik: 30s
+				</div>
+			</div>
+		</div>
+	);
 };
 
 export default PendingCenterAssignment;

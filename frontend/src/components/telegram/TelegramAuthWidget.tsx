@@ -60,7 +60,7 @@ const TelegramAuthWidget: React.FC<TelegramAuthWidgetProps> = ({
 			const script = document.createElement('script');
 			script.id = 'telegram-widget-script';
 			script.src = 'https://telegram.org/js/telegram-widget.js?22';
-			script.setAttribute('data-telegram-login', import.meta.env.VITE_BOT_USERNAME || 'EduOnePlatformbot');
+			script.setAttribute('data-telegram-login', process.env.NEXT_PUBLIC_BOT_USERNAME || 'EduOnePlatformbot');
 			script.setAttribute('data-size', 'large');
 			script.setAttribute('data-onauth', 'onTelegramAuth(user)');
 			script.setAttribute('data-request-access', 'write');
@@ -234,7 +234,7 @@ const TelegramAuthWidget: React.FC<TelegramAuthWidgetProps> = ({
 									dangerouslySetInnerHTML={{
 										__html: `
                       <script async src="https://telegram.org/js/telegram-widget.js?22" 
-                        data-telegram-login="${import.meta.env.VITE_BOT_USERNAME || 'EduOnePlatformbot'}"
+                       data-telegram-login="${process.env.NEXT_PUBLIC_BOT_USERNAME || 'EduOnePlatformbot'}"
                         data-size="large" 
                         data-onauth="onTelegramAuth(user)" 
                         data-request-access="write">

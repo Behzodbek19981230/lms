@@ -1,4 +1,5 @@
-import { NavLink, useLocation } from 'react-router-dom';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import {
 	Sidebar,
 	SidebarContent,
@@ -80,9 +81,9 @@ const studentMenuItems = [
 
 export function DashboardSidebar() {
 	const { state, toggleSidebar } = useSidebar();
-	const location = useLocation();
+	const pathname = usePathname();
 	const { user } = useAuth();
-	const currentPath = location.pathname;
+	const currentPath = pathname || '/';
 
 	const isActive = (path: string) => {
 		if (!path) return false;
@@ -136,12 +137,12 @@ export function DashboardSidebar() {
 											className='group relative'
 										>
 											{hasChildren ? (
-												<NavLink
-													to={item.url || '#'}
-													className={({ isActive }) => `
+												<Link
+													href={item.url || '#'}
+													className={`
                                                         flex items-center gap-3 w-full px-4 py-2.5 rounded-md transition-all duration-200
                                                         ${
-															isActive
+															itemActive
 																? 'text-primary font-semibold'
 																: 'text-foreground/70 hover:text-primary hover:bg-muted/50'
 														}
@@ -149,7 +150,7 @@ export function DashboardSidebar() {
 												>
 													<item.icon
 														className={`h-5 w-5 transition-all duration-200 ${
-															isActive ? 'text-primary' : 'text-foreground/60'
+															itemActive ? 'text-primary' : 'text-foreground/60'
 														} ${isOpen ? 'rotate-90' : ''}`}
 													/>
 													{!isCollapsed && <span className='flex-1'>{item.title}</span>}
@@ -158,14 +159,14 @@ export function DashboardSidebar() {
 															{isOpen ? '▾' : '▸'}
 														</span>
 													)}
-												</NavLink>
+												</Link>
 											) : (
-												<NavLink
-													to={item.url}
-													className={({ isActive }) => `
+												<Link
+													href={item.url}
+													className={`
                                                         flex items-center gap-3 w-full px-4 py-2.5 rounded-md transition-all duration-200
                                                         ${
-															isActive
+															itemActive
 																? 'text-primary font-semibold'
 																: 'text-foreground/70 hover:text-primary hover:bg-muted/50'
 														}
@@ -173,11 +174,11 @@ export function DashboardSidebar() {
 												>
 													<item.icon
 														className={`h-5 w-5 transition-all duration-200 ${
-															isActive ? 'text-primary' : 'text-foreground/60'
+															itemActive ? 'text-primary' : 'text-foreground/60'
 														}`}
 													/>
 													{!isCollapsed && <span className='flex-1'>{item.title}</span>}
-												</NavLink>
+												</Link>
 											)}
 										</SidebarMenuButton>
 
@@ -187,15 +188,19 @@ export function DashboardSidebar() {
 												{(item as any).children.map((child: any) => (
 													<SidebarMenuSubItem key={child.title}>
 														<SidebarMenuSubButton asChild>
-															<NavLink
-																to={child.url}
-																className={({ isActive }) => `
-																	flex items-center px-4 py-2 rounded-md transition-all duration-200 text-sm
-																	${isActive ? 'text-primary font-semibold' : 'text-foreground/60 hover:text-primary hover:bg-muted/50'}
-																`}
+															<Link
+																href={child.url}
+																className={`
+                                                                    flex items-center px-4 py-2 rounded-md transition-all duration-200 text-sm
+                                                                    ${
+																		itemActive
+																			? 'text-primary font-semibold'
+																			: 'text-foreground/60 hover:text-primary hover:bg-muted/50'
+																	}
+                                                                `}
 															>
 																{child.title}
-															</NavLink>
+															</Link>
 														</SidebarMenuSubButton>
 													</SidebarMenuSubItem>
 												))}

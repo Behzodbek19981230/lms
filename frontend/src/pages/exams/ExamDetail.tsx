@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -55,8 +55,9 @@ interface ExamVariant {
 }
 
 const ExamDetail: React.FC = () => {
-	const { examId } = useParams<{ examId: string }>();
-	const navigate = useNavigate();
+	const params = useParams();
+	const examId = (params as any)?.examId as string | undefined;
+	const router = useRouter();
 	const { user } = useAuth();
 	const { toast } = useToast();
 	const [exam, setExam] = useState<Exam | null>(null);
@@ -106,7 +107,7 @@ const ExamDetail: React.FC = () => {
 			toast({
 				title: 'Xatolik',
 				description: errorMsg,
-				variant: 'destructive'
+				variant: 'destructive',
 			});
 		} finally {
 			setIsGenerating(false);
@@ -128,7 +129,7 @@ const ExamDetail: React.FC = () => {
 			toast({
 				title: 'Xatolik',
 				description: errorMsg,
-				variant: 'destructive'
+				variant: 'destructive',
 			});
 		} finally {
 			setIsUpdatingStatus(false);
@@ -137,10 +138,10 @@ const ExamDetail: React.FC = () => {
 
 	const downloadVariantPDF = async (variantId: number) => {
 		try {
-			setDownloadingPdfs(prev => new Set(prev).add(variantId));
+			setDownloadingPdfs((prev) => new Set(prev).add(variantId));
 			const response = await request.get(`/exams/variants/${variantId}/pdf`);
 			const { url } = response.data as { url: string };
-            window.open(`${import.meta.env.VITE_FILE_BASE_URL}${url}`, '_blank');
+			window.open(`${process.env.NEXT_PUBLIC_FILE_BASE_URL}${url}`, '_blank');
 
 			toast({
 				title: 'Muvaffaqiyat',
@@ -152,10 +153,10 @@ const ExamDetail: React.FC = () => {
 			toast({
 				title: 'Xatolik',
 				description: errorMsg,
-				variant: 'destructive'
+				variant: 'destructive',
 			});
 		} finally {
-			setDownloadingPdfs(prev => {
+			setDownloadingPdfs((prev) => {
 				const newSet = new Set(prev);
 				newSet.delete(variantId);
 				return newSet;
@@ -165,7 +166,7 @@ const ExamDetail: React.FC = () => {
 
 	const downloadAnswerKeyPDF = async (variantId: number) => {
 		try {
-			setDownloadingPdfs(prev => new Set(prev).add(-variantId)); // Use negative to distinguish from variant PDF
+			setDownloadingPdfs((prev) => new Set(prev).add(-variantId)); // Use negative to distinguish from variant PDF
 			const response = await request.get(`/exams/variants/${variantId}/answer-key`);
 			const { url } = response.data as { url: string };
 
@@ -185,10 +186,10 @@ const ExamDetail: React.FC = () => {
 			toast({
 				title: 'Xatolik',
 				description: errorMsg,
-				variant: 'destructive'
+				variant: 'destructive',
 			});
 		} finally {
-			setDownloadingPdfs(prev => {
+			setDownloadingPdfs((prev) => {
 				const newSet = new Set(prev);
 				newSet.delete(-variantId);
 				return newSet;
@@ -265,7 +266,7 @@ const ExamDetail: React.FC = () => {
 			{/* Header */}
 			<div className='flex items-center justify-between'>
 				<div className='flex items-center space-x-4'>
-					<Button variant='outline' size='sm' onClick={() => navigate('/account/exams')}>
+					<Button variant='outline' size='sm' onClick={() => router.push('/account/exams')}>
 						<ArrowLeft className='h-4 w-4 mr-2' />
 						Imtihonlarga qaytish
 					</Button>
@@ -461,7 +462,11 @@ const ExamDetail: React.FC = () => {
 									</div>
 								</DialogContent>
 							</Dialog>
-							<Button variant='outline' onClick={() => updateExamStatus('scheduled')} disabled={isUpdatingStatus}>
+							<Button
+								variant='outline'
+								onClick={() => updateExamStatus('scheduled')}
+								disabled={isUpdatingStatus}
+							>
 								{isUpdatingStatus ? (
 									<>
 										<Loader2 className='h-4 w-4 mr-2 animate-spin' />
@@ -539,7 +544,8 @@ const ExamDetail: React.FC = () => {
 												<div className='flex items-center space-x-4'>
 													<div>
 														<p className='font-medium'>
-															{variant.student.fullName || `${variant.student.firstName} ${variant.student.lastName}`}
+															{variant.student.fullName ||
+																`${variant.student.firstName} ${variant.student.lastName}`}
 														</p>
 														<p className='text-sm text-gray-600'>
 															Variant {variant.variantNumber}

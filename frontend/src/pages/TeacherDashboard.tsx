@@ -14,7 +14,7 @@ import {
 	Users,
 	Video,
 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import { request } from '@/configs/request';
 import type { SubjectType } from '@/types/subject.type';
@@ -27,7 +27,7 @@ import PaymentStatsWidget from '@/components/payments/PaymentStatsWidget';
 import moment from 'moment';
 import PageLoader from '@/components/PageLoader';
 export default function TeacherDashboard() {
-	const navigate = useNavigate();
+	const router = useRouter();
 	const { user } = useAuth();
 
 	const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -336,7 +336,7 @@ export default function TeacherDashboard() {
 				<div className='mt-8'>
 					<div className='flex items-center justify-between mb-6'>
 						<h2 className='text-lg md:text-2xl font-bold text-foreground'>Mening fanlarim</h2>
-						<Button variant='outline' onClick={() => navigate('/account/test/create')}>
+						<Button variant='outline' onClick={() => router.push('/account/test/create')}>
 							<Plus className='h-4 w-4 mr-2' />
 							Yangi test yaratish
 						</Button>
@@ -367,7 +367,7 @@ export default function TeacherDashboard() {
 								<Card
 									key={subject.id}
 									className='border-border hover:shadow-md transition-shadow cursor-pointer'
-									onClick={() => navigate(`/account/subject/${subject.id}/tests`)}
+									onClick={() => router.push(`/account/subject/${subject.id}/tests`)}
 								>
 									<CardHeader>
 										<div className='flex items-start justify-between'>

@@ -1,21 +1,16 @@
-import type { Config } from "tailwindcss";
+import type { Config } from 'tailwindcss';
 
 export default {
-	darkMode: ["class"],
-	content: [
-		"./pages/**/*.{ts,tsx}",
-		"./components/**/*.{ts,tsx}",
-		"./app/**/*.{ts,tsx}",
-		"./src/**/*.{ts,tsx}",
-	],
-	prefix: "",
+	darkMode: ['class'],
+	content: ['./pages/**/*.{ts,tsx}', './components/**/*.{ts,tsx}', './app/**/*.{ts,tsx}', './src/**/*.{ts,tsx}'],
+	prefix: '',
 	theme: {
 		container: {
 			center: true,
 			padding: '2rem',
 			screens: {
-				'2xl': '1400px'
-			}
+				'2xl': '1400px',
+			},
 		},
 		extend: {
 			colors: {
@@ -27,32 +22,32 @@ export default {
 				primary: {
 					DEFAULT: 'hsl(var(--primary))',
 					foreground: 'hsl(var(--primary-foreground))',
-					glow: 'hsl(var(--primary-glow))'
+					glow: 'hsl(var(--primary-glow))',
 				},
 				secondary: {
 					DEFAULT: 'hsl(var(--secondary))',
-					foreground: 'hsl(var(--secondary-foreground))'
+					foreground: 'hsl(var(--secondary-foreground))',
 				},
 				destructive: {
 					DEFAULT: 'hsl(var(--destructive))',
-					foreground: 'hsl(var(--destructive-foreground))'
+					foreground: 'hsl(var(--destructive-foreground))',
 				},
 				muted: {
 					DEFAULT: 'hsl(var(--muted))',
-					foreground: 'hsl(var(--muted-foreground))'
+					foreground: 'hsl(var(--muted-foreground))',
 				},
 				accent: {
 					DEFAULT: 'hsl(var(--accent))',
 					foreground: 'hsl(var(--accent-foreground))',
-					glow: 'hsl(var(--accent-glow))'
+					glow: 'hsl(var(--accent-glow))',
 				},
 				popover: {
 					DEFAULT: 'hsl(var(--popover))',
-					foreground: 'hsl(var(--popover-foreground))'
+					foreground: 'hsl(var(--popover-foreground))',
 				},
 				card: {
 					DEFAULT: 'hsl(var(--card))',
-					foreground: 'hsl(var(--card-foreground))'
+					foreground: 'hsl(var(--card-foreground))',
 				},
 				sidebar: {
 					DEFAULT: 'hsl(var(--sidebar-background))',
@@ -62,8 +57,8 @@ export default {
 					accent: 'hsl(var(--sidebar-accent))',
 					'accent-foreground': 'hsl(var(--sidebar-accent-foreground))',
 					border: 'hsl(var(--sidebar-border))',
-					ring: 'hsl(var(--sidebar-ring))'
-				}
+					ring: 'hsl(var(--sidebar-ring))',
+				},
 			},
 			backgroundImage: {
 				'gradient-primary': 'var(--gradient-primary)',
@@ -71,120 +66,120 @@ export default {
 				'gradient-hero': 'var(--gradient-hero)',
 				'gradient-subtle': 'var(--gradient-subtle)',
 				'gradient-card': 'var(--gradient-card)',
-				'gradient-shimmer': 'var(--gradient-shimmer)'
+				'gradient-shimmer': 'var(--gradient-shimmer)',
 			},
 			boxShadow: {
-				'elegant': 'var(--shadow-elegant)',
-				'glow': 'var(--shadow-glow)',
-				'card': 'var(--shadow-card)',
-				'hover': 'var(--shadow-hover)'
+				elegant: 'var(--shadow-elegant)',
+				glow: 'var(--shadow-glow)',
+				card: 'var(--shadow-card)',
+				hover: 'var(--shadow-hover)',
 			},
 			borderRadius: {
 				lg: 'var(--radius)',
 				md: 'calc(var(--radius) - 2px)',
-				sm: 'calc(var(--radius) - 4px)'
+				sm: 'calc(var(--radius) - 4px)',
 			},
 			keyframes: {
 				'accordion-down': {
 					from: {
-						height: '0'
+						height: '0',
 					},
 					to: {
-						height: 'var(--radix-accordion-content-height)'
-					}
+						height: 'var(--radix-accordion-content-height)',
+					},
 				},
 				'accordion-up': {
 					from: {
-						height: 'var(--radix-accordion-content-height)'
+						height: 'var(--radix-accordion-content-height)',
 					},
 					to: {
-						height: '0'
-					}
+						height: '0',
+					},
 				},
-				'float': {
+				float: {
 					'0%, 100%': { transform: 'translateY(0px)' },
-					'50%': { transform: 'translateY(-10px)' }
+					'50%': { transform: 'translateY(-10px)' },
 				},
 				'pulse-glow': {
 					'0%, 100%': { opacity: '1' },
-					'50%': { opacity: '0.7' }
+					'50%': { opacity: '0.7' },
 				},
 				'slide-up': {
 					from: {
 						opacity: '0',
-						transform: 'translateY(20px)'
+						transform: 'translateY(20px)',
 					},
 					to: {
 						opacity: '1',
-						transform: 'translateY(0)'
-					}
+						transform: 'translateY(0)',
+					},
 				},
 				'fade-in': {
 					from: {
-						opacity: '0'
+						opacity: '0',
 					},
 					to: {
-						opacity: '1'
-					}
+						opacity: '1',
+					},
 				},
 				'scale-in': {
 					from: {
 						opacity: '0',
-						transform: 'scale(0.95)'
+						transform: 'scale(0.95)',
 					},
 					to: {
 						opacity: '1',
-						transform: 'scale(1)'
-					}
+						transform: 'scale(1)',
+					},
 				},
 				'bounce-in': {
 					'0%': {
 						transform: 'scale(0.3)',
-						opacity: '0'
+						opacity: '0',
 					},
 					'50%': {
 						transform: 'scale(1.05)',
-						opacity: '1'
+						opacity: '1',
 					},
 					'70%': {
-						transform: 'scale(0.95)'
+						transform: 'scale(0.95)',
 					},
 					'100%': {
-						transform: 'scale(1)'
-					}
+						transform: 'scale(1)',
+					},
 				},
-				'shimmer': {
+				shimmer: {
 					'0%': {
-						transform: 'translateX(-100%)'
+						transform: 'translateX(-100%)',
 					},
 					'100%': {
-						transform: 'translateX(100%)'
-					}
+						transform: 'translateX(100%)',
+					},
 				},
 				'gradient-x': {
 					'0%, 100%': {
 						'background-size': '200% 200%',
-						'background-position': 'left center'
+						'background-position': 'left center',
 					},
 					'50%': {
 						'background-size': '200% 200%',
-						'background-position': 'right center'
-					}
-				}
+						'background-position': 'right center',
+					},
+				},
 			},
 			animation: {
 				'accordion-down': 'accordion-down 0.2s ease-out',
 				'accordion-up': 'accordion-up 0.2s ease-out',
-				'float': 'float 3s ease-in-out infinite',
+				float: 'float 3s ease-in-out infinite',
 				'pulse-glow': 'pulse-glow 2s ease-in-out infinite',
 				'slide-up': 'slide-up 0.5s ease-out',
 				'fade-in': 'fade-in 0.3s ease-out',
 				'scale-in': 'scale-in 0.3s ease-out',
 				'bounce-in': 'bounce-in 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55)',
-				'shimmer': 'shimmer 2s linear infinite',
-				'gradient-x': 'gradient-x 3s ease-in-out infinite'
-			}
-		}
+				shimmer: 'shimmer 2s linear infinite',
+				'gradient-x': 'gradient-x 3s ease-in-out infinite',
+			},
+		},
 	},
-	plugins: [require("tailwindcss-animate")],
+	plugins: [require('tailwindcss-animate')],
 } satisfies Config;

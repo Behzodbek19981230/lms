@@ -47,16 +47,22 @@ const TeacherPayments: React.FC = () => {
 				groupService.getMyGroups(),
 			]);
 
-			if (paymentsResponse.success) {
+			if (paymentsResponse.success && paymentsResponse.data) {
 				setPayments(paymentsResponse.data);
+			} else {
+				setPayments([]);
 			}
 
-			if (statsResponse.success) {
+			if (statsResponse.success && statsResponse.data) {
 				setStats(statsResponse.data);
+			} else {
+				setStats(null);
 			}
 
-			if (groupsResponse.success) {
+			if (groupsResponse.success && groupsResponse.data) {
 				setGroups(groupsResponse.data);
+			} else {
+				setGroups([]);
 			}
 		} catch (error) {
 			console.error('Error fetching data:', error);

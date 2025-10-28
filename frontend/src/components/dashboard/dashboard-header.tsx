@@ -10,19 +10,19 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { BookOpen, Bell, Settings, LogOut, User } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { useNavigate } from 'react-router-dom';
+import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { request } from '@/configs/request';
 
 export const DashboardHeader = () => {
 	const { user, logout } = useAuth();
-	const navigate = useNavigate();
+	const router = useRouter();
 	const [notifications, setNotifications] = useState<any[]>([]);
 	const unreadCount = notifications.filter((n) => !n.isRead).length;
 
 	const handleLogout = () => {
 		logout();
-		navigate('/');
+		router.push('/');
 	};
 
 	const fetchNotifications = async () => {
@@ -59,7 +59,7 @@ export const DashboardHeader = () => {
 					</div>
 					<div className='hidden sm:block'>
 						<span className='text-base sm:text-xl font-bold bg-gradient-to-r from-primary via-primary/80 to-primary/60 bg-clip-text text-transparent'>
-							{user.center?.name || 'EduOne'}
+							{user?.center?.name || 'EduOne'}
 						</span>
 						<p className='text-xs text-muted-foreground hidden md:block'>
 							{user?.role === 'superadmin' && 'Super Admin Panel'}
@@ -135,7 +135,7 @@ export const DashboardHeader = () => {
 
 					<DropdownMenuContent align='end' className='w-48 sm:w-56'>
 						<DropdownMenuItem
-							onClick={() => navigate('/account/profile')}
+							onClick={() => router.push('/account/profile')}
 							className='py-2 sm:py-2.5 text-xs sm:text-sm'
 						>
 							<User className='mr-1.5 sm:mr-2 h-3.5 w-3.5 sm:h-4 sm:w-4' />

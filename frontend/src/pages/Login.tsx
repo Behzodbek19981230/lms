@@ -4,9 +4,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { BookOpen, Eye, EyeOff, Lock, User } from 'lucide-react';
-import { Link, useNavigate } from 'react-router-dom';
-import { useToast } from '@/hooks/use-toast.ts';
-import { useAuth } from '@/contexts/AuthContext.tsx';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
 
 const Login = () => {
 	const [username, setUsername] = useState('');
@@ -14,76 +15,69 @@ const Login = () => {
 	const [showPassword, setShowPassword] = useState(false);
 	const [isLoading, setIsLoading] = useState(false);
 	const { login } = useAuth();
-	const navigate = useNavigate();
+	const router = useRouter();
 	const { toast } = useToast();
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
 		setIsLoading(true);
-        try{
-
-		const user = await login(username, password);
-		console.log(user);
-        if (user) {
-			toast({
-				title: 'Welcome back!',
-				description: 'You have successfully logged in.',
-			});
-			console.log('Login successful:', user);
-			// Redirect based on user role
-			if (!user) {
+		try {
+			const user = await login(username, password);
+			console.log(user);
+			if (user) {
 				toast({
-					title: 'Error',
-					description: 'User data not found.',
+					title: 'Welcome back!',
+					description: 'You have successfully logged in.',
+				});
+				console.log('Login successful:', user);
+				// Redirect based on user role
+				if (!user) {
+					toast({
+						title: 'Error',
+						description: 'User data not found.',
+						variant: 'destructive',
+					});
+					setIsLoading(false);
+					return;
+				}
+
+				// Check if user has center assigned (except for superadmin)
+				if (user.role !== 'superadmin' && !user.center) {
+					router.push('/no-center');
+					return;
+				}
+
+				switch (user.role) {
+					case 'superadmin':
+						router.push('/account/superadmin');
+						break;
+					case 'admin':
+						router.push('/account/admin');
+						break;
+					case 'teacher':
+						router.push('/account/teacher');
+						break;
+					case 'student':
+						router.push('/account/student');
+						break;
+					default:
+						router.push('/');
+						break;
+				}
+			} else {
+				toast({
+					title: 'Xatolik',
+					description: 'Foydalanuvchi nomi yoki parolni tekshiring.',
 					variant: 'destructive',
 				});
-				setIsLoading(false);
-				return;
 			}
-
-			// Check if user has center assigned (except for superadmin)
-			if (user.role !== 'superadmin' && !user.center) {
-				navigate('/no-center');
-				return;
-			}
-
-			switch (user.role) {
-				case 'superadmin':
-					navigate('/account/superadmin');
-					break;
-				case 'admin':
-					navigate('/account/admin');
-					break;
-				case 'teacher':
-					navigate('/account/teacher');
-					break;
-				case 'student':
-					navigate('/account/student');
-					break;
-				default:
-					navigate('/');
-					break;
-			}
-		} else {
+		} catch (err) {
 			toast({
-				title: 'Xatolik',
-				description: 'Foydalanuvchi nomi yoki parolni tekshiring.',
+				title: err,
 				variant: 'destructive',
 			});
+		} finally {
+			setIsLoading(false);
 		}
-
-        }
-        catch(err){
-            toast({
-                title:err,
-                variant:'destructive'
-            })
-            
-        }
-        finally{
-
-		
-		setIsLoading(false);
-        }
 	};
 
 	return (
@@ -157,7 +151,7 @@ const Login = () => {
 									<span className='text-muted-foreground'>Meni eslab qol</span>
 								</label>
 								<Link
-									to='/forgot-password'
+									href='/forgot-password'
 									className='text-sm text-primary hover:text-primary-glow transition-colors'
 								>
 									Parolni unutdingizmi?
@@ -169,12 +163,11 @@ const Login = () => {
 							</Button>
 						</form>
 
-
 						<div className='mt-6 text-center'>
 							<p className='text-sm text-muted-foreground'>
 								Hisobingiz yo'qmi?{' '}
 								<Link
-									to='/register'
+									href='/register'
 									className='text-primary hover:text-primary-glow font-medium transition-colors'
 								>
 									Ro'yxatdan o'ting
@@ -186,7 +179,7 @@ const Login = () => {
 
 				{/* Back to home */}
 				<div className='text-center mt-6'>
-					<Link to='/' className='text-sm text-muted-foreground hover:text-foreground transition-colors'>
+					<Link href='/' className='text-sm text-muted-foreground hover:text-foreground transition-colors'>
 						← Bosh sahifaga qaytish
 					</Link>
 				</div>

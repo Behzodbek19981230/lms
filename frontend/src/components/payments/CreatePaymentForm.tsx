@@ -51,10 +51,12 @@ const CreatePaymentForm: React.FC<CreatePaymentFormProps> = ({ open, onClose, on
 
 	const fetchGroups = async () => {
 		try {
-			const response = await groupService.getMyGroups();
-			if (response.success) {
-				setGroups(response.data);
-			}
+            const response = await groupService.getMyGroups();
+            if (response.success && response.data) {
+                setGroups(response.data);
+            } else {
+                setGroups([]);
+            }
 		} catch (error) {
 			console.error('Error fetching groups:', error);
 		}
@@ -63,10 +65,12 @@ const CreatePaymentForm: React.FC<CreatePaymentFormProps> = ({ open, onClose, on
 	const fetchGroupStudents = async (groupId: string) => {
 		setLoadingStudents(true);
 		try {
-			const response = await groupService.getGroupStudents(groupId);
-			if (response.success) {
-				setStudents(response.data);
-			}
+            const response = await groupService.getGroupStudents(groupId);
+            if (response.success && response.data) {
+                setStudents(response.data as any);
+            } else {
+                setStudents([]);
+            }
 		} catch (error) {
 			console.error('Error fetching group students:', error);
 			setStudents([]);

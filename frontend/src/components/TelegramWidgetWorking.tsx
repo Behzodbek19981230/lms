@@ -25,7 +25,7 @@ const TelegramWidgetWorking: React.FC<Props> = ({ onSuccess, onError }) => {
 	const { toast } = useToast();
 	const { login } = useAuth();
 
-	const TELEGRAM_BOT_USERNAME = import.meta.env.VITE_TELEGRAM_BOT_USERNAME || 'EduOnePlatformbot';
+	const TELEGRAM_BOT_USERNAME = process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME || 'EduOnePlatformbot';
 
 	const handleTelegramAuth = async (user: TelegramUser) => {
 		console.log('Telegram auth received:', user);
@@ -43,7 +43,7 @@ const TelegramWidgetWorking: React.FC<Props> = ({ onSuccess, onError }) => {
 		setIsLoading(true);
 
 		try {
-			const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+			const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
 			console.log('Sending registration request to:', `${API_BASE_URL}/api/auth/telegram/register`);
 
 			const response = await fetch(`${API_BASE_URL}/api/auth/telegram/register`, {

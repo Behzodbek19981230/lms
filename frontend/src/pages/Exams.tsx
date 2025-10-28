@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -107,7 +107,7 @@ interface ExamVariant {
 }
 
 export default function ExamsPage() {
-	const navigate = useNavigate();
+	const router = useRouter();
 	const { user } = useAuth();
 	const { toast } = useToast();
 
@@ -370,7 +370,7 @@ export default function ExamsPage() {
 			<div className='min-h-screen bg-gradient-subtle flex items-center justify-center'>
 				<div className='text-center'>
 					<div className='text-lg text-destructive'>{errorMessage}</div>
-					<Button onClick={() => navigate(-1)} className='mt-4'>
+					<Button onClick={() => router.back()} className='mt-4'>
 						Orqaga qaytish
 					</Button>
 				</div>
@@ -393,7 +393,7 @@ export default function ExamsPage() {
 						<Button
 							variant='outline'
 							size='sm'
-							onClick={() => navigate('/account/test-generator')}
+							onClick={() => router.push('/account/test-generator')}
 							className='flex-1 sm:flex-initial'
 						>
 							<FileText className='h-3.5 w-3.5 sm:h-4 sm:w-4 sm:mr-2' />
@@ -569,7 +569,7 @@ export default function ExamsPage() {
 												variant='outline'
 												size='sm'
 												className='flex-1'
-												onClick={() => navigate(`/account/exams/${exam.id}`)}
+												onClick={() => router.push(`/account/exams/${exam.id}`)}
 											>
 												<Eye className='h-4 w-4 mr-2' />
 												Ko'rish

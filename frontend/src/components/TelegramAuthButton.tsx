@@ -25,7 +25,7 @@ interface TelegramAuthButtonProps {
 }
 
 export default function TelegramAuthButton({
-	botUsername = import.meta.env.VITE_BOT_USERNAME || 'universal_lms_bot',
+	botUsername = process.env.NEXT_PUBLIC_BOT_USERNAME || 'universal_lms_bot',
 	onSuccess,
 	onError,
 	className,

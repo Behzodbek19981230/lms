@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -59,8 +59,9 @@ interface Exam {
 }
 
 const ExamVariants: React.FC = () => {
-	const { examId } = useParams<{ examId: string }>();
-	const navigate = useNavigate();
+	const params = useParams();
+	const examId = (params as any)?.examId as string | undefined;
+	const router = useRouter();
 	const { user } = useAuth();
 	const [exam, setExam] = useState<Exam | null>(null);
 	const [variants, setVariants] = useState<ExamVariant[]>([]);
@@ -83,7 +84,7 @@ const ExamVariants: React.FC = () => {
 			// Fetch exam details and variants using request
 			const [examResponse, variantsResponse] = await Promise.all([
 				request.get(`/exams/${examId}`),
-				request.get(`/exams/${examId}/variants`)
+				request.get(`/exams/${examId}/variants`),
 			]);
 
 			setExam(examResponse.data);
@@ -278,7 +279,7 @@ const ExamVariants: React.FC = () => {
 			{/* Header */}
 			<div className='flex items-center justify-between'>
 				<div className='flex items-center space-x-4'>
-					<Button variant='outline' size='sm' onClick={() => navigate(`/exams/${examId}`)}>
+					<Button variant='outline' size='sm' onClick={() => router.push(`/account/exams/${examId}`)}>
 						<ArrowLeft className='h-4 w-4 mr-2' />
 						Back to Exam
 					</Button>

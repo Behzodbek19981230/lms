@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -25,7 +25,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useToast } from '@/components/ui/use-toast';
 
 const SuperAdminDashboard = () => {
-	const navigate = useNavigate();
+	const router = useRouter();
 	const [timeRange, setTimeRange] = useState('30d');
 	const [centers, setCenters] = useState<any[]>([]);
 	const [users, setUsers] = useState<any[]>([]);
@@ -456,7 +456,7 @@ const SuperAdminDashboard = () => {
 								<Button
 									variant='ghost'
 									className='w-full'
-									onClick={() => navigate('/account/center-users')}
+									onClick={() => router.push('/account/center-users')}
 								>
 									Barcha markazlar va foydalanuvchilarni ko'rish
 								</Button>
@@ -489,7 +489,7 @@ const SuperAdminDashboard = () => {
 							<Button
 								variant='outline'
 								className='w-full justify-start'
-								onClick={() => navigate('/account/center-users')}
+								onClick={() => router.push('/account/center-users')}
 							>
 								<Users className='h-4 w-4 mr-2' />
 								Markazlar va foydalanuvchilar
