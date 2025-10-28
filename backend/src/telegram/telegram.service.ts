@@ -2396,9 +2396,14 @@ export class TelegramService {
         attendanceMessage += `📚 <b>Fan:</b> ${group.subject.name}\n`;
       }
       attendanceMessage += `👤 <b>Student:</b> ${student.firstName} ${student.lastName}\n`;
-      
-      const statusEmoji = status === 'keldi' ? '✅ Keldi' : status === 'kechikdi' ? '⏰ Kechikdi' : '❌ Kelmadi';
-      attendanceMessage += `📊 <b>Status:</b> ${statusEmoji}\n`;
+
+      const attendanceStatusEmoji =
+        status === 'keldi'
+          ? '✅ Keldi'
+          : status === 'kechikdi'
+            ? '⏰ Kechikdi'
+            : '❌ Kelmadi';
+      attendanceMessage += `📊 <b>Status:</b> ${attendanceStatusEmoji}\n`;
       attendanceMessage += `👨‍🏫 <b>O'qituvchi:</b> ${chat.user.firstName}\n`;
       attendanceMessage += `📅 <b>Sana:</b> ${new Date().toLocaleDateString()}\n`;
       attendanceMessage += `⏰ <b>Vaqt:</b> ${new Date().toLocaleTimeString()}`;
@@ -2408,8 +2413,8 @@ export class TelegramService {
         const groupChat = await this.telegramChatRepo.findOne({
           where: {
             group: { id: group.id },
-            type: 'CHANNEL',
-            status: 'ACTIVE',
+            type: ChatType.CHANNEL,
+            status: ChatStatus.ACTIVE,
           },
         });
 
@@ -2424,16 +2429,22 @@ export class TelegramService {
             const subjectChat = await this.telegramChatRepo.findOne({
               where: {
                 subject: { id: group.subject.id },
-                type: 'CHANNEL',
-                status: 'ACTIVE',
+                type: ChatType.CHANNEL,
+                status: ChatStatus.ACTIVE,
               },
             });
 
             if (subjectChat && this.bot) {
-              await this.bot.sendMessage(subjectChat.chatId, attendanceMessage, {
-                parse_mode: 'HTML',
-              });
-              console.log(`📤 Attendance sent to subject channel for ${group.subject.name}`);
+              await this.bot.sendMessage(
+                subjectChat.chatId,
+                attendanceMessage,
+                {
+                  parse_mode: 'HTML',
+                },
+              );
+              console.log(
+                `📤 Attendance sent to subject channel for ${group.subject.name}`,
+              );
             }
           }
         }
