@@ -90,13 +90,13 @@ const Hero = () => {
                     </div>
 
                     {/* Right Content - Hero Image */}
-                    <div className='relative'>
-                        <div className='relative z-10'>
+                    <div className='relative min-h-[400px] w-full'>
+                        <div className='relative z-10 min-h-[400px] w-full'>
                             <Image
                                 fill
                                 src='/hero-education.jpg'
                                 alt='E-Learning Platform'
-                                className='w-full h-auto rounded-2xl shadow-elegant animate-float'
+                                className='rounded-2xl shadow-elegant animate-float'
                             />
                         </div>
                         {/* Background Decorations */}
