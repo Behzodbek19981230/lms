@@ -20,7 +20,7 @@ import { TestsService } from '../tests/tests.service';
 import { QuestionsService } from '../questions/questions.service';
 import { User, UserRole } from '../users/entities/user.entity';
 import { NotificationsService } from '../notifications/notifications.service';
-// import { TelegramService } from '../telegram/telegram.service';
+import { TelegramService } from '../telegram/telegram.service';
 
 import { Question, QuestionType } from '../questions/entities/question.entity';
 import { LogsService } from 'src/logs/logs.service';
@@ -75,7 +75,7 @@ export class ExamsService {
     private testsService: TestsService,
     private questionsService: QuestionsService,
     private notificationsService: NotificationsService,
-    // private telegramService: TelegramService,
+    private telegramService: TelegramService,
     private readonly logsService: LogsService,
   ) {}
 
@@ -262,6 +262,261 @@ export class ExamsService {
     // PDF sending deprecated: no background PDF generation/sending
 
     return variants;
+  }
+
+  /* --------------------------------
+       New method: Generate exam tests for all students in a group
+       -------------------------------- */
+
+  /**
+   * Generates exam tests for all students in specified groups.
+   * For each student:
+   * 1. Creates a test variant using existing test generation logic
+   * 2. Generates HTML printable file
+   * 3. Sends HTML file via Telegram to the student
+   * 4. Saves the HTML file URL to student's profile (via ExamVariant.printHtmlPath)
+   *
+   * @param examId - The exam ID to generate tests for
+   * @param groupIds - Array of group IDs containing students
+   * @returns Summary of generated tests and notifications
+   */
+  async generateExamForGroups(
+    examId: number,
+    groupIds: number[],
+  ): Promise<{
+    success: boolean;
+    message: string;
+    totalStudents: number;
+    testsGenerated: number;
+    telegramSent: number;
+    telegramFailed: number;
+    details: Array<{
+      studentId: number;
+      studentName: string;
+      variantNumber: string;
+      testGenerated: boolean;
+      telegramSent: boolean;
+      htmlUrl?: string;
+      error?: string;
+    }>;
+  }> {
+    try {
+      // 1. Load exam with all necessary relations
+      const exam = await this.findById(examId);
+
+      if (
+        exam.status === ExamStatus.COMPLETED ||
+        exam.status === ExamStatus.CANCELLED
+      ) {
+        throw new BadRequestException(
+          "Tugallangan yoki bekor qilingan imtihon uchun testlar yaratib bo'lmaydi",
+        );
+      }
+
+      // 2. Get all students from specified groups
+      const groups = await this.groupsService.findByIds(groupIds);
+      const allStudents: User[] = [];
+
+      for (const group of groups) {
+        const groupWithStudents = await this.groupsService.findById(group.id);
+        if (groupWithStudents.students) {
+          allStudents.push(...groupWithStudents.students);
+        }
+      }
+
+      // Remove duplicate students
+      const uniqueStudents = allStudents.filter(
+        (student, idx, self) =>
+          idx === self.findIndex((s) => s.id === student.id),
+      );
+
+      if (uniqueStudents.length === 0) {
+        return {
+          success: false,
+          message: 'Tanlangan guruhlarda studentlar topilmadi',
+          totalStudents: 0,
+          testsGenerated: 0,
+          telegramSent: 0,
+          telegramFailed: 0,
+          details: [],
+        };
+      }
+
+      void this.logsService.log(
+        `Starting exam generation for ${uniqueStudents.length} students in exam ${examId}`,
+      );
+
+      const details: Array<{
+        studentId: number;
+        studentName: string;
+        variantNumber: string;
+        testGenerated: boolean;
+        telegramSent: boolean;
+        htmlUrl?: string;
+        error?: string;
+      }> = [];
+
+      let testsGenerated = 0;
+      let telegramSent = 0;
+      let telegramFailed = 0;
+
+      // 3. Generate test for each student
+      for (const student of uniqueStudents) {
+        const studentName = `${student.firstName} ${student.lastName}`;
+
+        try {
+          // Generate variant number for this student
+          const variantNumber = this.generateVariantNumber(
+            exam.id,
+            student.id,
+            1, // First variant for this student
+          );
+
+          // Check if variant already exists
+          let variant = await this.examVariantRepository.findOne({
+            where: {
+              exam: { id: examId },
+              student: { id: student.id },
+              variantNumber,
+            },
+          });
+
+          // If variant doesn't exist, create it
+          if (!variant) {
+            variant = this.examVariantRepository.create({
+              variantNumber,
+              exam,
+              student,
+              status: ExamVariantStatus.GENERATED,
+            });
+            variant = await this.examVariantRepository.save(variant);
+
+            // Generate questions for the variant
+            await this.generateVariantQuestions(
+              variant,
+              exam,
+              10, // Default questions per subject
+              exam.shuffleQuestions,
+              exam.shuffleAnswers,
+            );
+
+            await this.updateVariantTotals(variant.id);
+            testsGenerated++;
+          }
+
+          // 4. Generate HTML printable file
+          let htmlUrl: string | undefined;
+          try {
+            const { url } = await this.generateVariantPrintableFile(variant.id);
+            htmlUrl = url;
+
+            void this.logsService.log(
+              `HTML file generated for student ${student.id}: ${htmlUrl}`,
+            );
+          } catch (htmlError) {
+            void this.logsService.warn(
+              `Failed to generate HTML for student ${student.id}: ${htmlError instanceof Error ? htmlError.message : String(htmlError)}`,
+            );
+          }
+
+          // 5. Send HTML file via Telegram
+          let telegramSuccess = false;
+          try {
+            if (htmlUrl) {
+              // Read the HTML file
+              const publicDir = this.getPublicDir();
+              const fileName = htmlUrl.replace('/uploads/', '');
+              const filePath = join(publicDir, 'uploads', fileName);
+
+              const htmlBuffer = await fs.readFile(filePath);
+
+              // Send via Telegram
+              const result = await this.telegramService.sendPDFToUser(
+                student.id,
+                htmlBuffer,
+                `${exam.title} - Variant ${variantNumber}.html`,
+                `📝 <b>${exam.title}</b>\n\nVariant: ${variantNumber}\nSana: ${new Date().toLocaleDateString('uz-UZ')}\n\nImtihon varaqangizni yuklab oling va testni ishlang. Omad!`,
+              );
+
+              if (result.success) {
+                telegramSuccess = true;
+                telegramSent++;
+                void this.logsService.log(
+                  `Telegram notification sent to student ${student.id}`,
+                );
+              } else {
+                telegramFailed++;
+                void this.logsService.warn(
+                  `Failed to send Telegram to student ${student.id}: ${result.message}`,
+                );
+              }
+            }
+          } catch (telegramError) {
+            telegramFailed++;
+            void this.logsService.error(
+              `Telegram error for student ${student.id}: ${telegramError instanceof Error ? telegramError.message : String(telegramError)}`,
+            );
+          }
+
+          details.push({
+            studentId: student.id,
+            studentName,
+            variantNumber,
+            testGenerated: true,
+            telegramSent: telegramSuccess,
+            htmlUrl,
+          });
+        } catch (error) {
+          void this.logsService.error(
+            `Failed to generate test for student ${student.id}: ${error instanceof Error ? error.message : String(error)}`,
+          );
+
+          details.push({
+            studentId: student.id,
+            studentName,
+            variantNumber: 'N/A',
+            testGenerated: false,
+            telegramSent: false,
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
+      }
+
+      // 6. Update exam statistics
+      await this.updateExamStatistics(examId);
+
+      // 7. Create notifications
+      try {
+        const studentIds = uniqueStudents.map((s) => s.id);
+        await this.notificationsService.createExamNotification(
+          examId,
+          exam.title,
+          studentIds,
+        );
+      } catch (notifError) {
+        void this.logsService.warn(
+          `Failed to create notifications: ${notifError instanceof Error ? notifError.message : String(notifError)}`,
+        );
+      }
+
+      return {
+        success: true,
+        message: `${testsGenerated} ta test yaratildi, ${telegramSent} ta Telegram orqali yuborildi`,
+        totalStudents: uniqueStudents.length,
+        testsGenerated,
+        telegramSent,
+        telegramFailed,
+        details,
+      };
+    } catch (error) {
+      void this.logsService.error(
+        `Failed to generate exam for groups: ${error instanceof Error ? error.message : String(error)}`,
+      );
+
+      throw new BadRequestException(
+        `Imtihon yaratishda xatolik: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
   }
 
   private async generateVariantQuestions(
@@ -1303,6 +1558,182 @@ export class ExamsService {
         </div>
       </div>
     `;
+  }
+
+  /* --------------------------------
+       Exam variant grading by variantNumber
+       -------------------------------- */
+
+  /**
+   * Grade scanned answers for an exam variant using its variantNumber.
+   * This allows scanner to automatically detect student based on variant number.
+   *
+   * @param variantNumber - The variant number from the printed test sheet
+   * @param scannedAnswers - Array of scanned answers (e.g., ['A', 'C', 'B', ...])
+   * @returns Grading results and automatically detected student info
+   */
+  async gradeExamVariant(
+    variantNumber: string,
+    scannedAnswers: string[],
+  ): Promise<{
+    success: boolean;
+    variantNumber: string;
+    studentId: number;
+    studentName: string;
+    examTitle: string;
+    total: number;
+    correctCount: number;
+    wrongCount: number;
+    blankCount: number;
+    score: number;
+    totalPoints: number;
+    perQuestion: Array<{
+      index: number;
+      scanned: string;
+      correct: string;
+      isCorrect: boolean;
+      points: number;
+    }>;
+  }> {
+    // 1. Find variant by variantNumber
+    const variant = await this.examVariantRepository.findOne({
+      where: { variantNumber },
+      relations: ['student', 'exam', 'questions'],
+    });
+
+    if (!variant) {
+      throw new NotFoundException(
+        `Variant ${variantNumber} topilmadi. Iltimos, variant raqamini tekshiring.`,
+      );
+    }
+
+    // 2. Load questions if not loaded
+    if (!variant.questions || variant.questions.length === 0) {
+      const questions = await this.examVariantQuestionRepository.find({
+        where: { variant: { id: variant.id } },
+        order: { order: 'ASC' },
+      });
+      variant.questions = questions;
+    }
+
+    if (variant.questions.length === 0) {
+      throw new BadRequestException('Bu variantda savollar topilmadi');
+    }
+
+    // 3. Grade each question
+    const total = Math.min(variant.questions.length, scannedAnswers.length);
+    const perQuestion: Array<{
+      index: number;
+      scanned: string;
+      correct: string;
+      isCorrect: boolean;
+      points: number;
+    }> = [];
+
+    let correctCount = 0;
+    let blankCount = 0;
+    let totalScore = 0;
+
+    for (let i = 0; i < total; i++) {
+      const question = variant.questions[i];
+      const scanned = (scannedAnswers[i] || '-').toUpperCase();
+
+      // Determine correct answer letter
+      const correctAnswerIndex = question.correctAnswerIndex;
+      let correct = '-';
+
+      if (correctAnswerIndex >= 0 && correctAnswerIndex < 26) {
+        correct = String.fromCharCode(65 + correctAnswerIndex); // A, B, C, etc.
+      }
+
+      const isBlank = scanned === '-' || scanned === '';
+      if (isBlank) {
+        blankCount++;
+      }
+
+      const isCorrect = !isBlank && scanned === correct;
+      if (isCorrect) {
+        correctCount++;
+        totalScore += question.points || 1;
+      }
+
+      perQuestion.push({
+        index: i,
+        scanned,
+        correct,
+        isCorrect,
+        points: isCorrect ? question.points || 1 : 0,
+      });
+    }
+
+    const wrongCount = total - correctCount - blankCount;
+    const totalPoints = variant.questions.reduce(
+      (sum, q) => sum + (q.points || 1),
+      0,
+    );
+
+    // 4. Update variant with results
+    variant.score = totalScore;
+    variant.totalPoints = totalPoints;
+    variant.correctAnswers = correctCount;
+    variant.totalQuestions = total;
+    variant.status = ExamVariantStatus.GRADED;
+    variant.completedAt = new Date();
+
+    await this.examVariantRepository.save(variant);
+
+    // 5. Log the grading
+    void this.logsService.log(
+      `Graded variant ${variantNumber} for student ${variant.student.id}: ${correctCount}/${total} correct, score: ${totalScore}/${totalPoints}`,
+    );
+
+    // 6. Return results
+    return {
+      success: true,
+      variantNumber,
+      studentId: variant.student.id,
+      studentName: `${variant.student.firstName} ${variant.student.lastName}`,
+      examTitle: variant.exam?.title || 'N/A',
+      total,
+      correctCount,
+      wrongCount,
+      blankCount,
+      score: totalScore,
+      totalPoints,
+      perQuestion,
+    };
+  }
+
+  /**
+   * Get variant information by variant number (for scanner to detect student)
+   */
+  async getVariantByNumber(variantNumber: string): Promise<{
+    variantId: number;
+    variantNumber: string;
+    studentId: number;
+    studentName: string;
+    examId: number;
+    examTitle: string;
+    totalQuestions: number;
+  }> {
+    const variant = await this.examVariantRepository.findOne({
+      where: { variantNumber },
+      relations: ['student', 'exam', 'questions'],
+    });
+
+    if (!variant) {
+      throw new NotFoundException(`Variant ${variantNumber} topilmadi`);
+    }
+
+    return {
+      variantId: variant.id,
+      variantNumber: variant.variantNumber,
+      studentId: variant.student.id,
+      studentName: `${variant.student.firstName} ${variant.student.lastName}`,
+      examId: variant.exam.id,
+      examTitle: variant.exam.title,
+      totalQuestions: variant.questions?.length || 0,
+    };
   }
 
   private generateExamTitlePageForAll(

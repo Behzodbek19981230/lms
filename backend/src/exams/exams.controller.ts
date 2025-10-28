@@ -78,6 +78,39 @@ export class ExamsController {
     });
   }
 
+  @Post(':id/generate-for-groups')
+  @ApiOperation({
+    summary:
+      'Generate exam tests for all students in specified groups with Telegram delivery',
+  })
+  @ApiResponse({
+    status: 201,
+    description:
+      'Tests generated and sent to students via Telegram successfully',
+  })
+  async generateExamForGroups(
+    @Param('id') id: string,
+    @Body() body: { groupIds: number[] },
+  ): Promise<{
+    success: boolean;
+    message: string;
+    totalStudents: number;
+    testsGenerated: number;
+    telegramSent: number;
+    telegramFailed: number;
+    details: Array<{
+      studentId: number;
+      studentName: string;
+      variantNumber: string;
+      testGenerated: boolean;
+      telegramSent: boolean;
+      htmlUrl?: string;
+      error?: string;
+    }>;
+  }> {
+    return this.examsService.generateExamForGroups(+id, body.groupIds);
+  }
+
   @Get(':id/variants')
   @ApiOperation({ summary: 'Get all variants for an exam' })
   @ApiResponse({ status: 200, description: 'List of variants' })
@@ -173,6 +206,65 @@ export class ExamsController {
     const { url } =
       await this.examsService.generateVariantPrintableFile(+variantId);
     return { url };
+  }
+
+  @Post('variants/:variantNumber/grade')
+  @ApiOperation({
+    summary:
+      'Grade exam variant by variant number (automatically detects student)',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Grading results with auto-detected student info',
+  })
+  async gradeExamVariant(
+    @Param('variantNumber') variantNumber: string,
+    @Body() body: { answers: string[] },
+  ): Promise<{
+    success: boolean;
+    variantNumber: string;
+    studentId: number;
+    studentName: string;
+    examTitle: string;
+    total: number;
+    correctCount: number;
+    wrongCount: number;
+    blankCount: number;
+    score: number;
+    totalPoints: number;
+    perQuestion: Array<{
+      index: number;
+      scanned: string;
+      correct: string;
+      isCorrect: boolean;
+      points: number;
+    }>;
+  }> {
+    if (!Array.isArray(body?.answers)) {
+      throw new BadRequestException("answers massiv bo'lishi kerak");
+    }
+    return this.examsService.gradeExamVariant(variantNumber, body.answers);
+  }
+
+  @Get('variants/:variantNumber/info')
+  @ApiOperation({
+    summary:
+      'Get variant info by variant number (for scanner student detection)',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Variant information with student details',
+  })
+  async getVariantInfo(@Param('variantNumber') variantNumber: string): Promise<{
+    variantId: number;
+    variantNumber: string;
+    studentId: number;
+    studentName: string;
+    examId: number;
+    examTitle: string;
+    totalQuestions: number;
+  }> {
+    return this.examsService.getVariantByNumber(variantNumber);
   }
 
   // All PDF and Telegram-related endpoints removed as part of PDF cleanup

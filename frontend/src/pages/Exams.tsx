@@ -293,6 +293,67 @@ export default function ExamsPage() {
 		}
 	};
 
+	const handleGenerateExamForGroups = async (exam: Exam) => {
+		if (!exam.groups || exam.groups.length === 0) {
+			toast({
+				title: 'Guruhlar topilmadi',
+				description: 'Bu imtihonda guruhlar mavjud emas',
+				variant: 'destructive',
+			});
+			return;
+		}
+
+		if (
+			!confirm(
+				`"${
+					exam.title
+				}" imtihoni uchun barcha o'quvchilarga testlar yaratilsin va Telegram orqali yuborilsinmi?\n\nGuruhlar: ${exam.groups
+					.map((g) => g.name)
+					.join(', ')}\nO'quvchilar soni: ${exam.totalStudents}`
+			)
+		) {
+			return;
+		}
+
+		try {
+			toast({
+				title: 'Testlar yaratilmoqda...',
+				description: 'Iltimos kuting, bu biroz vaqt olishi mumkin.',
+			});
+
+			const groupIds = exam.groups.map((g) => g.id);
+			const response = await request.post(`/exams/${exam.id}/generate-for-groups`, {
+				groupIds,
+			});
+
+			const result = response.data;
+
+			if (result.success) {
+				toast({
+					title: 'Testlar yaratildi! ✅',
+					description: `${result.testsGenerated} ta test yaratildi, ${result.telegramSent} ta Telegram orqali yuborildi.`,
+					variant: 'default',
+				});
+
+				// Reload data to show updated variants
+				await loadData();
+			} else {
+				toast({
+					title: 'Xatolik yuz berdi',
+					description: result.message || 'Testlarni yaratishda xatolik',
+					variant: 'destructive',
+				});
+			}
+		} catch (e: any) {
+			const msg = e?.response?.data?.message || 'Testlarni yaratishda xatolik yuz berdi';
+			toast({
+				title: 'Xatolik',
+				description: msg,
+				variant: 'destructive',
+			});
+		}
+	};
+
 	const resetCreateForm = () => {
 		setCreateForm({
 			title: '',
@@ -575,6 +636,23 @@ export default function ExamsPage() {
 												Ko'rish
 											</Button>
 										</div>
+
+										{/* Generate Tests for Groups Button */}
+										{(exam.status === 'draft' || exam.status === 'scheduled') &&
+											exam.groups &&
+											exam.groups.length > 0 && (
+												<div className='mt-2'>
+													<Button
+														variant='secondary'
+														size='sm'
+														className='w-full'
+														onClick={() => handleGenerateExamForGroups(exam)}
+													>
+														<FileText className='h-4 w-4 mr-2' />
+														Guruhlar uchun test yaratish
+													</Button>
+												</div>
+											)}
 
 										{/* Status Actions */}
 										{(exam.status === 'draft' || exam.status === 'scheduled') && (
