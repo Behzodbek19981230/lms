@@ -44,6 +44,8 @@ jobs:
                       git pull origin main
                       npm install --legacy-peer-deps
                       npm run build
+                      echo "==== .next papkasi tarkibi ===="
+                      ls -l .next || echo ".next papkasi topilmadi"
                       npm run migration:run
                       # pm2 bilan ishga tushirish / restart
                       pm2 stop lms-backend || true
