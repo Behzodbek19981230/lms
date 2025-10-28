@@ -94,9 +94,9 @@ jobs:
                       git pull origin main
                       npm install --legacy-peer-deps
                       npm run build
-                        # pm2 bilan ishga tushirish / restart
+                      # pm2 bilan ishga tushirish / restart
                       pm2 stop lms-frontend || true
                       fuser -k 3030/tcp || true
                       pm2 delete lms-frontend || echo "Old process not found"
-                      pm2 start npm --name "lms-frontend" -- start
+                      pm2 start npm --name "lms-frontend" -- run start
                       echo "${{ secrets.SERVER_PASS }}" | sudo -S systemctl reload nginx
