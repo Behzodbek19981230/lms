@@ -6,218 +6,211 @@ import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 
 interface TelegramUser {
-  id: number;
-  first_name: string;
-  last_name?: string;
-  username?: string;
-  photo_url?: string;
-  auth_date: number;
-  hash: string;
+	id: number;
+	first_name: string;
+	last_name?: string;
+	username?: string;
+	photo_url?: string;
+	auth_date: number;
+	hash: string;
 }
 
 interface Props {
-  onSuccess?: (token: string, user: any) => void;
-  onError?: (error: string) => void;
+	onSuccess?: (token: string, user: any) => void;
+	onError?: (error: string) => void;
 }
 
 declare global {
-  interface Window {
-    onTelegramAuth: (user: TelegramUser) => void;
-  }
+	interface Window {
+		onTelegramAuth: (user: TelegramUser) => void;
+	}
 }
 
 // Telegram Login Button Component
 interface TelegramLoginButtonProps {
-  botUsername: string;
-  onAuth: (user: TelegramUser) => void;
+	botUsername: string;
+	onAuth: (user: TelegramUser) => void;
 }
 
 const TelegramLoginButton: React.FC<TelegramLoginButtonProps> = ({ botUsername, onAuth }) => {
-  const containerRef = React.useRef<HTMLDivElement>(null);
-  const [isLoaded, setIsLoaded] = useState(false);
+	const containerRef = React.useRef<HTMLDivElement>(null);
+	const [isLoaded, setIsLoaded] = useState(false);
 
-  React.useEffect(() => {
-    if (!containerRef.current) return;
+	React.useEffect(() => {
+		if (!containerRef.current) return;
 
-    // Clear container
-    containerRef.current.innerHTML = '';
+		// Clear container
+		containerRef.current.innerHTML = '';
 
-    // Create a unique callback name
-    const callbackName = `telegramAuth_${Date.now()}`;
-    
-    // Set up callback
-    (window as any)[callbackName] = onAuth;
+		// Create a unique callback name
+		const callbackName = `telegramAuth_${Date.now()}`;
 
-    // Create script element
-    const script = document.createElement('script');
-    script.async = true;
-    script.src = 'https://telegram.org/js/telegram-widget.js?22';
-    script.setAttribute('data-telegram-login', botUsername);
-    script.setAttribute('data-size', 'large');
-    script.setAttribute('data-onauth', `${callbackName}(user)`);
-    script.setAttribute('data-request-access', 'write');
-    
-    script.onload = () => {
-      console.log('Telegram widget loaded');
-      setIsLoaded(true);
-    };
-    
-    script.onerror = () => {
-      console.error('Failed to load Telegram widget');
-    };
+		// Set up callback
+		(window as any)[callbackName] = onAuth;
 
-    containerRef.current.appendChild(script);
+		// Create script element
+		const script = document.createElement('script');
+		script.async = true;
+		script.src = 'https://telegram.org/js/telegram-widget.js?22';
+		script.setAttribute('data-telegram-login', botUsername);
+		script.setAttribute('data-size', 'large');
+		script.setAttribute('data-onauth', `${callbackName}(user)`);
+		script.setAttribute('data-request-access', 'write');
 
-    return () => {
-      // Cleanup
-      if ((window as any)[callbackName]) {
-        delete (window as any)[callbackName];
-      }
-    };
-  }, [botUsername, onAuth]);
+		script.onload = () => {
+			console.log('Telegram widget loaded');
+			setIsLoaded(true);
+		};
 
-  if (!isLoaded) {
-    return (
-      <div className="flex items-center justify-center py-4">
-        <div className="animate-pulse flex items-center space-x-2">
-          <div className="w-4 h-4 bg-blue-300 rounded-full animate-bounce"></div>
-          <span className="text-sm text-gray-500">Telegram widget yuklanmoqda...</span>
-        </div>
-      </div>
-    );
-  }
+		script.onerror = () => {
+			console.error('Failed to load Telegram widget');
+		};
 
-  return (
-    <div ref={containerRef} className="flex justify-center" />
-  );
+		containerRef.current.appendChild(script);
+
+		return () => {
+			// Cleanup
+			if ((window as any)[callbackName]) {
+				delete (window as any)[callbackName];
+			}
+		};
+	}, [botUsername, onAuth]);
+
+	if (!isLoaded) {
+		return (
+			<div className='flex items-center justify-center py-4'>
+				<div className='animate-pulse flex items-center space-x-2'>
+					<div className='w-4 h-4 bg-blue-300 rounded-full animate-bounce'></div>
+					<span className='text-sm text-gray-500'>Telegram widget yuklanmoqda...</span>
+				</div>
+			</div>
+		);
+	}
+
+	return <div ref={containerRef} className='flex justify-center' />;
 };
 
 const TelegramRegisterSimple: React.FC<Props> = ({ onSuccess, onError }) => {
-  const [isLoading, setIsLoading] = useState(false);
-  const { toast } = useToast();
-  const { login } = useAuth();
-  
-  const TELEGRAM_BOT_USERNAME = import.meta.env.VITE_TELEGRAM_BOT_USERNAME || 'universal_lmsbot';
+	const [isLoading, setIsLoading] = useState(false);
+	const { toast } = useToast();
+	const { login } = useAuth();
 
-  const handleTelegramAuth = async (user: TelegramUser) => {
-    console.log('Telegram auth received:', user);
+	const TELEGRAM_BOT_USERNAME = import.meta.env.VITE_TELEGRAM_BOT_USERNAME || 'EduOnePlatformbot';
 
-    if (!user.username) {
-      toast({
-        title: 'Xatolik',
-        description: 'Telegram foydalanuvchi nomingiz mavjud emas. Iltimos, Telegram\'da username o\'rnating.',
-        variant: 'destructive',
-      });
-      onError?.('Telegram username not available');
-      return;
-    }
+	const handleTelegramAuth = async (user: TelegramUser) => {
+		console.log('Telegram auth received:', user);
 
-    setIsLoading(true);
-    
-    try {
-      const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
-      console.log('Sending registration request to:', `${API_BASE_URL}/api/auth/telegram/register`);
-      
-      const response = await fetch(`${API_BASE_URL}/api/auth/telegram/register`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          telegramUserId: user.id.toString(),
-          telegramUsername: user.username,
-          firstName: user.first_name,
-          lastName: user.last_name,
-          photoUrl: user.photo_url,
-          authDate: user.auth_date,
-          hash: user.hash,
-        }),
-      });
+		if (!user.username) {
+			toast({
+				title: 'Xatolik',
+				description: "Telegram foydalanuvchi nomingiz mavjud emas. Iltimos, Telegram'da username o'rnating.",
+				variant: 'destructive',
+			});
+			onError?.('Telegram username not available');
+			return;
+		}
 
-      const data = await response.json();
-      console.log('Response:', data);
+		setIsLoading(true);
 
-      if (!response.ok) {
-        throw new Error(data.message || 'Ro\'yxatdan o\'tishda xatolik yuz berdi');
-      }
+		try {
+			const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+			console.log('Sending registration request to:', `${API_BASE_URL}/api/auth/telegram/register`);
 
-      // Save token and user data
-      localStorage.setItem('token', data.access_token);
-      
-      // Update auth context
-      await login(data.access_token, data.user);
-      
-      toast({
-        title: 'Muvaffaqiyatli!',
-        description: `Salom ${data.user.firstName}! Telegram orqali muvaffaqiyatli ro'yxatdan o'tdingiz.`,
-      });
-      
-      onSuccess?.(data.access_token, data.user);
-      
-    } catch (error: any) {
-      console.error('Telegram registration failed:', error);
-      toast({
-        title: 'Xatolik',
-        description: error.message || 'Telegram orqali ro\'yxatdan o\'tishda xatolik yuz berdi',
-        variant: 'destructive',
-      });
-      onError?.(error.message);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+			const response = await fetch(`${API_BASE_URL}/api/auth/telegram/register`, {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+				},
+				body: JSON.stringify({
+					telegramUserId: user.id.toString(),
+					telegramUsername: user.username,
+					firstName: user.first_name,
+					lastName: user.last_name,
+					photoUrl: user.photo_url,
+					authDate: user.auth_date,
+					hash: user.hash,
+				}),
+			});
 
-  useEffect(() => {
-    // Set up global callback
-    window.onTelegramAuth = handleTelegramAuth;
-    
-    return () => {
-      delete window.onTelegramAuth;
-    };
-  }, []);
+			const data = await response.json();
+			console.log('Response:', data);
 
-  return (
-    <Card className="w-full max-w-md">
-      <CardHeader className="text-center">
-        <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-blue-100">
-          <MessageSquare className="h-6 w-6 text-blue-600" />
-        </div>
-        <CardTitle className="text-xl font-semibold">
-          Telegram orqali ro'yxatdan o'tish
-        </CardTitle>
-        <CardDescription>
-          Telegram hisobingiz orqali tezda ro'yxatdan o'ting
-        </CardDescription>
-      </CardHeader>
-      
-      <CardContent className="space-y-4">
-        <div className="text-center space-y-4">
-          <p className="text-sm text-gray-600">
-            Bot: <code className="bg-gray-100 px-1 rounded">{TELEGRAM_BOT_USERNAME}</code>
-          </p>
-          
-          {/* Telegram Login Button */}
-          <div className="telegram-login-widget">
-            <TelegramLoginButton botUsername={TELEGRAM_BOT_USERNAME} onAuth={handleTelegramAuth} />
-          </div>
-          
-          {isLoading && (
-            <div className="text-center">
-              <div className="inline-flex items-center space-x-2">
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-                <span className="text-sm text-gray-600">Ro'yxatdan o'tmoqda...</span>
-              </div>
-            </div>
-          )}
-          
-          <div className="text-xs text-gray-500 space-y-1">
-            <p>• Telegram hisobingizda username bo'lishi kerak</p>
-            <p>• Bot bilan avval muloqot qilmagan bo'lishingiz kerak</p>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  );
+			if (!response.ok) {
+				throw new Error(data.message || "Ro'yxatdan o'tishda xatolik yuz berdi");
+			}
+
+			// Save token and user data
+			localStorage.setItem('token', data.access_token);
+
+			// Update auth context
+			await login(data.access_token, data.user);
+
+			toast({
+				title: 'Muvaffaqiyatli!',
+				description: `Salom ${data.user.firstName}! Telegram orqali muvaffaqiyatli ro'yxatdan o'tdingiz.`,
+			});
+
+			onSuccess?.(data.access_token, data.user);
+		} catch (error: any) {
+			console.error('Telegram registration failed:', error);
+			toast({
+				title: 'Xatolik',
+				description: error.message || "Telegram orqali ro'yxatdan o'tishda xatolik yuz berdi",
+				variant: 'destructive',
+			});
+			onError?.(error.message);
+		} finally {
+			setIsLoading(false);
+		}
+	};
+
+	useEffect(() => {
+		// Set up global callback
+		window.onTelegramAuth = handleTelegramAuth;
+
+		return () => {
+			delete window.onTelegramAuth;
+		};
+	}, []);
+
+	return (
+		<Card className='w-full max-w-md'>
+			<CardHeader className='text-center'>
+				<div className='mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-blue-100'>
+					<MessageSquare className='h-6 w-6 text-blue-600' />
+				</div>
+				<CardTitle className='text-xl font-semibold'>Telegram orqali ro'yxatdan o'tish</CardTitle>
+				<CardDescription>Telegram hisobingiz orqali tezda ro'yxatdan o'ting</CardDescription>
+			</CardHeader>
+
+			<CardContent className='space-y-4'>
+				<div className='text-center space-y-4'>
+					<p className='text-sm text-gray-600'>
+						Bot: <code className='bg-gray-100 px-1 rounded'>{TELEGRAM_BOT_USERNAME}</code>
+					</p>
+
+					{/* Telegram Login Button */}
+					<div className='telegram-login-widget'>
+						<TelegramLoginButton botUsername={TELEGRAM_BOT_USERNAME} onAuth={handleTelegramAuth} />
+					</div>
+
+					{isLoading && (
+						<div className='text-center'>
+							<div className='inline-flex items-center space-x-2'>
+								<div className='animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600'></div>
+								<span className='text-sm text-gray-600'>Ro'yxatdan o'tmoqda...</span>
+							</div>
+						</div>
+					)}
+
+					<div className='text-xs text-gray-500 space-y-1'>
+						<p>• Telegram hisobingizda username bo'lishi kerak</p>
+						<p>• Bot bilan avval muloqot qilmagan bo'lishingiz kerak</p>
+					</div>
+				</div>
+			</CardContent>
+		</Card>
+	);
 };
 
 export default TelegramRegisterSimple;
