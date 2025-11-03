@@ -10,16 +10,16 @@ const buttonVariants = cva(
 		variants: {
 			variant: {
 				default:
-					'bg-primary text-primary-foreground hover:bg-primary/90 shadow-card hover:shadow-hover hover:-translate-y-0.5 transition-all',
+					'bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:from-blue-700 hover:to-purple-700 shadow-card hover:shadow-hover hover:-translate-y-0.5 transition-all',
 				destructive:
 					'bg-destructive text-destructive-foreground hover:bg-destructive/90 shadow-sm hover:shadow-md',
 				outline:
-					'border-2 border-primary/20 bg-background hover:bg-primary/5 hover:border-primary/40 hover:shadow-sm text-primary',
+					'border-2 border-blue-600/20 bg-background hover:bg-blue-600/5 hover:border-blue-600/40 hover:shadow-sm text-blue-600',
 				secondary: 'bg-secondary text-secondary-foreground hover:bg-secondary/80 shadow-sm hover:shadow-md',
 				ghost: 'hover:bg-accent/50 hover:text-accent-foreground',
-				link: 'text-primary underline-offset-4 hover:underline hover:text-primary/80',
-				hero: 'bg-gradient-primary text-primary-foreground hover:shadow-glow hover:scale-[1.02] hover:-translate-y-0.5 font-semibold transition-all',
-				accent: 'bg-gradient-accent text-accent-foreground hover:shadow-elegant hover:scale-[1.02] font-semibold transition-all',
+				link: 'text-blue-600 underline-offset-4 hover:underline hover:text-blue-700',
+				hero: 'bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:shadow-glow hover:scale-[1.02] hover:-translate-y-0.5 font-semibold transition-all',
+				accent: 'bg-gradient-to-r from-purple-600 to-blue-600 text-white hover:shadow-elegant hover:scale-[1.02] font-semibold transition-all',
 				glass: 'bg-white/10 backdrop-blur-sm border border-white/20 text-foreground hover:bg-white/20 hover:border-white/30 transition-all duration-300',
 			},
 			size: {

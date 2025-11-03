@@ -40,18 +40,22 @@ export default function Subjects() {
 	};
 	const columns: Column<SubjectType>[] = [
 		{
+			key: 'name',
 			header: () => 'Nomi',
 			cell: (row) => row.name,
 		},
 		{
+			key: 'description',
 			header: () => 'Tavsif',
 			cell: (row) => row.description,
 		},
 		{
+			key: 'category',
 			header: () => 'Kategoriya',
 			cell: (row) => renderCategory(row.category),
 		},
 		{
+			key: 'hasFormulas',
 			header: () => 'Formulalar',
 			cell: (row) => (
 				<div className='flex items-center gap-2'>
@@ -68,6 +72,7 @@ export default function Subjects() {
 			),
 		},
 		{
+			key: 'createdAt',
 			header: () => 'Yaratilgan sana',
 			cell: (row) => (
 				<div className='leading-tight'>
@@ -77,6 +82,7 @@ export default function Subjects() {
 			),
 		},
 		{
+			key: 'updatedAt',
 			header: () => 'Yangilangan sana',
 			cell: (row) => (
 				<div className='leading-tight'>
@@ -86,6 +92,7 @@ export default function Subjects() {
 			),
 		},
 		{
+			key: 'actions',
 			header: () => 'Amallar',
 			cell: (row) => (
 				<div className='flex flex-wrap gap-2'>

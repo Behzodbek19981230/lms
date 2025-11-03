@@ -54,7 +54,7 @@ const useFormField = () => {
 };
 
 type FormItemContextValue = {
-    id: string;
+	id: string;
 };
 
 const FormItemContext = React.createContext<FormItemContextValue>({} as FormItemContextValue);
@@ -123,7 +123,7 @@ const FormMessage = React.forwardRef<HTMLParagraphElement, React.HTMLAttributes<
 			<p
 				ref={ref}
 				id={formMessageId}
-				className={cn('text-sm font-medium text-destructive', className)}
+				className={cn('text-sm font-medium text-destructive animate-in fade-in-0 zoom-in-95', className)}
 				{...props}
 			>
 				{body}
