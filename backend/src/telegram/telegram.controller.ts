@@ -307,6 +307,16 @@ export class TelegramController {
       `Processing message from ${message.from?.username || message.from?.first_name}`,
     );
 
+    // Update last activity timestamp for the user
+    if (message.from?.id) {
+      try {
+        const telegramUserId = String(message.from.id);
+        await this.telegramService.updateUserActivity(telegramUserId);
+      } catch (error) {
+        console.error('Failed to update user activity timestamp:', error);
+      }
+    }
+
     // Check if this is an answer submission
     // eslint-disable-next-line @typescript-eslint/no-unsafe-call
     if (message.text && message.text.startsWith('#T')) {
@@ -556,7 +566,24 @@ export class TelegramController {
   }
 
   private async handleMainMenu(message: any) {
-    const menuMessage = `🎓 <b>EduOne LMS - Asosiy Menu</b>\n\nQuyidagi bo'limlardan birini tanlang:\n\n📊 /natijalarim - Test natijalarim\n📅 /davomatim - Davomat hisobotim\n👤 /hisobim - Shaxsiy ma'lumotlar\n\n---\n📚 <b>Ta'lim jarayoni:</b>\n✅ /yoklama - Yo'qlama olish (o'qituvchilar)\n📢 /elon - E'lonlar va xabarlar\n📝 /testlar - Aktiv testlar\n\n---\n📞 <b>Yordam:</b>\n❓ /help - To'liq yordam\n📞 /aloqa - Aloqa ma'lumotlari`;
+    const menuMessage = `🎓 <b>EduOne LMS - Asosiy Menu</b>
+
+Quyidagi bo'limlardan birini tanlang:
+
+📊 /natijalarim - Test natijalarim
+📅 /davomatim - Davomat hisobotim
+👤 /hisobim - Shaxsiy ma'lumotlar
+
+---
+📚 <b>Ta'lim jarayoni:</b>
+✅ /yoklama - Yo'qlama olish (o'qituvchilar)
+📢 /elon - E'lonlar va xabarlar
+📝 /testlar - Aktiv testlar
+
+---
+📞 <b>Yordam:</b>
+❓ /help - To'liq yordam
+📞 /aloqa - Aloqa ma'lumotlari`;
 
     if (this.telegramService['bot']) {
       await this.telegramService['bot'].sendMessage(
@@ -569,9 +596,9 @@ export class TelegramController {
 
   private async handleMyResults(message: any) {
     try {
-      const results = await this.telegramService.getUserTestResults(
-        message.from.id.toString(),
-      );
+      const telegramUserId = message.from?.id ? String(message.from.id) : '';
+      const results =
+        await this.telegramService.getUserTestResults(telegramUserId);
 
       if (this.telegramService['bot']) {
         await this.telegramService['bot'].sendMessage(
@@ -593,9 +620,9 @@ export class TelegramController {
 
   private async handleMyAttendance(message: any) {
     try {
-      const attendance = await this.telegramService.getUserAttendance(
-        message.from.id.toString(),
-      );
+      const telegramUserId = message.from?.id ? String(message.from.id) : '';
+      const attendance =
+        await this.telegramService.getUserAttendance(telegramUserId);
 
       if (this.telegramService['bot']) {
         await this.telegramService['bot'].sendMessage(
@@ -617,9 +644,9 @@ export class TelegramController {
 
   private async handleMyAccount(message: any) {
     try {
-      const account = await this.telegramService.getUserAccountInfo(
-        message.from.id.toString(),
-      );
+      const telegramUserId = message.from?.id ? String(message.from.id) : '';
+      const account =
+        await this.telegramService.getUserAccountInfo(telegramUserId);
 
       if (this.telegramService['bot']) {
         await this.telegramService['bot'].sendMessage(
@@ -641,9 +668,9 @@ export class TelegramController {
 
   private async handleAttendanceTaking(message: any) {
     try {
-      const groups = await this.telegramService.getTeacherGroups(
-        message.from.id.toString(),
-      );
+      const telegramUserId = message.from?.id ? String(message.from.id) : '';
+      const groups =
+        await this.telegramService.getTeacherGroups(telegramUserId);
 
       if (this.telegramService['bot']) {
         await this.telegramService['bot'].sendMessage(message.chat.id, groups, {
@@ -663,9 +690,13 @@ export class TelegramController {
 
   private async handleGroupSelection(message: any) {
     try {
-      const groupId = message.text.replace('grup_', '');
+      const groupId = message.text
+        ? String(message.text).replace('grup_', '')
+        : '';
+      const telegramUserId = message.from?.id ? String(message.from.id) : '';
+
       const students = await this.telegramService.getGroupStudentsForAttendance(
-        message.from.id.toString(),
+        telegramUserId,
         groupId,
       );
 
@@ -689,8 +720,9 @@ export class TelegramController {
 
   private async handleAttendanceMarking(message: any) {
     try {
+      const telegramUserId = message.from?.id ? String(message.from.id) : '';
       const result = await this.telegramService.markStudentAttendance(
-        message.from.id.toString(),
+        telegramUserId,
         message.text,
       );
 
@@ -710,11 +742,33 @@ export class TelegramController {
     }
   }
 
+  private async handleActiveTests(message: any) {
+    try {
+      const telegramUserId = message.from?.id ? String(message.from.id) : '';
+      const tests =
+        await this.telegramService.getUserActiveTests(telegramUserId);
+
+      if (this.telegramService['bot']) {
+        await this.telegramService['bot'].sendMessage(message.chat.id, tests, {
+          parse_mode: 'HTML',
+        });
+      }
+    } catch (error) {
+      console.error('Error getting active tests:', error);
+      if (this.telegramService['bot']) {
+        await this.telegramService['bot'].sendMessage(
+          message.chat.id,
+          'Aktiv testlarni yuklab olishda xatolik yuz berdi.',
+        );
+      }
+    }
+  }
+
   private async handleAnnouncements(message: any) {
     try {
-      const announcements = await this.telegramService.getUserAnnouncements(
-        message.from.id.toString(),
-      );
+      const telegramUserId = message.from?.id ? String(message.from.id) : '';
+      const announcements =
+        await this.telegramService.getUserAnnouncements(telegramUserId);
 
       if (this.telegramService['bot']) {
         await this.telegramService['bot'].sendMessage(
@@ -734,28 +788,6 @@ export class TelegramController {
     }
   }
 
-  private async handleActiveTests(message: any) {
-    try {
-      const tests = await this.telegramService.getUserActiveTests(
-        message.from.id.toString(),
-      );
-
-      if (this.telegramService['bot']) {
-        await this.telegramService['bot'].sendMessage(message.chat.id, tests, {
-          parse_mode: 'HTML',
-        });
-      }
-    } catch (error) {
-      console.error('Error getting active tests:', error);
-      if (this.telegramService['bot']) {
-        await this.telegramService['bot'].sendMessage(
-          message.chat.id,
-          'Aktiv testlarni yuklab olishda xatolik yuz berdi.',
-        );
-      }
-    }
-  }
-
   private async handleContact(message: any) {
     const contactMessage = `📞 <b>Aloqa Ma'lumotlari</b>\n\n🏢 <b>EduOne LMS</b>\n\n📧 Email: info@eduone-lms.uz\n📱 Telefon: +998 90 123 45 67\n🌐 Website: https://eduone-lms.uz\n\n👨‍🏫 <b>O'qituvchi bilan bog'lanish:</b>\nO'z guruhingiz o'qituvchisi bilan to'g'ridan-to'g'ri bog'lanish uchun /menu bo'limidan foydalaning.\n\n💬 <b>Texnik yordam:</b>\nBot bilan bog'liq muammolar uchun admin bilan bog'laning.`;
 
@@ -769,10 +801,42 @@ export class TelegramController {
   }
 
   private getRegistrationInstructions(): string {
-    return `📋 <b>Next Steps:</b>\n\n1. Contact your teacher with this information:\n   • Your Telegram username: @${this.telegramService['username'] || 'your_username'}\n   • Your name from LMS\n\n2. Once linked, you'll receive channel invitations\n\n3. Join your class channels to receive tests\n\n❓ Questions? Send /help`;
+    return `📋 <b>Next Steps:</b>
+
+1. Contact your teacher with this information:
+   • Your Telegram username: @${this.telegramService['username'] || 'your_username'}
+   • Your name from LMS
+
+2. Once linked, you'll receive channel invitations
+
+3. Join your class channels to receive tests
+
+❓ Questions? Send /help`;
   }
 
   private getHelpMessage(): string {
-    return `🤖 <b>EduOne LMS Bot</b>\n\n📋 <b>Mavjud buyruqlar:</b>\n/start - Botni ishga tushirish\n/menu - Asosiy menyu\n/natijalarim - Test natijalarim\n/davomatim - Davomat ma'lumotlarim\n/hisobim - Hisob ma'lumotlarim\n/help - Yordam\n\n📚 <b>Testlarga javob berish:</b>\nFormat: #T123Q1 A\n• T123 = Test ID\n• Q1 = Savol raqami\n• A = Javobingiz\n\n🔗 <b>Hisobni ulash kerakmi?</b>\nO'qituvchingiz bilan bog'laning:\n• Telegram username\n• To'liq ismingiz\n\n📞 <b>Yordam:</b>\nO'qituvchi yoki admin bilan bog'laning.`;
+    return `🤖 <b>EduOne LMS Bot</b>
+
+📋 <b>Mavjud buyruqlar:</b>
+/start - Botni ishga tushirish
+/menu - Asosiy menyu
+/natijalarim - Test natijalarim
+/davomatim - Davomat ma'lumotlarim
+/hisobim - Hisob ma'lumotlarim
+/help - Yordam
+
+📚 <b>Testlarga javob berish:</b>
+Format: #T123Q1 A
+• T123 = Test ID
+• Q1 = Savol raqami
+• A = Javobingiz
+
+🔗 <b>Hisobni ulash kerakmi?</b>
+O'qituvchingiz bilan bog'laning:
+• Telegram username
+• To'liq ismingiz
+
+📞 <b>Yordam:</b>
+O'qituvchi yoki admin bilan bog'laning.`;
   }
 }

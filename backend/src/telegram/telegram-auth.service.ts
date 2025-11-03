@@ -1,12 +1,12 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, IsNull } from 'typeorm';
 import {
   TelegramChat,
   ChatType,
   ChatStatus,
 } from './entities/telegram-chat.entity';
-import { User } from '../users/entities/user.entity';
+import { User, UserRole } from '../users/entities/user.entity';
 import { Center } from '../centers/entities/center.entity';
 import { TelegramService } from './telegram.service';
 
@@ -61,10 +61,10 @@ export class TelegramAuthService {
         `Connecting user ${userId} to Telegram ${authData.telegramUserId}`,
       );
 
-      // Get current user with center
+      // Get current user with center and groups
       const user = await this.userRepo.findOne({
         where: { id: userId },
-        relations: ['center', 'subjects'],
+        relations: ['center', 'subjects', 'groups'],
       });
 
       if (!user) {
@@ -200,46 +200,91 @@ export class TelegramAuthService {
     firstName?: string;
     lastName?: string;
     telegramUserId?: string;
-    centerName?: string;
-    availableChannels: any[];
+    availableChannels: Array<{
+      id: number;
+      chatId: string;
+      title?: string;
+      username?: string;
+      inviteLink?: string;
+      type: string;
+      groupName?: string;
+      subjectName?: string;
+      centerName?: string;
+    }>;
   }> {
     try {
       // Get user's Telegram connection
       const userChat = await this.telegramChatRepo.findOne({
-        where: {
-          user: { id: userId },
-          type: ChatType.PRIVATE,
-        },
-        relations: ['user', 'center'],
+        where: { user: { id: userId }, type: ChatType.PRIVATE },
+        relations: ['user'],
       });
 
       const user = await this.userRepo.findOne({
         where: { id: userId },
-        relations: ['center'],
+        relations: ['center', 'groups', 'groups.subject', 'subjects'],
       });
 
-      // Get available channels for this user's center
-      let availableChannels: any[] = [];
+      // ✅ Get available channels based on user's groups and subjects
+      let availableChannels: TelegramChat[] = [];
 
-      if (user && user.center) {
-        const centerChannels = await this.telegramChatRepo.find({
-          where: {
+      if (user) {
+        const channelConditions: any[] = [];
+
+        // 1. Get channels for user's center
+        if (user.center) {
+          channelConditions.push({
             type: ChatType.CHANNEL,
             status: ChatStatus.ACTIVE,
             center: { id: user.center.id },
-          },
-          relations: ['center'],
-          order: { title: 'ASC' },
-        });
+            group: IsNull(), // Center-wide channels only
+            subject: IsNull(),
+          });
+        }
 
-        availableChannels = centerChannels.map((channel) => ({
-          id: channel.id,
-          title: channel.title,
-          chatId: channel.chatId,
-          username: channel.username,
-          inviteLink: channel.inviteLink,
-        }));
+        // 2. Get channels for user's groups
+        if (user.groups && user.groups.length > 0) {
+          for (const group of user.groups) {
+            channelConditions.push({
+              type: ChatType.CHANNEL,
+              status: ChatStatus.ACTIVE,
+              group: { id: group.id },
+            });
+          }
+        }
+
+        // 3. Get channels for user's subjects (if no group-specific channel)
+        if (user.subjects && user.subjects.length > 0) {
+          for (const subject of user.subjects) {
+            channelConditions.push({
+              type: ChatType.CHANNEL,
+              status: ChatStatus.ACTIVE,
+              subject: { id: subject.id },
+              group: IsNull(), // Only subject-level channels
+            });
+          }
+        }
+
+        if (channelConditions.length > 0) {
+          availableChannels = await this.telegramChatRepo.find({
+            where: channelConditions,
+            relations: ['center', 'subject', 'group'],
+            order: { title: 'ASC' },
+          });
+        }
       }
+
+      // Format channels for frontend
+      const formattedChannels = availableChannels.map((channel) => ({
+        id: channel.id,
+        chatId: channel.chatId,
+        title: channel.title,
+        username: channel.username,
+        inviteLink: channel.inviteLink,
+        type: channel.type,
+        groupName: channel.group?.name,
+        subjectName: channel.subject?.name,
+        centerName: channel.center?.name,
+      }));
 
       return {
         isLinked: !!userChat,
@@ -247,8 +292,7 @@ export class TelegramAuthService {
         firstName: userChat?.firstName,
         lastName: userChat?.lastName,
         telegramUserId: userChat?.telegramUserId,
-        centerName: user?.center?.name,
-        availableChannels,
+        availableChannels: formattedChannels,
       };
     } catch (error) {
       console.error(`Failed to get user ${userId} Telegram status:`, error);
@@ -474,19 +518,71 @@ export class TelegramAuthService {
         return;
       }
 
-      // Get center channels
-      const centerChannels = await this.telegramChatRepo.find({
-        where: {
+      // Get relevant channels based on user role
+      let relevantChannels: any[] = [];
+
+      if (user.role === UserRole.STUDENT) {
+        // For students, get channels based on their groups and subjects
+        const channelConditions: any[] = [];
+
+        // 1. Group-specific channels (highest priority)
+        if (user.groups && user.groups.length > 0) {
+          for (const group of user.groups) {
+            channelConditions.push({
+              type: ChatType.CHANNEL,
+              status: ChatStatus.ACTIVE,
+              group: { id: group.id },
+            });
+          }
+        }
+
+        // 2. Subject-level channels (if no group channel)
+        if (user.subjects && user.subjects.length > 0) {
+          for (const subject of user.subjects) {
+            channelConditions.push({
+              type: ChatType.CHANNEL,
+              status: ChatStatus.ACTIVE,
+              subject: { id: subject.id },
+              group: IsNull(),
+            });
+          }
+        }
+
+        // 3. Center-wide channels (lowest priority)
+        channelConditions.push({
           type: ChatType.CHANNEL,
           status: ChatStatus.ACTIVE,
           center: { id: user.center.id },
-        },
-        order: { title: 'ASC' },
-      });
+          group: IsNull(),
+          subject: IsNull(),
+        });
 
-      if (centerChannels.length === 0) {
+        if (channelConditions.length > 0) {
+          relevantChannels = await this.telegramChatRepo.find({
+            where: channelConditions,
+            relations: ['center', 'subject', 'group'],
+            order: { title: 'ASC' },
+          });
+        }
+      } else {
+        // For teachers and admins, get center channels
+        relevantChannels = await this.telegramChatRepo.find({
+          where: {
+            type: ChatType.CHANNEL,
+            status: ChatStatus.ACTIVE,
+            center: { id: user.center.id },
+          },
+          order: { title: 'ASC' },
+        });
+      }
+
+      if (relevantChannels.length === 0) {
         // Send basic welcome message
-        const welcomeMessage = `🎓 Salom ${user.firstName}!\n\nSizning Telegram hisobingiz ${user.center.name} markaziga muvaffaqiyatli ulandi.\n\nTez orada test va ma'lumotlar bu yerga yuboriladi.`;
+        const welcomeMessage = `🎓 Salom ${user.firstName}!
+
+Sizning Telegram hisobingiz ${user.center.name} markaziga muvaffaqiyatli ulandi.
+
+Tez orada test va ma'lumotlar bu yerga yuboriladi.`;
 
         await this.telegramService.sendMessage(
           userChat.telegramUserId,
@@ -496,16 +592,47 @@ export class TelegramAuthService {
       }
 
       // Send welcome message with channel invitations
-      const channelsList = centerChannels
+      const channelsList = relevantChannels
         .map((channel) => {
+          const channelName: string = (channel.title ||
+            channel.username ||
+            'Kanal') as string;
+
+          // Show group/subject/center hierarchy
+          const info: string[] = [];
+          if (channel.group?.name) {
+            info.push(`👥 ${channel.group.name}`);
+          }
+          if (channel.subject?.name) {
+            info.push(`📚 ${channel.subject.name}`);
+          }
+          if (channel.center?.name && !channel.group) {
+            info.push(`🏢 ${channel.center.name}`);
+          }
+
+          const contextInfo = info.length > 0 ? ` (${info.join(' • ')})` : '';
+
           const inviteText = channel.inviteLink
-            ? `[${channel.title || channel.username || 'Kanal'}](${channel.inviteLink})`
-            : `${channel.title || channel.username || 'Kanal'}`;
-          return `📚 ${inviteText}`;
+            ? `[${channelName}](${channel.inviteLink})`
+            : `${channelName}`;
+          return `📢 ${inviteText}${contextInfo}`;
         })
         .join('\n');
 
-      const welcomeMessage = `🎓 Salom ${user.firstName}!\n\nSizning Telegram hisobingiz ${user.center.name} markaziga muvaffaqiyatli ulandi.\n\n📢 Markazning Telegram kanallari:\n\n${channelsList}\n\n💡 Bu kanallarga qo'shilib, testlar va muhim ma'lumotlarni birinchi bo'lib oling!\n\n📝 Test javob berish formati: #T123Q1 A\n(Test 123, Savol 1, Javob A)`;
+      const welcomeMessage = `🎓 Salom ${user.firstName}!
+
+Sizning Telegram hisobingiz ${user.center.name} markaziga muvaffaqiyatli ulandi.
+
+Sizning rolingiz: ${user.role === UserRole.STUDENT ? '🎓 Talaba' : user.role === UserRole.TEACHER ? "👨‍🏫 O'qituvchi" : '👨‍💼 Administrator'}
+
+📢 Tegishli Telegram kanallari:
+
+${channelsList}
+
+💡 Bu kanallarga qo'shilib, testlar va muhim ma'lumotlarni birinchi bo'lib oling!
+
+📝 Test javob berish formati: #T123Q1 A
+(Test 123, Savol 1, Javob A)`;
 
       await this.telegramService.sendMessage(
         userChat.telegramUserId,
