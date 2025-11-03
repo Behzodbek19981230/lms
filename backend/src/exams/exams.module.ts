@@ -15,10 +15,17 @@ import { TelegramModule } from '../telegram/telegram.module';
 import { ExamsController } from './exams.controller';
 import { ExamsService } from './exams.service';
 import { LogsModule } from 'src/logs/logs.module';
+import { GeneratedTestVariant } from '../tests/entities/generated-test.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Exam, ExamVariant, ExamVariantQuestion, Group]),
+    TypeOrmModule.forFeature([
+      Exam,
+      ExamVariant,
+      ExamVariantQuestion,
+      Group,
+      GeneratedTestVariant,
+    ]),
     UsersModule,
     GroupsModule,
     SubjectsModule,

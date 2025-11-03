@@ -17,6 +17,7 @@ import {
   GeneratedTest,
   GeneratedTestVariant,
 } from './entities/generated-test.entity';
+import { ExamVariant } from '../exams/entities/exam-variant.entity';
 import { Results } from './entities/results.entity';
 import { LatexProcessorService } from './latex-processor.service';
 import { LogsService } from 'src/logs/logs.service';
@@ -61,6 +62,8 @@ export class TestGeneratorService {
     private generatedTestRepository: Repository<GeneratedTest>,
     @InjectRepository(GeneratedTestVariant)
     private generatedTestVariantRepository: Repository<GeneratedTestVariant>,
+    @InjectRepository(ExamVariant)
+    private examVariantRepository: Repository<ExamVariant>,
     @InjectRepository(Results)
     private resultsRepository: Repository<Results>,
     private latexProcessor: LatexProcessorService,
@@ -708,12 +711,26 @@ export class TestGeneratorService {
   /**
    * Generate unique 10-digit number for test variant
    */
-  private generateUniqueNumber(): string {
-    const timestamp = Date.now().toString();
-    const random = Math.floor(Math.random() * 1000)
-      .toString()
-      .padStart(3, '0');
-    return (timestamp.slice(-7) + random).padStart(10, '0');
+  private async generateUniqueNumber(): Promise<string> {
+    for (let i = 0; i < 10; i++) {
+      const timestamp = Date.now().toString();
+      const random = Math.floor(Math.random() * 1000)
+        .toString()
+        .padStart(3, '0');
+      const code = (timestamp.slice(-7) + random).padStart(10, '0');
+      const genExists = await this.generatedTestVariantRepository.findOne({
+        where: { uniqueNumber: code },
+        select: ['id'],
+      });
+      if (genExists) continue;
+      const examExists = await this.examVariantRepository.findOne({
+        where: { variantNumber: code },
+        select: ['id'],
+      });
+      if (examExists) continue;
+      return code;
+    }
+    return Date.now().toString().slice(-10).padStart(10, '0');
   }
 
   /**
@@ -802,7 +819,7 @@ export class TestGeneratorService {
         return q;
       });
 
-      const uniqueNumber = this.generateUniqueNumber();
+      const uniqueNumber = await this.generateUniqueNumber();
 
       // Save variant to database
       const variant = this.generatedTestVariantRepository.create({

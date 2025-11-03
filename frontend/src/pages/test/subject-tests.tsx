@@ -180,50 +180,58 @@ export default function SubjectTests() {
 	return (
 		<div className='min-h-screen bg-gradient-subtle'>
 			{/* Header */}
-			<header className='bg-card border-b border-border p-6'>
-				<div className='flex items-center justify-between'>
-					<div className='flex items-center space-x-4'>
-						<Button variant='outline' size='sm' onClick={() => router.back()}>
-							<ArrowLeft className='h-4 w-4 mr-2' />
-							Orqaga
-						</Button>
-						<div>
-							<h1 className='text-3xl font-bold text-foreground'>{subject?.name}</h1>
-							<p className='text-muted-foreground'>Fan testlari</p>
+			<header className='bg-card border-b border-border p-4 md:p-6 sticky top-0 z-10 shadow-sm'>
+				<div className='max-w-7xl mx-auto'>
+					<div className='flex flex-col md:flex-row md:items-center md:justify-between gap-4'>
+						<div className='flex items-center gap-3 md:gap-4'>
+							<Button variant='outline' size='sm' onClick={() => router.back()}>
+								<ArrowLeft className='h-4 w-4 mr-2' />
+								Orqaga
+							</Button>
+							<div>
+								<h1 className='text-2xl md:text-3xl font-bold text-foreground'>{subject?.name}</h1>
+								<p className='text-sm text-muted-foreground'>Fan testlari boshqaruvi</p>
+							</div>
 						</div>
-					</div>
-					<div className='flex items-center space-x-4'>
-						<Button variant='hero' onClick={() => router.push('/account/test/create')}>
-							<Plus className='h-4 w-4 mr-2' />
-							Yangi test yaratish
-						</Button>
+						<div>
+							<Button variant='hero' size='sm' onClick={() => router.push('/account/test/create')}>
+								<Plus className='h-4 w-4 mr-2' />
+								Yangi test
+							</Button>
+						</div>
 					</div>
 				</div>
 			</header>
 
-			<div className='p-6'>
+			<div className='max-w-7xl mx-auto p-4 md:p-6 space-y-6'>
 				{/* Subject Info */}
-				<Card className='mb-6 border-border'>
-					<CardHeader>
-						<CardTitle className='text-card-foreground'>Fan ma'lumotlari</CardTitle>
+				<Card className='border-border'>
+					<CardHeader className='pb-3'>
+						<CardTitle className='text-lg text-card-foreground'>Fan ma'lumotlari</CardTitle>
 					</CardHeader>
 					<CardContent>
-						<div className='grid grid-cols-1 md:grid-cols-3 gap-4'>
+						<div className='grid grid-cols-2 md:grid-cols-4 gap-4'>
 							<div>
-								<Label className='text-sm text-muted-foreground'>Fan nomi</Label>
-								<p className='font-medium'>{subject?.name}</p>
+								<Label className='text-xs text-muted-foreground'>Fan nomi</Label>
+								<p className='font-medium text-sm mt-1'>{subject?.name}</p>
 							</div>
 							<div>
-								<Label className='text-sm text-muted-foreground'>Kategoriya</Label>
-								<p className='font-medium'>
+								<Label className='text-xs text-muted-foreground'>Kategoriya</Label>
+								<p className='font-medium text-sm mt-1'>
 									{subject?.category !== undefined && subject?.category in SubjectCategoryLabels
 										? SubjectCategoryLabels[subject.category]
 										: 'Nomaʼlum'}
 								</p>
 							</div>
 							<div>
-								<Label className='text-sm text-muted-foreground'>Testlar soni</Label>
-								<p className='font-medium'>{tests.length}</p>
+								<Label className='text-xs text-muted-foreground'>Testlar soni</Label>
+								<p className='font-semibold text-lg text-primary mt-1'>{tests.length}</p>
+							</div>
+							<div>
+								<Label className='text-xs text-muted-foreground'>Formula qo'llab-quvvatlash</Label>
+								<Badge variant='secondary' className='text-xs mt-1'>
+									{subject?.hasFormulas ? 'Ha' : "Yo'q"}
+								</Badge>
 							</div>
 						</div>
 					</CardContent>
@@ -232,16 +240,20 @@ export default function SubjectTests() {
 				{/* Tests List */}
 				<div className='space-y-4'>
 					<div className='flex items-center justify-between'>
-						<h2 className='text-2xl font-bold text-foreground'>Testlar</h2>
-						<Badge variant='outline'>{tests.length} test</Badge>
+						<h2 className='text-xl md:text-2xl font-bold text-foreground'>Testlar ro'yxati</h2>
+						<Badge variant='secondary' className='text-xs font-semibold'>
+							{tests.length} ta test
+						</Badge>
 					</div>
 
 					{tests.length === 0 ? (
 						<Card className='border-border'>
-							<CardContent className='flex flex-col items-center justify-center py-12'>
-								<FileText className='h-12 w-12 text-muted-foreground mb-4' />
+							<CardContent className='flex flex-col items-center justify-center py-12 px-4'>
+								<FileText className='h-16 w-16 text-muted-foreground mb-4 opacity-50' />
 								<h3 className='text-lg font-medium text-foreground mb-2'>Testlar mavjud emas</h3>
-								<p className='text-muted-foreground mb-4'>Bu fanga hali test yaratilmagan</p>
+								<p className='text-sm text-muted-foreground mb-4 text-center'>
+									Bu fanga hali test yaratilmagan
+								</p>
 								<Button onClick={() => router.push('/account/test/create')}>
 									<Plus className='h-4 w-4 mr-2' />
 									Birinchi testni yarating
@@ -249,94 +261,123 @@ export default function SubjectTests() {
 							</CardContent>
 						</Card>
 					) : (
-						<div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6'>
+						<div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4'>
 							{tests.map((test) => (
-								<Card key={test.id} className='border-border hover:shadow-md transition-shadow'>
-									<CardHeader>
-										<div className='flex items-start justify-between'>
-											<div className='flex items-center space-x-2'>
+								<Card
+									key={test.id}
+									className='border-border hover:shadow-md transition-shadow cursor-pointer group'
+								>
+									<CardHeader className='pb-3'>
+										<div className='flex items-start justify-between gap-2 mb-2'>
+											<div className='flex items-center gap-2 flex-wrap'>
 												{getStatusIcon(test.status)}
 												<Badge variant='outline' className='text-xs'>
 													{getStatusText(test.status)}
 												</Badge>
+												<Badge variant='secondary' className='text-xs'>
+													{getTypeText(test.type)}
+												</Badge>
 											</div>
-											<div className='flex items-center space-x-2'>
-												<Button variant='ghost' size='sm' onClick={() => handleEditTest(test)}>
+											<div className='flex items-center gap-1 flex-shrink-0'>
+												<Button
+													variant='ghost'
+													size='sm'
+													onClick={(e) => {
+														e.stopPropagation();
+														handleEditTest(test);
+													}}
+												>
 													<Edit className='h-4 w-4' />
 												</Button>
 												<Button
 													variant='ghost'
 													size='sm'
-													onClick={() => handleDeleteTest(test.id)}
-													className='text-destructive hover:text-destructive'
+													onClick={(e) => {
+														e.stopPropagation();
+														handleDeleteTest(test.id);
+													}}
+													className='text-destructive hover:text-destructive hover:bg-destructive/10'
 												>
 													<Trash2 className='h-4 w-4' />
 												</Button>
 											</div>
 										</div>
-										<CardTitle className='text-lg text-card-foreground line-clamp-2'>
+										<CardTitle
+											className='text-base font-semibold text-card-foreground line-clamp-2 cursor-pointer'
+											onClick={() => router.push(`/account/test/${test.id}/questions`)}
+										>
 											{test.title}
 										</CardTitle>
 									</CardHeader>
-									<CardContent>
-										<p className='text-sm text-muted-foreground mb-4 line-clamp-2'>
-											{test.description || 'Tavsif mavjud emas'}
-										</p>
+									<CardContent className='pt-0'>
+										{test.description && (
+											<p className='text-sm text-muted-foreground mb-3 line-clamp-2'>
+												{test.description}
+											</p>
+										)}
 
-										<div className='space-y-2 mb-4'>
-											<div className='flex items-center justify-between text-sm'>
-												<span className='text-muted-foreground'>Turi:</span>
-												<Badge variant='secondary'>{getTypeText(test.type)}</Badge>
+										<div className='grid grid-cols-2 gap-2 mb-3 p-3 bg-muted/30 rounded-md'>
+											<div className='text-center'>
+												<div className='text-xs text-muted-foreground mb-1'>Savollar</div>
+												<div className='text-lg font-bold text-primary'>
+													{test.totalQuestions || 0}
+												</div>
 											</div>
-											<div className='flex items-center justify-between text-sm'>
-												<span className='text-muted-foreground'>Davomiyligi:</span>
-												<span className='flex items-center'>
-													<Clock className='h-3 w-3 mr-1' />
-													{test.duration} daqiqa
-												</span>
-											</div>
-											<div className='flex items-center justify-between text-sm'>
-												<span className='text-muted-foreground'>Savollar:</span>
-												<span className='flex items-center'>
-													<FileText className='h-3 w-3 mr-1' />
-													{test.totalQuestions}
-												</span>
-											</div>
-											<div className='flex items-center justify-between text-sm'>
-												<span className='text-muted-foreground'>Ballar:</span>
-												<span>{test.totalPoints}</span>
+											<div className='text-center'>
+												<div className='text-xs text-muted-foreground mb-1'>Ball</div>
+												<div className='text-lg font-bold text-primary'>
+													{test.totalPoints || 0}
+												</div>
 											</div>
 										</div>
 
-										<div className='flex items-center justify-between text-xs text-muted-foreground'>
-											<span>Yaratilgan: {moment(test.createdAt).format('DD.MM.YYYY')}</span>
-											<div className='flex items-center space-x-2'>
-												{test.shuffleQuestions && <Shuffle className='h-3 w-3' />}
+										<div className='space-y-1.5 text-xs text-muted-foreground mb-3'>
+											<div className='flex items-center gap-2'>
+												<Clock className='h-3.5 w-3.5' />
+												<span>{test.duration} daqiqa</span>
+											</div>
+											<div className='flex items-center gap-2'>
+												{test.shuffleQuestions && (
+													<>
+														<Shuffle className='h-3.5 w-3.5' />
+														<span>Aralashtiriladi</span>
+													</>
+												)}
 												{test.showResults ? (
-													<Eye className='h-3 w-3' />
+													<>
+														<Eye className='h-3.5 w-3.5' />
+														<span>Natijalar ko'rsatiladi</span>
+													</>
 												) : (
-													<EyeOff className='h-3 w-3' />
+													<>
+														<EyeOff className='h-3.5 w-3.5' />
+														<span>Natijalar yashirin</span>
+													</>
 												)}
 											</div>
 										</div>
 
-										<div className='flex space-x-2 mt-4'>
+										<div className='text-xs text-muted-foreground mb-3 pb-3 border-t pt-3'>
+											{moment(test.createdAt).format('DD.MM.YYYY, HH:mm')}
+										</div>
+
+										<div className='flex gap-2'>
 											<Button
 												variant='outline'
 												size='sm'
 												className='flex-1'
 												onClick={() => router.push(`/account/test/edit/${test.id}`)}
 											>
-												<Edit className='h-4 w-4 mr-2' />
+												<Edit className='h-4 w-4 mr-1' />
 												Tahrirlash
 											</Button>
 											<Button
-												variant='outline'
+												variant='hero'
 												size='sm'
 												className='flex-1'
 												onClick={() => router.push(`/account/test/${test.id}/questions`)}
 											>
-												<FileText className='h-4 w-4 mr-2' />
+												<FileText className='h-4 w-4 mr-1' />
 												Savollar
 											</Button>
 										</div>

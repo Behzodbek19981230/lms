@@ -10,7 +10,19 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
-import { Download, Shuffle, FileText, Printer, Calculator, Globe, Beaker, History, ChevronsUpDown } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+	Download,
+	Shuffle,
+	FileText,
+	Printer,
+	Calculator,
+	Globe,
+	Beaker,
+	History,
+	ChevronsUpDown,
+	AlertCircle,
+} from 'lucide-react';
 import { request } from '@/configs/request';
 import { useToast } from '@/components/ui/use-toast';
 import { LaTeXRenderer } from '@/components/latex/latex-renderer';
@@ -348,96 +360,99 @@ export function TestGenerator({ subject }: TestGeneratorProps) {
 					</CardTitle>
 				</CardHeader>
 				<CardContent className='space-y-6'>
-					{/* Subject Selection */}
-					<div className='space-y-3'>
-						<Label htmlFor='subject' className='text-sm font-medium text-gray-700 dark:text-gray-300'>
-							Fan tanlash
-						</Label>
-						<Select
-							value={selectedSubject?.id?.toString() || ''}
-							onValueChange={(value) => {
-								const subject = subjects.find((s) => s.id === Number(value));
-								setSelectedSubject(subject || null);
-								setSelectedTests([]);
-								if (subject) {
-									fetchQuestionsForSubject(subject.id);
-									fetchTestsForSubject(subject.id);
-								}
-							}}
-						>
-							<SelectTrigger className='focus:ring-2 focus:ring-primary focus:border-primary'>
-								<SelectValue placeholder='Fanni tanlang' />
-							</SelectTrigger>
-							<SelectContent>
-								{subjects.map((subject) => (
-									<SelectItem key={subject.id} value={subject.id.toString()}>
-										<div className='flex items-center gap-2'>
-											<subject.icon className='h-4 w-4' />
-											{subject.nameUz}
-										</div>
-									</SelectItem>
-								))}
-							</SelectContent>
-						</Select>
-						{selectedSubject && (
-							<div className='flex items-center gap-2 mt-2'>
-								<Badge variant='secondary'>{SubjectCategoryLabels[selectedSubject.category]}</Badge>
-								{selectedSubject.hasFormulas && (
-									<Badge variant='outline' className='text-green-600 border-green-600'>
-										LaTeX qo'llab-quvvatlaydi
-									</Badge>
+					<Tabs defaultValue='config' className='w-full'>
+						<TabsList className='grid w-full grid-cols-2'>
+							<TabsTrigger value='config'>Konfiguratsiya</TabsTrigger>
+							<TabsTrigger value='preview' disabled={!generatedTest}>
+								Ko'rib chiqish
+							</TabsTrigger>
+						</TabsList>
+						<TabsContent value='config' className='space-y-6'>
+							{/* Subject Selection */}
+							<div className='space-y-3'>
+								<Label
+									htmlFor='subject'
+									className='text-sm font-medium text-gray-700 dark:text-gray-300'
+								>
+									Fan tanlash
+								</Label>
+								<Select
+									value={selectedSubject?.id?.toString() || ''}
+									onValueChange={(value) => {
+										const subject = subjects.find((s) => s.id === Number(value));
+										setSelectedSubject(subject || null);
+										setSelectedTests([]);
+										if (subject) {
+											fetchQuestionsForSubject(subject.id);
+											fetchTestsForSubject(subject.id);
+										}
+									}}
+								>
+									<SelectTrigger className='focus:ring-2 focus:ring-primary focus:border-primary'>
+										<SelectValue placeholder='Fanni tanlang' />
+									</SelectTrigger>
+									<SelectContent>
+										{subjects.map((subject) => (
+											<SelectItem key={subject.id} value={subject.id.toString()}>
+												<div className='flex items-center gap-2'>
+													<subject.icon className='h-4 w-4' />
+													{subject.nameUz}
+												</div>
+											</SelectItem>
+										))}
+									</SelectContent>
+								</Select>
+								{selectedSubject && (
+									<div className='flex flex-wrap items-center gap-2 mt-2'>
+										<Badge variant='secondary'>
+											{SubjectCategoryLabels[selectedSubject.category]}
+										</Badge>
+										{selectedSubject.hasFormulas && (
+											<Badge variant='outline' className='text-green-600 border-green-600'>
+												LaTeX qo'llab-quvvatlaydi
+											</Badge>
+										)}
+										<Badge variant='outline'>{availableQuestions.length} ta savol mavjud</Badge>
+									</div>
 								)}
-								<Badge variant='outline'>{availableQuestions.length} ta savol mavjud</Badge>
 							</div>
-						)}
-					</div>
 
-					{/* Test Selection */}
-					{subjectTests.length > 0 && (
-						<div className='space-y-3'>
-							<Label htmlFor='test' className='text-sm font-medium text-gray-700 dark:text-gray-300'>
-								Test tanlash (ixtiyoriy)
-							</Label>
-							<Popover open={testsPopoverOpen} onOpenChange={setTestsPopoverOpen}>
-								<PopoverTrigger asChild>
-									<Button
-										variant='outline'
-										role='combobox'
-										aria-expanded={testsPopoverOpen}
-										className='w-full justify-between'
+							{/* Test Selection */}
+							{subjectTests.length > 0 && (
+								<div className='space-y-3'>
+									<Label
+										htmlFor='test'
+										className='text-sm font-medium text-gray-700 dark:text-gray-300'
 									>
-										{selectedTests.length === 0
-											? 'Test(lar)ni tanlang (ixtiyoriy)'
-											: `${selectedTests.length} ta test tanlandi`}
-										<ChevronsUpDown className='ml-2 h-4 w-4 shrink-0 opacity-50' />
-									</Button>
-								</PopoverTrigger>
-								<PopoverContent className='w-[var(--radix-popover-trigger-width)] p-0'>
-									<Command>
-										<CommandInput placeholder='Test qidiring...' />
-										<CommandEmpty>Natija topilmadi.</CommandEmpty>
-										<CommandList>
-											<CommandGroup>
-												{subjectTests.map((test) => {
-													const checked = selectedTests.some((t) => t.id === test.id);
-													return (
-														<CommandItem
-															key={test.id}
-															value={`${test.id}`}
-															onSelect={() => {
-																setSelectedTests((prev) => {
-																	const exists = prev.some((t) => t.id === test.id);
-																	if (exists)
-																		return prev.filter((t) => t.id !== test.id);
-																	return [...prev, test];
-																});
-															}}
-															className='cursor-pointer'
-														>
-															<div className='flex items-center gap-2'>
-																<Checkbox
-																	checked={checked}
-																	onCheckedChange={() => {
+										Test tanlash (ixtiyoriy)
+									</Label>
+									<Popover open={testsPopoverOpen} onOpenChange={setTestsPopoverOpen}>
+										<PopoverTrigger asChild>
+											<Button
+												variant='outline'
+												role='combobox'
+												aria-expanded={testsPopoverOpen}
+												className='w-full justify-between'
+											>
+												{selectedTests.length === 0
+													? 'Test(lar)ni tanlang (ixtiyoriy)'
+													: `${selectedTests.length} ta test tanlandi`}
+												<ChevronsUpDown className='ml-2 h-4 w-4 shrink-0 opacity-50' />
+											</Button>
+										</PopoverTrigger>
+										<PopoverContent className='w-[var(--radix-popover-trigger-width)] p-0'>
+											<Command>
+												<CommandInput placeholder='Test qidiring...' />
+												<CommandEmpty>Natija topilmadi.</CommandEmpty>
+												<CommandList>
+													<CommandGroup>
+														{subjectTests.map((test) => {
+															const checked = selectedTests.some((t) => t.id === test.id);
+															return (
+																<CommandItem
+																	key={test.id}
+																	value={`${test.id}`}
+																	onSelect={() => {
 																		setSelectedTests((prev) => {
 																			const exists = prev.some(
 																				(t) => t.id === test.id
@@ -449,291 +464,388 @@ export function TestGenerator({ subject }: TestGeneratorProps) {
 																			return [...prev, test];
 																		});
 																	}}
-																/>
-																<span className='truncate'>
-																	{test.title} ({test.totalQuestions} savol)
-																</span>
-															</div>
-														</CommandItem>
-													);
-												})}
-											</CommandGroup>
-										</CommandList>
-									</Command>
-								</PopoverContent>
-							</Popover>
-							{selectedTests.length > 0 && (
-								<div className='flex flex-wrap gap-2 pt-1'>
-									{selectedTests.map((t) => (
-										<Badge key={t.id} variant='secondary' className='flex items-center gap-1'>
-											{t.title}
-											<button
-												type='button'
-												onClick={() =>
-													setSelectedTests((prev) => prev.filter((x) => x.id !== t.id))
-												}
-												className='ml-1 text-xs text-muted-foreground hover:text-foreground'
-												aria-label="O'chirish"
-												title="O'chirish"
-											>
-												×
-											</button>
-										</Badge>
-									))}
+																	className='cursor-pointer'
+																>
+																	<div className='flex items-center gap-2'>
+																		<Checkbox
+																			checked={checked}
+																			onCheckedChange={() => {
+																				setSelectedTests((prev) => {
+																					const exists = prev.some(
+																						(t) => t.id === test.id
+																					);
+																					if (exists)
+																						return prev.filter(
+																							(t) => t.id !== test.id
+																						);
+																					return [...prev, test];
+																				});
+																			}}
+																		/>
+																		<span className='truncate'>
+																			{test.title} ({test.totalQuestions} savol)
+																		</span>
+																	</div>
+																</CommandItem>
+															);
+														})}
+													</CommandGroup>
+												</CommandList>
+											</Command>
+										</PopoverContent>
+									</Popover>
+									{selectedTests.length > 0 && (
+										<div className='flex flex-wrap gap-2 pt-1'>
+											{selectedTests.map((t) => (
+												<Badge
+													key={t.id}
+													variant='secondary'
+													className='flex items-center gap-1'
+												>
+													{t.title}
+													<button
+														type='button'
+														onClick={() =>
+															setSelectedTests((prev) =>
+																prev.filter((x) => x.id !== t.id)
+															)
+														}
+														className='ml-1 text-xs text-muted-foreground hover:text-foreground'
+														aria-label="O'chirish"
+														title="O'chirish"
+													>
+														×
+													</button>
+												</Badge>
+											))}
+										</div>
+									)}
 								</div>
 							)}
-						</div>
-					)}
 
-					<div className='grid grid-cols-1 md:grid-cols-2 gap-6'>
-						<div className='space-y-3'>
-							<Label htmlFor='title' className='text-sm font-medium text-gray-700 dark:text-gray-300'>
-								Test nomi
-							</Label>
-							<Input
-								id='title'
-								placeholder='Test nomini kiriting'
-								value={testConfig.title}
-								onChange={(e) => setTestConfig((prev) => ({ ...prev, title: e.target.value }))}
-								className='focus:ring-2 focus:ring-primary focus:border-primary'
-							/>
-						</div>
+							<div className='grid grid-cols-1 md:grid-cols-2 gap-6'>
+								<div className='space-y-3'>
+									<Label
+										htmlFor='title'
+										className='text-sm font-medium text-gray-700 dark:text-gray-300'
+									>
+										Test nomi
+									</Label>
+									<Input
+										id='title'
+										placeholder='Test nomini kiriting'
+										value={testConfig.title}
+										onChange={(e) => setTestConfig((prev) => ({ ...prev, title: e.target.value }))}
+										className='focus:ring-2 focus:ring-primary focus:border-primary'
+									/>
+								</div>
 
-						<div className='space-y-3'>
-							<Label
-								htmlFor='questionCount'
-								className='text-sm font-medium text-gray-700 dark:text-gray-300'
-							>
-								Savollar soni
-							</Label>
-							<Select
-								value={testConfig.questionCount.toString()}
-								onValueChange={(value) =>
-									setTestConfig((prev) => ({ ...prev, questionCount: Number.parseInt(value) }))
-								}
-							>
-								<SelectTrigger className='focus:ring-2 focus:ring-primary focus:border-primary'>
-									<SelectValue />
-								</SelectTrigger>
-								<SelectContent>
-									{[10, 15, 20, 30, 40, 50, 80, 100].map((num) => (
-										<SelectItem key={num} value={num.toString()}>
-											{num} ta savol
-										</SelectItem>
-									))}
-								</SelectContent>
-							</Select>
-						</div>
+								<div className='space-y-3'>
+									<Label
+										htmlFor='questionCount'
+										className='text-sm font-medium text-gray-700 dark:text-gray-300'
+									>
+										Savollar soni
+									</Label>
+									<Select
+										value={testConfig.questionCount.toString()}
+										onValueChange={(value) =>
+											setTestConfig((prev) => ({
+												...prev,
+												questionCount: Number.parseInt(value),
+											}))
+										}
+									>
+										<SelectTrigger className='focus:ring-2 focus:ring-primary focus:border-primary'>
+											<SelectValue />
+										</SelectTrigger>
+										<SelectContent>
+											{[10, 15, 20, 30, 40, 50, 80, 100].map((num) => (
+												<SelectItem key={num} value={num.toString()}>
+													{num} ta savol
+												</SelectItem>
+											))}
+										</SelectContent>
+									</Select>
+								</div>
 
-						<div className='space-y-3'>
-							<Label
-								htmlFor='variantCount'
-								className='text-sm font-medium text-gray-700 dark:text-gray-300'
-							>
-								Variantlar soni
-							</Label>
-							<Select
-								value={testConfig.variantCount.toString()}
-								onValueChange={(value) =>
-									setTestConfig((prev) => ({ ...prev, variantCount: Number.parseInt(value) }))
-								}
-							>
-								<SelectTrigger className='focus:ring-2 focus:ring-primary focus:border-primary'>
-									<SelectValue />
-								</SelectTrigger>
-								<SelectContent>
-									{[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((num) => (
-										<SelectItem key={num} value={num.toString()}>
-											{num} variant
-										</SelectItem>
-									))}
-								</SelectContent>
-							</Select>
-						</div>
+								<div className='space-y-3'>
+									<Label
+										htmlFor='variantCount'
+										className='text-sm font-medium text-gray-700 dark:text-gray-300'
+									>
+										Variantlar soni
+									</Label>
+									<Select
+										value={testConfig.variantCount.toString()}
+										onValueChange={(value) =>
+											setTestConfig((prev) => ({ ...prev, variantCount: Number.parseInt(value) }))
+										}
+									>
+										<SelectTrigger className='focus:ring-2 focus:ring-primary focus:border-primary'>
+											<SelectValue />
+										</SelectTrigger>
+										<SelectContent>
+											{[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((num) => (
+												<SelectItem key={num} value={num.toString()}>
+													{num} variant
+												</SelectItem>
+											))}
+										</SelectContent>
+									</Select>
+								</div>
 
-						{/* <div className="space-y-3">
-              <Label htmlFor="timeLimit" className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                Vaqt chegarasi (daqiqa)
-              </Label>
-              <Input
-                id="timeLimit"
-                type="number"
-                min="15"
-                max="180"
-                value={testConfig.timeLimit}
-                onChange={(e) =>
-                  setTestConfig((prev) => ({ ...prev, timeLimit: Number.parseInt(e.target.value) || 60 }))
-                }
-                className="focus:ring-2 focus:ring-primary focus:border-primary"
-              />
-            </div>
+								<div className='space-y-3'>
+									<Label
+										htmlFor='timeLimit'
+										className='text-sm font-medium text-gray-700 dark:text-gray-300'
+									>
+										Vaqt chegarasi (daqiqa)
+									</Label>
+									<Input
+										id='timeLimit'
+										type='number'
+										min='15'
+										max='180'
+										value={testConfig.timeLimit}
+										onChange={(e) =>
+											setTestConfig((prev) => ({
+												...prev,
+												timeLimit: Number.parseInt(e.target.value) || 60,
+											}))
+										}
+										className='focus:ring-2 focus:ring-primary focus:border-primary'
+									/>
+								</div>
 
-            <div className="space-y-3">
-              <Label htmlFor="difficulty" className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                Qiyinchilik darajasi
-              </Label>
-              <Select
-                value={testConfig.difficulty}
-                onValueChange={(value) => setTestConfig((prev) => ({ ...prev, difficulty: value }))}
-              >
-                <SelectTrigger className="focus:ring-2 focus:ring-primary focus:border-primary">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="mixed">Aralash</SelectItem>
-                  <SelectItem value="easy">Oson</SelectItem>
-                  <SelectItem value="medium">O'rta</SelectItem>
-                  <SelectItem value="hard">Qiyin</SelectItem>
-                </SelectContent>
-              </Select>
-            </div> */}
-					</div>
+								<div className='space-y-3'>
+									<Label
+										htmlFor='difficulty'
+										className='text-sm font-medium text-gray-700 dark:text-gray-300'
+									>
+										Qiyinchilik darajasi
+									</Label>
+									<Select
+										value={testConfig.difficulty}
+										onValueChange={(value) =>
+											setTestConfig((prev) => ({ ...prev, difficulty: value }))
+										}
+									>
+										<SelectTrigger className='focus:ring-2 focus:ring-primary focus:border-primary'>
+											<SelectValue />
+										</SelectTrigger>
+										<SelectContent>
+											<SelectItem value='mixed'>Aralash</SelectItem>
+											<SelectItem value='easy'>Oson</SelectItem>
+											<SelectItem value='medium'>O'rta</SelectItem>
+											<SelectItem value='hard'>Qiyin</SelectItem>
+										</SelectContent>
+									</Select>
+								</div>
+							</div>
 
-					<div className='flex gap-3'>
-						<Button
-							onClick={generateRandomTest}
-							disabled={isGenerating || !selectedSubject || availableQuestions.length === 0}
-							className='bg-primary hover:bg-primary/90 text-white disabled:opacity-50 disabled:cursor-not-allowed'
-						>
-							{isGenerating ? (
-								<>
-									<div className='animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2'></div>
-									Yaratilmoqda...
-								</>
-							) : (
-								<>
-									<Shuffle className='h-4 w-4 mr-2' />
-									Test Yaratish
-								</>
-							)}
-						</Button>
+							<div className='flex items-center space-x-2'>
+								<Checkbox
+									id='includeAnswers'
+									checked={testConfig.includeAnswers}
+									onCheckedChange={(checked) =>
+										setTestConfig((prev) => ({ ...prev, includeAnswers: !!checked }))
+									}
+								/>
+								<Label
+									htmlFor='includeAnswers'
+									className='text-sm font-medium text-gray-700 dark:text-gray-300'
+								>
+									Javoblarni variantga kiritish
+								</Label>
+							</div>
 
-						{generatedTest && (
-							<>
+							<div className='flex items-center space-x-2'>
+								<Checkbox
+									id='showTitleSheet'
+									checked={showTitleSheet}
+									onCheckedChange={(checked) => setShowTitleSheet(!!checked)}
+								/>
+								<Label
+									htmlFor='showTitleSheet'
+									className='text-sm font-medium text-gray-700 dark:text-gray-300'
+								>
+									Sarlavha varag'ini qo'shish
+								</Label>
+							</div>
+
+							<div className='flex flex-wrap gap-3 pt-4'>
 								<Button
-									onClick={generateHTML}
-									variant='outline'
+									onClick={generateRandomTest}
+									disabled={isGenerating || !selectedSubject || availableQuestions.length === 0}
 									className='bg-primary hover:bg-primary/90 text-white disabled:opacity-50 disabled:cursor-not-allowed'
 								>
-									<Printer className='h-4 w-4 mr-2' />
-									Chop etish
+									{isGenerating ? (
+										<>
+											<div className='animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2'></div>
+											Yaratilmoqda...
+										</>
+									) : (
+										<>
+											<Shuffle className='h-4 w-4 mr-2' />
+											Test Yaratish
+										</>
+									)}
 								</Button>
-								{combinedUrl && (
-									<div className='flex gap-2'>
-										<a href={combinedUrl} target='_blank' rel='noreferrer'>
-											<Button
-												variant='outline'
-												className='bg-primary hover:bg-primary/90 text-white disabled:opacity-50 disabled:cursor-not-allowed'
-											>
-												<Printer className='h-4 w-4 mr-2' /> Barchasini chop etish
-											</Button>
-										</a>
 
-										<a href={`/sheet.png`} target='_blank' rel='noreferrer'>
-											<Button
-												variant='outline'
-												className='bg-primary hover:bg-primary/90 text-white disabled:opacity-50 disabled:cursor-not-allowed'
-											>
-												Javob varag'ini yuklab olish(rasm)
-											</Button>
-										</a>
-										<a href={`/Javoblar_Varogi.pdf`} target='_blank' rel='noreferrer'>
-											<Button
-												variant='outline'
-												className='bg-primary hover:bg-primary/90 text-white disabled:opacity-50 disabled:cursor-not-allowed'
-											>
-												Javob varag'ini yuklab olish(PDF)
-											</Button>
-										</a>
-									</div>
+								{generatedTest && (
+									<Button
+										onClick={generateHTML}
+										variant='outline'
+										className='border-primary text-primary hover:bg-primary/10'
+									>
+										<Printer className='h-4 w-4 mr-2' />
+										Chop etish
+									</Button>
 								)}
-							</>
-						)}
-					</div>
+							</div>
+						</TabsContent>
+						<TabsContent value='preview' className='space-y-6'>
+							{generatedTest && (
+								<div className='space-y-4'>
+									<div className='flex flex-wrap items-center justify-between gap-3'>
+										<div>
+											<h3 className='text-lg font-semibold'>{generatedTest.title}</h3>
+											<p className='text-sm text-muted-foreground'>
+												{generatedTest.subject} - {generatedTest.totalQuestions} savol
+											</p>
+										</div>
+										<div className='flex flex-wrap gap-2'>
+											<Badge variant='secondary'>{generatedTest.totalQuestions} savol</Badge>
+											<Badge variant='secondary'>{generatedTest.totalVariants} variant</Badge>
+										</div>
+									</div>
+
+									{printFiles.length > 0 && (
+										<Card>
+											<CardHeader>
+												<CardTitle className='flex items-center gap-2'>
+													<Printer className='h-5 w-5 text-primary' />
+													Chop etish fayllari
+												</CardTitle>
+											</CardHeader>
+											<CardContent>
+												<div className='mb-3'>
+													<h3 className='font-semibold text-lg'>
+														{printTitle || generatedTest?.title}
+													</h3>
+													<p className='text-sm text-muted-foreground'>
+														Variants (har biri uchun havola va yuklab olish)
+													</p>
+												</div>
+												<div className='divide-y rounded border'>
+													{printFiles.map((f, idx) => (
+														<div
+															key={`${f.variantNumber}-${idx}`}
+															className='flex flex-col md:flex-row md:items-center justify-between gap-3 p-3'
+														>
+															<div className='flex items-center gap-3'>
+																<Badge variant='outline'>
+																	Variant {f.variantNumber}
+																</Badge>
+																{f.uniqueNumber && (
+																	<Badge
+																		variant='outline'
+																		className='text-green-600 border-green-600'
+																	>
+																		#{f.uniqueNumber}
+																	</Badge>
+																)}
+															</div>
+															<div className='flex flex-wrap items-center gap-2'>
+																<a
+																	href={f.url}
+																	target='_blank'
+																	rel='noreferrer'
+																	className='text-primary underline hover:text-primary/80'
+																>
+																	Ochish
+																</a>
+																<a
+																	href={f.url}
+																	download={f.fileName}
+																	className='inline-flex'
+																>
+																	<Button
+																		size='sm'
+																		variant='outline'
+																		className='gap-2'
+																	>
+																		<Download className='h-4 w-4' /> Yuklab olish
+																	</Button>
+																</a>
+																{f.answerSheetUrl && (
+																	<>
+																		<span className='text-muted-foreground'>|</span>
+																		<a
+																			href={f.answerSheetUrl}
+																			target='_blank'
+																			rel='noreferrer'
+																			className='text-primary underline hover:text-primary/80'
+																		>
+																			Javoblar varagi
+																		</a>
+																	</>
+																)}
+															</div>
+														</div>
+													))}
+												</div>
+											</CardContent>
+										</Card>
+									)}
+
+									{combinedUrl && (
+										<div className='flex flex-wrap gap-3'>
+											<a href={combinedUrl} target='_blank' rel='noreferrer'>
+												<Button className='bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white'>
+													<Printer className='h-4 w-4 mr-2' /> Barchasini chop etish
+												</Button>
+											</a>
+
+											<a href={`/sheet.png`} target='_blank' rel='noreferrer'>
+												<Button variant='outline'>Javob varag'ini yuklab olish(rasm)</Button>
+											</a>
+											<a href={`/Javoblar_Varogi.pdf`} target='_blank' rel='noreferrer'>
+												<Button variant='outline'>Javob varag'ini yuklab olish(PDF)</Button>
+											</a>
+										</div>
+									)}
+								</div>
+							)}
+						</TabsContent>
+					</Tabs>
 				</CardContent>
 			</Card>
 
-			{generatedTest && (
-				<Card>
-					<CardHeader>
-						<CardTitle className='flex items-center justify-between'>
-							<span className='flex items-center gap-2'>
-								<FileText className='h-5 w-5 text-primary' />
-								Yaratilgan Test
-							</span>
-							<div className='flex gap-2'>
-								<Badge variant='secondary'>{testConfig.questionCount} savol</Badge>
-								<Badge variant='secondary'>{testConfig.variantCount} variant</Badge>
-							</div>
-						</CardTitle>
-					</CardHeader>
+			{!selectedSubject && (
+				<Card className='border-yellow-200 bg-yellow-50'>
+					<CardContent className='flex items-center p-4'>
+						<AlertCircle className='h-5 w-5 text-yellow-600 mr-3' />
+						<div>
+							<h4 className='text-sm font-medium text-yellow-800'>Fan tanlanmagan</h4>
+							<p className='text-sm text-yellow-700'>
+								Test yaratish uchun avval chap tomonda fanni tanlang.
+							</p>
+						</div>
+					</CardContent>
 				</Card>
 			)}
 
-			{printFiles.length > 0 && (
-				<Card>
-					<CardHeader>
-						<CardTitle className='flex items-center justify-between'>
-							<span className='flex items-center gap-2'>
-								<Printer className='h-5 w-5 text-primary' />
-								Chop etish fayllari
-							</span>
-							<div className='flex gap-2'>
-								<Badge variant='secondary'>{printFiles.length} variant</Badge>
-							</div>
-						</CardTitle>
-					</CardHeader>
-					<CardContent>
-						<div className='mb-3'>
-							<h3 className='font-semibold text-lg'>{printTitle || generatedTest?.title}</h3>
-							<p className='text-sm text-muted-foreground'>
-								Variants (har biri uchun havola va yuklab olish)
+			{selectedSubject && availableQuestions.length === 0 && (
+				<Card className='border-yellow-200 bg-yellow-50'>
+					<CardContent className='flex items-center p-4'>
+						<AlertCircle className='h-5 w-5 text-yellow-600 mr-3' />
+						<div>
+							<h4 className='text-sm font-medium text-yellow-800'>Savollar mavjud emas</h4>
+							<p className='text-sm text-yellow-700'>
+								Tanlangan fanda hozircha savollar mavjud emas. Avval savollar qo'shing.
 							</p>
-						</div>
-						<div className='divide-y rounded border'>
-							{printFiles.map((f, idx) => (
-								<div
-									key={`${f.variantNumber}-${idx}`}
-									className='flex flex-col md:flex-row md:items-center justify-between gap-3 p-3'
-								>
-									<div className='flex items-center gap-3'>
-										<Badge variant='outline'>Variant {f.variantNumber}</Badge>
-										{f.uniqueNumber && (
-											<Badge variant='outline' className='text-green-600 border-green-600'>
-												#{f.uniqueNumber}
-											</Badge>
-										)}
-									</div>
-									<div className='flex items-center gap-2'>
-										<a
-											href={f.url}
-											target='_blank'
-											rel='noreferrer'
-											className='text-primary underline'
-										>
-											Ochish
-										</a>
-										<a href={f.url} download={f.fileName} className='inline-flex'>
-											<Button size='sm' variant='outline' className='gap-2'>
-												<Download className='h-4 w-4' /> Yuklab olish
-											</Button>
-										</a>
-										{f.answerSheetUrl && (
-											<>
-												<span className='text-muted-foreground'>|</span>
-												<a
-													href={f.answerSheetUrl}
-													target='_blank'
-													rel='noreferrer'
-													className='text-primary underline'
-												>
-													Javoblar varagi
-												</a>
-											</>
-										)}
-									</div>
-								</div>
-							))}
 						</div>
 					</CardContent>
 				</Card>

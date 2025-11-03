@@ -14,6 +14,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { MathLiveInput } from '@/components/latex/mathlive-input';
 import { LaTeXRenderer } from '@/components/latex/latex-renderer';
 import { HtmlRenderer } from '@/components/HtmlRenderer';
+import { PanelFormulaDialog } from '@/components/modal/PanelFormulaDialog';
 import {
 	ArrowLeft,
 	Plus,
@@ -92,6 +93,7 @@ export default function TestQuestions() {
 
 	// Excel import state
 	const [excelFile, setExcelFile] = useState<File | null>(null);
+	const [wordFile, setWordFile] = useState<File | null>(null);
 	const [importedQuestions, setImportedQuestions] = useState<Question[]>([]);
 	const [activeTab, setActiveTab] = useState('list');
 
@@ -279,6 +281,100 @@ export default function TestQuestions() {
 		saveAs(data, `test_shabloni_${test?.subject?.name || 'umumiy'}.xlsx`);
 	};
 
+	const downloadWordTemplate = async () => {
+		const docx = await import('docx');
+		const { Document, Packer, Paragraph, Table, TableRow, TableCell, WidthType, TextRun } = docx;
+		const table = new Table({
+			rows: [
+				new TableRow({
+					children: [
+						new TableCell({
+							children: [new Paragraph('Savol matni')],
+							width: { size: 40, type: WidthType.PERCENTAGE },
+						}),
+						new TableCell({
+							children: [new Paragraph('A)')],
+							width: { size: 20, type: WidthType.PERCENTAGE },
+						}),
+						new TableCell({
+							children: [new Paragraph('B)')],
+							width: { size: 20, type: WidthType.PERCENTAGE },
+						}),
+						new TableCell({
+							children: [new Paragraph('C)')],
+							width: { size: 20, type: WidthType.PERCENTAGE },
+						}),
+						new TableCell({
+							children: [new Paragraph('D)')],
+							width: { size: 20, type: WidthType.PERCENTAGE },
+						}),
+						new TableCell({
+							children: [new Paragraph("To'g'ri javob")],
+							width: { size: 15, type: WidthType.PERCENTAGE },
+						}),
+						new TableCell({
+							children: [new Paragraph('Ball')],
+							width: { size: 10, type: WidthType.PERCENTAGE },
+						}),
+					],
+				}),
+				new TableRow({
+					children: [
+						new TableCell({ children: [new Paragraph('2+2 nechaga teng?')] }),
+						new TableCell({ children: [new Paragraph('2')] }),
+						new TableCell({ children: [new Paragraph('3')] }),
+						new TableCell({ children: [new Paragraph('4')] }),
+						new TableCell({ children: [new Paragraph('5')] }),
+						new TableCell({ children: [new Paragraph('C')] }),
+						new TableCell({ children: [new Paragraph('1')] }),
+					],
+				}),
+				new TableRow({
+					children: [
+						new TableCell({ children: [new Paragraph('Eng katta daryo?')] }),
+						new TableCell({ children: [new Paragraph('Nil')] }),
+						new TableCell({ children: [new Paragraph('Amazonka')] }),
+						new TableCell({ children: [new Paragraph('Missisipi')] }),
+						new TableCell({ children: [new Paragraph('Volga')] }),
+						new TableCell({ children: [new Paragraph('A')] }),
+						new TableCell({ children: [new Paragraph('1')] }),
+					],
+				}),
+			],
+			width: { size: 100, type: WidthType.PERCENTAGE },
+		});
+		const doc = new Document({
+			sections: [
+				{
+					children: [
+						new Paragraph({
+							text: 'Test savollarini Word orqali import qilish uchun shablon',
+							heading: 'Heading1',
+						}),
+						table,
+						new Paragraph({
+							text: "1-ustun: Savol matni\n2-5 ustunlar: Javob variantlari (A, B, C, D)\n6-ustun: To'g'ri javob (A, B, C yoki D)\n7-ustun: Ball (1-10)",
+							spacing: { before: 200, after: 200 },
+						}),
+						new Paragraph({
+							children: [
+								new TextRun({
+									text: "⚠️ Muhim: Ko'p variantli savollar uchun faqat to'g'ri javob variantini to'ldiring!",
+									bold: true,
+								}),
+							],
+							spacing: { before: 200 },
+						}),
+					],
+				},
+			],
+		});
+		const buffer = await Packer.toBlob(doc);
+		const fileName = `test_shabloni_${test?.subject?.name || 'umumiy'}.docx`;
+		saveAs(buffer, fileName);
+		toast({ title: 'Word shablon yuklandi', description: "Word faylini to'ldiring va qayta yuklang" });
+	};
+
 	const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
 		const file = event.target.files?.[0];
 		if (file) {
@@ -417,6 +513,133 @@ export default function TestQuestions() {
 		reader.readAsArrayBuffer(file);
 	};
 
+	const parseWordFile = async (file: File) => {
+		toast({ title: "Word fayl o'qilmoqda...", description: 'Savollar yuklanmoqda.' });
+		try {
+			const mammoth = await import('mammoth');
+			const reader = new FileReader();
+			reader.onload = async (e) => {
+				try {
+					const arrayBuffer = e.target?.result as ArrayBuffer;
+					const { value } = await mammoth.convertToHtml({ arrayBuffer });
+					const parser = new DOMParser();
+					const doc = parser.parseFromString(value, 'text/html');
+					const table = doc.querySelector('table');
+					if (!table) {
+						toast({ title: 'Word faylda jadval topilmadi', variant: 'destructive' });
+						return;
+					}
+					const rows = Array.from(table.querySelectorAll('tr'));
+					const questions: Question[] = [];
+					const errors: string[] = [];
+					for (let i = 1; i < rows.length; i++) {
+						const cells = Array.from(rows[i].querySelectorAll('td')).map(
+							(td) => td.textContent?.trim() || ''
+						);
+						if (cells.length < 7) {
+							errors.push(`Qator ${i + 1}: Ma'lumot yetarli emas`);
+							continue;
+						}
+						const questionText = cells[0];
+						const optionA = cells[1];
+						const optionB = cells[2];
+						const optionC = cells[3];
+						const optionD = cells[4];
+						const correctAnswer = cells[5];
+						const points = parseInt(cells[6] || '1') || 1;
+						if (!questionText) {
+							errors.push(`Qator ${i + 1}: Savol matni bo'sh`);
+							continue;
+						}
+						if (points < 1 || points > 10) {
+							errors.push(`Qator ${i + 1}: Ball 1-10 oralig'ida bo'lishi kerak`);
+							continue;
+						}
+						const options: string[] = [];
+						let correctAnswerIndex: number | undefined;
+						if (optionA) options.push(optionA);
+						if (optionB) options.push(optionB);
+						if (optionC) options.push(optionC);
+						if (optionD) options.push(optionD);
+						const correctAnswerLetter = correctAnswer.toUpperCase();
+						if (correctAnswerLetter === 'A' && optionA) {
+							correctAnswerIndex = 0;
+						} else if (correctAnswerLetter === 'B' && optionB) {
+							correctAnswerIndex = 1;
+						} else if (correctAnswerLetter === 'C' && optionC) {
+							correctAnswerIndex = 2;
+						} else if (correctAnswerLetter === 'D' && optionD) {
+							correctAnswerIndex = 3;
+						} else {
+							errors.push(
+								`Qator ${
+									i + 1
+								}: To'g'ri javob A, B, C yoki D bo'lishi kerak va variant mavjud bo'lishi kerak`
+							);
+							continue;
+						}
+						if (options.length < 2) {
+							errors.push(`Qator ${i + 1}: Kamida 2 ta variant bo'lishi kerak`);
+							continue;
+						}
+						questions.push({
+							id: Date.now() + i,
+							type: 'multiple_choice',
+							text: questionText,
+							points,
+							answers: options.map((opt, idx) => ({
+								id: Date.now() + i * 10 + idx,
+								text: opt,
+								isCorrect: idx === correctAnswerIndex,
+								order: idx,
+								questionId: 0,
+							})),
+							testId: Number(testId),
+							createdAt: new Date().toISOString(),
+							updatedAt: new Date().toISOString(),
+						});
+					}
+					setImportedQuestions(questions);
+					toast({
+						title: 'Word fayl import qilindi',
+						description: `${questions.length} ta savol topildi${
+							errors.length > 0 ? `, ${errors.length} ta xatolik` : ''
+						}`,
+					});
+					if (errors.length > 0) {
+						toast({
+							title: 'Xatoliklar topildi',
+							description: `${errors.length} ta xatolik. Iltimos, Word faylini tekshiring.`,
+							variant: 'destructive',
+						});
+						console.log('Word import errors:', errors);
+					}
+				} catch (err) {
+					toast({ title: "Word faylni o'qishda xatolik", variant: 'destructive' });
+				}
+			};
+			reader.readAsArrayBuffer(file);
+		} catch (err) {
+			toast({ title: 'Word import xatolik', variant: 'destructive' });
+		}
+	};
+
+	const handleWordFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+		const file = event.target.files?.[0];
+		if (file) {
+			if (file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
+				setWordFile(file);
+				parseWordFile(file);
+			} else {
+				toast({
+					title: 'Xato fayl turi',
+					description: 'Iltimos, Word faylini (.docx) yuklang',
+					variant: 'destructive',
+				});
+			}
+		}
+	};
+
 	const applyImportedQuestions = async () => {
 		if (importedQuestions.length > 0) {
 			try {
@@ -469,6 +692,7 @@ export default function TestQuestions() {
 	const clearImportedQuestions = () => {
 		setImportedQuestions([]);
 		setExcelFile(null);
+		setWordFile(null);
 	};
 
 	const getQuestionTypeText = (type: string) => {
@@ -535,57 +759,61 @@ export default function TestQuestions() {
 	return (
 		<div className='min-h-screen bg-gradient-subtle'>
 			{/* Header */}
-			<header className='bg-card border-b border-border p-6'>
-				<div className='flex items-center justify-between'>
-					<div className='flex items-center space-x-4'>
-						<Button variant='outline' size='sm' onClick={() => router.back()}>
-							<ArrowLeft className='h-4 w-4 mr-2' />
-							Orqaga
-						</Button>
-						<div>
-							<h1 className='text-3xl font-bold text-foreground'>{test?.title}</h1>
-							<p className='text-muted-foreground'>Test savollari</p>
+			<header className='bg-card border-b border-border p-4 md:p-6 sticky top-0 z-10 shadow-sm'>
+				<div className='max-w-7xl mx-auto'>
+					<div className='flex flex-col md:flex-row md:items-center md:justify-between gap-4'>
+						<div className='flex items-center space-x-3 md:space-x-4'>
+							<Button variant='outline' size='sm' onClick={() => router.back()}>
+								<ArrowLeft className='h-4 w-4 mr-2' />
+								Orqaga
+							</Button>
+							<div>
+								<h1 className='text-2xl md:text-3xl font-bold text-foreground'>{test?.title}</h1>
+								<p className='text-sm text-muted-foreground'>Test savollari boshqaruvi</p>
+							</div>
 						</div>
-					</div>
-					<div className='flex items-center space-x-4'>
-						<Button variant='hero' onClick={() => setActiveTab('create')}>
-							<Plus className='h-4 w-4 mr-2' />
-							Savol qo'shish
-						</Button>
-						<Button variant='outline' onClick={() => setActiveTab('excel')}>
-							<FileSpreadsheet className='h-4 w-4 mr-2' />
-							Excel import
-						</Button>
+						<div className='flex flex-wrap items-center gap-2'>
+							<Button variant='hero' size='sm' onClick={() => setActiveTab('create')}>
+								<Plus className='h-4 w-4 mr-2' />
+								Savol qo'shish
+							</Button>
+							<Button variant='outline' size='sm' onClick={() => setActiveTab('excel')}>
+								<FileSpreadsheet className='h-4 w-4 mr-2' />
+								Excel
+							</Button>
+						</div>
 					</div>
 				</div>
 			</header>
 
-			<div className='p-6'>
+			<div className='max-w-7xl mx-auto p-4 md:p-6 space-y-6'>
 				{/* Test Info */}
-				<Card className='mb-6 border-border'>
-					<CardHeader>
-						<CardTitle className='text-card-foreground'>Test ma'lumotlari</CardTitle>
+				<Card className='border-border'>
+					<CardHeader className='pb-3'>
+						<CardTitle className='text-lg'>Test ma'lumotlari</CardTitle>
 					</CardHeader>
 					<CardContent>
-						<div className='grid grid-cols-1 md:grid-cols-4 gap-4'>
+						<div className='grid grid-cols-2 md:grid-cols-4 gap-4'>
 							<div>
-								<Label className='text-sm text-muted-foreground'>Test nomi</Label>
-								<p className='font-medium'>{test?.title}</p>
+								<Label className='text-xs text-muted-foreground'>Test nomi</Label>
+								<p className='font-medium text-sm'>{test?.title}</p>
 							</div>
 							<div>
-								<Label className='text-sm text-muted-foreground'>Fan</Label>
-								<p className='font-medium'>{test?.subject.name}</p>
+								<Label className='text-xs text-muted-foreground'>Fan</Label>
+								<p className='font-medium text-sm'>{test?.subject.name}</p>
 							</div>
 							<div>
-								<Label className='text-sm text-muted-foreground'>Holat</Label>
+								<Label className='text-xs text-muted-foreground'>Holat</Label>
 								<div className='flex items-center space-x-2'>
 									{getStatusIcon(test?.status!)}
-									<Badge variant='outline'>{getStatusText(test?.status!)}</Badge>
+									<Badge variant='outline' className='text-xs'>
+										{getStatusText(test?.status!)}
+									</Badge>
 								</div>
 							</div>
 							<div>
-								<Label className='text-sm text-muted-foreground'>Savollar soni</Label>
-								<p className='font-medium'>{questions.length}</p>
+								<Label className='text-xs text-muted-foreground'>Savollar soni</Label>
+								<p className='font-semibold text-lg text-primary'>{questions.length}</p>
 							</div>
 						</div>
 					</CardContent>
@@ -593,39 +821,53 @@ export default function TestQuestions() {
 
 				{/* Enhanced Questions Panel */}
 				<Card className='border-border'>
-					<CardHeader>
-						<CardTitle className='text-card-foreground'>Savollar boshqaruvi</CardTitle>
+					<CardHeader className='pb-3'>
+						<CardTitle className='text-lg'>Savollar boshqaruvi</CardTitle>
 					</CardHeader>
-					<CardContent>
+					<CardContent className='p-4 md:p-6'>
 						<Tabs value={activeTab} onValueChange={setActiveTab} className='w-full'>
-							<TabsList className='grid w-full grid-cols-3'>
-								<TabsTrigger value='list'>Savollar ro'yxati ({questions.length})</TabsTrigger>
-								<TabsTrigger value='create'>Yangi savol</TabsTrigger>
-								<TabsTrigger value='excel'>Excel import</TabsTrigger>
+							<TabsList className='grid w-full grid-cols-3 mb-4'>
+								<TabsTrigger value='list' className='text-xs md:text-sm'>
+									Ro'yxat ({questions.length})
+								</TabsTrigger>
+								<TabsTrigger value='create' className='text-xs md:text-sm'>
+									Yangi savol
+								</TabsTrigger>
+								<TabsTrigger value='excel' className='text-xs md:text-sm'>
+									Excel
+								</TabsTrigger>
 							</TabsList>
 
-							<TabsContent value='list' className='space-y-4'>
+							<TabsContent value='list' className='space-y-4 mt-4'>
 								{questions.length === 0 ? (
-									<div className='text-center py-8'>
-										<FileText className='h-12 w-12 text-muted-foreground mx-auto mb-4' />
+									<div className='text-center py-12 px-4'>
+										<FileText className='h-16 w-16 text-muted-foreground mx-auto mb-4 opacity-50' />
 										<h3 className='text-lg font-medium text-foreground mb-2'>
 											Savollar mavjud emas
 										</h3>
-										<p className='text-muted-foreground mb-4'>Bu testga hali savol qo'shilmagan</p>
+										<p className='text-sm text-muted-foreground mb-4'>
+											Bu testga hali savol qo'shilmagan
+										</p>
 										<Button onClick={() => setActiveTab('create')}>
 											<Plus className='h-4 w-4 mr-2' />
 											Birinchi savolni qo'shing
 										</Button>
 									</div>
 								) : (
-									<div className='space-y-4'>
+									<div className='space-y-3'>
 										{questions.map((question, index) => (
-											<Card key={question.id} className='border-border'>
-												<CardHeader>
-													<div className='flex items-start justify-between'>
-														<div className='flex items-center space-x-2'>
-															<Badge variant='secondary' className='text-xs'>
-																{index + 1}
+											<Card
+												key={question.id}
+												className='border-border hover:shadow-sm transition-shadow'
+											>
+												<CardHeader className='pb-3'>
+													<div className='flex items-start justify-between gap-3'>
+														<div className='flex flex-wrap items-center gap-2 min-w-0'>
+															<Badge
+																variant='secondary'
+																className='text-xs font-semibold'
+															>
+																#{index + 1}
 															</Badge>
 															<Badge variant='outline' className='text-xs'>
 																{getQuestionTypeText(question.type)}
@@ -634,7 +876,7 @@ export default function TestQuestions() {
 																{question.points} ball
 															</Badge>
 														</div>
-														<div className='flex items-center space-x-2'>
+														<div className='flex items-center gap-1 flex-shrink-0'>
 															<Button
 																variant='ghost'
 																size='sm'
@@ -646,38 +888,42 @@ export default function TestQuestions() {
 																variant='ghost'
 																size='sm'
 																onClick={() => handleDeleteQuestion(question.id)}
-																className='text-destructive hover:text-destructive'
+																className='text-destructive hover:text-destructive hover:bg-destructive/10'
 															>
 																<Trash2 className='h-4 w-4' />
 															</Button>
 														</div>
 													</div>
-													<CardTitle className='text-lg text-card-foreground'>
+													<CardTitle className='text-base font-medium text-card-foreground pt-2'>
 														{renderVariantContent(question.text)}
 													</CardTitle>
 												</CardHeader>
-												<CardContent>
+												<CardContent className='pt-0'>
 													{question.type !== 'essay' &&
 														question.type !== 'short_answer' &&
 														question.answers && (
 															<div className='space-y-2'>
-																<Label className='text-sm text-muted-foreground'>
+																<Label className='text-xs font-medium text-muted-foreground'>
 																	Javoblar:
 																</Label>
-																<div className='space-y-2'>
+																<div className='space-y-1.5'>
 																	{question.answers.map((answer, optIndex) => (
 																		<div
 																			key={optIndex}
-																			className='flex items-center space-x-2'
+																			className={`flex items-start gap-2 p-2 rounded-md text-sm ${
+																				answer.isCorrect
+																					? 'bg-green-50 border border-green-200'
+																					: 'bg-muted/30'
+																			}`}
 																		>
 																			<div
-																				className={`w-4 h-4 rounded-full border-2 ${
+																				className={`w-4 h-4 rounded-full border-2 flex-shrink-0 mt-0.5 ${
 																					answer.isCorrect
 																						? 'border-green-500 bg-green-500'
 																						: 'border-gray-300'
 																				}`}
 																			></div>
-																			<span className='text-sm'>
+																			<span className='flex-1 min-w-0'>
 																				{renderVariantContent(answer.text)}
 																			</span>
 																		</div>
@@ -686,12 +932,13 @@ export default function TestQuestions() {
 															</div>
 														)}
 
-													<div className='flex items-center justify-between text-xs text-muted-foreground mt-4'>
+													<div className='flex items-center justify-between text-xs text-muted-foreground mt-4 pt-3 border-t'>
 														<span>
-															Yaratilgan:{' '}
-															{moment(question.createdAt).format('DD.MM.YYYY')}
+															{moment(question.createdAt).format('DD.MM.YYYY, HH:mm')}
 														</span>
-														<span>ID: {question.id}</span>
+														<span className='text-muted-foreground/60'>
+															ID: {question.id}
+														</span>
 													</div>
 												</CardContent>
 											</Card>
@@ -725,7 +972,9 @@ export default function TestQuestions() {
 
 										{/* Question Text */}
 										<div className='space-y-2'>
-											<Label htmlFor='text'>Savol matni</Label>
+											<Label htmlFor='text' className='text-sm font-medium'>
+												Savol matni
+											</Label>
 											{test?.subject?.hasFormulas ? (
 												<MathLiveInput
 													value={questionForm.text}
@@ -744,6 +993,7 @@ export default function TestQuestions() {
 													}
 													placeholder='Savol matnini kiriting'
 													rows={3}
+													className='resize-none'
 												/>
 											)}
 										</div>
@@ -751,30 +1001,31 @@ export default function TestQuestions() {
 										{/* Answer Options */}
 										{needsAnswers(questionForm.type) && (
 											<div className='space-y-2'>
-												<Label>Javoblar</Label>
+												<Label className='text-sm font-medium'>Javob variantlari</Label>
 												<div className='space-y-2'>
 													{questionForm.answers.map((answer, index) => (
-														<div key={index} className='flex items-center space-x-2'>
-															{test?.subject?.hasFormulas ? (
-																<MathLiveInput
-																	value={answer.text}
-																	onChange={(value) =>
-																		updateAnswer(index, 'text', value)
-																	}
-																	placeholder={`Javob ${index + 1}`}
-																	className='flex-1'
-																/>
-															) : (
-																<Input
-																	value={answer.text}
-																	onChange={(e) =>
-																		updateAnswer(index, 'text', e.target.value)
-																	}
-																	placeholder={`Javob ${index + 1}`}
-																	className='flex-1'
-																/>
-															)}
-															<div className='flex items-center space-x-2'>
+														<div key={index} className='flex items-start gap-2'>
+															<div className='flex-1'>
+																{test?.subject?.hasFormulas ? (
+																	<MathLiveInput
+																		value={answer.text}
+																		onChange={(value) =>
+																			updateAnswer(index, 'text', value)
+																		}
+																		placeholder={`${index + 1}-variant`}
+																		className='w-full'
+																	/>
+																) : (
+																	<Input
+																		value={answer.text}
+																		onChange={(e) =>
+																			updateAnswer(index, 'text', e.target.value)
+																		}
+																		placeholder={`${index + 1}-variant`}
+																	/>
+																)}
+															</div>
+															<div className='flex items-center gap-2 pt-2'>
 																<input
 																	type='checkbox'
 																	id={`correct-${index}`}
@@ -786,18 +1037,22 @@ export default function TestQuestions() {
 																			e.target.checked
 																		)
 																	}
-																	className='rounded'
+																	className='rounded w-4 h-4'
 																/>
-																<Label htmlFor={`correct-${index}`} className='text-xs'>
+																<Label
+																	htmlFor={`correct-${index}`}
+																	className='text-xs text-muted-foreground cursor-pointer'
+																>
 																	To'g'ri
 																</Label>
 															</div>
 															{questionForm.answers.length > 1 && (
 																<Button
 																	type='button'
-																	variant='outline'
+																	variant='ghost'
 																	size='sm'
 																	onClick={() => removeAnswer(index)}
+																	className='text-destructive hover:text-destructive hover:bg-destructive/10 flex-shrink-0'
 																>
 																	<Trash2 className='h-4 w-4' />
 																</Button>
@@ -809,6 +1064,7 @@ export default function TestQuestions() {
 														variant='outline'
 														size='sm'
 														onClick={addAnswer}
+														className='w-full'
 													>
 														<Plus className='h-4 w-4 mr-2' />
 														Javob qo'shish
@@ -819,7 +1075,9 @@ export default function TestQuestions() {
 
 										{/* Points */}
 										<div className='space-y-2'>
-											<Label htmlFor='points'>Ballar</Label>
+											<Label htmlFor='points' className='text-sm font-medium'>
+												Ball
+											</Label>
 											<Input
 												id='points'
 												type='number'
@@ -827,22 +1085,24 @@ export default function TestQuestions() {
 												onChange={(e) =>
 													setQuestionForm({
 														...questionForm,
-														points: parseInt(e.target.value),
+														points: parseInt(e.target.value) || 1,
 													})
 												}
 												min='1'
 												max='100'
+												className='w-full'
 											/>
 										</div>
 
 										<Button
 											onClick={editingQuestion ? handleUpdateQuestion : handleAddQuestion}
 											className='w-full'
+											size='default'
 										>
 											{editingQuestion ? (
 												<>
 													<Save className='h-4 w-4 mr-2' />
-													Savolni saqlash
+													O'zgarishlarni saqlash
 												</>
 											) : (
 												<>
@@ -855,16 +1115,18 @@ export default function TestQuestions() {
 
 									{/* Preview Panel */}
 									<div className='lg:col-span-1'>
-										<Card className='border-blue-200 bg-blue-50'>
-											<CardHeader>
-												<CardTitle className='text-blue-800 text-lg'>Ko'rinish</CardTitle>
+										<Card className='border-border bg-muted/30 sticky top-24'>
+											<CardHeader className='pb-3'>
+												<CardTitle className='text-base'>Ko'rinish</CardTitle>
 											</CardHeader>
-											<CardContent className='space-y-4'>
-												{questionForm.text && (
+											<CardContent className='space-y-3 p-4'>
+												{questionForm.text ? (
 													<div>
-														<Label className='text-sm text-blue-700'>Savol:</Label>
-														<div className='mt-1 p-3 bg-white rounded border'>
-															{/<\s*\w+[^>]*>/.test(questionForm.text || '') ? (
+														<Label className='text-xs font-medium text-muted-foreground mb-1.5 block'>
+															Savol:
+														</Label>
+														<div className='p-3 bg-background rounded-md border text-sm'>
+															{/<\s*\w+[^>]*>/.test(questionForm.text) ? (
 																<HtmlRenderer content={questionForm.text} />
 															) : test?.subject?.hasFormulas ? (
 																<LaTeXRenderer content={questionForm.text} />
@@ -873,44 +1135,55 @@ export default function TestQuestions() {
 															)}
 														</div>
 													</div>
+												) : (
+													<div className='text-center py-6 text-muted-foreground text-sm'>
+														Savol matni kiritilmagan
+													</div>
 												)}
 
 												{questionForm.answers &&
 													questionForm.answers.length > 0 &&
+													questionForm.answers.some((a) => a.text?.trim()) &&
 													(questionForm.type === 'multiple_choice' ||
 														questionForm.type === 'true_false' ||
 														questionForm.type === 'fill_blank') && (
 														<div>
-															<Label className='text-sm text-blue-700'>Javoblar:</Label>
-															<div className='mt-1 space-y-1'>
+															<Label className='text-xs font-medium text-muted-foreground mb-1.5 block'>
+																Javoblar:
+															</Label>
+															<div className='space-y-1.5'>
 																{questionForm.answers.map((answer, index) => (
 																	<div
 																		key={index}
-																		className={`p-2 rounded text-sm ${
+																		className={`p-2.5 rounded-md text-sm ${
 																			answer.isCorrect
-																				? 'bg-green-100 text-green-800'
-																				: 'bg-white'
+																				? 'bg-green-50 border border-green-200'
+																				: 'bg-background border'
 																		}`}
 																	>
-																		<div className='flex items-center gap-2'>
-																			<span className='font-medium'>
+																		<div className='flex items-start gap-2'>
+																			<span className='font-medium text-muted-foreground flex-shrink-0'>
 																				{String.fromCharCode(65 + index)}.
 																			</span>
-																			{/<\s*\w+[^>]*>/.test(answer.text || '') ? (
-																				<HtmlRenderer
-																					content={answer.text}
-																					inline
-																				/>
-																			) : test?.subject?.hasFormulas ? (
-																				<LaTeXRenderer
-																					content={answer.text}
-																					inline
-																				/>
-																			) : (
-																				<span>{answer.text}</span>
-																			)}
+																			<div className='flex-1 min-w-0'>
+																				{/<\s*\w+[^>]*>/.test(
+																					answer.text || ''
+																				) ? (
+																					<HtmlRenderer
+																						content={answer.text}
+																						inline
+																					/>
+																				) : test?.subject?.hasFormulas ? (
+																					<LaTeXRenderer
+																						content={answer.text}
+																						inline
+																					/>
+																				) : (
+																					<span>{answer.text}</span>
+																				)}
+																			</div>
 																			{answer.isCorrect && (
-																				<CheckCircle className='h-3 w-3 ml-auto' />
+																				<CheckCircle className='h-4 w-4 text-green-600 flex-shrink-0' />
 																			)}
 																		</div>
 																	</div>
@@ -919,10 +1192,12 @@ export default function TestQuestions() {
 														</div>
 													)}
 
-												<div className='pt-2 border-t border-blue-200'>
-													<div className='flex justify-between text-sm'>
-														<span className='text-blue-700'>Ball:</span>
-														<span className='font-medium'>{questionForm.points}</span>
+												<div className='pt-3 border-t'>
+													<div className='flex items-center justify-between text-sm'>
+														<span className='text-muted-foreground'>Ball:</span>
+														<Badge variant='secondary' className='font-semibold'>
+															{questionForm.points}
+														</Badge>
 													</div>
 												</div>
 											</CardContent>
@@ -932,18 +1207,22 @@ export default function TestQuestions() {
 							</TabsContent>
 
 							<TabsContent value='excel' className='space-y-4'>
-								<div className='text-center py-8'>
-									<FileSpreadsheet className='h-12 w-12 text-muted-foreground mx-auto mb-4' />
-									<h3 className='text-lg font-semibold mb-2'>Excel orqali savollar yuklash</h3>
-									<p className='text-muted-foreground mb-6'>
-										Excel faylini yuklab oling, to'ldiring va qayta yuklang. Har bir fan uchun
-										alohida shablon yaratiladi.
+								<div className='text-center py-12 px-4'>
+									<FileSpreadsheet className='h-16 w-16 text-muted-foreground mx-auto mb-4 opacity-50' />
+									<h3 className='text-lg font-semibold mb-2'>Excel orqali savollar import qilish</h3>
+									<p className='text-sm text-muted-foreground mb-6 max-w-md mx-auto'>
+										Excel shablonini yuklab oling, savollarni to'ldiring va qayta yuklang
 									</p>
 
-									<div className='flex flex-col sm:flex-row gap-4 justify-center mb-6'>
-										<Button onClick={downloadExcelTemplate} variant='outline'>
+									<div className='flex flex-col sm:flex-row gap-3 justify-center mb-6'>
+										<Button onClick={downloadExcelTemplate} variant='outline' size='default'>
 											<Download className='h-4 w-4 mr-2' />
-											Shablon yuklash
+											Excel shablon
+										</Button>
+
+										<Button onClick={downloadWordTemplate} variant='outline' size='default'>
+											<Download className='h-4 w-4 mr-2' />
+											Word shablon
 										</Button>
 
 										<div className='relative'>
@@ -957,17 +1236,35 @@ export default function TestQuestions() {
 											<Button variant='outline' asChild>
 												<label htmlFor='excel-upload'>
 													<Upload className='h-4 w-4 mr-2' />
-													Excel fayl yuklash
+													Excel yuklash
+												</label>
+											</Button>
+										</div>
+
+										<div className='relative'>
+											<input
+												type='file'
+												accept='.docx'
+												onChange={handleWordFileUpload}
+												className='absolute inset-0 w-full h-full opacity-0 cursor-pointer'
+												id='word-upload'
+											/>
+											<Button variant='outline' asChild>
+												<label htmlFor='word-upload'>
+													<Upload className='h-4 w-4 mr-2' />
+													Word yuklash
 												</label>
 											</Button>
 										</div>
 									</div>
 
-									{excelFile && (
+									{(excelFile || wordFile) && (
 										<div className='bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4'>
 											<div className='flex items-center gap-2 mb-2'>
 												<FileSpreadsheet className='h-4 w-4 text-blue-600' />
-												<span className='font-medium text-blue-800'>{excelFile.name}</span>
+												<span className='font-medium text-blue-800'>
+													{excelFile?.name || wordFile?.name}
+												</span>
 											</div>
 											<p className='text-sm text-blue-700 mb-3'>
 												{importedQuestions.length} ta savol topildi

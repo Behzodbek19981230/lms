@@ -16,6 +16,7 @@ import { LogsModule } from 'src/logs/logs.module';
 import { Results } from './entities/results.entity';
 import { Center } from 'src/centers/entities/center.entity';
 import { TelegramChat } from 'src/telegram/entities/telegram-chat.entity';
+import { ExamVariant } from '../exams/entities/exam-variant.entity';
 
 @Module({
   imports: [
@@ -29,7 +30,7 @@ import { TelegramChat } from 'src/telegram/entities/telegram-chat.entity';
       Results,
       Center,
       TelegramChat,
-      
+      ExamVariant,
     ]),
     LogsModule,
   ],

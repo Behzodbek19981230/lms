@@ -631,558 +631,645 @@ export default function CreateTestPage() {
 	};
 
 	return (
-		<main className='flex-1 p-6 space-y-6'>
-			<div className='flex items-center justify-between'>
-				<div>
-					<h1 className=' text-3xl font-bold '>Yangi test yaratish</h1>
-					<p className='text-muted-foreground'>Studentlar uchun test tuzish</p>
-				</div>
-				<div className='flex gap-2'>
-					<Button
-						variant='outline'
-						onClick={() => {
-							const excelTab = document.querySelector('[data-value="excel"]') as HTMLElement;
-							if (excelTab) excelTab.click();
-						}}
-					>
-						<FileSpreadsheet className='h-4 w-4 mr-2' />
-						Excel import
-					</Button>
-					<Button variant='outline'>
-						<Eye className='h-4 w-4 mr-2' />
-						Ko'rib chiqish
-					</Button>
-					<Button onClick={saveTest} className='bg-primary hover:bg-primary/90' disabled={isLoading}>
-						{isLoading ? 'Yuklanmoqda...' : 'Saqlash'}
-					</Button>
+		<main className='min-h-screen bg-gradient-subtle'>
+			<div className='bg-card border-b border-border p-4 md:p-6 sticky top-0 z-10 shadow-sm'>
+				<div className='max-w-7xl mx-auto'>
+					<div className='flex flex-col md:flex-row md:items-center md:justify-between gap-4'>
+						<div>
+							<h1 className='text-2xl md:text-3xl font-bold text-foreground'>Yangi test yaratish</h1>
+							<p className='text-sm text-muted-foreground mt-1'>Studentlar uchun test tuzish</p>
+						</div>
+						<div className='flex flex-wrap gap-2'>
+							<Button
+								variant='outline'
+								size='sm'
+								onClick={() => {
+									const excelTab = document.querySelector('[data-value="excel"]') as HTMLElement;
+									if (excelTab) excelTab.click();
+								}}
+							>
+								<FileSpreadsheet className='h-4 w-4 mr-2' />
+								Excel import
+							</Button>
+							<Button onClick={saveTest} className='bg-primary hover:bg-primary/90' disabled={isLoading}>
+								<Save className='h-4 w-4 mr-2' />
+								{isLoading ? 'Yuklanmoqda...' : 'Saqlash'}
+							</Button>
+						</div>
+					</div>
 				</div>
 			</div>
 
-			<div className='grid grid-cols-1 lg:grid-cols-3 gap-6'>
+			<div className='max-w-7xl mx-auto p-4 md:p-6 space-y-6'>
 				{/* Test Settings */}
-				<Card className='lg:col-span-1'>
-					<CardHeader>
-						<CardTitle>Test sozlamalari</CardTitle>
-						<CardDescription>Asosiy ma'lumotlar va sozlamalar</CardDescription>
-					</CardHeader>
-					<CardContent className='space-y-4'>
-						{/* Subject Selection */}
-						<div className='space-y-2'>
-							<Label>Fan</Label>
-							<Select
-								value={selectedSubject?.id?.toString() || ''}
-								onValueChange={(value) => {
-									const subject = subjects.find((s) => s.id === Number(value));
-									setSelectedSubject(subject || null);
-								}}
-							>
-								<SelectTrigger>
-									<SelectValue placeholder='Fanni tanlang' />
-								</SelectTrigger>
-								<SelectContent>
-									{subjects.map((subject) => (
-										<SelectItem key={subject.id} value={subject.id.toString()}>
-											<div className='flex items-center gap-2'>
-												<subject.icon className='h-4 w-4' />
-												{subject.nameUz}
-											</div>
-										</SelectItem>
-									))}
-								</SelectContent>
-							</Select>
-							{selectedSubject && (
-								<div className='flex items-center gap-2 mt-2'>
-									<Badge variant='secondary'>{selectedSubject.category}</Badge>
-									{selectedSubject.hasFormulas && (
-										<Badge variant='outline' className='text-green-600 border-green-600'>
-											LaTeX qo'llab-quvvatlaydi
-										</Badge>
-									)}
-								</div>
-							)}
-						</div>
-
-						{/* Test Title */}
-						<div className='space-y-2'>
-							<Label htmlFor='title'>Test nomi</Label>
-							<Input
-								id='title'
-								value={testTitle}
-								onChange={(e) => setTestTitle(e.target.value)}
-								placeholder='Masalan: Algebra asoslari'
-							/>
-						</div>
-
-						{/* Test Description */}
-						<div className='space-y-2'>
-							<Label htmlFor='description'>Tavsif</Label>
-							<Textarea
-								id='description'
-								value={testDescription}
-								onChange={(e) => setTestDescription(e.target.value)}
-								placeholder="Test haqida qisqacha ma'lumot"
-							/>
-						</div>
-
-						{/* Test Stats */}
-						<div className='pt-4 border-t space-y-2'>
-							<div className='flex justify-between text-sm'>
-								<span className='text-muted-foreground'>Savollar soni:</span>
-								<span className='font-medium'>{questions.length}</span>
-							</div>
-							<div className='flex justify-between text-sm'>
-								<span className='text-muted-foreground'>Jami ball:</span>
-								<span className='font-medium'>{questions.reduce((sum, q) => sum + q.points, 0)}</span>
-							</div>
-						</div>
-					</CardContent>
-				</Card>
-
-				{/* Question Creation */}
-				<Card className='lg:col-span-2'>
-					<CardHeader>
-						<CardTitle>Savol yaratish</CardTitle>
-						<CardDescription>
-							{testType === 'open' ? 'Variantli savol tuzish' : 'Ochiq savol tuzish'}
-						</CardDescription>
-					</CardHeader>
-					<CardContent>
-						<Tabs defaultValue='create' className='w-full'>
-							<TabsList className={`grid w-full ${savedTestId ? 'grid-cols-4' : 'grid-cols-3'}`}>
-								<TabsTrigger value='create'>Yangi savol</TabsTrigger>
-								<TabsTrigger value='list'>Savollar ro'yxati ({questions.length})</TabsTrigger>
-								<TabsTrigger value='excel'>Excel import</TabsTrigger>
-								{savedTestId && (
-									<TabsTrigger value='telegram'>
-										<MessageCircle className='h-4 w-4 mr-1' />
-										Telegram
-									</TabsTrigger>
-								)}
-							</TabsList>
-
-							<TabsContent value='create' className='space-y-4'>
-								{/* Question Type */}
-								{/* {testType === 'open' && (
-									<div className='space-y-2'>
-										<Label>Savol turi</Label>
-										<Select
-											value={currentQuestion.type}
-											 onValueChange={(value: 'multiple_choice' | 'essay' | 'true_false') =>
-											 updateCurrentQuestion('type', value)
-											}
-										>
-											<SelectTrigger>
-												<SelectValue />
-											</SelectTrigger>
-											<SelectContent>
-												<SelectItem value='multiple_choice'>Ko'p variantli</SelectItem>
- <SelectItem value='multiple_choice'>Ko'p variantli</SelectItem>
-												<SelectItem value='true_false'>To'g'ri/Noto'g'ri</SelectItem>
-											</SelectContent>
-										</Select>
-									</div>
-								)} */}
-
-								{/* Question Text */}
-								<div className='space-y-2'>
-									<Label htmlFor='question'>Savol matni</Label>
-									{selectedSubject?.hasFormulas ? (
-										<MathLiveInput
-											value={currentQuestion.question}
-											onChange={(value) => updateCurrentQuestion('question', value)}
-											placeholder="Savol matnini kiriting. Formula qo'shish uchun 'Formula qo'shish' tugmasini bosing"
-											className='w-full'
-										/>
-									) : (
-										<Textarea
-											id='question'
-											value={currentQuestion.question}
-											onChange={(e) => updateCurrentQuestion('question', e.target.value)}
-											placeholder='Savol matnini kiriting'
-											className='min-h-[100px]'
-										/>
-									)}
-								</div>
-
-								{/* Answer Options */}
-								{testType === 'open' && currentQuestion.type === 'multiple_choice' && (
-									<div className='space-y-2'>
-										<Label>Javob variantlari</Label>
-										<div className='space-y-2'>
-											{currentQuestion.options?.map((option, index) => (
-												<div key={index} className='flex items-center gap-2'>
-													<RadioGroup
-														value={currentQuestion.correctAnswer?.toString()}
-														onValueChange={(value) =>
-															updateCurrentQuestion('correctAnswer', Number(value))
-														}
-													>
-														<RadioGroupItem
-															value={index.toString()}
-															id={`option-${index}`}
-														/>
-													</RadioGroup>
-													{selectedSubject?.hasFormulas ? (
-														<MathLiveInput
-															value={option}
-															onChange={(value) => updateQuestionOption(index, value)}
-															placeholder={`Variant ${String.fromCharCode(65 + index)}`}
-														/>
-													) : (
-														<Input
-															value={option}
-															onChange={(e) =>
-																updateQuestionOption(index, e.target.value)
-															}
-															placeholder={`Variant ${String.fromCharCode(65 + index)}`}
-															className='flex-1'
-														/>
-													)}
+				<div className='grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6'>
+					{/* Settings Card */}
+					<Card className='lg:col-span-1 border-border h-fit'>
+						<CardHeader className='pb-3'>
+							<CardTitle className='text-lg'>Test sozlamalari</CardTitle>
+							<CardDescription>Asosiy ma'lumotlar va sozlamalar</CardDescription>
+						</CardHeader>
+						<CardContent className='space-y-4'>
+							{/* Subject Selection */}
+							<div className='space-y-2'>
+								<Label className='text-sm font-medium'>Fan</Label>
+								<Select
+									value={selectedSubject?.id?.toString() || ''}
+									onValueChange={(value) => {
+										const subject = subjects.find((s) => s.id === Number(value));
+										setSelectedSubject(subject || null);
+									}}
+								>
+									<SelectTrigger>
+										<SelectValue placeholder='Fanni tanlang' />
+									</SelectTrigger>
+									<SelectContent>
+										{subjects.map((subject) => (
+											<SelectItem key={subject.id} value={subject.id.toString()}>
+												<div className='flex items-center gap-2'>
+													<subject.icon className='h-4 w-4' />
+													{subject.nameUz}
 												</div>
-											))}
-										</div>
-										<p className='text-xs text-muted-foreground'>To'g'ri javobni belgilang</p>
-									</div>
-								)}
-
-								{testType === 'open' && currentQuestion.type === 'true_false' && (
-									<div className='space-y-2'>
-										<Label>To'g'ri javob</Label>
-										<RadioGroup
-											value={currentQuestion.correctAnswer?.toString()}
-											onValueChange={(value) =>
-												updateCurrentQuestion('correctAnswer', value === 'true')
-											}
-										>
-											<div className='flex items-center space-x-2'>
-												<RadioGroupItem value='true' id='true' />
-												<Label htmlFor='true'>To'g'ri</Label>
-											</div>
-											<div className='flex items-center space-x-2'>
-												<RadioGroupItem value='false' id='false' />
-												<Label htmlFor='false'>Noto'g'ri</Label>
-											</div>
-										</RadioGroup>
-									</div>
-								)}
-
-								{/* Points */}
-								<div className='space-y-2'>
-									<Label htmlFor='points'>Ball</Label>
-									<Input
-										id='points'
-										type='number'
-										value={currentQuestion.points}
-										onChange={(e) => {
-											const n = Math.round(Number(e.target.value));
-											const clamped = Math.min(10, Math.max(1, isNaN(n) ? 1 : n));
-											updateCurrentQuestion('points', clamped);
-										}}
-										min='1'
-										max='10'
-										step='1'
-										className='w-20'
-									/>
-								</div>
-
-								{/* Explanation */}
-								<div className='space-y-2'>
-									<Label htmlFor='explanation'>Tushuntirish (ixtiyoriy)</Label>
-									{selectedSubject?.hasFormulas ? (
-										<MathLiveInput
-											value={currentQuestion.explanation || ''}
-											onChange={(value) => updateCurrentQuestion('explanation', value)}
-											placeholder='Javob uchun tushuntirish'
-										/>
-									) : (
-										<Textarea
-											id='explanation'
-											value={currentQuestion.explanation}
-											onChange={(e) => updateCurrentQuestion('explanation', e.target.value)}
-											placeholder='Javob uchun tushuntirish'
-										/>
-									)}
-								</div>
-
-								<Button onClick={addQuestion} className='w-full'>
-									<Plus className='h-4 w-4 mr-2' />
-									Savolni qo'shish
-								</Button>
-							</TabsContent>
-
-							<TabsContent value='list' className='space-y-4'>
-								{questions.length === 0 ? (
-									<div className='text-center py-8'>
-										<FileText className='h-12 w-12 text-muted-foreground mx-auto mb-4' />
-										<p className='text-muted-foreground'>Hali savollar qo'shilmagan</p>
-									</div>
-								) : (
-									<div className='space-y-4'>
-										{questions.map((question, index) => (
-											<Card key={question.id} className='border-border'>
-												<CardContent className='p-4'>
-													<div className='flex items-start justify-between'>
-														<div className='flex-1'>
-															<div className='flex items-center gap-2 mb-2'>
-																<Badge variant='outline'>Savol {index + 1}</Badge>
-																<Badge variant='secondary'>
-																	{question.points} ball
-																</Badge>
-																{question.type === 'multiple_choice' && (
-																	<Badge variant='outline'>Ko'p variantli</Badge>
-																)}
-																{question.type === 'true_false' && (
-																	<Badge variant='outline'>To'g'ri/Noto'g'ri</Badge>
-																)}
-																{question.type === 'essay' && (
-																	<Badge variant='outline'>Ochiq</Badge>
-																)}
-															</div>
-															<div className='text-sm text-foreground mb-2'>
-																{selectedSubject?.hasFormulas ? (
-																	<LaTeXRenderer content={question.question} />
-																) : (
-																	<p>{question.question}</p>
-																)}
-															</div>
-															{question.options && (
-																<div className='space-y-1'>
-																	{question.options.map((option, optIndex) => (
-																		<div
-																			key={optIndex}
-																			className={`text-xs p-2 rounded ${
-																				question.correctAnswer === optIndex
-																					? 'bg-green-100 text-green-800'
-																					: 'bg-muted'
-																			}`}
-																		>
-																			<div className='flex items-center gap-2'>
-																				<span>
-																					{String.fromCharCode(65 + optIndex)}
-																					.
-																				</span>
-																				{selectedSubject?.hasFormulas ? (
-																					<LaTeXRenderer
-																						content={option}
-																						inline
-																					/>
-																				) : (
-																					<span>{option}</span>
-																				)}
-																				{question.correctAnswer ===
-																					optIndex && (
-																					<CheckCircle className='h-3 w-3 ml-auto' />
-																				)}
-																			</div>
-																		</div>
-																	))}
-																</div>
-															)}
-															{question.explanation && (
-																<div className='mt-2 p-2 bg-blue-50 rounded text-xs'>
-																	<strong>Tushuntirish:</strong>{' '}
-																	{selectedSubject?.hasFormulas ? (
-																		<LaTeXRenderer
-																			content={question.explanation}
-																			inline
-																		/>
-																	) : (
-																		<span>{question.explanation}</span>
-																	)}
-																</div>
-															)}
-														</div>
-														<Button
-															variant='ghost'
-															size='sm'
-															onClick={() => removeQuestion(question.id)}
-															className='text-destructive hover:text-destructive'
-														>
-															<Trash2 className='h-4 w-4' />
-														</Button>
-													</div>
-												</CardContent>
-											</Card>
+											</SelectItem>
 										))}
+									</SelectContent>
+								</Select>
+								{selectedSubject && (
+									<div className='flex items-center gap-2 mt-2'>
+										<Badge variant='secondary'>{selectedSubject.category}</Badge>
+										{selectedSubject.hasFormulas && (
+											<Badge variant='outline' className='text-green-600 border-green-600'>
+												LaTeX qo'llab-quvvatlaydi
+											</Badge>
+										)}
 									</div>
 								)}
-							</TabsContent>
+							</div>
 
-							<TabsContent value='excel' className='space-y-4'>
-								<div className='text-center py-8'>
-									<FileSpreadsheet className='h-12 w-12 text-muted-foreground mx-auto mb-4' />
-									<h3 className='text-lg font-semibold mb-2'>
-										Excel yoki Word orqali savollar yuklash
-									</h3>
-									<p className='text-muted-foreground mb-6'>
-										Excel yoki Word faylini yuklab oling, to'ldiring va qayta yuklang. Har bir fan
-										uchun alohida shablon yaratiladi.
-									</p>
+							{/* Test Title */}
+							<div className='space-y-2'>
+								<Label htmlFor='title' className='text-sm font-medium'>
+									Test nomi
+								</Label>
+								<Input
+									id='title'
+									value={testTitle}
+									onChange={(e) => setTestTitle(e.target.value)}
+									placeholder='Masalan: Algebra asoslari'
+									className='h-10'
+								/>
+							</div>
 
-									<div className='flex flex-col sm:flex-row gap-4 justify-center mb-6'>
-										<Button onClick={downloadExcelTemplate} variant='outline'>
-											<Download className='h-4 w-4 mr-2' />
-											Excel shablon yuklash
-										</Button>
-										<Button onClick={downloadWordTemplate} variant='outline'>
-											<Download className='h-4 w-4 mr-2' />
-											Word shablon yuklash
-										</Button>
+							{/* Test Description */}
+							<div className='space-y-2'>
+								<Label htmlFor='description' className='text-sm font-medium'>
+									Tavsif
+								</Label>
+								<Textarea
+									id='description'
+									value={testDescription}
+									onChange={(e) => setTestDescription(e.target.value)}
+									placeholder="Test haqida qisqacha ma'lumot"
+									className='min-h-[80px] resize-none'
+								/>
+							</div>
 
-										<div className='relative'>
-											<input
-												type='file'
-												accept='.xlsx,.xls,.docx'
-												onChange={handleFileUpload}
-												className='absolute inset-0 w-full h-full opacity-0 cursor-pointer'
-												id='excel-word-upload'
+							{/* Test Stats */}
+							<div className='pt-3 border-t space-y-3'>
+								<h4 className='text-sm font-medium text-foreground'>Statistika</h4>
+								<div className='space-y-2'>
+									<div className='flex justify-between items-center text-sm'>
+										<span className='text-muted-foreground'>Savollar soni:</span>
+										<Badge variant='secondary' className='font-semibold'>
+											{questions.length}
+										</Badge>
+									</div>
+									<div className='flex justify-between items-center text-sm'>
+										<span className='text-muted-foreground'>Jami ball:</span>
+										<Badge variant='secondary' className='font-semibold'>
+											{questions.reduce((sum, q) => sum + q.points, 0)}
+										</Badge>
+									</div>
+								</div>
+							</div>
+						</CardContent>
+					</Card>
+
+					{/* Question Creation */}
+					<Card className='lg:col-span-2 border-border'>
+						<CardHeader className='pb-3'>
+							<CardTitle className='text-lg'>Savol yaratish</CardTitle>
+							<CardDescription>
+								{testType === 'open' ? 'Variantli savol tuzish' : 'Ochiq savol tuzish'}
+							</CardDescription>
+						</CardHeader>
+						<CardContent className='p-4 md:p-6'>
+							<Tabs defaultValue='create' className='w-full'>
+								<TabsList className={`grid w-full mb-4 ${savedTestId ? 'grid-cols-4' : 'grid-cols-3'}`}>
+									<TabsTrigger value='create' className='text-xs md:text-sm'>
+										Yangi savol
+									</TabsTrigger>
+									<TabsTrigger value='list' className='text-xs md:text-sm'>
+										Ro'yxat ({questions.length})
+									</TabsTrigger>
+									<TabsTrigger value='excel' className='text-xs md:text-sm'>
+										Excel
+									</TabsTrigger>
+									{savedTestId && (
+										<TabsTrigger value='telegram' className='text-xs md:text-sm'>
+											<MessageCircle className='h-4 w-4 mr-1' />
+											Telegram
+										</TabsTrigger>
+									)}
+								</TabsList>
+
+								<TabsContent value='create' className='space-y-4 mt-4'>
+									{/* Question Text */}
+									<div className='space-y-2'>
+										<Label htmlFor='question' className='text-sm font-medium'>
+											Savol matni
+										</Label>
+										{selectedSubject?.hasFormulas ? (
+											<MathLiveInput
+												value={currentQuestion.question}
+												onChange={(value) => updateCurrentQuestion('question', value)}
+												placeholder="Savol matnini kiriting. Formula qo'shish uchun toolbar'dan foydalaning"
+												className='w-full'
 											/>
-											<Button variant='outline' asChild>
-												<label htmlFor='excel-word-upload'>
-													<Upload className='h-4 w-4 mr-2' />
-													Excel yoki Word fayl yuklash
-												</label>
+										) : (
+											<Textarea
+												id='question'
+												value={currentQuestion.question}
+												onChange={(e) => updateCurrentQuestion('question', e.target.value)}
+												placeholder='Savol matnini kiriting'
+												className='min-h-[100px] resize-none'
+											/>
+										)}
+									</div>
+
+									{/* Answer Options */}
+									{testType === 'open' && currentQuestion.type === 'multiple_choice' && (
+										<div className='space-y-3'>
+											<Label className='text-sm font-medium'>Javob variantlari</Label>
+											<div className='space-y-2'>
+												{currentQuestion.options?.map((option, index) => (
+													<div key={index} className='flex items-center gap-2'>
+														<RadioGroup
+															value={currentQuestion.correctAnswer?.toString()}
+															onValueChange={(value) =>
+																updateCurrentQuestion('correctAnswer', Number(value))
+															}
+														>
+															<RadioGroupItem
+																value={index.toString()}
+																id={`option-${index}`}
+																className='mt-1'
+															/>
+														</RadioGroup>
+														{selectedSubject?.hasFormulas ? (
+															<MathLiveInput
+																value={option}
+																onChange={(value) => updateQuestionOption(index, value)}
+																placeholder={`Variant ${String.fromCharCode(
+																	65 + index
+																)}`}
+																className='flex-1'
+															/>
+														) : (
+															<Input
+																value={option}
+																onChange={(e) =>
+																	updateQuestionOption(index, e.target.value)
+																}
+																placeholder={`Variant ${String.fromCharCode(
+																	65 + index
+																)}`}
+																className='flex-1'
+															/>
+														)}
+													</div>
+												))}
+											</div>
+											<p className='text-xs text-muted-foreground'>
+												To'g'ri javobni doira belgisini bosib belgilang
+											</p>
+										</div>
+									)}
+
+									{testType === 'open' && currentQuestion.type === 'true_false' && (
+										<div className='space-y-2'>
+											<Label className='text-sm font-medium'>To'g'ri javob</Label>
+											<RadioGroup
+												value={currentQuestion.correctAnswer?.toString()}
+												onValueChange={(value) =>
+													updateCurrentQuestion('correctAnswer', value === 'true')
+												}
+											>
+												<div className='flex items-center space-x-2'>
+													<RadioGroupItem value='true' id='true' />
+													<Label htmlFor='true' className='cursor-pointer'>
+														To'g'ri
+													</Label>
+												</div>
+												<div className='flex items-center space-x-2'>
+													<RadioGroupItem value='false' id='false' />
+													<Label htmlFor='false' className='cursor-pointer'>
+														Noto'g'ri
+													</Label>
+												</div>
+											</RadioGroup>
+										</div>
+									)}
+
+									{/* Points */}
+									<div className='space-y-2'>
+										<Label htmlFor='points' className='text-sm font-medium'>
+											Ball (1-10)
+										</Label>
+										<Input
+											id='points'
+											type='number'
+											value={currentQuestion.points}
+											onChange={(e) => {
+												const n = Math.round(Number(e.target.value));
+												const clamped = Math.min(10, Math.max(1, isNaN(n) ? 1 : n));
+												updateCurrentQuestion('points', clamped);
+											}}
+											min='1'
+											max='10'
+											step='1'
+											className='w-24'
+										/>
+									</div>
+
+									{/* Explanation */}
+									<div className='space-y-2'>
+										<Label htmlFor='explanation' className='text-sm font-medium'>
+											Tushuntirish (ixtiyoriy)
+										</Label>
+										{selectedSubject?.hasFormulas ? (
+											<MathLiveInput
+												value={currentQuestion.explanation || ''}
+												onChange={(value) => updateCurrentQuestion('explanation', value)}
+												placeholder='Javob uchun tushuntirish'
+											/>
+										) : (
+											<Textarea
+												id='explanation'
+												value={currentQuestion.explanation}
+												onChange={(e) => updateCurrentQuestion('explanation', e.target.value)}
+												placeholder='Javob uchun tushuntirish'
+												className='min-h-[60px] resize-none'
+											/>
+										)}
+									</div>
+
+									<Button onClick={addQuestion} className='w-full'>
+										<Plus className='h-4 w-4 mr-2' />
+										Savolni qo'shish
+									</Button>
+								</TabsContent>
+
+								<TabsContent value='list' className='space-y-4 mt-4'>
+									{questions.length === 0 ? (
+										<div className='text-center py-12 px-4'>
+											<FileText className='h-16 w-16 text-muted-foreground mx-auto mb-4 opacity-50' />
+											<h3 className='text-lg font-medium text-foreground mb-2'>
+												Hali savollar qo'shilmagan
+											</h3>
+											<p className='text-sm text-muted-foreground mb-4'>
+												Yangi savol qo'shish yoki Excel orqali import qilish mumkin
+											</p>
+											<Button
+												variant='outline'
+												size='sm'
+												onClick={() => {
+													const createTab = document.querySelector(
+														'[data-value="create"]'
+													) as HTMLElement;
+													if (createTab) createTab.click();
+												}}
+											>
+												<Plus className='h-4 w-4 mr-2' />
+												Birinchi savolni qo'shing
 											</Button>
 										</div>
-									</div>
-
-									{excelFile && (
-										<div className='bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4'>
-											<div className='flex items-center gap-2 mb-2'>
-												<FileSpreadsheet className='h-4 w-4 text-blue-600' />
-												<span className='font-medium text-blue-800'>{excelFile.name}</span>
-											</div>
-											<p className='text-sm text-blue-700 mb-3'>
-												{importedQuestions.length} ta savol topildi
-											</p>
-											<div className='flex gap-2'>
-												<Button onClick={applyImportedQuestions} size='sm'>
-													Savollarni qo'shish
-												</Button>
-												<Button onClick={clearImportedQuestions} variant='outline' size='sm'>
-													Bekor qilish
-												</Button>
-											</div>
-										</div>
-									)}
-
-									{importedQuestions.length > 0 && (
+									) : (
 										<div className='space-y-3'>
-											<h4 className='font-medium'>Topilgan savollar:</h4>
-											{importedQuestions.map((question, index) => (
-												<Card key={index} className='border-blue-200 bg-blue-50'>
-													<CardContent className='p-3'>
-														<div className='flex items-center gap-2 mb-2'>
-															<Badge variant='outline' className='text-xs'>
-																Savol {index + 1}
-															</Badge>
-															<Badge variant='secondary' className='text-xs'>
-																{question.points} ball
-															</Badge>
-															<Badge variant='outline' className='text-xs'>
-																{question.type === 'multiple_choice'
-																	? "Ko'p variantli"
-																	: question.type === 'true_false'
-																	? "To'g'ri/Noto'g'ri"
-																	: 'Ochiq'}
-															</Badge>
-														</div>
-														{renderVariantContent(question.question)}
-														{question.options && (
-															<div className='space-y-1'>
-																{question.options.map((option, optIndex) => (
-																	<div
-																		key={optIndex}
-																		className='text-xs p-1 rounded bg-white'
-																	>
-																		<span className='font-medium'>
-																			{String.fromCharCode(65 + optIndex)}.
-																		</span>
-																		<span className='ml-2'>{option}</span>
-																		{question.correctAnswer === optIndex && (
-																			<CheckCircle className='h-3 w-3 ml-2 text-green-600 inline' />
+											{questions.map((question, index) => (
+												<Card
+													key={question.id}
+													className='border-border hover:shadow-sm transition-shadow'
+												>
+													<CardContent className='p-3 md:p-4'>
+														<div className='flex items-start justify-between gap-3'>
+															<div className='flex-1 min-w-0'>
+																<div className='flex flex-wrap items-center gap-2 mb-2'>
+																	<Badge variant='outline' className='text-xs'>
+																		#{index + 1}
+																	</Badge>
+																	<Badge variant='secondary' className='text-xs'>
+																		{question.points} ball
+																	</Badge>
+																	{question.type === 'multiple_choice' && (
+																		<Badge variant='outline' className='text-xs'>
+																			Ko'p variantli
+																		</Badge>
+																	)}
+																	{question.type === 'true_false' && (
+																		<Badge variant='outline' className='text-xs'>
+																			To'g'ri/Noto'g'ri
+																		</Badge>
+																	)}
+																	{question.type === 'essay' && (
+																		<Badge variant='outline' className='text-xs'>
+																			Ochiq
+																		</Badge>
+																	)}
+																</div>
+																<div className='text-sm text-foreground mb-2 break-words'>
+																	{selectedSubject?.hasFormulas ? (
+																		<LaTeXRenderer content={question.question} />
+																	) : (
+																		<p className='line-clamp-2'>
+																			{question.question}
+																		</p>
+																	)}
+																</div>
+																{question.options && (
+																	<div className='space-y-1'>
+																		{question.options.map((option, optIndex) => (
+																			<div
+																				key={optIndex}
+																				className={`text-xs p-2 rounded transition-colors ${
+																					question.correctAnswer === optIndex
+																						? 'bg-green-50 text-green-800 border border-green-200'
+																						: 'bg-muted'
+																				}`}
+																			>
+																				<div className='flex items-center gap-2'>
+																					<span className='font-medium'>
+																						{String.fromCharCode(
+																							65 + optIndex
+																						)}
+																						.
+																					</span>
+																					{selectedSubject?.hasFormulas ? (
+																						<LaTeXRenderer
+																							content={option}
+																							inline
+																						/>
+																					) : (
+																						<span className='line-clamp-1'>
+																							{option}
+																						</span>
+																					)}
+																					{question.correctAnswer ===
+																						optIndex && (
+																						<CheckCircle className='h-3 w-3 ml-auto flex-shrink-0' />
+																					)}
+																				</div>
+																			</div>
+																		))}
+																	</div>
+																)}
+																{question.explanation && (
+																	<div className='mt-2 p-2 bg-blue-50 border border-blue-100 rounded text-xs'>
+																		<strong className='text-blue-800'>
+																			Tushuntirish:
+																		</strong>{' '}
+																		{selectedSubject?.hasFormulas ? (
+																			<LaTeXRenderer
+																				content={question.explanation}
+																				inline
+																			/>
+																		) : (
+																			<span className='text-blue-700'>
+																				{question.explanation}
+																			</span>
 																		)}
 																	</div>
-																))}
+																)}
 															</div>
-														)}
+															<Button
+																variant='ghost'
+																size='sm'
+																onClick={() => removeQuestion(question.id)}
+																className='text-destructive hover:text-destructive hover:bg-destructive/10 flex-shrink-0'
+															>
+																<Trash2 className='h-4 w-4' />
+															</Button>
+														</div>
 													</CardContent>
 												</Card>
 											))}
 										</div>
 									)}
-
-									<div className='bg-yellow-50 border border-yellow-200 rounded-lg p-4 mt-6'>
-										<h4 className='font-medium text-yellow-800 mb-2'>
-											📋 Excel shablon tuzilishi:
-										</h4>
-										<div className='text-sm text-yellow-700 space-y-1'>
-											<p>
-												<strong>1-ustun:</strong> Savol matni
-											</p>
-											<p>
-												<strong>2-5 ustunlar:</strong> Javob variantlari (A, B, C, D)
-											</p>
-											<p>
-												<strong>6-ustun:</strong> To'g'ri javob (A, B, C yoki D)
-											</p>
-											<p>
-												<strong>7-ustun:</strong> Ball (1-10)
-											</p>
-
-											<p className='text-red-600 font-medium'>
-												⚠️ Muhim: Ko'p variantli savollar uchun faqat to'g'ri javob variantini
-												to'ldiring!
-											</p>
-										</div>
-									</div>
-								</div>
-							</TabsContent>
-
-							{savedTestId && (
-								<TabsContent value='telegram' className='space-y-4'>
-									<div className='bg-green-50 border border-green-200 rounded-lg p-4 mb-4'>
-										<div className='flex items-center gap-2 mb-2'>
-											<CheckCircle className='h-4 w-4 text-green-600' />
-											<span className='font-medium text-green-800'>
-												Test muvaffaqiyatli yaratildi!
-											</span>
-										</div>
-										<p className='text-sm text-green-700 mb-3'>
-											Endi testni Telegram orqali tarqatishingiz va natijalarni kuzatishingiz
-											mumkin.
-										</p>
-										<div className='flex gap-2'>
-											<Button
-												variant='outline'
-												size='sm'
-												onClick={() => router.push('/account/teacher')}
-											>
-												Testlar ro'yxatiga qaytish
-											</Button>
-										</div>
-									</div>
-									<TelegramManager
-										testId={savedTestId}
-										onSuccess={(message) => {
-											toast({
-												title: 'Muvaffaqiyat',
-												description: message,
-											});
-										}}
-										onError={(error) => {
-											toast({
-												title: 'Xatolik',
-												description: error,
-												variant: 'destructive',
-											});
-										}}
-									/>
 								</TabsContent>
-							)}
-						</Tabs>
-					</CardContent>
-				</Card>
+
+								<TabsContent value='excel' className='space-y-4 mt-4'>
+									<div className='text-center py-8 px-4'>
+										<FileSpreadsheet className='h-16 w-16 text-muted-foreground mx-auto mb-4 opacity-50' />
+										<h3 className='text-lg font-semibold mb-2'>
+											Excel yoki Word orqali savollar yuklash
+										</h3>
+										<p className='text-sm text-muted-foreground mb-6'>
+											Excel yoki Word faylini yuklab oling, to'ldiring va qayta yuklang. Har bir
+											fan uchun alohida shablon yaratiladi.
+										</p>
+
+										<div className='flex flex-col sm:flex-row gap-3 justify-center mb-6'>
+											<Button onClick={downloadExcelTemplate} variant='outline'>
+												<Download className='h-4 w-4 mr-2' />
+												Excel shablon yuklash
+											</Button>
+											<Button onClick={downloadWordTemplate} variant='outline'>
+												<Download className='h-4 w-4 mr-2' />
+												Word shablon yuklash
+											</Button>
+
+											<div className='relative'>
+												<input
+													type='file'
+													accept='.xlsx,.xls,.docx'
+													onChange={handleFileUpload}
+													className='absolute inset-0 w-full h-full opacity-0 cursor-pointer'
+													id='excel-word-upload'
+												/>
+												<Button variant='outline' asChild>
+													<label htmlFor='excel-word-upload'>
+														<Upload className='h-4 w-4 mr-2' />
+														Excel yoki Word fayl yuklash
+													</label>
+												</Button>
+											</div>
+										</div>
+
+										{excelFile && (
+											<div className='bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4'>
+												<div className='flex items-center gap-2 mb-2'>
+													<FileSpreadsheet className='h-4 w-4 text-blue-600' />
+													<span className='font-medium text-blue-800'>{excelFile.name}</span>
+												</div>
+												<p className='text-sm text-blue-700 mb-3'>
+													{importedQuestions.length} ta savol topildi
+												</p>
+												<div className='flex gap-2'>
+													<Button onClick={applyImportedQuestions} size='sm'>
+														Savollarni qo'shish
+													</Button>
+													<Button
+														onClick={clearImportedQuestions}
+														variant='outline'
+														size='sm'
+													>
+														Bekor qilish
+													</Button>
+												</div>
+											</div>
+										)}
+										{wordFile && (
+											<div className='bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4'>
+												<div className='flex items-center gap-2 mb-2'>
+													<FileSpreadsheet className='h-4 w-4 text-blue-600' />
+													<span className='font-medium text-blue-800'>{wordFile.name}</span>
+												</div>
+												<p className='text-sm text-blue-700 mb-3'>
+													{importedQuestions.length} ta savol topildi
+												</p>
+												<div className='flex gap-2'>
+													<Button onClick={applyImportedQuestions} size='sm'>
+														Savollarni qo'shish
+													</Button>
+													<Button
+														onClick={clearImportedQuestions}
+														variant='outline'
+														size='sm'
+													>
+														Bekor qilish
+													</Button>
+												</div>
+											</div>
+										)}
+
+										{importedQuestions.length > 0 && (
+											<div className='space-y-3'>
+												<h4 className='font-medium'>Topilgan savollar:</h4>
+												{importedQuestions.map((question, index) => (
+													<Card key={index} className='border-blue-200 bg-blue-50'>
+														<CardContent className='p-3'>
+															<div className='flex items-center gap-2 mb-2'>
+																<Badge variant='outline' className='text-xs'>
+																	Savol {index + 1}
+																</Badge>
+																<Badge variant='secondary' className='text-xs'>
+																	{question.points} ball
+																</Badge>
+																<Badge variant='outline' className='text-xs'>
+																	{question.type === 'multiple_choice'
+																		? "Ko'p variantli"
+																		: question.type === 'true_false'
+																		? "To'g'ri/Noto'g'ri"
+																		: 'Ochiq'}
+																</Badge>
+															</div>
+															{renderVariantContent(question.question)}
+															{question.options && (
+																<div className='space-y-1'>
+																	{question.options.map((option, optIndex) => (
+																		<div
+																			key={optIndex}
+																			className='text-xs p-1 rounded bg-white'
+																		>
+																			<span className='font-medium'>
+																				{String.fromCharCode(65 + optIndex)}.
+																			</span>
+																			<span className='ml-2'>{option}</span>
+																			{question.correctAnswer === optIndex && (
+																				<CheckCircle className='h-3 w-3 ml-2 text-green-600 inline' />
+																			)}
+																		</div>
+																	))}
+																</div>
+															)}
+														</CardContent>
+													</Card>
+												))}
+											</div>
+										)}
+
+										<div className='bg-yellow-50 border border-yellow-200 rounded-lg p-4 mt-6'>
+											<h4 className='font-medium text-yellow-800 mb-2'>
+												📋 Excel shablon tuzilishi:
+											</h4>
+											<div className='text-sm text-yellow-700 space-y-1'>
+												<p>
+													<strong>1-ustun:</strong> Savol matni
+												</p>
+												<p>
+													<strong>2-5 ustunlar:</strong> Javob variantlari (A, B, C, D)
+												</p>
+												<p>
+													<strong>6-ustun:</strong> To'g'ri javob (A, B, C yoki D)
+												</p>
+												<p>
+													<strong>7-ustun:</strong> Ball (1-10)
+												</p>
+
+												<p className='text-red-600 font-medium'>
+													⚠️ Muhim: Ko'p variantli savollar uchun faqat to'g'ri javob
+													variantini to'ldiring!
+												</p>
+											</div>
+										</div>
+									</div>
+								</TabsContent>
+
+								{savedTestId && (
+									<TabsContent value='telegram' className='space-y-4'>
+										<div className='bg-green-50 border border-green-200 rounded-lg p-4 mb-4'>
+											<div className='flex items-center gap-2 mb-2'>
+												<CheckCircle className='h-4 w-4 text-green-600' />
+												<span className='font-medium text-green-800'>
+													Test muvaffaqiyatli yaratildi!
+												</span>
+											</div>
+											<p className='text-sm text-green-700 mb-3'>
+												Endi testni Telegram orqali tarqatishingiz va natijalarni kuzatishingiz
+												mumkin.
+											</p>
+											<div className='flex gap-2'>
+												<Button
+													variant='outline'
+													size='sm'
+													onClick={() => router.push('/account/teacher')}
+												>
+													Testlar ro'yxatiga qaytish
+												</Button>
+											</div>
+										</div>
+										<TelegramManager
+											testId={savedTestId}
+											onSuccess={(message) => {
+												toast({
+													title: 'Muvaffaqiyat',
+													description: message,
+												});
+											}}
+											onError={(error) => {
+												toast({
+													title: 'Xatolik',
+													description: error,
+													variant: 'destructive',
+												});
+											}}
+										/>
+									</TabsContent>
+								)}
+							</Tabs>
+						</CardContent>
+					</Card>
+				</div>
 			</div>
 		</main>
 	);

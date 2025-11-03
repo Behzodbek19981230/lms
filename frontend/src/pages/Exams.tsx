@@ -116,6 +116,7 @@ export default function ExamsPage() {
 	const [subjects, setSubjects] = useState<Subject[]>([]);
 	const [isLoading, setIsLoading] = useState(true);
 	const [errorMessage, setErrorMessage] = useState('');
+	const [startingExamIds, setStartingExamIds] = useState<Set<number>>(new Set());
 
 	// Create exam state
 	const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
@@ -186,21 +187,34 @@ export default function ExamsPage() {
 	};
 
 	const handleStartExam = async (exam: Exam) => {
-		try {
-			// 1) Generate variants with defaults
-			await request.post(`/exams/${exam.id}/generate-variants`, {
-				questionsPerSubject: 10,
-				randomizeQuestions: true,
-				randomizeAnswers: true,
+		if (!exam.groups || exam.groups.length === 0) {
+			toast({
+				title: 'Guruhlar topilmadi',
+				description: 'Imtihonni boshlash uchun kamida bitta guruh kerak',
+				variant: 'destructive',
 			});
-			// 2) Move exam to in_progress (will trigger Telegram notify inside status handler)
+			return;
+		}
+
+		setStartingExamIds((prev) => new Set(prev).add(exam.id));
+		try {
+			// 1) Generate tests for all students in linked groups (also handles Telegram distribution)
+			const groupIds = exam.groups.map((g) => g.id);
+			await request.post(`/exams/${exam.id}/generate-for-groups`, { groupIds });
+
+			// 2) Move exam to in_progress
 			await handleUpdateExamStatus(exam.id, 'in_progress');
 		} catch (e: any) {
 			const msg =
-				e?.response?.data?.message ||
-				'Boshlashda xatolik: variantlar generatsiyasi yoki holat yangilanishi amalga oshmadi';
+				e?.response?.data?.message || 'Boshlashda xatolik: test yaratish yoki holatni yangilash amalga oshmadi';
 			setErrorMessage(msg);
 			toast({ title: 'Xatolik', description: msg, variant: 'destructive' });
+		} finally {
+			setStartingExamIds((prev) => {
+				const n = new Set(prev);
+				n.delete(exam.id);
+				return n;
+			});
 		}
 	};
 
@@ -637,23 +651,6 @@ export default function ExamsPage() {
 											</Button>
 										</div>
 
-										{/* Generate Tests for Groups Button */}
-										{(exam.status === 'draft' || exam.status === 'scheduled') &&
-											exam.groups &&
-											exam.groups.length > 0 && (
-												<div className='mt-2'>
-													<Button
-														variant='secondary'
-														size='sm'
-														className='w-full'
-														onClick={() => handleGenerateExamForGroups(exam)}
-													>
-														<FileText className='h-4 w-4 mr-2' />
-														Guruhlar uchun test yaratish
-													</Button>
-												</div>
-											)}
-
 										{/* Status Actions */}
 										{(exam.status === 'draft' || exam.status === 'scheduled') && (
 											<div className='mt-2'>
@@ -661,9 +658,10 @@ export default function ExamsPage() {
 													size='sm'
 													className='w-full'
 													onClick={() => handleStartExam(exam)}
+													disabled={startingExamIds.has(exam.id)}
 												>
 													<Play className='h-4 w-4 mr-2' />
-													Boshlash
+													{startingExamIds.has(exam.id) ? 'Boshlanmoqda...' : 'Boshlash'}
 												</Button>
 											</div>
 										)}

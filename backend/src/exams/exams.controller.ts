@@ -47,7 +47,7 @@ export class ExamsController {
   @Get()
   @ApiOperation({ summary: 'Get all exams for the current teacher' })
   @ApiResponse({ status: 200, description: 'List of exams' })
-  async getExams(@Request() req): Promise<Exam[]> {
+  async getExams(@Request() req: { user: { id: number } }): Promise<Exam[]> {
     return this.examsService.findAllByTeacher(req.user.id);
   }
 
@@ -265,6 +265,36 @@ export class ExamsController {
     totalQuestions: number;
   }> {
     return this.examsService.getVariantByNumber(variantNumber);
+  }
+
+  @Get('scanner/:code')
+  @ApiOperation({ summary: 'Resolve scanner code (exam or generated variant)' })
+  @ApiResponse({ status: 200, description: 'Resolved variant information' })
+  async resolveScannerCode(@Param('code') code: string) {
+    return this.examsService.resolveVariantByCode(code);
+  }
+
+  @Post('scanner/grade')
+  @ApiOperation({
+    summary: 'Grade by scanner code (exam or generated variant)',
+  })
+  @ApiResponse({ status: 200, description: 'Grading result' })
+  async gradeByScannerCode(
+    @Body()
+    body: {
+      code: string;
+      answers: string[];
+      studentId?: number;
+    },
+  ): Promise<unknown> {
+    if (!body?.code || !Array.isArray(body.answers)) {
+      throw new BadRequestException('code va answers talab qilinadi');
+    }
+    return this.examsService.gradeByCode(
+      body.code,
+      body.answers,
+      body.studentId,
+    );
   }
 
   // All PDF and Telegram-related endpoints removed as part of PDF cleanup

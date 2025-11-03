@@ -12,6 +12,8 @@ import { join } from 'path';
 import { Exam, ExamStatus, ExamType } from './entities/exam.entity';
 import { ExamVariant, ExamVariantStatus } from './entities/exam-variant.entity';
 import { ExamVariantQuestion } from './entities/exam-variant-question.entity';
+import { GeneratedTestVariant } from '../tests/entities/generated-test.entity';
+import { TestGeneratorService } from '../tests/test-generator.service';
 import { Group } from '../groups/entities/group.entity';
 import { UsersService } from '../users/users.service';
 import { GroupsService } from '../groups/groups.service';
@@ -67,6 +69,8 @@ export class ExamsService {
     private examVariantRepository: Repository<ExamVariant>,
     @InjectRepository(ExamVariantQuestion)
     private examVariantQuestionRepository: Repository<ExamVariantQuestion>,
+    @InjectRepository(GeneratedTestVariant)
+    private generatedTestVariantRepository: Repository<GeneratedTestVariant>,
     @InjectRepository(Group)
     private groupRepository: Repository<Group>,
     private usersService: UsersService,
@@ -77,6 +81,7 @@ export class ExamsService {
     private notificationsService: NotificationsService,
     private telegramService: TelegramService,
     private readonly logsService: LogsService,
+    private readonly testGeneratorService: TestGeneratorService,
   ) {}
 
   /* -------------------------
@@ -133,6 +138,23 @@ export class ExamsService {
       ],
     });
     if (!exam) throw new NotFoundException('Exam not found');
+    // Safety net: normalize any legacy/non-10-digit variant numbers on read
+    if (Array.isArray(exam.variants) && exam.variants.length) {
+      for (const v of exam.variants) {
+        if (!this.isTenDigit(v.variantNumber)) {
+          const newCode = await this.generateVariantNumber(
+            exam.id,
+            v.student?.id || 0,
+            1,
+          );
+          await this.examVariantRepository.update(v.id, {
+            variantNumber: newCode,
+            printHtmlPath: null,
+          });
+          v.variantNumber = newCode;
+        }
+      }
+    }
     return exam;
   }
 
@@ -214,7 +236,7 @@ export class ExamsService {
 
     for (const student of uniqueStudents) {
       for (let i = 0; i < exam.variantsPerStudent; i++) {
-        const variantNumber = this.generateVariantNumber(
+        const variantNumber = await this.generateVariantNumber(
           exam.id,
           student.id,
           i + 1,
@@ -366,7 +388,7 @@ export class ExamsService {
 
         try {
           // Generate variant number for this student
-          const variantNumber = this.generateVariantNumber(
+          const variantNumber = await this.generateVariantNumber(
             exam.id,
             student.id,
             1, // First variant for this student
@@ -626,13 +648,46 @@ export class ExamsService {
     await this.examVariantRepository.update(variantId, { totalPoints });
   }
 
-  private generateVariantNumber(
-    examId: number,
-    studentId: number,
-    variantIndex: number,
-  ): string {
-    const year = new Date().getFullYear();
-    return `${year}-${String(examId).padStart(3, '0')}-${String(studentId).padStart(3, '0')}-${String(variantIndex).padStart(2, '0')}`;
+  private async generateVariantNumber(
+    _examId: number,
+    _studentId: number,
+    _variantIndex: number,
+  ): Promise<string> {
+    // Mark parameters as intentionally unused for now (reserved for future use)
+    void _examId;
+    void _studentId;
+    void _variantIndex;
+    // Generate a 10-digit numeric code unique across exam_variants.variantNumber and generated_test_variants.uniqueNumber
+    for (let attempt = 0; attempt < 10; attempt++) {
+      const code = this.generate10DigitCode();
+      const examExists = await this.examVariantRepository.findOne({
+        where: { variantNumber: code },
+        select: ['id'],
+      });
+      if (examExists) continue;
+      const genExists = await this.generatedTestVariantRepository.findOne({
+        where: { uniqueNumber: code },
+        select: ['id'],
+      });
+      if (genExists) continue;
+      return code;
+    }
+    // Fallback (extremely unlikely to happen)
+    return this.generate10DigitCode();
+  }
+
+  private generate10DigitCode(): string {
+    // Use time fragment + random to produce exactly 10 digits
+    const now = Date.now().toString(); // 13 digits typically
+    const tail = now.slice(-7); // last 7 digits
+    const rnd = Math.floor(Math.random() * 1000)
+      .toString()
+      .padStart(3, '0');
+    return (tail + rnd).padStart(10, '0');
+  }
+
+  private isTenDigit(v?: string | null): boolean {
+    return !!v && /^\d{10}$/.test(v);
   }
 
   private shuffleArray<T>(array: T[]): T[] {
@@ -687,6 +742,22 @@ export class ExamsService {
       order: { variantNumber: 'ASC' },
     });
 
+    // Safety net: normalize any legacy/non-10-digit variant numbers on read
+    for (const v of variants) {
+      if (!this.isTenDigit(v.variantNumber)) {
+        const newCode = await this.generateVariantNumber(
+          examId,
+          v.student?.id || 0,
+          1,
+        );
+        await this.examVariantRepository.update(v.id, {
+          variantNumber: newCode,
+          printHtmlPath: null,
+        });
+        v.variantNumber = newCode;
+      }
+    }
+
     for (const variant of variants) {
       if (!variant.questions || variant.questions.length === 0) {
         void this.logsService.warn(
@@ -717,7 +788,11 @@ export class ExamsService {
           body { font-family: Times, 'Times New Roman', serif; margin: 0; padding: 0; color: #111; }
           .toolbar { position: sticky; top: 0; background: #fff; border-bottom: 1px solid #eee; padding: 8px 12px; display:flex; gap:8px; align-items:center; z-index: 10; }
           .toolbar button { padding: 6px 10px; font-size: 14px; }
-          .page { page-break-after: always; padding: 0 6mm; }
+          /* Page pagination: use a container to reliably target the last page regardless of trailing scripts */
+          .page { padding: 0 6mm; }
+          #pages > .page { page-break-after: always; break-after: page; }
+          #pages > .page:last-child { page-break-after: auto; break-after: auto; }
+          #pages > .page:first-child { page-break-before: auto; }
           .header { text-align: center; margin-bottom: 12px; }
           .title { font-size: 20px; font-weight: 700; margin: 0 0 6px 0; }
           .subtitle { font-size: 12px; margin: 2px 0; color: #333; }
@@ -729,6 +804,7 @@ export class ExamsService {
             break-inside: avoid-column;
             -webkit-column-break-inside: avoid;
             -moz-column-break-inside: avoid;
+            font-size: 12px;
           }
           .q-row { display: flex; align-items: flex-start; gap: 8px; }
           .q-no { color: #000; font-weight: 600; min-width: 20px; flex-shrink: 0; }
@@ -746,7 +822,12 @@ export class ExamsService {
           .key-table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 8px; }
           .key-table th, .key-table td { border: 1px solid #ccc; padding: 6px 8px; text-align: center; }
           .key-table th { background: #f7f7f7; }
-          @media print { .toolbar { display: none; } }
+          @media print {
+            .toolbar { display: none; }
+            #pages > .page { page-break-after: always; break-after: page; }
+            #pages > .page:last-child { page-break-after: auto; break-after: auto; }
+            #pages > .page:first-child { page-break-before: auto; }
+          }
           @media screen and (max-width: 900px) { .questions-container { column-count: 1; background: none; } }
         </style>
         <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
@@ -757,7 +838,7 @@ export class ExamsService {
           <button onclick="window.print()">PDFga chop etish</button>
           <span style="color:#666; font-size:13px;">Chop etish oynasida "Save as PDF"ni tanlang.</span>
         </div>
-        ${inner}
+  <main id="pages">${inner}</main>
         <script>
           window.addEventListener('DOMContentLoaded', function() {
             if (window.renderMathInElement) {
@@ -1506,7 +1587,7 @@ export class ExamsService {
 
     return `
       <div class="page">
-        <div style="text-align: center; padding: 40px 20px; min-height: 80vh; display: flex; flex-direction: column; justify-content: center;">
+  <div style="text-align: center; padding: 40px 20px; min-height: 70vh; display: flex; flex-direction: column; justify-content: center;">
           <h1 style="font-size: 24px; font-weight: bold; margin: 20px 0; color: #333; text-transform: uppercase;">
             ${subjectNames} ${pageType}
           </h1>
@@ -1734,6 +1815,93 @@ export class ExamsService {
       examTitle: variant.exam.title,
       totalQuestions: variant.questions?.length || 0,
     };
+  }
+
+  /**
+   * Resolve a 10-digit scanner code against exam variants or generated test variants.
+   * Returns a normalized payload indicating the source.
+   */
+  async resolveVariantByCode(code: string): Promise<
+    | {
+        source: 'exam';
+        variantId: number;
+        variantNumber: string;
+        studentId: number;
+        studentName: string;
+        examId: number;
+        examTitle: string;
+        totalQuestions: number;
+      }
+    | {
+        source: 'generated';
+        uniqueNumber: string;
+        variantNumber: string | number;
+        generatedTestId: number;
+        title: string;
+        subjectId?: number;
+        printableUrl?: string | null;
+      }
+  > {
+    // Try exam variant first
+    const examVariant = await this.examVariantRepository.findOne({
+      where: { variantNumber: code },
+      relations: ['student', 'exam', 'questions'],
+    });
+    if (examVariant) {
+      return {
+        source: 'exam',
+        variantId: examVariant.id,
+        variantNumber: examVariant.variantNumber,
+        studentId: examVariant.student.id,
+        studentName: `${examVariant.student.firstName} ${examVariant.student.lastName}`,
+        examId: examVariant.exam.id,
+        examTitle: examVariant.exam.title,
+        totalQuestions: examVariant.questions?.length || 0,
+      };
+    }
+
+    // Try generated test variant by uniqueNumber
+    try {
+      const gen =
+        await this.testGeneratorService.getVariantByUniqueNumber(code);
+      return {
+        source: 'generated',
+        uniqueNumber: gen.uniqueNumber,
+        variantNumber: gen.variantNumber,
+        generatedTestId: gen.generatedTest.id,
+        title: gen.generatedTest.title,
+        subjectId: gen.generatedTest.subject,
+        printableUrl: gen.printableUrl,
+      };
+    } catch {
+      throw new NotFoundException(
+        `Kod ${code} bo'yicha variant topilmadi (exam yoki generated)`,
+      );
+    }
+  }
+
+  /**
+   * Grade by universal scanner code (exam variantNumber or generated uniqueNumber)
+   */
+  async gradeByCode(
+    code: string,
+    answers: string[],
+    studentId?: number,
+  ): Promise<any> {
+    // If matches an exam variant, grade via exam logic
+    const examVariant = await this.examVariantRepository.findOne({
+      where: { variantNumber: code },
+      select: ['id'],
+    });
+    if (examVariant) {
+      return this.gradeExamVariant(code, answers);
+    }
+    // Else grade via generated test logic (optionally attach studentId)
+    return this.testGeneratorService.gradeScannedAnswers(
+      code,
+      answers,
+      studentId,
+    );
   }
 
   private generateExamTitlePageForAll(

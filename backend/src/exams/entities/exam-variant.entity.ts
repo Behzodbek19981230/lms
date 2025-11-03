@@ -1,4 +1,11 @@
-import { Column, Entity, ManyToOne, OneToMany, JoinColumn } from 'typeorm';
+import {
+  Column,
+  Entity,
+  ManyToOne,
+  OneToMany,
+  JoinColumn,
+  Check,
+} from 'typeorm';
 import { BaseEntity } from '../../common/entities/base.entity';
 import { User } from '../../users/entities/user.entity';
 import { Exam } from './exam.entity';
@@ -14,9 +21,13 @@ export enum ExamVariantStatus {
 }
 
 @Entity('exam_variants')
+@Check(
+  'CHK_exam_variant_number_10digits',
+  `"variantNumber" IS NOT NULL AND char_length("variantNumber") = 10 AND "variantNumber" ~ '^[0-9]+$'`,
+)
 export class ExamVariant extends BaseEntity {
-  @Column({ unique: true })
-  variantNumber: string; // Masalan: "2024-001-001" (yil-imtihon-o'quvchi)
+  @Column({ unique: true, length: 10 })
+  variantNumber: string; // 10 xonali global unique raqam (scanner kodi)
 
   @Column({
     type: 'enum',

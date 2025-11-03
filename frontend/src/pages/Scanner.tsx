@@ -4,7 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { gradeByUnique, GradeResult } from '@/services/scanner.service';
+import { gradeByCode, resolveCode, GradeResult } from '@/services/scanner.service';
 import axios from 'axios';
 import useSWR from 'swr';
 import { request } from '@/configs/request';
@@ -146,25 +146,21 @@ export default function ScannerPage() {
 					answersArray.push(ans || '-');
 				}
 
-				// Try to detect if this is an exam variant and auto-detect student
+				// Resolve universal code to determine type and auto-select student for exam variants
 				let detectedStudentId = studentId;
 				try {
-					// Check if variant number format matches exam variants (e.g., 2024-001-123-01)
-					if (variantId.includes('-') && variantId.split('-').length === 4) {
-						const examVariantInfo = await request.get(`/exams/variants/${variantId}/info`);
-						if (examVariantInfo.data) {
-							detectedStudentId = examVariantInfo.data.studentId;
-							setStudentId(detectedStudentId);
-							console.log(`Auto-detected student from exam variant: ${examVariantInfo.data.studentName}`);
-						}
+					const resolved = await resolveCode(variantId);
+					if (resolved.source === 'exam') {
+						detectedStudentId = resolved.studentId;
+						setStudentId(detectedStudentId);
+						console.log(`Auto-detected student from exam variant: ${resolved.studentName}`);
 					}
 				} catch (variantError) {
-					// Not an exam variant, continue with regular flow
-					console.log('Not an exam variant, using regular test variant logic');
+					console.log('Kod resolve qilinmadi, bevosita baholashga o‘tamiz');
 				}
 
 				try {
-					const gradeRes = await gradeByUnique(variantId, answersArray, detectedStudentId);
+					const gradeRes = await gradeByCode(variantId, answersArray, detectedStudentId);
 					setResult(gradeRes);
 				} catch (e) {
 					if (e?.response?.status === 500) {
