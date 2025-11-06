@@ -311,7 +311,7 @@ export class TelegramController {
     if (message.from?.id) {
       try {
         const telegramUserId = String(message.from.id);
-        await this.telegramService.updateUserActivity(telegramUserId);
+        // await this.telegramService.updateUserActivity(telegramUserId);
       } catch (error) {
         console.error('Failed to update user activity timestamp:', error);
       }

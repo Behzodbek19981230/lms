@@ -64,7 +64,9 @@ export class TelegramService {
         const msg = `📊 Test natijasi\nStudent: ${student?.firstName ?? ''} ${student?.lastName ?? ''}\nFan: ${subject?.name ?? ''}\nMarkaz: ${center?.name ?? ''}\nTo'g'ri javoblar: ${correctCount}/${total}`;
         await this.bot.sendMessage(telegramChannel.chatId, msg);
       }
-    } catch (err) {}
+    } catch (err) {
+      console.log(err);
+    }
   }
   /**
    * Fanga biriktirilgan kanal/guruhga kelmaganlar ro'yxatini yuboradi

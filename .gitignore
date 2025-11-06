@@ -197,6 +197,71 @@ EduNimbusMobile/.bundle/
 EduNimbusMobile/.watchmanconfig.bak
 
 # ===========================================
+# Android Specific
+# ===========================================
+
+# Android Studio
+.idea/
+*.iml
+*.ipr
+*.iws
+.gradle/
+local.properties
+.DS_Store
+
+# Android build outputs
+*/android/**/build/
+*/android/app/build/
+*/android/build/
+*/android/.gradle/
+*/android/gradle/
+android/app/build/
+android/build/
+android/.gradle/
+android/gradle/
+
+# Android local properties
+*/android/local.properties
+android/local.properties
+
+# Android captured screenshots
+*/android/captures/
+android/captures/
+
+# Android keystore files
+*.jks
+*.keystore
+keystore.properties
+key.properties
+release-key.jks
+debug.keystore
+
+# Android Gradle
+.gradle/
+gradle-app.setting
+!gradle-wrapper.jar
+.gradletasknamecache
+
+# Android NDK
+obj/
+
+# Android profiling
+*.hprof
+
+# Google Services (Firebase, etc.)
+google-services.json
+GoogleService-Info.plist
+
+# Fastlane
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots
+fastlane/test_output
+fastlane/readme.md
+Appfile
+Fastfile
+
+# ===========================================
 # IDE and Editor Files
 # ===========================================
 
