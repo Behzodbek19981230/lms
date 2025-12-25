@@ -95,7 +95,7 @@ export class AttendanceService {
 
     const savedAttendance = await this.attendanceRepo.save(attendance);
 
-    // ✅ IMPROVED: Send to group-specific channel, not subject-wide
+    // ✅ Send to group-specific channel (absent list) + center channel (summary)
     try {
       if (dto.status === AttendanceStatus.ABSENT) {
         await this.telegramNotificationService.sendAbsentListToGroupChat(
@@ -104,6 +104,23 @@ export class AttendanceService {
           [`${student.firstName} ${student.lastName}`],
         );
       }
+
+      const presentCount = dto.status === AttendanceStatus.PRESENT ? 1 : 0;
+      const absentCount = dto.status === AttendanceStatus.ABSENT ? 1 : 0;
+      const lateCount = dto.status === AttendanceStatus.LATE ? 1 : 0;
+
+      await this.telegramNotificationService.sendAttendanceSummaryToCenterChannel({
+        centerId: teacher.center.id,
+        groupName: group.name,
+        date: dto.date,
+        presentCount,
+        absentCount,
+        lateCount,
+        absentStudents:
+          dto.status === AttendanceStatus.ABSENT
+            ? [`${student.firstName} ${student.lastName}`]
+            : [],
+      });
     } catch (error) {
       console.log('Failed to send absent notification to Telegram:', error);
     }
@@ -169,7 +186,7 @@ export class AttendanceService {
 
     const savedAttendances = await this.attendanceRepo.save(attendanceRecords);
 
-    // ✅ IMPROVED: Send to group-specific channel (removed duplicate code)
+    // ✅ Send to group-specific channel (absent list) + center channel (summary)
     try {
       const absentStudents = attendanceRecords
         .filter((record) => record.status === AttendanceStatus.ABSENT)
@@ -184,6 +201,24 @@ export class AttendanceService {
           absentStudents,
         );
       }
+
+      const presentCount = attendanceRecords.filter(
+        (r) => r.status === AttendanceStatus.PRESENT,
+      ).length;
+      const absentCount = absentStudents.length;
+      const lateCount = attendanceRecords.filter(
+        (r) => r.status === AttendanceStatus.LATE,
+      ).length;
+
+      await this.telegramNotificationService.sendAttendanceSummaryToCenterChannel({
+        centerId: teacher.center.id,
+        groupName: group.name,
+        date: dto.date,
+        presentCount,
+        absentCount,
+        lateCount,
+        absentStudents,
+      });
     } catch (error) {
       console.warn('Failed to send absent notification to Telegram:', error);
     }

@@ -7,6 +7,7 @@ import { User, UserRole } from '../users/entities/user.entity';
 import { Group } from '../groups/entities/group.entity';
 import { NotificationsService } from '../notifications/notifications.service';
 import { TelegramService } from '../telegram/telegram.service';
+import { TelegramNotificationService } from '../telegram/telegram-notification.service';
 
 @Injectable()
 export class PaymentsService {
@@ -19,6 +20,7 @@ export class PaymentsService {
     private groupRepository: Repository<Group>,
     private notificationsService: NotificationsService,
     private telegramService: TelegramService,
+    private telegramNotificationService: TelegramNotificationService,
   ) {}
 
   // Create a new payment
@@ -150,6 +152,30 @@ export class PaymentsService {
       'medium' as any,
       { paymentId: payment.id }
     );
+
+    // ✅ Push to Telegram center channel (and group channel if exists)
+    try {
+      const group = await this.groupRepository.findOne({
+        where: { id: payment.groupId },
+        relations: ['center'],
+      });
+
+      const studentName = payment.student
+        ? `${payment.student.firstName} ${payment.student.lastName}`
+        : `Student #${payment.studentId}`;
+
+      if (group?.center?.id) {
+        await this.telegramNotificationService.notifyPaymentPaid({
+          payment,
+          centerId: group.center.id,
+          groupName: group.name || `Guruh #${payment.groupId}`,
+          studentName,
+        });
+      }
+    } catch (error) {
+      // Don't fail the request if Telegram fails
+      console.log(`Failed to send payment paid notification to Telegram:`, error);
+    }
 
     return this.findOne(id);
   }

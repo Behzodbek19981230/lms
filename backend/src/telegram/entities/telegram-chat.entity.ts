@@ -64,20 +64,20 @@ export class TelegramChat extends BaseEntity {
 
   // Link to our system user
   @ManyToOne(() => User, { nullable: true, onDelete: 'CASCADE' })
-  user: User;
+  user: User | null;
 
   // Link to center (for channels/groups associated with specific centers)
   @ManyToOne(() => Center, { nullable: true, onDelete: 'CASCADE' })
-  center: Center;
+  center: Center | null;
 
   // Link to subject (for channels associated with specific subjects)
   @ManyToOne(() => Subject, { nullable: true, onDelete: 'CASCADE' })
-  subject: Subject;
+  subject: Subject | null;
 
   // Link to group (for channels associated with specific groups)
   // This provides more granular control than subject-level mapping
   @ManyToOne(() => Group, { nullable: true, onDelete: 'CASCADE' })
-  group: Group;
+  group: Group | null;
 
   // For channels/groups - store invitation link
   @Column({ nullable: true })

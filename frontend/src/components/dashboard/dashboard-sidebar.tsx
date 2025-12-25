@@ -49,6 +49,7 @@ const superAdminMenuItems = [
 	{ title: 'Mening fanlarim', url: '/account/subjects', icon: Book },
 	{ title: 'Markazlar va foydalanuvchilar', url: '/account/center-users', icon: Users },
 	{ title: 'Telegram Management', url: '/account/telegram', icon: Send },
+	{ title: 'Analytics', url: '/account/analytics', icon: FolderOpen },
 	{ title: 'Logs', url: '/account/logs', icon: FileText },
 ];
 const centerAdminMenuItems = [

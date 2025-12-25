@@ -38,4 +38,11 @@ export class Group extends BaseEntity {
 
   @Column({ type: 'varchar', length: 5 })
   endTime: string; // HH:mm
+
+  /**
+   * Group-specific Telegram deep-link token for students to open the bot with group context.
+   * Example payload: g_<groupId>_<telegramJoinToken>
+   */
+  @Column({ type: 'varchar', length: 64, nullable: true })
+  telegramJoinToken: string | null;
 }

@@ -1,6 +1,6 @@
 import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, IsNull, MoreThanOrEqual } from 'typeorm';
+import { Repository, IsNull, MoreThanOrEqual, Not } from 'typeorm';
 import TelegramBot, { User as TelegramUser } from 'node-telegram-bot-api';
 import { ConfigService } from '@nestjs/config';
 import { LogsService } from '../logs/logs.service';
@@ -238,7 +238,7 @@ export class TelegramService {
   ): Promise<TelegramChat> {
     const existingChat = await this.telegramChatRepo.findOne({
       where: { chatId: dto.chatId },
-      relations: ['user', 'center', 'subject'],
+      relations: ['user', 'center', 'subject', 'group'],
     });
 
     // Get the full user with center and subjects relationships
@@ -254,6 +254,7 @@ export class TelegramService {
     // Determine center and subject
     let center: Center | null = null;
     let subject: Subject | null = null;
+    let group: Group | null = null;
 
     // For channels and groups, try to get center and subject from the user or DTO
     if (dto.type === ChatType.CHANNEL || dto.type === ChatType.GROUP) {
@@ -270,6 +271,32 @@ export class TelegramService {
           where: { id: dto.subjectId },
         });
       }
+
+      // Use group from DTO if provided
+      if (dto.groupId) {
+        group = await this.groupRepo.findOne({
+          where: { id: dto.groupId },
+          relations: ['center'],
+        });
+      }
+    }
+
+    // ✅ Center-wide channel rule: admin can have ONE active center channel for all groups/subjects.
+    // If this registration is a center-wide channel (no subject/group), deactivate other center-wide channels.
+    const isCenterWideChannel =
+      dto.type === ChatType.CHANNEL && !!center && !subject && !group;
+    if (isCenterWideChannel) {
+      await this.telegramChatRepo.update(
+        {
+          type: ChatType.CHANNEL,
+          status: ChatStatus.ACTIVE,
+          center: { id: center!.id },
+          subject: IsNull(),
+          group: IsNull(),
+          chatId: existingChat?.chatId ? Not(existingChat.chatId) : Not(dto.chatId),
+        },
+        { status: ChatStatus.INACTIVE },
+      );
     }
 
     if (existingChat) {
@@ -283,10 +310,13 @@ export class TelegramService {
         lastName: dto.lastName,
         telegramUsername: dto.telegramUsername,
         lastActivity: new Date(),
+        status: ChatStatus.ACTIVE,
       });
 
       if (center) existingChat.center = center;
-      if (subject) existingChat.subject = subject;
+      // If subject/group are not provided for this registration, clear them (important for center-wide channel)
+      existingChat.subject = subject || null;
+      existingChat.group = group || null;
 
       return this.telegramChatRepo.save(existingChat);
     }
@@ -305,6 +335,7 @@ export class TelegramService {
       lastActivity: new Date(),
       center: center || undefined,
       subject: subject || undefined,
+      group: group || undefined,
     };
 
     // For private chats, link to the user who sent the message
@@ -515,18 +546,44 @@ export class TelegramService {
     }
   }
 
-  async authenticateAndConnectUser(
-    telegramUserId: string,
-    username?: string,
-    firstName?: string,
-    lastName?: string,
-  ): Promise<{
+  async authenticateAndConnectUser({
+    telegramUserId,
+    username,
+    firstName,
+    lastName,
+    startPayload,
+  }: {
+    telegramUserId: string;
+    username?: string;
+    firstName?: string;
+    lastName?: string;
+    startPayload?: string;
+  }): Promise<{
     success: boolean;
     message: string;
     userId?: number;
     autoConnected?: boolean;
   }> {
     try {
+      // If the user started the bot via a group-specific deep link, restrict matching to that group.
+      // Payload format: g_<groupId>_<token>
+      if (startPayload) {
+        const trimmed = startPayload.trim();
+        const match = trimmed.match(/^g_(\d+)_([A-Za-z0-9_-]{8,})$/);
+        if (match) {
+          const groupId = parseInt(match[1], 10);
+          const token = match[2];
+          return await this.authenticateAndConnectUserForGroup({
+            telegramUserId,
+            username,
+            firstName,
+            lastName,
+            groupId,
+            token,
+          });
+        }
+      }
+
       await this.logsService.log(
         `Authenticating Telegram user ${telegramUserId}`,
         'TelegramService',
@@ -736,6 +793,122 @@ export class TelegramService {
         autoConnected: false,
       };
     }
+  }
+
+  private async authenticateAndConnectUserForGroup({
+    telegramUserId,
+    username,
+    firstName,
+    lastName,
+    groupId,
+    token,
+  }: {
+    telegramUserId: string;
+    username?: string;
+    firstName?: string;
+    lastName?: string;
+    groupId: number;
+    token: string;
+  }): Promise<{
+    success: boolean;
+    message: string;
+    userId?: number;
+    autoConnected?: boolean;
+  }> {
+    // Validate group + token
+    const group = await this.groupRepo.findOne({
+      where: { id: groupId },
+      relations: ['students', 'teacher', 'center'],
+    });
+    if (!group || !group.telegramJoinToken) {
+      return {
+        success: false,
+        message: "❌ Guruh topilmadi yoki Telegram link sozlanmagan.",
+        autoConnected: false,
+      };
+    }
+    if (group.telegramJoinToken !== token) {
+      return {
+        success: false,
+        message: "❌ Telegram link noto'g'ri yoki eskirgan. O'qituvchingizdan yangi havola oling.",
+        autoConnected: false,
+      };
+    }
+
+    // Ensure we have a TelegramChat record for this telegram user
+    let chat = await this.telegramChatRepo.findOne({
+      where: { telegramUserId, type: ChatType.PRIVATE },
+      relations: ['user', 'group'],
+    });
+
+    const chatData: Partial<TelegramChat> = {
+      chatId: telegramUserId,
+      type: ChatType.PRIVATE,
+      telegramUserId,
+      telegramUsername: username,
+      firstName,
+      lastName,
+      status: ChatStatus.PENDING,
+      group,
+      lastActivity: new Date(),
+      metadata: {
+        ...(chat?.metadata || {}),
+        pendingGroupId: groupId,
+        startedViaGroupLink: true,
+      },
+    };
+
+    if (chat) {
+      Object.assign(chat, chatData);
+      chat = await this.telegramChatRepo.save(chat);
+    } else {
+      chat = await this.telegramChatRepo.save(
+        this.telegramChatRepo.create(chatData as TelegramChat),
+      );
+    }
+
+    // Try to auto-link ONLY within this group's students by username match (preferred)
+    const tgUsername = (username || '').trim();
+    if (tgUsername) {
+      const matches = (group.students || []).filter((s) => {
+        const u = (s.username || '').trim();
+        return u && u.toLowerCase() === tgUsername.toLowerCase();
+      });
+
+      if (matches.length === 1) {
+        const student = matches[0];
+
+        // Link chat to student and mark student as telegram connected
+        chat.user = student;
+        chat.status = ChatStatus.ACTIVE;
+        chat.metadata = { ...(chat.metadata || {}), linkedAt: new Date().toISOString() };
+        await this.telegramChatRepo.save(chat);
+
+        student.telegramId = telegramUserId;
+        student.telegramConnected = true;
+        await this.userRepo.save(student);
+
+        // Send channel invitations for this student (existing flow)
+        await this.sendUserChannelsAndInvitation(student.id);
+
+        return {
+          success: true,
+          message: `✅ Siz "${group.name}" guruhiga muvaffaqiyatli bog'landingiz. Xush kelibsiz, ${student.firstName}!`,
+          userId: student.id,
+          autoConnected: true,
+        };
+      }
+    }
+
+    return {
+      success: true,
+      message:
+        `📝 "${group.name}" guruhi uchun ro'yxatdan o'tdingiz.\n\n` +
+        `✅ Agar Telegram username'ingiz LMS username bilan bir xil bo'lsa, avtomatik bog'lanadi.\n` +
+        `❗ Hozircha avtomatik bog'lash amalga oshmadi. O'qituvchi/admin panel orqali sizni guruh talabasi bilan bog'lab beradi.`,
+      userId: undefined,
+      autoConnected: false,
+    };
   }
 
   async authenticateUserByOwn(

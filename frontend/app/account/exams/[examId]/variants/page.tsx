@@ -1,5 +1,5 @@
 'use client';
-import ExamVariants from '@/pages/exams/ExamVariants';
+import ExamVariants from '@/screens/exams/ExamVariants';
 
 export default function ExamVariantsPage() {
 	return <ExamVariants />;

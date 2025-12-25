@@ -1,5 +1,5 @@
 'use client';
-import CreateTestPage from '@/pages/test/create';
+import CreateTestPage from '@/screens/test/create';
 
 export default function TestCreatePage() {
 	return <CreateTestPage />;

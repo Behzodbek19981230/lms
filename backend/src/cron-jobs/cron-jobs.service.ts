@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { TelegramService } from '../telegram/telegram.service';
+import { TelegramNotificationService } from '../telegram/telegram-notification.service';
 import { ExamsService } from '../exams/exams.service';
 import { AttendanceService } from '../attendance/attendance.service';
 import { PaymentsService } from '../payments/payments.service';
@@ -17,6 +18,7 @@ export class CronJobsService {
 
   constructor(
     private readonly telegramService: TelegramService,
+    private readonly telegramNotificationService: TelegramNotificationService,
     private readonly examsService: ExamsService,
     private readonly attendanceService: AttendanceService,
     private readonly paymentsService: PaymentsService,
@@ -327,6 +329,75 @@ export class CronJobsService {
       );
     } catch (error) {
       console.error('Failed to send upcoming payment notifications:', error);
+    }
+  }
+
+  /**
+   * Send reminders for payments that are DUE TODAY at 21:00 (Asia/Tashkent)
+   * to the center-wide Telegram channel (single channel per center).
+   */
+  @Cron('0 21 * * *', {
+    name: 'dailyDuePayments21',
+    timeZone: 'Asia/Tashkent',
+  })
+  async sendDueTodayPaymentsAt21() {
+    this.logger.log('Starting due-today payment reminders (21:00)...');
+
+    try {
+      const now = new Date();
+      const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const end = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+      const dateStr = start.toISOString().split('T')[0];
+
+      const dueToday = await this.paymentRepository.find({
+        where: {
+          status: PaymentStatus.PENDING,
+          dueDate: Between(start, end),
+        },
+        relations: ['student', 'group', 'group.center'],
+        order: { groupId: 'ASC', studentId: 'ASC' },
+      });
+
+      if (dueToday.length === 0) {
+        this.logger.log('No due-today pending payments found');
+        return;
+      }
+
+      // Group by centerId
+      const byCenter = new Map<number, typeof dueToday>();
+      for (const p of dueToday) {
+        const centerId = p.group?.center?.id;
+        if (!centerId) continue;
+        const arr = byCenter.get(centerId) || [];
+        arr.push(p);
+        byCenter.set(centerId, arr);
+      }
+
+      for (const [centerId, payments] of byCenter.entries()) {
+        const items = payments.map((p) => ({
+          groupName: p.group?.name || `Guruh #${p.groupId}`,
+          studentName: p.student
+            ? `${p.student.firstName} ${p.student.lastName}`
+            : `Student #${p.studentId}`,
+          amount: p.amount,
+          description: p.description,
+        }));
+
+        await this.telegramNotificationService.sendDuePaymentsReminderToCenterChannel({
+          centerId,
+          date: dateStr,
+          items,
+        });
+      }
+
+      this.logger.log(
+        `Due-today reminders queued for ${byCenter.size} centers, total payments: ${dueToday.length}`,
+      );
+    } catch (error) {
+      this.logger.error(
+        `Failed to send due-today payment reminders: ${error.message}`,
+        error.stack,
+      );
     }
   }
 }

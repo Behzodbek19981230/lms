@@ -81,6 +81,13 @@ export class CronJobsController {
           timeZone: CRON_JOB_CONFIGS.DAILY_HEALTH_CHECK.timeZone,
           enabled: CRON_JOB_CONFIGS.DAILY_HEALTH_CHECK.enabled,
         },
+        {
+          name: 'dailyDuePayments21',
+          schedule: '0 21 * * *',
+          description: 'Send due-today payment reminders to center channel at 21:00',
+          timeZone: 'Asia/Tashkent',
+          enabled: true,
+        },
       ],
       message: 'All cron jobs are configured and running',
     };

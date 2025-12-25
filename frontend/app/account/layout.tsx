@@ -6,6 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import PageLoader from '@/components/PageLoader';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
+import AnalyticsTracker from '@/components/analytics/AnalyticsTracker';
 
 export default function AccountLayout({ children }: { children: React.ReactNode }) {
 	const { user, isLoading } = useAuth();
@@ -27,6 +28,7 @@ export default function AccountLayout({ children }: { children: React.ReactNode 
 					<DashboardHeader />
 
 					<main className='flex-1 p-3 sm:p-4 md:p-6 bg-gradient-to-br from-muted/20 via-background to-primary/5 overflow-x-auto'>
+						<AnalyticsTracker />
 						{children}
 					</main>
 				</div>

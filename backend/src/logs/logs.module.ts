@@ -4,10 +4,12 @@ import { LogsService } from './logs.service';
 import { LogsController } from './logs.controller';
 import { CustomLogger } from './custom-logger';
 import { Log } from './entities/log.entity';
+import { AnalyticsController } from './analytics.controller';
+import { AnalyticsAdminController } from './analytics-admin.controller';
 
 @Module({
   imports: [TypeOrmModule.forFeature([Log])],
-  controllers: [LogsController],
+  controllers: [LogsController, AnalyticsController, AnalyticsAdminController],
   providers: [LogsService, CustomLogger],
   exports: [LogsService, CustomLogger],
 })

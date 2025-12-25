@@ -8,11 +8,13 @@ import { AuthService } from './auth.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { User } from '../users/entities/user.entity';
 import { TelegramChat } from '../telegram/entities/telegram-chat.entity';
+import { LogsModule } from '../logs/logs.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([User, TelegramChat]),
     PassportModule,
+    LogsModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => ({

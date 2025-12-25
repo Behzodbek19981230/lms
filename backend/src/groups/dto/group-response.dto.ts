@@ -50,4 +50,12 @@ export class GroupResponseDto {
 
   @ApiProperty()
   updatedAt: Date;
+
+  @ApiProperty({
+    required: false,
+    description:
+      'Telegram bot deep-link payload for this group. Use with https://t.me/<bot>?start=<payload>',
+    example: 'g_12_abcdEFGH1234',
+  })
+  telegramStartPayload?: string;
 }

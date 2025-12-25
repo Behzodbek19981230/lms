@@ -1,5 +1,5 @@
 'use client';
-import Results from '@/pages/directory/Results';
+import Results from '@/screens/directory/Results';
 
 export default function ResultsPage() {
 	return <Results />;

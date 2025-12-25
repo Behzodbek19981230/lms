@@ -1,5 +1,5 @@
 'use client';
-import CenterTeachersPage from '@/pages/CenterTeachersPage';
+import CenterTeachersPage from '@/screens/CenterTeachersPage';
 
 export default function TeachersPage() {
 	return <CenterTeachersPage />;

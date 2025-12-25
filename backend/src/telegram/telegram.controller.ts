@@ -326,13 +326,15 @@ export class TelegramController {
 
     // Handle bot commands
     if (message.text) {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call
-      const command = message.text.toLowerCase().trim();
+      const rawText = String(message.text).trim();
+      const [rawCommand, ...rest] = rawText.split(/\s+/);
+      const command = String(rawCommand ?? '').toLowerCase().trim();
+      const startPayload = rest.length > 0 ? rest.join(' ') : undefined;
 
       switch (command) {
         case '/start':
         case '/register':
-          await this.handleRegistration(message);
+          await this.handleRegistration(message, startPayload);
           return;
         case '/help':
           await this.handleHelp(message);
@@ -443,7 +445,7 @@ export class TelegramController {
     }
   }
 
-  private async handleRegistration(message: unknown) {
+  private async handleRegistration(message: unknown, startPayload?: string) {
     // Safely extract and normalize incoming values from an `unknown` message object
     const msg =
       typeof message === 'object' && message !== null
@@ -500,12 +502,13 @@ export class TelegramController {
       }
 
       // Use new authentication method that auto-connects users
-      const result = await this.telegramService.authenticateAndConnectUser(
+      const result = await this.telegramService.authenticateAndConnectUser({
         telegramUserId,
         username,
         firstName,
         lastName,
-      );
+        startPayload,
+      });
 
       let welcomeMessage = `🎓 <b>Assalomu alaykum, EduOne LMS botiga xush kelibsiz!</b>\n\n`;
 

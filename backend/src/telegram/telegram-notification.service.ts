@@ -1,6 +1,6 @@
 import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, IsNull } from 'typeorm';
 import {
   TelegramChat,
   ChatType,
@@ -15,6 +15,7 @@ import { Exam } from '../exams/entities/exam.entity';
 import { Group } from '../groups/entities/group.entity';
 import { User } from '../users/entities/user.entity';
 import { LogsService } from '../logs/logs.service';
+import { Payment } from '../payments/payment.entity';
 
 /**
  * Service responsible for sending Telegram notifications
@@ -34,6 +35,233 @@ export class TelegramNotificationService {
     private telegramQueueService: TelegramQueueService,
     private logsService: LogsService,
   ) {}
+
+  /**
+   * Resolve the main (single) center Telegram channel for admin notifications.
+   * We pick a channel mapped to the center with no subject/group binding (center-wide).
+   */
+  private async getCenterMainChannel(centerId: number): Promise<TelegramChat | null> {
+    if (!centerId) return null;
+    return this.telegramChatRepo.findOne({
+      where: {
+        center: { id: centerId },
+        type: ChatType.CHANNEL,
+        status: ChatStatus.ACTIVE,
+        group: IsNull(),
+        subject: IsNull(),
+      },
+      relations: ['center'],
+      order: { createdAt: 'ASC' },
+    });
+  }
+
+  /**
+   * Send attendance summary to the center-wide channel (single channel per center).
+   */
+  async sendAttendanceSummaryToCenterChannel(params: {
+    centerId: number;
+    groupName: string;
+    date: string;
+    presentCount: number;
+    absentCount: number;
+    lateCount?: number;
+    absentStudents?: string[];
+  }): Promise<void> {
+    const centerChannel = await this.getCenterMainChannel(params.centerId);
+    if (!centerChannel) {
+      this.logger.debug(
+        `No center channel found for centerId=${params.centerId}, skipping attendance summary`,
+      );
+      return;
+    }
+
+    const late = params.lateCount ?? 0;
+    const messageLines: string[] = [];
+    messageLines.push(`📋 <b>Davomat</b>`);
+    messageLines.push(`🏷️ <b>Guruh:</b> ${params.groupName}`);
+    messageLines.push(`📅 <b>Sana:</b> ${params.date}`);
+    messageLines.push(
+      `✅ <b>Keldi:</b> ${params.presentCount}   ❌ <b>Kelmadi:</b> ${params.absentCount}   ⏰ <b>Kech:</b> ${late}`,
+    );
+    if (params.absentStudents && params.absentStudents.length > 0) {
+      const list = params.absentStudents
+        .slice(0, 25)
+        .map((s, i) => `${i + 1}. ${s}`)
+        .join('\n');
+      messageLines.push('');
+      messageLines.push(`❌ <b>Kelmadi ro‘yxati (${params.absentStudents.length}):</b>`);
+      messageLines.push(list);
+      if (params.absentStudents.length > 25) {
+        messageLines.push(`... va yana ${params.absentStudents.length - 25} ta`);
+      }
+    }
+
+    await this.telegramQueueService.queueMessage({
+      chatId: centerChannel.chatId,
+      message: messageLines.join('\n'),
+      type: MessageType.ATTENDANCE,
+      priority: MessagePriority.NORMAL,
+      metadata: {
+        centerId: params.centerId,
+        groupName: params.groupName,
+        date: params.date,
+        presentCount: params.presentCount,
+        absentCount: params.absentCount,
+        lateCount: late,
+      },
+    });
+  }
+
+  /**
+   * Send "payment received" notification to:
+   * - group-specific channel (if exists)
+   * - center-wide channel (single channel per center)
+   */
+  async notifyPaymentPaid(params: {
+    payment: Payment;
+    centerId: number;
+    groupName: string;
+    studentName: string;
+  }): Promise<void> {
+    const { payment, centerId, groupName, studentName } = params;
+
+    const message =
+      `💰 <b>To‘lov qabul qilindi</b>\n\n` +
+      `👤 <b>O‘quvchi:</b> ${studentName}\n` +
+      `👥 <b>Guruh:</b> ${groupName}\n` +
+      `💵 <b>Miqdor:</b> ${payment.amount} so‘m\n` +
+      `📅 <b>Sana:</b> ${new Date(payment.paidDate || new Date()).toLocaleDateString('uz-UZ')}\n` +
+      (payment.description ? `📝 <b>Izoh:</b> ${payment.description}\n` : '');
+
+    // 1) Group channel (if mapped)
+    const groupChat = await this.telegramChatRepo.findOne({
+      where: {
+        group: { id: payment.groupId },
+        type: ChatType.CHANNEL,
+        status: ChatStatus.ACTIVE,
+      },
+      relations: ['group'],
+    });
+
+    const queuedChatIds = new Set<string>();
+    if (groupChat?.chatId) {
+      queuedChatIds.add(groupChat.chatId);
+      await this.telegramQueueService.queueMessage({
+        chatId: groupChat.chatId,
+        message,
+        type: MessageType.PAYMENT,
+        priority: MessagePriority.NORMAL,
+        metadata: {
+          paymentId: payment.id,
+          groupId: payment.groupId,
+          groupName,
+        },
+      });
+    }
+
+    // 2) Center channel
+    const centerChannel = await this.getCenterMainChannel(centerId);
+    if (centerChannel?.chatId && !queuedChatIds.has(centerChannel.chatId)) {
+      await this.telegramQueueService.queueMessage({
+        chatId: centerChannel.chatId,
+        message,
+        type: MessageType.PAYMENT,
+        priority: MessagePriority.NORMAL,
+        metadata: {
+          paymentId: payment.id,
+          centerId,
+          groupId: payment.groupId,
+          groupName,
+        },
+      });
+    }
+  }
+
+  /**
+   * Daily reminder for payments due today (center-wide single channel).
+   * Sends a grouped list by group name. Chunks messages to stay within Telegram limits.
+   */
+  async sendDuePaymentsReminderToCenterChannel(params: {
+    centerId: number;
+    date: string; // YYYY-MM-DD
+    items: Array<{
+      groupName: string;
+      studentName: string;
+      amount: number | string;
+      description?: string | null;
+    }>;
+  }): Promise<void> {
+    const centerChannel = await this.getCenterMainChannel(params.centerId);
+    if (!centerChannel) {
+      this.logger.debug(
+        `No center channel found for centerId=${params.centerId}, skipping due payments reminder`,
+      );
+      return;
+    }
+
+    if (!params.items || params.items.length === 0) return;
+
+    // Group by groupName
+    const byGroup = new Map<string, Array<(typeof params.items)[number]>>();
+    for (const item of params.items) {
+      const key = item.groupName || 'Guruh';
+      const arr = byGroup.get(key) || [];
+      arr.push(item);
+      byGroup.set(key, arr);
+    }
+
+    const header =
+      `💰 <b>To‘lov eslatmasi</b>\n` +
+      `📅 <b>Sana:</b> ${params.date}\n` +
+      `⏰ <b>Eslatma vaqti:</b> 21:00\n\n` +
+      `<i>Bugun to‘lov muddati. Iltimos, qarzdorlarni ogohlantiring.</i>\n\n`;
+
+    // Build chunks up to ~3500 chars to be safe (Telegram limit is 4096)
+    const maxLen = 3500;
+    const messages: string[] = [];
+    let current = header;
+
+    const pushCurrent = () => {
+      if (current.trim().length > 0) messages.push(current);
+      current = header;
+    };
+
+    for (const [groupName, rows] of byGroup.entries()) {
+      const groupBlockLines: string[] = [];
+      groupBlockLines.push(`👥 <b>${groupName}</b>`);
+
+      rows.forEach((r, idx) => {
+        const amount = typeof r.amount === 'number' ? String(r.amount) : r.amount;
+        const desc = r.description ? ` — ${r.description}` : '';
+        groupBlockLines.push(`${idx + 1}. ${r.studentName} — ${amount} so‘m${desc}`);
+      });
+      groupBlockLines.push(''); // blank line
+
+      const block = groupBlockLines.join('\n');
+      if ((current + block).length > maxLen) {
+        pushCurrent();
+      }
+      current += block;
+    }
+
+    // Push last chunk
+    if (current !== header) pushCurrent();
+
+    for (const msg of messages) {
+      await this.telegramQueueService.queueMessage({
+        chatId: centerChannel.chatId,
+        message: msg,
+        type: MessageType.PAYMENT,
+        priority: MessagePriority.HIGH,
+        metadata: {
+          centerId: params.centerId,
+          date: params.date,
+          count: params.items.length,
+          kind: 'due_today',
+        },
+      });
+    }
+  }
 
   /**
    * ✅ IMPROVED: Notify exam start to GROUP channels (not just private chats)

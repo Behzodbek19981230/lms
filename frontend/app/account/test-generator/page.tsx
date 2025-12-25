@@ -1,6 +1,6 @@
 'use client';
 
-import TestGeneratorPage from '@/pages/TestGeneratorPage';
+import TestGeneratorPage from '@/screens/TestGeneratorPage';
 
 export default function AccountTestGeneratorPage() {
 	return <TestGeneratorPage />;

@@ -10,6 +10,7 @@ import { request } from '@/configs/request';
 import type { SubjectType } from '@/types/subject.type';
 import { Pencil, Trash2 } from 'lucide-react';
 import PageLoader from '@/components/PageLoader';
+import { useToast } from '@/hooks/use-toast';
 
 type UserLite = { id: number; firstName: string; lastName: string; role: string };
 
@@ -31,6 +32,7 @@ const GroupsPage = () => {
     const [loading, setLoading] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const [editId, setEditId] = useState<number | null>(null);
+    const { toast } = useToast();
     const [form, setForm] = useState({
         name: '',
         description: '',
@@ -172,7 +174,7 @@ const GroupsPage = () => {
                                                 endTime: form.endTime,
                                             });
                                         } else {
-                                            await request.post('/groups', {
+                                            const { data: created } = await request.post('/groups', {
                                                 name: form.name,
                                                 description: form.description || undefined,
                                                 subjectId: form.subjectId ? Number(form.subjectId) : undefined,
@@ -181,6 +183,37 @@ const GroupsPage = () => {
                                                 startTime: form.startTime,
                                                 endTime: form.endTime,
                                             });
+
+                                            // If backend returned a telegramStartPayload, generate a deep link and copy it for teacher to share
+                                            const payload = created?.telegramStartPayload as string | undefined;
+                                            if (payload) {
+                                                const bot =
+                                                    (process.env.NEXT_PUBLIC_BOT_USERNAME ||
+                                                        process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME ||
+                                                        'EduOnePlatformbot')
+                                                        .replace('@', '')
+                                                        .trim();
+                                                const link = `https://t.me/${bot}?start=${encodeURIComponent(payload)}`;
+                                                try {
+                                                    if (navigator.clipboard) {
+                                                        await navigator.clipboard.writeText(link);
+                                                    }
+                                                    toast({
+                                                        title: "Guruh yaratildi",
+                                                        description: `Telegram havola nusxalandi: ${link}`,
+                                                    });
+                                                } catch {
+                                                    toast({
+                                                        title: "Guruh yaratildi",
+                                                        description: `Telegram havola: ${link}`,
+                                                    });
+                                                }
+                                            } else {
+                                                toast({
+                                                    title: "Guruh yaratildi",
+                                                    description: "Guruh muvaffaqiyatli yaratildi.",
+                                                });
+                                            }
                                         }
                                         setOpen(false);
                                         setEditId(null);

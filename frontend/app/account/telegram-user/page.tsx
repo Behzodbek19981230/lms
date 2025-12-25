@@ -1,5 +1,5 @@
 'use client';
-import TelegramUserDashboard from '@/pages/TelegramUserDashboard';
+import TelegramUserDashboard from '@/screens/TelegramUserDashboard';
 
 export default function TelegramUserPage() {
 	return <TelegramUserDashboard />;

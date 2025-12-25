@@ -1,5 +1,5 @@
 'use client';
-import NoCenterAssigned from '@/pages/NoCenterAssigned';
+import NoCenterAssigned from '@/screens/NoCenterAssigned';
 
 export default function NoCenterPage() {
 	return <NoCenterAssigned />;

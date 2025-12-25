@@ -1,5 +1,5 @@
 'use client';
-import TeacherPayments from '@/pages/payments/TeacherPayments';
+import TeacherPayments from '@/screens/payments/TeacherPayments';
 
 export default function PaymentsPage() {
 	return <TeacherPayments />;

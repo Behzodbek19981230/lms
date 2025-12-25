@@ -6,6 +6,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import type { Repository } from 'typeorm';
 import { In } from 'typeorm';
+import { randomBytes } from 'crypto';
 import { Group } from './entities/group.entity';
 import { CreateGroupDto } from './dto/create-group.dto';
 import { GroupResponseDto, StudentDto } from './dto/group-response.dto';
@@ -65,22 +66,39 @@ export class GroupsService {
       daysOfWeek: dto.daysOfWeek || [],
       startTime: dto.startTime,
       endTime: dto.endTime,
+      telegramJoinToken: randomBytes(16).toString('base64url'),
     });
     const saved = await this.groupRepo.save(group);
     return this.map(saved);
   }
 
   async listMy(userId: number): Promise<GroupResponseDto[]> {
-    const teacher = await this.userRepo.findOne({
+    const user = await this.userRepo.findOne({
       where: { id: userId },
       relations: ['center'],
     });
-    if (!teacher) throw new NotFoundException('Foydalanuvchi topilmadi');
-    if (teacher.role !== UserRole.TEACHER)
-      throw new ForbiddenException("Faqat o'qituvchi");
+    if (!user) throw new NotFoundException('Foydalanuvchi topilmadi');
+
+    // Teacher -> own groups
+    // Admin -> all groups in their center
+    // Superadmin -> all groups
+    let where: any = undefined;
+    if (user.role === UserRole.TEACHER) {
+      where = { teacher: { id: user.id } };
+    } else if (user.role === UserRole.ADMIN) {
+      if (!user.center) {
+        throw new ForbiddenException("Sizga markaz tayinlanmagan");
+      }
+      where = { center: { id: user.center.id } };
+    } else if (user.role === UserRole.SUPERADMIN) {
+      where = {};
+    } else {
+      throw new ForbiddenException("Faqat o'qituvchi yoki admin");
+    }
+
     const groups = await this.groupRepo.find({
-      where: { teacher: { id: teacher.id } },
-      relations: ['subject', 'students'],
+      where,
+      relations: ['subject', 'students', 'teacher', 'center'],
       order: { createdAt: 'DESC' },
     });
     return groups.map(this.map);
@@ -133,11 +151,29 @@ export class GroupsService {
   async getStudents(groupId: number, userId: number) {
     const group = await this.groupRepo.findOne({
       where: { id: groupId },
-      relations: ['teacher', 'students'],
+      relations: ['teacher', 'students', 'center'],
     });
     if (!group) throw new NotFoundException('Guruh topilmadi');
-    if (group.teacher.id !== userId)
-      throw new ForbiddenException("Faqat o'qituvchi guruh talabalarini ko'ra oladi");
+
+    const user = await this.userRepo.findOne({
+      where: { id: userId },
+      relations: ['center'],
+    });
+    if (!user) throw new NotFoundException('Foydalanuvchi topilmadi');
+
+    if (user.role === UserRole.TEACHER) {
+      if (group.teacher.id !== userId) {
+        throw new ForbiddenException(
+          "Faqat o'qituvchi o'z guruh talabalarini ko'ra oladi",
+        );
+      }
+    } else if (user.role === UserRole.ADMIN) {
+      if (!user.center || group.center?.id !== user.center.id) {
+        throw new ForbiddenException("Faqat o'z markazingiz guruhlari");
+      }
+    } else if (user.role !== UserRole.SUPERADMIN) {
+      throw new ForbiddenException("Ruxsat yo'q");
+    }
     
     return group.students.map(student => ({
       id: student.id,
@@ -237,5 +273,7 @@ export class GroupsService {
     endTime: g.endTime,
     createdAt: g.createdAt,
     updatedAt: g.updatedAt,
+    telegramStartPayload:
+      g.telegramJoinToken && g.id ? `g_${g.id}_${g.telegramJoinToken}` : undefined,
   });
 }

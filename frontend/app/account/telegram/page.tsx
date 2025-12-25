@@ -1,5 +1,5 @@
 'use client';
-import TelegramManagement from '@/pages/TelegramManagement';
+import TelegramManagement from '@/screens/TelegramManagement';
 
 export default function TelegramManagementPage() {
 	return <TelegramManagement />;

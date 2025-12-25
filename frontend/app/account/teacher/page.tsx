@@ -1,5 +1,5 @@
 'use client';
-import TeacherDashboard from '@/pages/TeacherDashboard';
+import TeacherDashboard from '@/screens/TeacherDashboard';
 
 export default function TeacherPage() {
 	return <TeacherDashboard />;

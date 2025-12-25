@@ -1,5 +1,5 @@
 'use client';
-import Index from '@/pages/Index';
+import Index from '@/screens/Index';
 
 export default function HomePage() {
 	return <Index />;

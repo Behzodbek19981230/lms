@@ -10,6 +10,8 @@ import {
 } from '@nestjs/common';
 import { ApiBody, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
+import { LogsService } from '../logs/logs.service';
+import { AnalyticsEventType } from '../logs/entities/log.entity';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { AuthResponseDto } from './dto/auth-response.dto';
@@ -24,7 +26,10 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
 @ApiTags('Authentication')
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+    private readonly logsService: LogsService,
+  ) {}
 
   @Post('register')
   @ApiOperation({ summary: "O'qituvchi ro'yxatdan o'tish" })
@@ -52,8 +57,24 @@ export class AuthController {
     description: "Foydalanuvchi nomi yoki parol noto'g'ri",
   })
   @ApiBody({ type: LoginDto })
-  async login(@Body() loginDto: LoginDto): Promise<AuthResponseDto> {
-    return this.authService.login(loginDto);
+  async login(@Body() loginDto: LoginDto, @Req() req: any): Promise<AuthResponseDto> {
+    const res = await this.authService.login(loginDto);
+    try {
+      const userAgent = req?.headers?.['user-agent'];
+      const ip =
+        (req?.headers?.['x-forwarded-for'] as string | undefined)?.split(',')[0]?.trim() ||
+        req?.ip;
+      await this.logsService.trackEvent({
+        eventType: AnalyticsEventType.LOGIN,
+        path: '/auth/login',
+        method: 'POST',
+        userId: res?.user?.id,
+        userAgent,
+        ip,
+        message: `login:${res?.user?.id}`,
+      });
+    } catch {}
+    return res;
   }
 
   @Post('telegram/login')
@@ -68,8 +89,25 @@ export class AuthController {
   @ApiBody({ type: TelegramLoginDto })
   async telegramLogin(
     @Body() telegramLoginDto: TelegramLoginDto,
+    @Req() req: any,
   ): Promise<AuthResponseDto> {
-    return this.authService.telegramLogin(telegramLoginDto);
+    const res = await this.authService.telegramLogin(telegramLoginDto);
+    try {
+      const userAgent = req?.headers?.['user-agent'];
+      const ip =
+        (req?.headers?.['x-forwarded-for'] as string | undefined)?.split(',')[0]?.trim() ||
+        req?.ip;
+      await this.logsService.trackEvent({
+        eventType: AnalyticsEventType.LOGIN,
+        path: '/auth/telegram/login',
+        method: 'POST',
+        userId: res?.user?.id,
+        userAgent,
+        ip,
+        message: `login:telegram:${res?.user?.id}`,
+      });
+    } catch {}
+    return res;
   }
 
   @Post('telegram/auth')
@@ -102,8 +140,25 @@ export class AuthController {
   @ApiBody({ type: TelegramRegisterDto })
   async telegramRegister(
     @Body() telegramRegisterDto: TelegramRegisterDto,
+    @Req() req: any,
   ): Promise<AuthResponseDto> {
-    return this.authService.telegramRegister(telegramRegisterDto);
+    const res = await this.authService.telegramRegister(telegramRegisterDto);
+    try {
+      const userAgent = req?.headers?.['user-agent'];
+      const ip =
+        (req?.headers?.['x-forwarded-for'] as string | undefined)?.split(',')[0]?.trim() ||
+        req?.ip;
+      await this.logsService.trackEvent({
+        eventType: AnalyticsEventType.LOGIN,
+        path: '/auth/telegram/register',
+        method: 'POST',
+        userId: res?.user?.id,
+        userAgent,
+        ip,
+        message: `login:telegram_register:${res?.user?.id}`,
+      });
+    } catch {}
+    return res;
   }
 
   @Patch('change-password')

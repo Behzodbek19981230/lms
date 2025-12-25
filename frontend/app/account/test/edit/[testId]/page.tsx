@@ -1,5 +1,5 @@
 'use client';
-import TestEditPage from '@/pages/test/edit';
+import TestEditPage from '@/screens/test/edit';
 
 export default function TestEdit() {
 	return <TestEditPage />;
