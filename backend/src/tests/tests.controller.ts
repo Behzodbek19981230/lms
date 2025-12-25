@@ -27,6 +27,8 @@ import { UpdateTestDto } from './dto/update-test.dto';
 import { TestResponseDto } from './dto/test-response.dto';
 import { TestStatsDto } from './dto/test-stats.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RequireCenterPermissions } from '../centers/permissions/center-permission.decorator';
+import { CenterPermissionKey } from '../centers/permissions/center-permissions';
 import {
   TestGeneratorService,
   type GenerateTestDto,
@@ -44,6 +46,7 @@ export class TestsController {
   ) {}
 
   @Post()
+  @RequireCenterPermissions(CenterPermissionKey.TESTS)
   @ApiOperation({ summary: 'Yangi test yaratish' })
   @ApiResponse({
     status: 201,
@@ -61,6 +64,7 @@ export class TestsController {
   }
 
   @Get()
+  @RequireCenterPermissions(CenterPermissionKey.TESTS)
   @ApiOperation({ summary: "O'qituvchining barcha testlarini olish" })
   @ApiResponse({
     status: 200,
@@ -88,6 +92,7 @@ export class TestsController {
   }
 
   @Get('my')
+  @RequireCenterPermissions(CenterPermissionKey.TESTS)
   @ApiOperation({ summary: "O'qituvchining barcha testlarini olish" })
   @ApiResponse({
     status: 200,
@@ -104,6 +109,7 @@ export class TestsController {
   }
 
   @Get('stats')
+  @RequireCenterPermissions(CenterPermissionKey.TESTS)
   @ApiOperation({ summary: 'Testlar statistikasi' })
   @ApiResponse({
     status: 200,
@@ -121,6 +127,7 @@ export class TestsController {
 
   // Generated tests endpoints must be above ':id' to avoid route conflicts
   @Get('generated/variant/:uniqueNumber')
+  @RequireCenterPermissions(CenterPermissionKey.TEST_GENERATION)
   @ApiOperation({
     summary: 'Generated variant maʼlumotini olish (uniqueNumber orqali)',
   })
@@ -132,6 +139,7 @@ export class TestsController {
   }
 
   @Get('generated')
+  @RequireCenterPermissions(CenterPermissionKey.TEST_GENERATION)
   @ApiOperation({
     summary: "O'qituvchining yaratgan testlari (generator) ro'yxati",
   })
@@ -143,6 +151,7 @@ export class TestsController {
   }
 
   @Get('generated/:id/variants')
+  @RequireCenterPermissions(CenterPermissionKey.TEST_GENERATION)
   @ApiOperation({ summary: "Yaratilgan test variantlari ro'yxati" })
   @ApiResponse({ status: 200, description: 'Generated test variants list' })
   async listGeneratedTestVariants(
@@ -155,6 +164,7 @@ export class TestsController {
   }
 
   @Post('generated/variant/:uniqueNumber/grade')
+  @RequireCenterPermissions(CenterPermissionKey.CHECKING)
   @ApiOperation({ summary: 'Telefon skanerdan olingan javoblarni tekshirish' })
   @ApiResponse({ status: 200, description: 'Natijalar qaytariladi' })
   async gradeScanned(
@@ -183,6 +193,7 @@ export class TestsController {
   }
 
   @Get('results-list')
+  @RequireCenterPermissions(CenterPermissionKey.REPORTS_TESTS)
   @ApiOperation({ summary: "Test natijalari ro'yxati" })
   @ApiResponse({ status: 200, description: 'Test natijalari', type: Object })
   async resultsList(
@@ -214,6 +225,7 @@ export class TestsController {
   }
 
   @Get(':id')
+  @RequireCenterPermissions(CenterPermissionKey.TESTS)
   @ApiOperation({ summary: "Testni ID bo'yicha olish" })
   @ApiResponse({
     status: 200,
@@ -232,6 +244,7 @@ export class TestsController {
   }
 
   @Patch(':id')
+  @RequireCenterPermissions(CenterPermissionKey.TESTS)
   @ApiOperation({ summary: 'Testni yangilash' })
   @ApiResponse({
     status: 200,
@@ -250,6 +263,7 @@ export class TestsController {
   }
 
   @Delete(':id')
+  @RequireCenterPermissions(CenterPermissionKey.TESTS)
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: "Testni o'chirish" })
   @ApiResponse({ status: 204, description: "Test muvaffaqiyatli o'chirildi" })
@@ -264,6 +278,7 @@ export class TestsController {
   }
 
   @Post('generate')
+  @RequireCenterPermissions(CenterPermissionKey.TEST_GENERATION)
   @ApiOperation({ summary: 'Random test yaratish' })
   @ApiResponse({
     status: 201,
@@ -284,6 +299,7 @@ export class TestsController {
 
   // PDF generation endpoint removed
   @Post('generate/:nonce/pdf')
+  @RequireCenterPermissions(CenterPermissionKey.TEST_GENERATION)
   @ApiOperation({
     summary:
       'Deprecated PDF route: returns printable HTML links for generated variants',

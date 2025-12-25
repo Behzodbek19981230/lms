@@ -33,6 +33,10 @@ import {
 	DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
+import { PERMISSION_LABELS, type CenterPermissionKey } from '@/configs/permissions';
 
 interface User {
 	id: number;
@@ -56,6 +60,7 @@ interface Center {
 	phone?: string;
 	address?: string;
 	users: User[];
+	permissions?: Record<string, boolean>;
 }
 
 const CenterUsersManagement = () => {
@@ -66,6 +71,7 @@ const CenterUsersManagement = () => {
 	const [roleFilter, setRoleFilter] = useState('all');
 	const [expandedCenters, setExpandedCenters] = useState<Set<number>>(new Set());
 	const [showUnassigned, setShowUnassigned] = useState(false);
+	const [savingPermissions, setSavingPermissions] = useState<Record<number, boolean>>({});
 	const { toast } = useToast();
 
 	const loadCentersWithUsers = async () => {
@@ -169,6 +175,36 @@ const CenterUsersManagement = () => {
 				description: 'Foydalanuvchini markazga biriktirishda xatolik',
 				variant: 'destructive',
 			});
+		}
+	};
+
+	const updateCenterPermission = async (centerId: number, key: CenterPermissionKey, value: boolean) => {
+		try {
+			setSavingPermissions((p) => ({ ...p, [centerId]: true }));
+			await request.patch(`/centers/${centerId}/permissions`, {
+				permissions: {
+					[key]: value,
+				},
+			});
+			setCenters((prev) =>
+				prev.map((c) =>
+					c.id === centerId
+						? { ...c, permissions: { ...(c.permissions || {}), [key]: value } }
+						: c
+				)
+			);
+			toast({
+				title: 'Saqlandi',
+				description: 'Permission muvaffaqiyatli yangilandi',
+			});
+		} catch (e) {
+			toast({
+				title: 'Xato',
+				description: 'Permissionni saqlashda xatolik',
+				variant: 'destructive',
+			});
+		} finally {
+			setSavingPermissions((p) => ({ ...p, [centerId]: false }));
 		}
 	};
 
@@ -535,74 +571,101 @@ const CenterUsersManagement = () => {
 												Bu markazda hech qanday foydalanuvchi yo'q
 											</div>
 										) : (
-											<Table>
-												<TableHeader>
-													<TableRow>
-														<TableHead>Foydalanuvchi</TableHead>
-														<TableHead>Foydalanuvchi nomi</TableHead>
-														<TableHead>Telefon</TableHead>
-														<TableHead>Rol</TableHead>
-														<TableHead>Holat</TableHead>
-														<TableHead>Oxirgi kirish</TableHead>
-														<TableHead></TableHead>
-													</TableRow>
-												</TableHeader>
-												<TableBody>
-													{center.users.map((user) => (
-														<TableRow key={user.id}>
-															<TableCell>
-																<div>
-																	<div className='font-medium'>
-																		{user.firstName} {user.lastName}
+											<Tabs defaultValue='users' className='w-full'>
+												<TabsList>
+													<TabsTrigger value='users'>Users</TabsTrigger>
+													<TabsTrigger value='permissions'>Permissions</TabsTrigger>
+												</TabsList>
+												<TabsContent value='users'>
+													<Table>
+														<TableHeader>
+															<TableRow>
+																<TableHead>Foydalanuvchi</TableHead>
+																<TableHead>Foydalanuvchi nomi</TableHead>
+																<TableHead>Telefon</TableHead>
+																<TableHead>Rol</TableHead>
+																<TableHead>Holat</TableHead>
+																<TableHead>Oxirgi kirish</TableHead>
+																<TableHead></TableHead>
+															</TableRow>
+														</TableHeader>
+														<TableBody>
+															{center.users.map((user) => (
+																<TableRow key={user.id}>
+																	<TableCell>
+																		<div>
+																			<div className='font-medium'>
+																				{user.firstName} {user.lastName}
+																			</div>
+																		</div>
+																	</TableCell>
+																	<TableCell>
+																		<div className='flex items-center'>
+																			<UserIcon className='h-4 w-4 mr-2 text-muted-foreground' />
+																			{user.username}
+																		</div>
+																	</TableCell>
+																	<TableCell>
+																		{user.phone ? (
+																			<div className='flex items-center'>
+																				<Phone className='h-4 w-4 mr-2 text-muted-foreground' />
+																				{user.phone}
+																			</div>
+																		) : (
+																			<span className='text-muted-foreground'>—</span>
+																		)}
+																	</TableCell>
+																	<TableCell>{getRoleBadge(user.role)}</TableCell>
+																	<TableCell>{getStatusBadge(user.isActive)}</TableCell>
+																	<TableCell>
+																		{user.lastLoginAt ? (
+																			new Date(user.lastLoginAt).toLocaleDateString()
+																		) : (
+																			<span className='text-muted-foreground'>Hech qachon</span>
+																		)}
+																	</TableCell>
+																	<TableCell>
+																		<DropdownMenu>
+																			<DropdownMenuTrigger asChild>
+																				<Button variant='ghost' size='sm'>
+																					<MoreHorizontal className='h-4 w-4' />
+																				</Button>
+																			</DropdownMenuTrigger>
+																			<DropdownMenuContent align='end'>
+																				<DropdownMenuItem>
+																					<Eye className='h-4 w-4 mr-2' />
+																					Ko'rish
+																				</DropdownMenuItem>
+																			</DropdownMenuContent>
+																		</DropdownMenu>
+																	</TableCell>
+																</TableRow>
+															))}
+														</TableBody>
+													</Table>
+												</TabsContent>
+												<TabsContent value='permissions'>
+													<div className='space-y-3 pt-2'>
+														{(Object.keys(PERMISSION_LABELS) as CenterPermissionKey[]).map((key) => {
+															const current = center.permissions?.[key];
+															const checked = current !== false; // default ON
+															return (
+																<div key={key} className='flex items-center justify-between gap-4 border rounded-md p-3'>
+																	<div className='space-y-1'>
+																		<Label className='font-medium'>{PERMISSION_LABELS[key]}</Label>
+																		<p className='text-xs text-muted-foreground'>{key}</p>
 																	</div>
+																	<Switch
+																		checked={checked}
+																		disabled={!!savingPermissions[center.id]}
+																		onCheckedChange={(v) => updateCenterPermission(center.id, key, v)}
+																	/>
 																</div>
-															</TableCell>
-															<TableCell>
-																<div className='flex items-center'>
-																	<UserIcon className='h-4 w-4 mr-2 text-muted-foreground' />
-																	{user.username}
-																</div>
-															</TableCell>
-															<TableCell>
-																{user.phone ? (
-																	<div className='flex items-center'>
-																		<Phone className='h-4 w-4 mr-2 text-muted-foreground' />
-																		{user.phone}
-																	</div>
-																) : (
-																	<span className='text-muted-foreground'>—</span>
-																)}
-															</TableCell>
-															<TableCell>{getRoleBadge(user.role)}</TableCell>
-															<TableCell>{getStatusBadge(user.isActive)}</TableCell>
-															<TableCell>
-																{user.lastLoginAt ? (
-																	new Date(user.lastLoginAt).toLocaleDateString()
-																) : (
-																	<span className='text-muted-foreground'>
-																		Hech qachon
-																	</span>
-																)}
-															</TableCell>
-															<TableCell>
-																<DropdownMenu>
-																	<DropdownMenuTrigger asChild>
-																		<Button variant='ghost' size='sm'>
-																			<MoreHorizontal className='h-4 w-4' />
-																		</Button>
-																	</DropdownMenuTrigger>
-																	<DropdownMenuContent align='end'>
-																		<DropdownMenuItem>
-																			<Eye className='h-4 w-4 mr-2' />
-																			Ko'rish
-																		</DropdownMenuItem>
-																	</DropdownMenuContent>
-																</DropdownMenu>
-															</TableCell>
-														</TableRow>
-													))}
-												</TableBody>
-											</Table>
+															);
+														})}
+													</div>
+												</TabsContent>
+											</Tabs>
 										)}
 									</CardContent>
 								</CollapsibleContent>

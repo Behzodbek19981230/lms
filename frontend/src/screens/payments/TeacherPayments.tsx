@@ -14,8 +14,10 @@ import PaymentTable from '../../components/payments/PaymentTable';
 import CreatePaymentForm from '../../components/payments/CreatePaymentForm';
 import { toast } from 'sonner';
 import PageLoader from '@/components/PageLoader';
+import { useAuth } from '@/contexts/AuthContext';
 
 const TeacherPayments: React.FC = () => {
+	const { user } = useAuth();
 	const [payments, setPayments] = useState<Payment[]>([]);
 	const [filteredPayments, setFilteredPayments] = useState<Payment[]>([]);
 	const [stats, setStats] = useState<PaymentStats | null>(null);
@@ -180,10 +182,12 @@ const TeacherPayments: React.FC = () => {
 		<div className='container mx-auto py-3 sm:py-4 md:py-6 space-y-4 sm:space-y-6 px-3 sm:px-4'>
 			<div className='flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4'>
 				<h1 className='text-xl sm:text-2xl md:text-3xl font-bold'>To'lovlarni boshqarish</h1>
-				<Button onClick={() => setShowCreateForm(true)} size='sm' className='w-full sm:w-auto'>
-					<Plus className='w-3.5 h-3.5 sm:w-4 sm:h-4 sm:mr-2' />
-					<span className='text-xs sm:text-sm'>Yangi to'lov</span>
-				</Button>
+				{user?.role === 'teacher' && (
+					<Button onClick={() => setShowCreateForm(true)} size='sm' className='w-full sm:w-auto'>
+						<Plus className='w-3.5 h-3.5 sm:w-4 sm:h-4 sm:mr-2' />
+						<span className='text-xs sm:text-sm'>Yangi to'lov</span>
+					</Button>
+				)}
 			</div>
 
 			{/* Statistics Cards */}
@@ -331,7 +335,7 @@ const TeacherPayments: React.FC = () => {
 								onMarkPaid={handleMarkPaid}
 								onSendReminder={handleSendReminder}
 								onDelete={handleDeletePayment}
-								role='teacher'
+								role={user?.role === 'teacher' ? 'teacher' : 'center_admin'}
 							/>
 						</TabsContent>
 					</Tabs>
@@ -339,15 +343,17 @@ const TeacherPayments: React.FC = () => {
 			</Card>
 
 			{/* Create Payment Form */}
-			<CreatePaymentForm
-				open={showCreateForm}
-				onClose={() => {
-					setShowCreateForm(false);
-					setSelectedGroup(undefined);
-				}}
-				onSubmit={handleCreatePayment}
-				selectedGroup={selectedGroup}
-			/>
+			{user?.role === 'teacher' && (
+				<CreatePaymentForm
+					open={showCreateForm}
+					onClose={() => {
+						setShowCreateForm(false);
+						setSelectedGroup(undefined);
+					}}
+					onSubmit={handleCreatePayment}
+					selectedGroup={selectedGroup}
+				/>
+			)}
 		</div>
 	);
 };

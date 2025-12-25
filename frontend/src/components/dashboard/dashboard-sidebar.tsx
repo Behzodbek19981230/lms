@@ -37,6 +37,7 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { hasCenterPermission } from '@/configs/permissions';
 
 const adminItems = [
 	{ title: 'User Management', url: '/dashboard/users', icon: Users },
@@ -108,6 +109,25 @@ export function DashboardSidebar() {
 		? studentMenuItems
 		: [];
 
+	// Permission-based menu filtering (per center)
+	const centerPerms = user?.center?.permissions || undefined;
+	const filteredItems = mainItems.filter((item) => {
+		// superadmin should always see everything
+		if (isSuperAdmin) return true;
+
+		const url = item.url || '';
+		if (url.startsWith('/account/exams')) return hasCenterPermission(centerPerms, 'exams');
+		if (url.startsWith('/account/test-generator') || url.startsWith('/account/generated-tests'))
+			return hasCenterPermission(centerPerms, 'test_generation');
+		if (url.startsWith('/account/scanner')) return hasCenterPermission(centerPerms, 'checking');
+		if (url.startsWith('/account/telegram')) return hasCenterPermission(centerPerms, 'telegram_integration');
+		if (url.startsWith('/account/payments') || url.startsWith('/account/student-payments'))
+			return hasCenterPermission(centerPerms, 'payments');
+		if (url.startsWith('/account/results')) return hasCenterPermission(centerPerms, 'reports_tests');
+
+		return true;
+	});
+
 	const [openMenus, setOpenMenus] = useState<Record<string, boolean>>({});
 
 	const toggleMenu = (title: string) => {
@@ -123,7 +143,7 @@ export function DashboardSidebar() {
 					</SidebarGroupLabel>
 					<SidebarGroupContent>
 						<SidebarMenu>
-							{mainItems.map((item) => {
+							{filteredItems.map((item) => {
 								const isOpen = openMenus[item.title] || false;
 								const hasChildren =
 									Array.isArray((item as any).children) && (item as any).children.length > 0;

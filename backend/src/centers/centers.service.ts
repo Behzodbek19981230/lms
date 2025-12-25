@@ -7,6 +7,10 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Center } from './entities/center.entity';
 import { User, UserRole } from '../users/entities/user.entity';
+import {
+  CenterPermissions,
+  getEffectiveCenterPermissions,
+} from './permissions/center-permissions';
 
 @Injectable()
 export class CentersService {
@@ -56,7 +60,10 @@ export class CentersService {
         'Faqat superadmin yangi markaz qo‘sha oladi',
       );
     }
-    const center = this.centerRepo.create(dto);
+    const center = this.centerRepo.create({
+      ...dto,
+      permissions: dto.permissions ?? {},
+    });
     return this.centerRepo.save(center);
   }
 
@@ -75,5 +82,24 @@ export class CentersService {
     }
     await this.findOne(id, user);
     await this.centerRepo.delete(id);
+  }
+
+  async getCenterPermissions(id: number, user: User) {
+    const center = await this.findOne(id, user);
+    return getEffectiveCenterPermissions(center.permissions);
+  }
+
+  async updateCenterPermissions(
+    id: number,
+    permissions: CenterPermissions,
+    user: User,
+  ) {
+    const center = await this.findOne(id, user);
+    center.permissions = {
+      ...(center.permissions || {}),
+      ...(permissions || {}),
+    };
+    await this.centerRepo.save(center);
+    return getEffectiveCenterPermissions(center.permissions);
   }
 }

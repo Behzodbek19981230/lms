@@ -19,6 +19,8 @@ import {
 } from '@nestjs/swagger';
 import type { Response } from 'express';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RequireCenterPermissions } from '../centers/permissions/center-permission.decorator';
+import { CenterPermissionKey } from '../centers/permissions/center-permissions';
 import { ExamsService } from './exams.service';
 import type { CreateExamDto, GenerateVariantsDto } from './exams.service';
 import { Exam, ExamStatus } from './entities/exam.entity';
@@ -32,6 +34,7 @@ export class ExamsController {
   constructor(private readonly examsService: ExamsService) {}
 
   @Post()
+  @RequireCenterPermissions(CenterPermissionKey.EXAMS)
   @ApiOperation({ summary: 'Create a new exam' })
   @ApiResponse({ status: 201, description: 'Exam created successfully' })
   async createExam(
@@ -45,6 +48,7 @@ export class ExamsController {
   }
 
   @Get()
+  @RequireCenterPermissions(CenterPermissionKey.EXAMS)
   @ApiOperation({ summary: 'Get all exams for the current teacher' })
   @ApiResponse({ status: 200, description: 'List of exams' })
   async getExams(@Request() req: { user: { id: number } }): Promise<Exam[]> {
@@ -52,6 +56,7 @@ export class ExamsController {
   }
 
   @Get(':id')
+  @RequireCenterPermissions(CenterPermissionKey.EXAMS)
   @ApiOperation({ summary: 'Get exam by ID' })
   @ApiResponse({ status: 200, description: 'Exam details' })
   async getExam(@Param('id') id: string): Promise<Exam> {
@@ -59,6 +64,7 @@ export class ExamsController {
   }
 
   @Get('variants/:variantId/debug')
+  @RequireCenterPermissions(CenterPermissionKey.EXAMS)
   @ApiOperation({ summary: 'Debug variant data for PDF generation' })
   @ApiResponse({ status: 200, description: 'Variant debug info' })
   async debugVariant(@Param('variantId') variantId: string): Promise<any> {
@@ -66,6 +72,7 @@ export class ExamsController {
   }
 
   @Post(':id/generate-variants')
+  @RequireCenterPermissions(CenterPermissionKey.EXAMS)
   @ApiOperation({ summary: 'Generate variants for an exam' })
   @ApiResponse({ status: 201, description: 'Variants generated successfully' })
   async generateVariants(
@@ -79,6 +86,10 @@ export class ExamsController {
   }
 
   @Post(':id/generate-for-groups')
+  @RequireCenterPermissions(
+    CenterPermissionKey.EXAMS,
+    CenterPermissionKey.TELEGRAM_INTEGRATION,
+  )
   @ApiOperation({
     summary:
       'Generate exam tests for all students in specified groups with Telegram delivery',
@@ -112,6 +123,7 @@ export class ExamsController {
   }
 
   @Get(':id/variants')
+  @RequireCenterPermissions(CenterPermissionKey.EXAMS)
   @ApiOperation({ summary: 'Get all variants for an exam' })
   @ApiResponse({ status: 200, description: 'List of variants' })
   async getExamVariants(@Param('id') id: string): Promise<ExamVariant[]> {
@@ -119,6 +131,7 @@ export class ExamsController {
   }
 
   @Put(':id/status')
+  @RequireCenterPermissions(CenterPermissionKey.EXAMS)
   @ApiOperation({ summary: 'Update exam status' })
   @ApiResponse({ status: 200, description: 'Status updated successfully' })
   async updateExamStatus(
@@ -136,6 +149,7 @@ export class ExamsController {
   }
 
   @Delete(':id')
+  @RequireCenterPermissions(CenterPermissionKey.EXAMS)
   @ApiOperation({ summary: 'Delete an exam' })
   @ApiResponse({ status: 200, description: 'Exam deleted successfully' })
   async deleteExam(@Param('id') id: string): Promise<void> {
@@ -143,6 +157,7 @@ export class ExamsController {
   }
 
   @Post(':id/start')
+  @RequireCenterPermissions(CenterPermissionKey.EXAMS)
   @ApiOperation({ summary: 'Start an exam' })
   @ApiResponse({ status: 200, description: 'Exam started successfully' })
   async startExam(@Param('id') id: string): Promise<Exam> {
@@ -150,6 +165,7 @@ export class ExamsController {
   }
 
   @Post(':id/complete')
+  @RequireCenterPermissions(CenterPermissionKey.EXAMS)
   @ApiOperation({ summary: 'Complete an exam' })
   @ApiResponse({ status: 200, description: 'Exam completed successfully' })
   async completeExam(@Param('id') id: string): Promise<Exam> {
@@ -157,6 +173,7 @@ export class ExamsController {
   }
 
   @Post(':id/schedule')
+  @RequireCenterPermissions(CenterPermissionKey.EXAMS)
   @ApiOperation({ summary: 'Schedule an exam' })
   @ApiResponse({ status: 200, description: 'Exam scheduled successfully' })
   async scheduleExam(@Param('id') id: string): Promise<Exam> {
@@ -164,6 +181,7 @@ export class ExamsController {
   }
 
   @Get('variants/:variantId/pdf')
+  @RequireCenterPermissions(CenterPermissionKey.EXAMS)
   @ApiOperation({
     summary: 'Deprecated: Redirect to printable HTML instead of PDF',
   })
@@ -180,6 +198,7 @@ export class ExamsController {
   }
 
   @Get('variants/:variantId/html')
+  @RequireCenterPermissions(CenterPermissionKey.EXAMS)
   @ApiOperation({ summary: 'Preview exam variant as HTML (browser printable)' })
   @ApiResponse({ status: 200, description: 'HTML content' })
   async previewVariantHTML(
@@ -192,6 +211,7 @@ export class ExamsController {
   }
 
   @Post('variants/:variantId/printable')
+  @RequireCenterPermissions(CenterPermissionKey.EXAMS)
   @ApiOperation({
     summary: 'Generate printable HTML file for a variant and return its URL',
   })
@@ -209,6 +229,7 @@ export class ExamsController {
   }
 
   @Post('variants/:variantNumber/grade')
+  @RequireCenterPermissions(CenterPermissionKey.CHECKING)
   @ApiOperation({
     summary:
       'Grade exam variant by variant number (automatically detects student)',
@@ -247,6 +268,7 @@ export class ExamsController {
   }
 
   @Get('variants/:variantNumber/info')
+  @RequireCenterPermissions(CenterPermissionKey.CHECKING)
   @ApiOperation({
     summary:
       'Get variant info by variant number (for scanner student detection)',
@@ -268,6 +290,7 @@ export class ExamsController {
   }
 
   @Get('scanner/:code')
+  @RequireCenterPermissions(CenterPermissionKey.CHECKING)
   @ApiOperation({ summary: 'Resolve scanner code (exam or generated variant)' })
   @ApiResponse({ status: 200, description: 'Resolved variant information' })
   async resolveScannerCode(@Param('code') code: string) {
@@ -275,6 +298,7 @@ export class ExamsController {
   }
 
   @Post('scanner/grade')
+  @RequireCenterPermissions(CenterPermissionKey.CHECKING)
   @ApiOperation({
     summary: 'Grade by scanner code (exam or generated variant)',
   })

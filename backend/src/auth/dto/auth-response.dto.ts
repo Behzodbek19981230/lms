@@ -18,6 +18,7 @@ export class AuthResponseDto {
     center?: {
       id: number;
       name: string;
+      permissions?: Record<string, boolean>;
     } | null;
   };
 }

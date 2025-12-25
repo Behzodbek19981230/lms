@@ -33,7 +33,16 @@ export class RolesGuard implements CanActivate {
       return false;
     }
 
-    const hasRole = requiredRoles.some((role) => user.role === role);
+    const userRole = String((user as any).role || '').toLowerCase();
+    const hasRole = requiredRoles.some(
+      (role) => String(role).toLowerCase() === userRole,
+    );
+
+    if (!hasRole) {
+      this.logger.warn(
+        `Role denied. required=[${requiredRoles.join(',')}], got=${(user as any).role}`,
+      );
+    }
 
     return hasRole;
   }

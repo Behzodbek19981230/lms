@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { APP_GUARD } from '@nestjs/core';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthModule } from './auth/auth.module';
@@ -17,6 +18,7 @@ import { PaymentsModule } from './payments/payments.module';
 import { AssignedTestsModule } from './assigned-tests/assigned-tests.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { LogsModule } from './logs/logs.module';
+import { CenterPermissionGuard } from './centers/permissions/center-permission.guard';
 
 @Module({
   imports: [
@@ -55,6 +57,10 @@ import { LogsModule } from './logs/logs.module';
     AttendanceModule,
     CronJobsModule,
     LogsModule,
+  ],
+  providers: [
+    // Global center-permission guard: only enforces when @RequireCenterPermissions() is present
+    { provide: APP_GUARD, useClass: CenterPermissionGuard },
   ],
 })
 export class AppModule {}

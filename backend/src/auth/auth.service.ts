@@ -23,6 +23,7 @@ import {
   TelegramRegisterDto,
 } from './dto/telegram-auth.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
+import { getEffectiveCenterPermissions } from '../centers/permissions/center-permissions';
 
 @Injectable()
 export class AuthService {
@@ -35,6 +36,30 @@ export class AuthService {
 
     private readonly jwtService: JwtService,
   ) {}
+
+  private mapUser(userData: User) {
+    const center = userData.center
+      ? {
+          id: userData.center.id,
+          name: userData.center.name,
+          permissions: getEffectiveCenterPermissions(
+            (userData.center as any).permissions,
+          ),
+        }
+      : null;
+
+    return {
+      id: userData.id,
+      username: userData.username,
+      firstName: userData.firstName,
+      lastName: userData.lastName,
+      fullName: userData.firstName + ' ' + (userData.lastName || ''),
+      role: userData.role,
+      hasCenterAssigned: !!userData.center,
+      needsCenterAssignment: !userData.center,
+      center,
+    };
+  }
 
   async register(registerDto: RegisterDto): Promise<AuthResponseDto> {
     const { username, password, firstName, lastName, phone, role } =
@@ -78,15 +103,7 @@ export class AuthService {
 
     return {
       access_token,
-      user: {
-        id: userWithCenter!.id,
-        username: userWithCenter!.username,
-        firstName: userWithCenter!.firstName,
-        lastName: userWithCenter!.lastName,
-        fullName:
-          userWithCenter!.firstName + ' ' + (userWithCenter!.lastName || ''),
-        role: userWithCenter!.role,
-      },
+      user: this.mapUser(userWithCenter!),
     };
   }
 
@@ -122,22 +139,7 @@ export class AuthService {
 
     return {
       access_token,
-      user: {
-        id: userData.id,
-        username: userData.username,
-        firstName: userData.firstName,
-        lastName: userData.lastName,
-        fullName: userData.firstName + ' ' + (userData.lastName || ''),
-        role: userData.role,
-        hasCenterAssigned: !!userData.center,
-        needsCenterAssignment: !userData.center,
-        center: userData.center
-          ? {
-              id: userData.center.id,
-              name: userData.center.name,
-            }
-          : null,
-      },
+      user: this.mapUser(userData),
     };
   }
 
@@ -180,14 +182,12 @@ export class AuthService {
 
     return {
       access_token,
-      user: {
-        id: user.id,
-        username: user.username,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        fullName: user.fullName,
-        role: user.role,
-      },
+      user: this.mapUser(
+        (await this.userRepository.findOne({
+          where: { id: user.id },
+          relations: ['subjects', 'center'],
+        }))!,
+      ),
     };
   }
 
@@ -225,14 +225,7 @@ export class AuthService {
 
     return {
       access_token,
-      user: {
-        id: userData.id,
-        username: userData.username,
-        firstName: userData.firstName,
-        lastName: userData.lastName,
-        fullName: userData.fullName,
-        role: userData.role,
-      },
+      user: this.mapUser(userData),
     };
   }
 
@@ -314,14 +307,12 @@ export class AuthService {
 
     return {
       access_token,
-      user: {
-        id: savedUser.id,
-        username: savedUser.username,
-        firstName: savedUser.firstName,
-        lastName: savedUser.lastName,
-        fullName: savedUser.firstName + ' ' + (savedUser.lastName || ''),
-        role: savedUser.role,
-      },
+      user: this.mapUser(
+        (await this.userRepository.findOne({
+          where: { id: savedUser.id },
+          relations: ['subjects', 'center'],
+        }))!,
+      ),
     };
   }
 

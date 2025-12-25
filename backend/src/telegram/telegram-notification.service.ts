@@ -16,6 +16,11 @@ import { Group } from '../groups/entities/group.entity';
 import { User } from '../users/entities/user.entity';
 import { LogsService } from '../logs/logs.service';
 import { Payment } from '../payments/payment.entity';
+import { Center } from '../centers/entities/center.entity';
+import {
+  CenterPermissionKey,
+  getEffectiveCenterPermissions,
+} from '../centers/permissions/center-permissions';
 
 /**
  * Service responsible for sending Telegram notifications
@@ -28,6 +33,8 @@ export class TelegramNotificationService {
   constructor(
     @InjectRepository(TelegramChat)
     private telegramChatRepo: Repository<TelegramChat>,
+    @InjectRepository(Center)
+    private centerRepo: Repository<Center>,
     @InjectRepository(Exam)
     private examRepo: Repository<Exam>,
     @InjectRepository(Group)
@@ -35,6 +42,16 @@ export class TelegramNotificationService {
     private telegramQueueService: TelegramQueueService,
     private logsService: LogsService,
   ) {}
+
+  private async isCenterPermissionEnabled(
+    centerId: number,
+    key: CenterPermissionKey,
+  ): Promise<boolean> {
+    if (!centerId) return true;
+    const center = await this.centerRepo.findOne({ where: { id: centerId } });
+    const effective = getEffectiveCenterPermissions(center?.permissions);
+    return effective[key] === true;
+  }
 
   /**
    * Resolve the main (single) center Telegram channel for admin notifications.
@@ -67,6 +84,12 @@ export class TelegramNotificationService {
     lateCount?: number;
     absentStudents?: string[];
   }): Promise<void> {
+    const enabled = await this.isCenterPermissionEnabled(
+      params.centerId,
+      CenterPermissionKey.ATTENDANCE_TELEGRAM_NOTIFICATIONS,
+    );
+    if (!enabled) return;
+
     const centerChannel = await this.getCenterMainChannel(params.centerId);
     if (!centerChannel) {
       this.logger.debug(
@@ -124,6 +147,11 @@ export class TelegramNotificationService {
     studentName: string;
   }): Promise<void> {
     const { payment, centerId, groupName, studentName } = params;
+    const enabled = await this.isCenterPermissionEnabled(
+      centerId,
+      CenterPermissionKey.PAYMENTS_TELEGRAM_NOTIFICATIONS,
+    );
+    if (!enabled) return;
 
     const message =
       `💰 <b>To‘lov qabul qilindi</b>\n\n` +
@@ -191,6 +219,12 @@ export class TelegramNotificationService {
       description?: string | null;
     }>;
   }): Promise<void> {
+    const enabled = await this.isCenterPermissionEnabled(
+      params.centerId,
+      CenterPermissionKey.PAYMENTS_TELEGRAM_NOTIFICATIONS,
+    );
+    if (!enabled) return;
+
     const centerChannel = await this.getCenterMainChannel(params.centerId);
     if (!centerChannel) {
       this.logger.debug(
@@ -436,6 +470,12 @@ export class TelegramNotificationService {
         this.logger.warn(`Group ${groupId} not found`);
         return;
       }
+
+      const enabled = await this.isCenterPermissionEnabled(
+        group.center?.id,
+        CenterPermissionKey.ATTENDANCE_TELEGRAM_NOTIFICATIONS,
+      );
+      if (!enabled) return;
 
       // PRIORITY 1: Try to send to group-specific channel
       const groupChat = await this.telegramChatRepo.findOne({

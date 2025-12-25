@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, MoreThan, LessThan } from 'typeorm';
+import { Repository, MoreThan, LessThan, In } from 'typeorm';
 import { Payment, PaymentStatus } from './payment.entity';
 import { CreatePaymentDto, UpdatePaymentDto, CreateMonthlyPaymentsDto, PaymentStatsDto } from './dto/payment.dto';
 import { User, UserRole } from '../users/entities/user.entity';
@@ -68,6 +68,21 @@ export class PaymentsService {
       where: { teacherId },
       relations: ['student', 'group'],
       order: { createdAt: 'DESC' }
+    });
+  }
+
+  // Get all payments for a center (admin view)
+  async findAllByCenter(centerId: number): Promise<Payment[]> {
+    const groups = await this.groupRepository.find({
+      where: { center: { id: centerId } },
+      select: ['id'],
+    });
+    const groupIds = groups.map((g) => g.id);
+    if (groupIds.length === 0) return [];
+    return this.paymentRepository.find({
+      where: { groupId: In(groupIds) },
+      relations: ['student', 'group', 'teacher'],
+      order: { createdAt: 'DESC' },
     });
   }
 
@@ -300,6 +315,44 @@ export class PaymentsService {
         .reduce((sum, p) => sum + Number(p.amount), 0),
       pendingAmount: pendingPayments.reduce((sum, p) => sum + Number(p.amount), 0),
       overdueAmount: overduePayments.reduce((sum, p) => sum + Number(p.amount), 0),
+    };
+  }
+
+  async getCenterStats(centerId: number): Promise<PaymentStatsDto> {
+    const payments = await this.findAllByCenter(centerId);
+
+    const currentMonth = new Date();
+    currentMonth.setDate(1);
+    const nextMonth = new Date(currentMonth);
+    nextMonth.setMonth(nextMonth.getMonth() + 1);
+
+    const monthlyPayments = payments.filter(
+      (p) => p.createdAt >= currentMonth && p.createdAt < nextMonth,
+    );
+
+    const pendingPayments = payments.filter(
+      (p) => p.status === PaymentStatus.PENDING,
+    );
+    const paidPayments = payments.filter((p) => p.status === PaymentStatus.PAID);
+    const overduePayments = payments.filter(
+      (p) => p.status === PaymentStatus.PENDING && p.dueDate < new Date(),
+    );
+
+    return {
+      totalPending: pendingPayments.length,
+      totalPaid: paidPayments.length,
+      totalOverdue: overduePayments.length,
+      monthlyRevenue: monthlyPayments
+        .filter((p) => p.status === PaymentStatus.PAID)
+        .reduce((sum, p) => sum + Number(p.amount), 0),
+      pendingAmount: pendingPayments.reduce(
+        (sum, p) => sum + Number(p.amount),
+        0,
+      ),
+      overdueAmount: overduePayments.reduce(
+        (sum, p) => sum + Number(p.amount),
+        0,
+      ),
     };
   }
 

@@ -34,7 +34,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 				localStorage.removeItem('EduOne_user');
 			}
 		}
-		setIsLoading(false);
+		// Also refresh "me" from backend (prevents role/token mismatch and keeps permissions in sync)
+		(async () => {
+			try {
+				const token = localStorage.getItem('e_token');
+				if (!token) return;
+				const { data } = await request.get('/users/me');
+				if (data) {
+					localStorage.setItem('EduOne_user', JSON.stringify(data));
+					setUser(data as UserType);
+				}
+			} catch (e) {
+				// If token invalid, force logout
+				localStorage.removeItem('EduOne_user');
+				localStorage.removeItem('e_token');
+				setUser(null);
+			} finally {
+				setIsLoading(false);
+			}
+		})();
+		if (!localStorage.getItem('e_token')) setIsLoading(false);
 	}, []);
 
 	const login = async (username: string, password: string): Promise<UserType | null> => {

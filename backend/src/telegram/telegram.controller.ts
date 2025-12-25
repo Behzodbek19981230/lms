@@ -23,6 +23,8 @@ import { User, UserRole } from '../users/entities/user.entity';
 import { TelegramService } from './telegram.service';
 import { AnswerProcessorService } from './answer-processor.service';
 import { TestsService } from '../tests/tests.service';
+import { RequireCenterPermissions } from '../centers/permissions/center-permission.decorator';
+import { CenterPermissionKey } from '../centers/permissions/center-permissions';
 // Import DTOs
 import {
   CreateTelegramChatDto,
@@ -36,6 +38,7 @@ export class TelegramController {
   @Delete('chats/:id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.TEACHER, UserRole.ADMIN, UserRole.SUPERADMIN)
+  @RequireCenterPermissions(CenterPermissionKey.TELEGRAM_INTEGRATION)
   @ApiBearerAuth()
   @ApiOperation({ summary: "Telegram chatni o'chirish" })
   @ApiResponse({ status: 200, description: "Chat o'chirildi" })
@@ -83,6 +86,7 @@ export class TelegramController {
   @Post('chats')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.TEACHER, UserRole.ADMIN, UserRole.SUPERADMIN)
+  @RequireCenterPermissions(CenterPermissionKey.TELEGRAM_INTEGRATION)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Register a new Telegram chat/channel' })
   @ApiResponse({ status: 201, description: 'Chat registered successfully' })
@@ -93,6 +97,7 @@ export class TelegramController {
   @Post('chats/:chatId/link/:userId')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.TEACHER, UserRole.ADMIN, UserRole.SUPERADMIN)
+  @RequireCenterPermissions(CenterPermissionKey.TELEGRAM_INTEGRATION)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Link a user to a Telegram chat' })
   @ApiResponse({ status: 200, description: 'User linked successfully' })
@@ -105,6 +110,7 @@ export class TelegramController {
 
   @Get('chats/user/me')
   @UseGuards(JwtAuthGuard)
+  @RequireCenterPermissions(CenterPermissionKey.TELEGRAM_INTEGRATION)
   @ApiBearerAuth()
   @ApiOperation({ summary: "Get current user's Telegram chats" })
   @ApiResponse({ status: 200, description: 'User chats retrieved' })
@@ -115,6 +121,7 @@ export class TelegramController {
   @Get('chats')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.TEACHER, UserRole.ADMIN, UserRole.SUPERADMIN)
+  @RequireCenterPermissions(CenterPermissionKey.TELEGRAM_INTEGRATION)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get all Telegram chats' })
   @ApiResponse({ status: 200, description: 'All chats retrieved' })
@@ -126,6 +133,7 @@ export class TelegramController {
 
   @Get('user-status')
   @UseGuards(JwtAuthGuard)
+  @RequireCenterPermissions(CenterPermissionKey.TELEGRAM_INTEGRATION)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get user Telegram connection status' })
   @ApiResponse({

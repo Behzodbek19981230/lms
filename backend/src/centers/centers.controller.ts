@@ -24,6 +24,7 @@ import { UserRole } from '../users/entities/user.entity';
 import { CentersService } from './centers.service';
 import { CreateCenterDto } from './dto/create-center.dto';
 import { Center } from './entities/center.entity';
+import { UpdateCenterPermissionsDto } from './dto/update-center-permissions.dto';
 
 @ApiTags('Centers')
 @Controller('centers')
@@ -96,5 +97,28 @@ export class CentersController {
   })
   async remove(@Param('id') id: number, @Request() req): Promise<void> {
     return this.centerService.remove(id, req.user);
+  }
+
+  @Get(':id/permissions')
+  @Roles(UserRole.SUPERADMIN)
+  @ApiOperation({ summary: 'Center permissions (superadmin)' })
+  async getPermissions(@Param('id') id: number, @Request() req) {
+    return this.centerService.getCenterPermissions(Number(id), req.user);
+  }
+
+  @Patch(':id/permissions')
+  @Roles(UserRole.SUPERADMIN)
+  @ApiOperation({ summary: 'Update center permissions (superadmin)' })
+  @ApiBody({ type: UpdateCenterPermissionsDto })
+  async updatePermissions(
+    @Param('id') id: number,
+    @Body() dto: UpdateCenterPermissionsDto,
+    @Request() req,
+  ) {
+    return this.centerService.updateCenterPermissions(
+      Number(id),
+      dto?.permissions || {},
+      req.user,
+    );
   }
 }
