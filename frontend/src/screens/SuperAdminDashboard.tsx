@@ -72,7 +72,7 @@ const SuperAdminDashboard = () => {
 		id: c.id,
 		name: c.name,
 		students: c.users?.length || 0,
-		status: 'active',
+		status: c?.isActive === false ? 'inactive' : 'active',
 		plan: 'standard',
 	}));
 

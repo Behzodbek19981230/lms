@@ -2,12 +2,17 @@ import {
   Body,
   Controller,
   Delete,
+  BadRequestException,
+  FileTypeValidator,
   Get,
+  MaxFileSizeValidator,
   Param,
   Patch,
   Post,
   Request,
+  UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
@@ -23,15 +28,24 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import { UserRole } from '../users/entities/user.entity';
 import { CentersService } from './centers.service';
 import { CreateCenterDto } from './dto/create-center.dto';
+import { UpdateCenterDto } from './dto/update-center.dto';
+import { UpdateCenterStatusDto } from './dto/update-center-status.dto';
 import { Center } from './entities/center.entity';
 import { UpdateCenterPermissionsDto } from './dto/update-center-permissions.dto';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { ParseFilePipe } from '@nestjs/common';
+import { CenterImportService } from './import/center-import.service';
+import { buildCenterImportTemplateXlsx } from './import/center-import.template';
 
 @ApiTags('Centers')
 @Controller('centers')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @ApiBearerAuth()
 export class CentersController {
-  constructor(private readonly centerService: CentersService) {}
+  constructor(
+    private readonly centerService: CentersService,
+    private readonly centerImportService: CenterImportService,
+  ) {}
 
   @Post()
   @Roles(UserRole.SUPERADMIN)
@@ -82,10 +96,22 @@ export class CentersController {
   })
   async update(
     @Param('id') id: number,
-    @Body() updateCenterDto: CreateCenterDto,
+    @Body() updateCenterDto: UpdateCenterDto,
     @Request() req,
   ): Promise<Center> {
     return this.centerService.update(id, updateCenterDto, req.user);
+  }
+
+  @Patch(':id/status')
+  @Roles(UserRole.SUPERADMIN)
+  @ApiOperation({ summary: 'Markaz holatini (active/inactive) yangilash' })
+  @ApiBody({ type: UpdateCenterStatusDto })
+  async updateStatus(
+    @Param('id') id: number,
+    @Body() dto: UpdateCenterStatusDto,
+    @Request() req,
+  ): Promise<Center> {
+    return this.centerService.updateStatus(Number(id), dto.isActive, req.user);
   }
 
   @Delete(':id')
@@ -120,5 +146,46 @@ export class CentersController {
       dto?.permissions || {},
       req.user,
     );
+  }
+
+  @Get('import/template')
+  @Roles(UserRole.SUPERADMIN)
+  @ApiOperation({ summary: 'Download Excel import template' })
+  async downloadImportTemplate(@Request() req: any) {
+    const res = req?.res;
+    if (!res) return buildCenterImportTemplateXlsx();
+    const buf = buildCenterImportTemplateXlsx();
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    );
+    res.setHeader(
+      'Content-Disposition',
+      'attachment; filename="center-import-template.xlsx"',
+    );
+    return res.send(buf);
+  }
+
+  @Post(':id/import/excel')
+  @Roles(UserRole.SUPERADMIN)
+  @ApiOperation({ summary: 'Import center data from Excel (groups, students, payments)' })
+  @UseInterceptors(FileInterceptor('file'))
+  async importExcel(
+    @Param('id') id: number,
+    @UploadedFile(
+      new ParseFilePipe({
+        validators: [
+          new MaxFileSizeValidator({ maxSize: 10 * 1024 * 1024 }), // 10MB
+          // mimetype usually contains "sheet" or "excel"
+          new FileTypeValidator({ fileType: /(sheet|excel)/ }),
+        ],
+      }),
+    )
+    file: Express.Multer.File,
+  ) {
+    if (!file?.buffer) {
+      throw new BadRequestException('Fayl topilmadi');
+    }
+    return this.centerImportService.importExcel(Number(id), file.buffer);
   }
 }

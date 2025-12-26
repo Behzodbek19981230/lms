@@ -8,6 +8,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
+import { getApiErrorMessage } from '@/utils/api-error';
 
 const Login = () => {
 	const [username, setUsername] = useState('');
@@ -72,7 +73,8 @@ const Login = () => {
 			}
 		} catch (err) {
 			toast({
-				title: err,
+				title: 'Xatolik',
+				description: getApiErrorMessage(err) || "Xatolik yuz berdi",
 				variant: 'destructive',
 			});
 		} finally {

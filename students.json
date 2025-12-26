@@ -1,0 +1,22 @@
+[
+    { "id": 1, "sinf": "11-sinf", "fullname": "Ismoilova O‘g‘iloy", "kurs_puli": 350 },
+    { "id": 2, "sinf": "11-sinf", "fullname": "To‘yqulova Aslzoda", "kurs_puli": 350 },
+    { "id": 4, "sinf": "10-sinf", "fullname": "To‘raqulov Sardor", "kurs_puli": 300 },
+    { "id": 5, "sinf": "11-sinf", "fullname": "Ahadov Elmurod", "kurs_puli": 350 },
+    { "id": 6, "sinf": "11-sinf", "fullname": "Ramazonova Ruxshona", "kurs_puli": 350 },
+    { "id": 7, "sinf": "10-sinf", "fullname": "Hakimova Diyora", "kurs_puli": 300 },
+    { "id": 8, "sinf": "10-sinf", "fullname": "Oltinova Rayhona", "kurs_puli": 300 },
+    { "id": 9, "sinf": "10-sinf", "fullname": "Boboqulova Ozoda", "kurs_puli": 300 },
+    { "id": 10, "sinf": "10-sinf", "fullname": "Yangiboyeva Shaxruza", "kurs_puli": 300 },
+    { "id": 12, "sinf": "11-sinf", "fullname": "Safoyeva Sevinch", "kurs_puli": 350 },
+    { "id": 14, "sinf": "11-sinf", "fullname": "Qilichov Xurshid", "kurs_puli": 350 },
+    { "id": 15, "sinf": "11-sinf", "fullname": "Xursandov Doston", "kurs_puli": 350 },
+    { "id": 16, "sinf": "11-sinf", "fullname": "Umarova Lola", "kurs_puli": 350 },
+    { "id": 17, "sinf": "11-sinf", "fullname": "Husenov Og‘abek", "kurs_puli": 350 },
+    { "id": 18, "sinf": "11-sinf", "fullname": "Mirzaqulova Sevara", "kurs_puli": 350 },
+    { "id": 19, "sinf": "11-sinf", "fullname": "Hamroyev Shaxboz", "kurs_puli": 350 },
+    { "id": 20, "sinf": "11-sinf", "fullname": "Asatov Ro‘ziboy", "kurs_puli": 350 },
+    { "id": 21, "sinf": "11-sinf", "fullname": "Azimboyeva Nilufar", "kurs_puli": 350 },
+    { "id": 23, "sinf": "11-sinf", "fullname": "Sayfullayev Ozodbek", "kurs_puli": 350 }
+  ]
+  

@@ -30,6 +30,10 @@ export class CentersService {
         // Return empty array instead of throwing error to allow Telegram management to work
         return [];
       }
+      // If their center is inactive, treat as no access
+      if ((user.center as any).isActive === false) {
+        return [];
+      }
       return [user.center];
     } else {
       throw new ForbiddenException(
@@ -72,7 +76,26 @@ export class CentersService {
       throw new ForbiddenException('Faqat superadmin tahrirlaydi');
     }
     await this.findOne(id, user);
-    await this.centerRepo.update(id, dto);
+    const allowed: Partial<Center> = {};
+    if (typeof (dto as any).name === 'string') allowed.name = (dto as any).name;
+    if (typeof (dto as any).description === 'string')
+      allowed.description = (dto as any).description;
+    if (typeof (dto as any).address === 'string')
+      allowed.address = (dto as any).address;
+    if (typeof (dto as any).phone === 'string') allowed.phone = (dto as any).phone;
+    if (typeof (dto as any).isActive === 'boolean')
+      allowed.isActive = (dto as any).isActive;
+
+    await this.centerRepo.update(id, allowed);
+    return this.findOne(id, user);
+  }
+
+  async updateStatus(id: number, isActive: boolean, user: User): Promise<Center> {
+    if (user.role !== UserRole.SUPERADMIN) {
+      throw new ForbiddenException('Faqat superadmin markaz holatini o‘zgartiradi');
+    }
+    await this.findOne(id, user);
+    await this.centerRepo.update(id, { isActive });
     return this.findOne(id, user);
   }
 

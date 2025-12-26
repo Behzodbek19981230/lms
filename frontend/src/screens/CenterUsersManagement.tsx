@@ -37,6 +37,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { PERMISSION_LABELS, type CenterPermissionKey } from '@/configs/permissions';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { getApiErrorMessage } from '@/utils/api-error';
 
 interface User {
 	id: number;
@@ -56,6 +58,7 @@ interface User {
 interface Center {
 	id: number;
 	name: string;
+	isActive: boolean;
 	description?: string;
 	phone?: string;
 	address?: string;
@@ -72,6 +75,12 @@ const CenterUsersManagement = () => {
 	const [expandedCenters, setExpandedCenters] = useState<Set<number>>(new Set());
 	const [showUnassigned, setShowUnassigned] = useState(false);
 	const [savingPermissions, setSavingPermissions] = useState<Record<number, boolean>>({});
+	const [editCenterOpen, setEditCenterOpen] = useState(false);
+	const [editCenter, setEditCenter] = useState<Partial<Center> | null>(null);
+	const [importOpen, setImportOpen] = useState(false);
+	const [importCenter, setImportCenter] = useState<Center | null>(null);
+	const [importFile, setImportFile] = useState<File | null>(null);
+	const [importLoading, setImportLoading] = useState(false);
 	const { toast } = useToast();
 
 	const loadCentersWithUsers = async () => {
@@ -208,6 +217,98 @@ const CenterUsersManagement = () => {
 		}
 	};
 
+	const updateCenterStatus = async (centerId: number, isActive: boolean) => {
+		try {
+			await request.patch(`/centers/${centerId}/status`, { isActive });
+			setCenters((prev) => prev.map((c) => (c.id === centerId ? { ...c, isActive } : c)));
+			toast({
+				title: 'Saqlandi',
+				description: isActive ? 'Markaz faol qilindi' : 'Markaz nofaol qilindi',
+			});
+		} catch (e: any) {
+			toast({
+				title: 'Xato',
+				description: e?.response?.data?.message || 'Markaz holatini o‘zgartirib bo‘lmadi',
+				variant: 'destructive',
+			});
+		}
+	};
+
+	const saveCenterEdits = async () => {
+		if (!editCenter?.id) return;
+		try {
+			await request.patch(`/centers/${editCenter.id}`, {
+				name: editCenter.name,
+				description: editCenter.description,
+				phone: editCenter.phone,
+				address: editCenter.address,
+			});
+			setEditCenterOpen(false);
+			setEditCenter(null);
+			toast({ title: 'Saqlandi', description: 'Markaz ma’lumotlari yangilandi' });
+			loadCentersWithUsers();
+		} catch (e: any) {
+			toast({
+				title: 'Xato',
+				description: e?.response?.data?.message || 'Markazni tahrirlab bo‘lmadi',
+				variant: 'destructive',
+			});
+		}
+	};
+
+	const downloadImportTemplate = async () => {
+		try {
+			const res = await request.get('/centers/import/template', { responseType: 'blob' as any });
+			const url = URL.createObjectURL(res.data);
+			const a = document.createElement('a');
+			a.href = url;
+			a.download = 'center-import-template.xlsx';
+			document.body.appendChild(a);
+			a.click();
+			a.remove();
+			URL.revokeObjectURL(url);
+		} catch (e: any) {
+			toast({
+				title: 'Xato',
+				description: getApiErrorMessage(e) || 'Template yuklab bo‘lmadi',
+				variant: 'destructive',
+			});
+		}
+	};
+
+	const uploadExcelImport = async () => {
+		if (!importCenter?.id) return;
+		if (!importFile) {
+			toast({ title: 'Xato', description: 'Excel fayl tanlang', variant: 'destructive' });
+			return;
+		}
+		try {
+			setImportLoading(true);
+			const fd = new FormData();
+			fd.append('file', importFile);
+			const { data } = await request.post(`/centers/${importCenter.id}/import/excel`, fd, {
+				headers: { 'Content-Type': 'multipart/form-data' },
+			});
+			toast({ title: 'Import tugadi', description: "Ma'lumotlar yuklandi" });
+			setImportOpen(false);
+			setImportFile(null);
+			setImportCenter(null);
+			loadCentersWithUsers();
+			console.log('Import result:', data);
+		} catch (e: any) {
+			toast({
+				title: 'Import xatoligi',
+				description: getApiErrorMessage(e) || "Importni bajarib bo'lmadi",
+				variant: 'destructive',
+			});
+			if (e?.response?.data?.errors) {
+				console.log('Import errors:', e.response.data.errors);
+			}
+		} finally {
+			setImportLoading(false);
+		}
+	};
+
 	const totalUsers = centers.reduce((sum, center) => sum + center.users.length, 0) + unassignedUsers.length;
 	const totalStudents =
 		centers.reduce((sum, center) => sum + center.users.filter((u) => u.role === 'student').length, 0) +
@@ -237,6 +338,14 @@ const CenterUsersManagement = () => {
 			<Badge className='bg-green-100 text-green-800'>Faol</Badge>
 		) : (
 			<Badge className='bg-red-100 text-red-800'>Nofaol</Badge>
+		);
+	};
+
+	const getCenterStatusBadge = (isActive: boolean) => {
+		return isActive ? (
+			<Badge className='bg-green-100 text-green-800'>Markaz: Faol</Badge>
+		) : (
+			<Badge className='bg-red-100 text-red-800'>Markaz: Nofaol</Badge>
 		);
 	};
 
@@ -285,6 +394,91 @@ const CenterUsersManagement = () => {
 
 	return (
 		<div className='min-h-screen bg-gradient-subtle'>
+			<Dialog
+				open={editCenterOpen}
+				onOpenChange={(v) => {
+					setEditCenterOpen(v);
+					if (!v) setEditCenter(null);
+				}}
+			>
+				<DialogContent>
+					<DialogHeader>
+						<DialogTitle>Markazni tahrirlash</DialogTitle>
+					</DialogHeader>
+					<div className='space-y-3'>
+						<div>
+							<Label>Nom</Label>
+							<Input
+								value={editCenter?.name || ''}
+								onChange={(e) => setEditCenter((p) => ({ ...(p || {}), name: e.target.value }))}
+							/>
+						</div>
+						<div>
+							<Label>Tavsif</Label>
+							<Input
+								value={editCenter?.description || ''}
+								onChange={(e) =>
+									setEditCenter((p) => ({ ...(p || {}), description: e.target.value }))
+								}
+							/>
+						</div>
+						<div>
+							<Label>Telefon</Label>
+							<Input
+								value={editCenter?.phone || ''}
+								onChange={(e) => setEditCenter((p) => ({ ...(p || {}), phone: e.target.value }))}
+							/>
+						</div>
+						<div>
+							<Label>Manzil</Label>
+							<Input
+								value={editCenter?.address || ''}
+								onChange={(e) => setEditCenter((p) => ({ ...(p || {}), address: e.target.value }))}
+							/>
+						</div>
+						<Button onClick={saveCenterEdits}>Saqlash</Button>
+					</div>
+				</DialogContent>
+			</Dialog>
+
+			<Dialog
+				open={importOpen}
+				onOpenChange={(v) => {
+					setImportOpen(v);
+					if (!v) {
+						setImportCenter(null);
+						setImportFile(null);
+					}
+				}}
+			>
+				<DialogContent>
+					<DialogHeader>
+						<DialogTitle>Excel import</DialogTitle>
+					</DialogHeader>
+					<div className='space-y-3'>
+						<p className='text-sm text-muted-foreground'>
+							Markaz: <span className='font-medium text-foreground'>{importCenter?.name}</span>
+						</p>
+						<div className='flex gap-2'>
+							<Button variant='outline' onClick={downloadImportTemplate}>
+								Template yuklab olish
+							</Button>
+						</div>
+						<div className='space-y-2'>
+							<Label>Excel fayl (.xlsx)</Label>
+							<input
+								type='file'
+								accept='.xlsx,.xls'
+								onChange={(e) => setImportFile(e.target.files?.[0] || null)}
+							/>
+						</div>
+						<Button disabled={importLoading} onClick={uploadExcelImport}>
+							{importLoading ? 'Yuklanmoqda...' : 'Import qilish'}
+						</Button>
+					</div>
+				</DialogContent>
+			</Dialog>
+
 			{/* Header */}
 			<header className='bg-card border-b border-border p-3 sm:p-4 md:p-6'>
 				<div className='flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-4'>
@@ -542,6 +736,7 @@ const CenterUsersManagement = () => {
 												</div>
 											</div>
 											<div className='flex items-center space-x-4'>
+												{getCenterStatusBadge(center.isActive)}
 												<div className='flex space-x-2'>
 													<Badge variant='outline'>
 														{center.users.filter((u) => u.role === 'student').length} talaba
@@ -554,6 +749,40 @@ const CenterUsersManagement = () => {
 														{center.users.filter((u) => u.role === 'admin').length} admin
 													</Badge>
 												</div>
+												<DropdownMenu>
+													<DropdownMenuTrigger asChild>
+														<Button
+															variant='ghost'
+															size='sm'
+															onClick={(e) => e.stopPropagation()}
+														>
+															<MoreHorizontal className='h-4 w-4' />
+														</Button>
+													</DropdownMenuTrigger>
+													<DropdownMenuContent align='end' onClick={(e) => e.stopPropagation()}>
+														<DropdownMenuItem
+															onClick={() => {
+																setEditCenter(center);
+																setEditCenterOpen(true);
+															}}
+														>
+															Tahrirlash
+														</DropdownMenuItem>
+														<DropdownMenuItem
+															onClick={() => updateCenterStatus(center.id, !center.isActive)}
+														>
+															{center.isActive ? 'Nofaol qilish' : 'Faol qilish'}
+														</DropdownMenuItem>
+														<DropdownMenuItem
+															onClick={() => {
+																setImportCenter(center);
+																setImportOpen(true);
+															}}
+														>
+															Excel import
+														</DropdownMenuItem>
+													</DropdownMenuContent>
+												</DropdownMenu>
 												{expandedCenters.has(center.id) ? (
 													<ChevronUp className='h-4 w-4' />
 												) : (

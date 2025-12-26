@@ -42,6 +42,7 @@ export class AuthService {
       ? {
           id: userData.center.id,
           name: userData.center.name,
+          isActive: (userData.center as any).isActive ?? true,
           permissions: getEffectiveCenterPermissions(
             (userData.center as any).permissions,
           ),
@@ -124,6 +125,10 @@ export class AuthService {
       throw new BadRequestException("Foydalanuvchi nomi yoki parol noto'g'ri");
     }
 
+    if (user.center && (user.center as any).isActive === false) {
+      throw new BadRequestException("Markaz nofaol. Superadmin bilan bog'laning");
+    }
+
     user.lastLoginAt = new Date();
     await this.userRepository.save(user);
 
@@ -151,6 +156,10 @@ export class AuthService {
 
     if (!user || !user.isActive) {
       throw new UnauthorizedException('Foydalanuvchi topilmadi yoki faol emas');
+    }
+
+    if (user.center && (user.center as any).isActive === false) {
+      throw new UnauthorizedException("Markaz nofaol. Superadmin bilan bog'laning");
     }
 
     return user;

@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import { UserType } from '@/types/user.type';
 import { request } from '@/configs/request';
+import { getApiErrorMessage } from '@/utils/api-error';
 
 interface AuthContextType {
 	user: UserType | null;
@@ -81,7 +82,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 				setIsLoading(false);
 				return data.user as UserType;
 			} catch (err) {
-				return null;
+				const msg = getApiErrorMessage(err) || "Login xatoligi";
+				setIsLoading(false);
+				throw new Error(msg);
 			}
 		}
 
