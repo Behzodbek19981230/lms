@@ -12,7 +12,12 @@ import {
   HttpCode,
 } from '@nestjs/common';
 import { PaymentsService } from './payments.service';
-import { CreatePaymentDto, UpdatePaymentDto, CreateMonthlyPaymentsDto, SendPaymentRemindersDto } from './dto/payment.dto';
+import {
+  CreatePaymentDto,
+  UpdatePaymentDto,
+  CreateMonthlyPaymentsDto,
+  SendPaymentRemindersDto,
+} from './dto/payment.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -54,7 +59,7 @@ export class PaymentsController {
     if (req.user.role === UserRole.TEACHER) {
       return this.paymentsService.getTeacherStats(req.user.id);
     }
-    const centerId = req.user?.center?.id;
+    const centerId = req.user?.center?.id as number;
     if (!centerId) {
       return {
         totalPending: 0,
@@ -117,7 +122,7 @@ export class PaymentsController {
   async update(
     @Param('id') id: string,
     @Body() updatePaymentDto: UpdatePaymentDto,
-    @Request() req
+    @Request() req,
   ) {
     return this.paymentsService.update(+id, updatePaymentDto, req.user.id);
   }
@@ -145,9 +150,12 @@ export class PaymentsController {
   @RequireCenterPermissions(CenterPermissionKey.PAYMENTS)
   async createMonthlyPayments(
     @Body() createMonthlyPaymentsDto: CreateMonthlyPaymentsDto,
-    @Request() req
+    @Request() req,
   ) {
-    return this.paymentsService.createMonthlyPayments(createMonthlyPaymentsDto, req.user.id);
+    return this.paymentsService.createMonthlyPayments(
+      createMonthlyPaymentsDto,
+      req.user.id,
+    );
   }
 
   // Send payment reminders
@@ -156,9 +164,12 @@ export class PaymentsController {
   @RequireCenterPermissions(CenterPermissionKey.PAYMENTS)
   async sendReminders(
     @Body() sendRemindersDto: SendPaymentRemindersDto,
-    @Request() req
+    @Request() req,
   ) {
-    await this.paymentsService.sendReminders(sendRemindersDto.paymentIds, req.user.id);
+    await this.paymentsService.sendReminders(
+      sendRemindersDto.paymentIds,
+      req.user.id,
+    );
     return { message: 'Reminders sent successfully' };
   }
 }
