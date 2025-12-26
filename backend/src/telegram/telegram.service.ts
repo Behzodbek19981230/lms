@@ -4,6 +4,7 @@ import { Repository, IsNull, MoreThanOrEqual, Not } from 'typeorm';
 import TelegramBot, { User as TelegramUser } from 'node-telegram-bot-api';
 import { ConfigService } from '@nestjs/config';
 import { LogsService } from '../logs/logs.service';
+import { randomBytes } from 'crypto';
 import {
   TelegramChat,
   ChatType,
@@ -26,6 +27,7 @@ import { Question } from '../questions/entities/question.entity';
 import { Answer } from '../questions/entities/answer.entity';
 import { Exam } from '../exams/entities/exam.entity';
 import { Group } from '../groups/entities/group.entity';
+import { TelegramLinkToken } from './entities/telegram-link-token.entity';
 import {
   AuthenticateUserDto,
   CreateTelegramChatDto,
@@ -184,6 +186,8 @@ export class TelegramService {
     private examRepo: Repository<Exam>,
     @InjectRepository(Group)
     private groupRepo: Repository<Group>,
+    @InjectRepository(TelegramLinkToken)
+    private telegramLinkTokenRepo: Repository<TelegramLinkToken>,
     private configService: ConfigService,
     private readonly logsService: LogsService,
   ) {
@@ -569,6 +573,21 @@ export class TelegramService {
       // Payload format: g_<groupId>_<token>
       if (startPayload) {
         const trimmed = startPayload.trim();
+        // User-specific connect link (from LMS): u_<userId>_<token>
+        const userLink = trimmed.match(/^u_(\d+)_([A-Za-z0-9_-]{8,})$/);
+        if (userLink) {
+          const userId = parseInt(userLink[1], 10);
+          const token = userLink[2];
+          return await this.authenticateAndConnectUserForUserToken({
+            telegramUserId,
+            username,
+            firstName,
+            lastName,
+            userId,
+            token,
+          });
+        }
+
         const match = trimmed.match(/^g_(\d+)_([A-Za-z0-9_-]{8,})$/);
         if (match) {
           const groupId = parseInt(match[1], 10);
@@ -655,67 +674,32 @@ export class TelegramService {
           'TelegramService',
         );
       } else {
-        try {
-          // Create a temporary user - this code seems wrong, fixing it
-          linkedUser = await this.userRepo.save(
-            this.userRepo.create({
-              username: `telegram_${telegramUserId}`,
-              firstName: firstName || 'Telegram',
-              lastName: lastName || 'User',
-              password: 'temp_password_' + Math.random().toString(36),
-              role: UserRole.STUDENT,
-              isActive: true,
-            }),
-          );
+        // Create chat without user link for manual processing later
+        const chatData = {
+          chatId: telegramUserId,
+          type: ChatType.PRIVATE,
+          telegramUserId,
+          telegramUsername: username,
+          firstName,
+          lastName,
+          status: ChatStatus.PENDING,
+        };
 
-          await this.logsService.log(
-            `Created temporary user ${linkedUser.id} for Telegram user ${telegramUserId}`,
-            'TelegramService',
-          );
-        } catch (error) {
-          let stack: string | undefined = undefined;
-          if (
-            typeof error === 'object' &&
-            error !== null &&
-            'stack' in error &&
-            typeof error.stack === 'string'
-          ) {
-            stack = error.stack;
-          }
-          await this.logsService.error(
-            `Failed to create temporary user: ${error.message}`,
-            stack,
-            'TelegramService',
-          );
-          // Fallback - create chat without user link for manual processing later
-          const chatData = {
-            chatId: telegramUserId,
-            type: ChatType.PRIVATE,
-            telegramUserId,
-            telegramUsername: username,
-            firstName,
-            lastName,
-            status: ChatStatus.ACTIVE,
-          };
-
-          let chat: TelegramChat;
-          if (existingChat) {
-            Object.assign(existingChat, chatData);
-            chat = await this.telegramChatRepo.save(existingChat);
-          } else {
-            // eslint-disable-next-line @typescript-eslint/no-unused-vars
-            chat = await this.telegramChatRepo.save(
-              this.telegramChatRepo.create(chatData),
-            );
-          }
-
-          return {
-            success: true,
-            message: `Salom ${firstName || 'Telegram foydalanuvchisi'}! Hisobingiz yaratilmoqda. Tez orada barcha funksiyalar mavjud bo'ladi.`,
-            userId: undefined,
-            autoConnected: false,
-          };
+        if (existingChat) {
+          Object.assign(existingChat, chatData);
+          await this.telegramChatRepo.save(existingChat);
+        } else {
+          await this.telegramChatRepo.save(this.telegramChatRepo.create(chatData));
         }
+
+        return {
+          success: true,
+          message:
+            `Salom ${firstName || 'Telegram foydalanuvchisi'}! LMS hisobingiz avtomatik topilmadi.\n\n` +
+            `✅ LMS’dan "Telegramga ulash" tugmasini bosib botni qayta /start qiling (deep-link orqali), yoki admin hisobingizni qo'lda ulasin.`,
+          userId: undefined,
+          autoConnected: false,
+        };
       }
 
       // Create or update chat with linked user
@@ -733,6 +717,16 @@ export class TelegramService {
 
       chat.user = linkedUser;
       await this.telegramChatRepo.save(chat);
+
+      // Also mark user row as connected (used by /users/me/telegram-status)
+      try {
+        if (linkedUser) {
+          await this.userRepo.update(
+            { id: linkedUser.id } as any,
+            { telegramConnected: true, telegramId: telegramUserId as any } as any,
+          );
+        }
+      } catch {}
 
       // Automatically send invitations to relevant channels
       await this.sendUserChannelsAndInvitation(linkedUser.id);
@@ -793,6 +787,146 @@ export class TelegramService {
         autoConnected: false,
       };
     }
+  }
+
+  private async authenticateAndConnectUserForUserToken({
+    telegramUserId,
+    username,
+    firstName,
+    lastName,
+    userId,
+    token,
+  }: {
+    telegramUserId: string;
+    username?: string;
+    firstName?: string;
+    lastName?: string;
+    userId: number;
+    token: string;
+  }): Promise<{
+    success: boolean;
+    message: string;
+    userId?: number;
+    autoConnected?: boolean;
+  }> {
+    // Validate token
+    const linkToken = await this.telegramLinkTokenRepo.findOne({
+      where: { token, user: { id: userId } as any } as any,
+      relations: ['user', 'user.center', 'user.subjects'],
+    });
+    if (!linkToken) {
+      return {
+        success: false,
+        message: "Ulanish tokeni topilmadi. LMS’dan qayta urinib ko'ring.",
+        autoConnected: false,
+      };
+    }
+    if (linkToken.usedAt) {
+      return {
+        success: false,
+        message: "Bu ulanishingiz allaqachon ishlatilgan. LMS’dan qayta link oling.",
+        autoConnected: false,
+      };
+    }
+    if (linkToken.expiresAt && linkToken.expiresAt.getTime() < Date.now()) {
+      return {
+        success: false,
+        message: "Ulanish linki eskirgan. LMS’dan qayta link oling.",
+        autoConnected: false,
+      };
+    }
+
+    const user = linkToken.user;
+    if (!user || !user.isActive) {
+      return {
+        success: false,
+        message: "LMS foydalanuvchisi topilmadi yoki faol emas.",
+        autoConnected: false,
+      };
+    }
+
+    // If this telegram user already linked to someone else, block
+    const existingChat = await this.telegramChatRepo.findOne({
+      where: { telegramUserId },
+      relations: ['user'],
+    });
+    if (existingChat?.user && existingChat.user.id !== user.id) {
+      return {
+        success: false,
+        message: "Bu Telegram hisobi boshqa LMS foydalanuvchiga ulangan.",
+        autoConnected: false,
+      };
+    }
+
+    const chat =
+      existingChat ||
+      this.telegramChatRepo.create({
+        chatId: telegramUserId,
+        type: ChatType.PRIVATE,
+        telegramUserId,
+      });
+
+    chat.telegramUsername = (username as any) || null;
+    chat.firstName = (firstName as any) || null;
+    chat.lastName = (lastName as any) || null;
+    chat.status = ChatStatus.ACTIVE;
+    chat.user = user;
+    await this.telegramChatRepo.save(chat);
+
+    // mark token used and mark user connected
+    linkToken.usedAt = new Date();
+    linkToken.usedTelegramUserId = telegramUserId;
+    await this.telegramLinkTokenRepo.save(linkToken);
+
+    await this.userRepo.update(
+      { id: user.id } as any,
+      { telegramConnected: true, telegramId: telegramUserId as any } as any,
+    );
+
+    // Send channels
+    await this.sendUserChannelsAndInvitation(user.id);
+
+    return {
+      success: true,
+      message: `✅ Hisobingiz muvaffaqiyatli ulandi: ${user.firstName} ${user.lastName}`,
+      userId: user.id,
+      autoConnected: true,
+    };
+  }
+
+  async createUserConnectLink(userId: number): Promise<{
+    botUsername?: string;
+    startPayload: string;
+    deepLink: string;
+    expiresAt: Date;
+  }> {
+    if (!this.bot) {
+      throw new BadRequestException('Telegram bot sozlanmagan');
+    }
+    const user = await this.userRepo.findOne({ where: { id: userId } });
+    if (!user) throw new BadRequestException('Foydalanuvchi topilmadi');
+
+    const token = randomBytes(18).toString('base64url');
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 min
+    const entity = this.telegramLinkTokenRepo.create({
+      token,
+      user,
+      expiresAt,
+      usedAt: null,
+      usedTelegramUserId: null,
+    } as any);
+    await this.telegramLinkTokenRepo.save(entity);
+
+    const botInfo = await this.bot.getMe();
+    const startPayload = `u_${userId}_${token}`;
+    const deepLink = `https://t.me/${botInfo.username}?start=${startPayload}`;
+
+    return {
+      botUsername: botInfo.username,
+      startPayload,
+      deepLink,
+      expiresAt,
+    };
   }
 
   private async authenticateAndConnectUserForGroup({

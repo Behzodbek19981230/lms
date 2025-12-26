@@ -144,6 +144,15 @@ export class TelegramController {
     return this.telegramService.getUserTelegramStatus(req.user.id);
   }
 
+  @Post('connect-link')
+  @UseGuards(JwtAuthGuard)
+  @RequireCenterPermissions(CenterPermissionKey.TELEGRAM_INTEGRATION)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Generate a user-specific Telegram bot deep link to auto-connect' })
+  async createConnectLink(@Request() req) {
+    return this.telegramService.createUserConnectLink(req.user.id);
+  }
+
   @Post('authenticate')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()

@@ -166,6 +166,19 @@ const TeacherPayments: React.FC = () => {
 		}
 	};
 
+	const handleEditAmount = async (paymentId: string, amount: number) => {
+		try {
+			const response = await paymentService.updatePayment(paymentId, { amount });
+			if (response.success) {
+				toast.success("To'lov miqdori yangilandi");
+				fetchData();
+			}
+		} catch (error) {
+			console.error('Error updating payment amount:', error);
+			toast.error("To'lov miqdorini yangilashda xatolik yuz berdi");
+		}
+	};
+
 	const formatAmount = (amount: number) => {
 		return new Intl.NumberFormat('uz-UZ', {
 			style: 'currency',
@@ -335,6 +348,7 @@ const TeacherPayments: React.FC = () => {
 								onMarkPaid={handleMarkPaid}
 								onSendReminder={handleSendReminder}
 								onDelete={handleDeletePayment}
+								onEditAmount={handleEditAmount}
 								role={user?.role === 'teacher' ? 'teacher' : 'center_admin'}
 							/>
 						</TabsContent>

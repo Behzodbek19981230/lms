@@ -926,24 +926,6 @@ const TelegramManagement: React.FC = () => {
 											)}
 										</div>
 									)}
-									{chat.type === 'channel' && tests.length > 0 && (
-										<div className='pt-2 space-y-2'>
-											<hr />
-											<p className='text-xs md:text-sm font-medium'>Tezkor amallar:</p>
-											{tests.slice(0, 2).map((test) => (
-												<Button
-													key={test.id}
-													size='sm'
-													variant='outline'
-													className='w-full text-xs md:text-sm'
-													onClick={() => handlePublishResults(test.id, chat.chatId)}
-													disabled={loading}
-												>
-													Natijalarni e'lon qilish: {test.title}
-												</Button>
-											))}
-										</div>
-									)}
 								</div>
 							))}
 						</div>

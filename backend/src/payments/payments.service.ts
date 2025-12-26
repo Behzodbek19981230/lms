@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, MoreThan, LessThan, In } from 'typeorm';
 import { Payment, PaymentStatus } from './payment.entity';
@@ -127,12 +127,38 @@ export class PaymentsService {
   }
 
   // Update payment
-  async update(id: number, updatePaymentDto: UpdatePaymentDto, userId: number): Promise<Payment> {
+  async update(
+    id: number,
+    updatePaymentDto: UpdatePaymentDto,
+    user: User,
+  ): Promise<Payment> {
     const payment = await this.findOne(id);
 
-    // Only teacher who created the payment can update it
-    if (payment.teacherId !== userId) {
-      throw new BadRequestException('You can only update your own payments');
+    // Disallow editing paid payments (amount/dueDate/etc)
+    if (payment.status === PaymentStatus.PAID) {
+      throw new BadRequestException("To'langan to'lovni o'zgartirib bo'lmaydi");
+    }
+
+    // Permission rules:
+    // - Teacher: can update only own payment
+    // - Admin: can update payments within their center
+    // - Superadmin: can update any
+    if (user.role === UserRole.TEACHER) {
+      if (payment.teacherId !== user.id) {
+        throw new BadRequestException('You can only update your own payments');
+      }
+    } else if (user.role === UserRole.ADMIN) {
+      const centerId = user.center?.id;
+      if (!centerId) throw new ForbiddenException('Markaz biriktirilmagan');
+      const group = await this.groupRepository.findOne({
+        where: { id: payment.groupId },
+        relations: ['center'],
+      });
+      if (!group?.center?.id || group.center.id !== centerId) {
+        throw new ForbiddenException("Faqat o'z markazingiz to'lovlari");
+      }
+    } else if (user.role !== UserRole.SUPERADMIN) {
+      throw new ForbiddenException("Ruxsat yo'q");
     }
 
     if (updatePaymentDto.dueDate) {

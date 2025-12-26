@@ -117,14 +117,14 @@ export class PaymentsController {
 
   // Update payment (teacher only)
   @Patch(':id')
-  @Roles(UserRole.TEACHER)
+  @Roles(UserRole.TEACHER, UserRole.ADMIN, UserRole.SUPERADMIN)
   @RequireCenterPermissions(CenterPermissionKey.PAYMENTS)
   async update(
     @Param('id') id: string,
     @Body() updatePaymentDto: UpdatePaymentDto,
     @Request() req,
   ) {
-    return this.paymentsService.update(+id, updatePaymentDto, req.user.id);
+    return this.paymentsService.update(+id, updatePaymentDto, req.user);
   }
 
   // Mark payment as paid (teacher only)

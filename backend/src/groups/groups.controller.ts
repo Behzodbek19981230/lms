@@ -41,10 +41,7 @@ export class GroupsController {
   }
 
   @Get(':groupId/students')
-  async getStudents(
-    @Param('groupId') groupId: string,
-    @Request() req,
-  ) {
+  async getStudents(@Param('groupId') groupId: string, @Request() req) {
     return this.groupsService.getStudents(Number(groupId), req.user.id);
   }
 

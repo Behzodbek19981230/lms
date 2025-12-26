@@ -14,6 +14,7 @@ import { TelegramChat } from './entities/telegram-chat.entity';
 import { TelegramAnswer } from './entities/telegram-answer.entity';
 import { TelegramMessageLog } from './entities/telegram-message-log.entity';
 import { PendingPdf } from './entities/pending-pdf.entity';
+import { TelegramLinkToken } from './entities/telegram-link-token.entity';
 import { User } from '../users/entities/user.entity';
 import { Center } from '../centers/entities/center.entity';
 import { Subject } from '../subjects/entities/subject.entity';
@@ -33,6 +34,7 @@ import { LogsModule } from '../logs/logs.module';
       TelegramAnswer,
       TelegramMessageLog,
       PendingPdf,
+      TelegramLinkToken,
       User,
       Center,
       Subject,

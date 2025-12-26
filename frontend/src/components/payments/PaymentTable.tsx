@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Table,
   TableBody,
@@ -15,16 +15,20 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '../ui/dropdown-menu';
-import { MoreHorizontal, Check, X, Send } from 'lucide-react';
+import { MoreHorizontal, Check, X, Send, Pencil } from 'lucide-react';
 import { Payment, PaymentStatus } from '../../types/payment';
 import { format } from 'date-fns';
 import { uz } from 'date-fns/locale';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog';
+import { Input } from '../ui/input';
+import { Label } from '../ui/label';
 
 interface PaymentTableProps {
   payments: Payment[];
   onMarkPaid: (paymentId: string) => void;
   onSendReminder: (paymentId: string) => void;
   onDelete?: (paymentId: string) => void;
+  onEditAmount?: (paymentId: string, amount: number) => void;
   showActions?: boolean;
   role?: 'teacher' | 'student' | 'center_admin';
 }
@@ -34,9 +38,14 @@ const PaymentTable: React.FC<PaymentTableProps> = ({
   onMarkPaid,
   onSendReminder,
   onDelete,
+  onEditAmount,
   showActions = true,
   role = 'teacher'
 }) => {
+  const [editOpen, setEditOpen] = useState(false);
+  const [editPaymentId, setEditPaymentId] = useState<string | null>(null);
+  const [editAmount, setEditAmount] = useState<string>('');
+
   const formatAmount = (amount: number) => {
     return new Intl.NumberFormat('uz-UZ', {
       style: 'currency',
@@ -62,6 +71,44 @@ const PaymentTable: React.FC<PaymentTableProps> = ({
 
   return (
     <div className="rounded-md border">
+      <Dialog
+        open={editOpen}
+        onOpenChange={(v) => {
+          setEditOpen(v);
+          if (!v) {
+            setEditPaymentId(null);
+            setEditAmount('');
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>To'lov miqdorini o'zgartirish</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <Label>Yangi miqdor (UZS)</Label>
+              <Input
+                inputMode="numeric"
+                value={editAmount}
+                onChange={(e) => setEditAmount(e.target.value)}
+                placeholder="300000"
+              />
+            </div>
+            <Button
+              onClick={() => {
+                if (!onEditAmount || !editPaymentId) return;
+                const n = Number(String(editAmount).replace(/[^\d]/g, ''));
+                if (!Number.isFinite(n) || n <= 0) return;
+                onEditAmount(editPaymentId, n);
+                setEditOpen(false);
+              }}
+            >
+              Saqlash
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
       <Table>
         <TableHeader>
           <TableRow>
@@ -121,6 +168,18 @@ const PaymentTable: React.FC<PaymentTableProps> = ({
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
+                        {onEditAmount && role !== 'student' && payment.status !== PaymentStatus.PAID && (
+                          <DropdownMenuItem
+                            onClick={() => {
+                              setEditPaymentId(payment.id);
+                              setEditAmount(String(payment.amount));
+                              setEditOpen(true);
+                            }}
+                          >
+                            <Pencil className="mr-2 h-4 w-4" />
+                            Miqdorni o'zgartirish
+                          </DropdownMenuItem>
+                        )}
                         {payment.status !== PaymentStatus.PAID && role === 'teacher' && (
                           <DropdownMenuItem onClick={() => onMarkPaid(payment.id)}>
                             <Check className="mr-2 h-4 w-4" />

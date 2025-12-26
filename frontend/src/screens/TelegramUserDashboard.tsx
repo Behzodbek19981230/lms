@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { request } from '@/configs/request';
 import TelegramAuthButton from '@/components/TelegramAuthButton';
+import { getApiErrorMessage } from '@/utils/api-error';
 
 interface TelegramChat {
   id: number;
@@ -30,6 +31,7 @@ const TelegramUserDashboard: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [registering, setRegistering] = useState(false);
   const [connectingToChannel, setConnectingToChannel] = useState<string | null>(null);
+  const [connectingBot, setConnectingBot] = useState(false);
 
   const fetchTelegramStatus = async () => {
     try {
@@ -64,6 +66,34 @@ const TelegramUserDashboard: React.FC = () => {
       description: error,
       variant: 'destructive',
     });
+  };
+
+  const handleOpenBotConnectLink = async () => {
+    try {
+      setConnectingBot(true);
+      const { data } = await request.post('/telegram/connect-link');
+      if (data?.deepLink) {
+        window.open(data.deepLink, '_blank');
+        toast({
+          title: 'Bot ochildi',
+          description: 'Telegramda botni /start qiling. So‘ng bu sahifada "Yangilash" bosing.',
+        });
+      } else {
+        toast({
+          title: 'Xato',
+          description: "Deep-link topilmadi",
+          variant: 'destructive',
+        });
+      }
+    } catch (e: any) {
+      toast({
+        title: 'Xato',
+        description: getApiErrorMessage(e) || 'Botga ulanish havolasini olib bo‘lmadi',
+        variant: 'destructive',
+      });
+    } finally {
+      setConnectingBot(false);
+    }
   };
 
   const handleJoinChannel = async (channel: TelegramChat) => {
@@ -227,6 +257,18 @@ const TelegramUserDashboard: React.FC = () => {
               <p className="text-gray-600">
                 Test xabarnomalari olish va Telegramda to'g'ridan-to'g'ri javob berish uchun Telegram hisobingizni avtomatik ulang.
               </p>
+              <div className="space-y-2">
+                <Button
+                  onClick={handleOpenBotConnectLink}
+                  disabled={connectingBot}
+                  className="w-full sm:w-auto"
+                >
+                  {connectingBot ? 'Tayyorlanmoqda...' : 'Botga ulanish (avto)'}
+                </Button>
+                <p className="text-sm text-gray-600">
+                  Tugmani bosing → Telegram bot ochiladi → <code className="bg-gray-100 px-1 rounded">/start</code> → keyin bu yerda <b>Yangilash</b>.
+                </p>
+              </div>
               {/* Enhanced authentication with auto-connect */}
               <TelegramAuthButton
                 onSuccess={handleAuthSuccess}

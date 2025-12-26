@@ -7,6 +7,7 @@ import { request } from '@/configs/request';
 import { Send, CheckCircle, AlertCircle, ExternalLink, Users, Loader2, Bot, Link } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import TelegramAuthButton from './TelegramAuthButton';
+import { getApiErrorMessage } from '@/utils/api-error';
 
 interface TelegramStatus {
 	autoConnected: boolean;
@@ -33,6 +34,7 @@ const TelegramConnectCard: React.FC = () => {
 	const [status, setStatus] = useState<TelegramStatus | null>(null);
 	const [loading, setLoading] = useState(false);
 	const [connecting, setConnecting] = useState(false);
+	const [connectingBot, setConnectingBot] = useState(false);
 
 	const fetchStatus = async () => {
 		try {
@@ -59,6 +61,28 @@ const TelegramConnectCard: React.FC = () => {
 
 	const handleConnect = () => {
 		router.push('/account/telegram-user');
+	};
+
+	const handleOpenBotConnectLink = async () => {
+		try {
+			setConnectingBot(true);
+			const { data } = await request.post('/telegram/connect-link');
+			if (data?.deepLink) {
+				window.open(data.deepLink, '_blank');
+				toast({
+					title: 'Bot ochildi',
+					description: 'Telegramda botni /start qiling, so‘ng bu sahifada status yangilang.',
+				});
+			}
+		} catch (e: any) {
+			toast({
+				title: 'Xato',
+				description: getApiErrorMessage(e) || 'Botga ulanish havolasini olib bo‘lmadi',
+				variant: 'destructive',
+			});
+		} finally {
+			setConnectingBot(false);
+		}
 	};
 
 	const handleAuthSuccess = () => {
@@ -282,6 +306,25 @@ const TelegramConnectCard: React.FC = () => {
 						</div>
 
 						<div className='space-y-4'>
+							<Button
+								onClick={handleOpenBotConnectLink}
+								disabled={connectingBot}
+								className='w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white shadow-sm hover:shadow-md transition-all duration-300 hover:scale-[1.02]'
+								size='sm'
+							>
+								{connectingBot ? (
+									<>
+										<Loader2 className='h-4 w-4 mr-2 animate-spin' />
+										Tayyorlanmoqda...
+									</>
+								) : (
+									<>
+										<Link className='h-4 w-4 mr-2' />
+										Botga ulanish (avto)
+									</>
+								)}
+							</Button>
+
 							<div className='p-1 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg'>
 								<TelegramAuthButton
 									onSuccess={handleAuthSuccess}
