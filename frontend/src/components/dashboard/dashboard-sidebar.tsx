@@ -31,6 +31,7 @@ import {
 	DollarSign,
 	FileText,
 	Scan,
+	Wand2,
 	ChevronsLeft,
 	ChevronsRight,
 } from 'lucide-react';
@@ -68,6 +69,7 @@ const teacherMenuItems = [
 	{ title: 'Mening guruhlarim', url: '/account/groups', icon: Users2 },
 	{ title: "To'lovlar", url: '/account/payments', icon: DollarSign },
 	{ title: 'Mening fanlarim', url: '/account/subjects', icon: Book },
+	{ title: 'Test generatsiya', url: '/account/test-generator', icon: Wand2 },
 	{ title: 'Yaratilgan testlar', url: '/account/generated-tests', icon: FileText },
 	{ title: 'Skaner', url: '/account/scanner', icon: Scan },
 	{ title: 'Telegram Management', url: '/account/telegram', icon: Send },
