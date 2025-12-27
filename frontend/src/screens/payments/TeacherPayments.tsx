@@ -6,12 +6,13 @@ import { Badge } from '../../components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
 import { Plus, Search, Filter, DollarSign, Users, Clock, AlertTriangle } from 'lucide-react';
-import { Payment, PaymentStats, PaymentStatus, CreatePaymentDto } from '../../types/payment';
+import { BillingLedgerItem, Payment, PaymentStats, PaymentStatus, CreatePaymentDto } from '../../types/payment';
 import { Group } from '../../types/group';
 import { paymentService } from '../../services/payment.service';
 import { groupService } from '../../services/group.service';
 import PaymentTable from '../../components/payments/PaymentTable';
 import CreatePaymentForm from '../../components/payments/CreatePaymentForm';
+import MonthlyBillingTable from '@/components/payments/MonthlyBillingTable';
 import { toast } from 'sonner';
 import PageLoader from '@/components/PageLoader';
 import { useAuth } from '@/contexts/AuthContext';
@@ -25,6 +26,11 @@ const TeacherPayments: React.FC = () => {
 	const [loading, setLoading] = useState(true);
 	const [showCreateForm, setShowCreateForm] = useState(false);
 	const [selectedGroup, setSelectedGroup] = useState<Group | undefined>();
+	const [billingMonth, setBillingMonth] = useState<string>(() => {
+		const d = new Date();
+		return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+	});
+	const [ledger, setLedger] = useState<BillingLedgerItem[]>([]);
 
 	// Filters
 	const [searchTerm, setSearchTerm] = useState('');
@@ -66,12 +72,30 @@ const TeacherPayments: React.FC = () => {
 			} else {
 				setGroups([]);
 			}
+
+			// Billing ledger
+			try {
+				const ledgerRes = await paymentService.getBillingLedger({ month: billingMonth });
+				if (ledgerRes.success && ledgerRes.data) {
+					setLedger(ledgerRes.data);
+				} else {
+					setLedger([]);
+				}
+			} catch {
+				setLedger([]);
+			}
 		} catch (error) {
 			console.error('Error fetching data:', error);
 			toast.error("Ma'lumotlarni yuklashda xatolik yuz berdi");
 		} finally {
 			setLoading(false);
 		}
+	};
+
+	const refreshLedger = async (monthOverride?: string) => {
+		const m = monthOverride || billingMonth;
+		const ledgerRes = await paymentService.getBillingLedger({ month: m });
+		if (ledgerRes.success && ledgerRes.data) setLedger(ledgerRes.data);
 	};
 
 	const applyFilters = () => {
@@ -266,6 +290,82 @@ const TeacherPayments: React.FC = () => {
 					</Card>
 				</div>
 			)}
+
+			{/* Oylik billing jadvali */}
+			<Card className='p-4 sm:p-5'>
+				<div className='flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3'>
+					<div>
+						<CardTitle className='text-lg'>Oylik to‘lovlar</CardTitle>
+						<p className='text-sm text-muted-foreground mt-1'>
+							Student qo‘shilganda avtomatik ko‘rinadi (joinDate default: user yaratilgan sana). Qarzdorliklarni oy bo‘yicha
+							belgilab, qisman to‘lov kiritish mumkin.
+						</p>
+					</div>
+					<div className='flex items-center gap-2'>
+						<span className='text-sm text-muted-foreground'>Oy</span>
+						<Input
+							className='w-[130px]'
+							value={billingMonth}
+							onChange={(e) => setBillingMonth(e.target.value)}
+							placeholder='YYYY-MM'
+						/>
+						<Button
+							size='sm'
+							variant='outline'
+							onClick={async () => {
+								try {
+									await refreshLedger(billingMonth);
+									toast.success('Oylik jadval yangilandi');
+								} catch {
+									toast.error("Yangilashda xatolik");
+								}
+							}}
+						>
+							Yangilash
+						</Button>
+					</div>
+				</div>
+
+				<div className='mt-4'>
+					<MonthlyBillingTable
+						month={billingMonth}
+						ledger={ledger}
+						onSaveProfile={async (studentId, data) => {
+							await paymentService.updateStudentBillingProfile(studentId, data as any);
+							toast.success('Sozlamalar saqlandi');
+							await refreshLedger();
+						}}
+						onCollect={async (data) => {
+							await paymentService.collectMonthlyPayment(data as any);
+							toast.success("To'lov kiritildi");
+							await refreshLedger();
+						}}
+						onUpdateMonthly={async (monthlyPaymentId, data) => {
+							await paymentService.updateMonthlyPayment(monthlyPaymentId, data as any);
+									toast.success("Oylik to'lov yangilandi");
+							await refreshLedger();
+						}}
+						onSettleStudent={async ({ studentId, leaveDate, persist }) => {
+							try {
+								if (persist) {
+									const res = await paymentService.closeStudentSettlement({ studentId, leaveDate });
+									const totalRemaining = res.data?.summary?.totalRemaining ?? 0;
+									toast.success(
+										`Hisoblandi. Qolgan qarzdorlik: ${Number(totalRemaining).toLocaleString('uz-UZ')} UZS`
+									);
+									await refreshLedger();
+									return res.data as any;
+								}
+								const res = await paymentService.previewStudentSettlement({ studentId, leaveDate });
+								return res.data as any;
+							} catch (e: any) {
+								toast.error(e?.message || 'Xatolik yuz berdi');
+								throw e;
+							}
+						}}
+					/>
+				</div>
+			</Card>
 
 			{/* Filters */}
 			<Card>

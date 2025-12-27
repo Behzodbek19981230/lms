@@ -8,12 +8,18 @@ import { Group } from '../groups/entities/group.entity';
 import { NotificationsService } from '../notifications/notifications.service';
 import { TelegramService } from '../telegram/telegram.service';
 import { TelegramNotificationService } from '../telegram/telegram-notification.service';
+import { StudentBillingProfile } from './billing-profile.entity';
+import { MonthlyPayment, MonthlyPaymentStatus } from './monthly-payment.entity';
 
 @Injectable()
 export class PaymentsService {
   constructor(
     @InjectRepository(Payment)
     private paymentRepository: Repository<Payment>,
+    @InjectRepository(StudentBillingProfile)
+    private billingProfileRepository: Repository<StudentBillingProfile>,
+    @InjectRepository(MonthlyPayment)
+    private monthlyPaymentRepository: Repository<MonthlyPayment>,
     @InjectRepository(User)
     private userRepository: Repository<User>,
     @InjectRepository(Group)
@@ -23,6 +29,549 @@ export class PaymentsService {
     private telegramNotificationService: TelegramNotificationService,
   ) {}
 
+  private parseMonthOrThrow(month?: string): Date {
+    // month format: YYYY-MM
+    const m = (month || '').trim();
+    if (!m) {
+      const now = new Date();
+      return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+    }
+    const match = /^(\d{4})-(\d{2})$/.exec(m);
+    if (!match) throw new BadRequestException('month formati noto‘g‘ri (YYYY-MM)');
+    const year = Number(match[1]);
+    const monthIndex = Number(match[2]) - 1;
+    if (!Number.isInteger(year) || !Number.isInteger(monthIndex) || monthIndex < 0 || monthIndex > 11) {
+      throw new BadRequestException('month formati noto‘g‘ri (YYYY-MM)');
+    }
+    return new Date(Date.UTC(year, monthIndex, 1));
+  }
+
+  private clampDayToMonth(year: number, monthIndex: number, day: number): number {
+    const d = Math.max(1, Math.min(31, Math.floor(day)));
+    const lastDay = new Date(Date.UTC(year, monthIndex + 1, 0)).getUTCDate();
+    return Math.min(d, lastDay);
+  }
+
+  private computeDueDateForMonth(billingMonth: Date, dueDay: number): Date {
+    const year = billingMonth.getUTCFullYear();
+    const monthIndex = billingMonth.getUTCMonth();
+    const dd = this.clampDayToMonth(year, monthIndex, dueDay);
+    return new Date(Date.UTC(year, monthIndex, dd));
+  }
+
+  private toUtcDateOnly(date: Date): Date {
+    return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+  }
+
+  private diffDaysInclusiveUtc(a: Date, b: Date): number {
+    const start = Date.UTC(a.getUTCFullYear(), a.getUTCMonth(), a.getUTCDate());
+    const end = Date.UTC(b.getUTCFullYear(), b.getUTCMonth(), b.getUTCDate());
+    if (end < start) return 0;
+    return Math.floor((end - start) / 86400000) + 1;
+  }
+
+  private monthEndUtc(monthStart: Date): Date {
+    return new Date(Date.UTC(monthStart.getUTCFullYear(), monthStart.getUTCMonth() + 1, 0));
+  }
+
+  private monthStartUtc(d: Date): Date {
+    return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1));
+  }
+
+  private addMonthsUtc(monthStart: Date, delta: number): Date {
+    return new Date(Date.UTC(monthStart.getUTCFullYear(), monthStart.getUTCMonth() + delta, 1));
+  }
+
+  private roundMoney(n: number): number {
+    // keep 2 decimals (DB numeric(10,2))
+    return Math.round((n + Number.EPSILON) * 100) / 100;
+  }
+
+  private async ensureBillingProfile(student: User): Promise<StudentBillingProfile> {
+    const existing = await this.billingProfileRepository.findOne({
+      where: { studentId: student.id },
+    });
+    if (existing) return existing;
+
+    const createdAt = (student as any).createdAt
+      ? new Date((student as any).createdAt)
+      : new Date();
+    const joinDate = new Date(
+      Date.UTC(
+        createdAt.getUTCFullYear(),
+        createdAt.getUTCMonth(),
+        createdAt.getUTCDate(),
+      ),
+    );
+    const dueDay = joinDate.getUTCDate();
+    const profile = this.billingProfileRepository.create({
+      studentId: student.id,
+      joinDate,
+      leaveDate: null,
+      monthlyAmount: 0,
+      dueDay,
+    });
+    return this.billingProfileRepository.save(profile);
+  }
+
+  async getBillingLedger(user: User, month?: string) {
+    if (!user?.role) throw new BadRequestException("Foydalanuvchi aniqlanmadi");
+    const centerId = user.center?.id;
+    if (user.role !== UserRole.SUPERADMIN && !centerId) return [];
+
+    const billingMonth = this.parseMonthOrThrow(month);
+    const studentWhere =
+      user.role === UserRole.SUPERADMIN
+        ? { role: UserRole.STUDENT }
+        : ({ role: UserRole.STUDENT, center: { id: Number(centerId) } } as any);
+
+    const students = await this.userRepository.find({
+      where: studentWhere,
+      relations: ['center'],
+      order: { createdAt: 'DESC' } as any,
+    });
+
+    const studentIds = students.map((s) => s.id);
+    if (studentIds.length === 0) return [];
+
+    // Ensure profiles exist (lightweight upsert)
+    const profiles = await this.billingProfileRepository.find({
+      where: { studentId: In(studentIds) } as any,
+    });
+    const profileByStudentId = new Map<number, StudentBillingProfile>();
+    profiles.forEach((p) => profileByStudentId.set(p.studentId, p));
+
+    // Create missing profiles for students not yet in table
+    const missing = students.filter((s) => !profileByStudentId.has(s.id));
+    for (const s of missing) {
+      const p = await this.ensureBillingProfile(s);
+      profileByStudentId.set(s.id, p);
+    }
+
+    const monthly = await this.monthlyPaymentRepository.find({
+      where: { studentId: In(studentIds), billingMonth } as any,
+      order: { updatedAt: 'DESC' } as any,
+    });
+    const monthlyByStudentId = new Map<number, MonthlyPayment>();
+    monthly.forEach((m) => monthlyByStudentId.set(m.studentId, m));
+
+    return students.map((s) => {
+      const p = profileByStudentId.get(s.id)!;
+      const mp = monthlyByStudentId.get(s.id) || null;
+      return {
+        student: {
+          id: s.id,
+          firstName: s.firstName,
+          lastName: s.lastName,
+          username: s.username,
+        },
+        center: s.center ? { id: s.center.id, name: s.center.name } : null,
+        profile: {
+          joinDate: p.joinDate,
+          monthlyAmount: Number(p.monthlyAmount),
+          dueDay: p.dueDay,
+        },
+        month: billingMonth,
+        monthlyPayment: mp
+          ? {
+              id: mp.id,
+              billingMonth: mp.billingMonth,
+              dueDate: mp.dueDate,
+              amountDue: Number(mp.amountDue),
+              amountPaid: Number(mp.amountPaid),
+              status: mp.status,
+              paidAt: mp.paidAt,
+              lastPaymentAt: mp.lastPaymentAt,
+              note: mp.note,
+            }
+          : null,
+      };
+    });
+  }
+
+  async updateStudentBillingProfile(
+    studentId: number,
+    dto: { joinDate?: string; monthlyAmount?: number; dueDay?: number },
+    user: User,
+  ) {
+    const student = await this.userRepository.findOne({
+      where: { id: studentId, role: UserRole.STUDENT } as any,
+      relations: ['center'],
+    });
+    if (!student) throw new NotFoundException('Student topilmadi');
+
+    if (user.role !== UserRole.SUPERADMIN) {
+      const centerId = user.center?.id;
+      if (!centerId) throw new ForbiddenException('Markaz biriktirilmagan');
+      if (!student.center?.id || student.center.id !== centerId) {
+        throw new ForbiddenException("Faqat o'z markazingiz studentlari");
+      }
+    }
+
+    const profile = await this.ensureBillingProfile(student);
+
+    if (dto.joinDate) {
+      const jd = new Date(dto.joinDate);
+      if (Number.isNaN(jd.getTime())) throw new BadRequestException('joinDate noto‘g‘ri');
+      profile.joinDate = new Date(
+        Date.UTC(jd.getUTCFullYear(), jd.getUTCMonth(), jd.getUTCDate()),
+      );
+    }
+    if ((dto as any).leaveDate) {
+      const ld = new Date((dto as any).leaveDate);
+      if (Number.isNaN(ld.getTime())) throw new BadRequestException('leaveDate noto‘g‘ri');
+      profile.leaveDate = this.toUtcDateOnly(ld);
+    }
+    if (dto.monthlyAmount !== undefined) {
+      const amt = Number(dto.monthlyAmount);
+      if (!Number.isFinite(amt) || amt < 0) throw new BadRequestException('monthlyAmount noto‘g‘ri');
+      profile.monthlyAmount = amt as any;
+    }
+    if (dto.dueDay !== undefined) {
+      const dd = Math.floor(Number(dto.dueDay));
+      if (!Number.isFinite(dd) || dd < 1 || dd > 31) throw new BadRequestException('dueDay 1..31 bo‘lishi kerak');
+      profile.dueDay = dd;
+    }
+
+    await this.billingProfileRepository.save(profile);
+    return profile;
+  }
+
+  async previewStudentSettlement(
+    dto: { studentId: number; leaveDate: string },
+    user: User,
+  ) {
+    return this.buildStudentSettlement(dto, user, false);
+  }
+
+  async closeStudentSettlement(
+    dto: { studentId: number; leaveDate: string },
+    user: User,
+  ) {
+    return this.buildStudentSettlement(dto, user, true);
+  }
+
+  private async buildStudentSettlement(
+    dto: { studentId: number; leaveDate: string },
+    user: User,
+    persist: boolean,
+  ) {
+    const student = await this.userRepository.findOne({
+      where: { id: dto.studentId, role: UserRole.STUDENT } as any,
+      relations: ['center'],
+    });
+    if (!student) throw new NotFoundException("O'quvchi topilmadi");
+    if (!student.center?.id) throw new BadRequestException('Student markazga biriktirilmagan');
+
+    if (user.role !== UserRole.SUPERADMIN) {
+      const centerId = user.center?.id;
+      if (!centerId) throw new ForbiddenException('Markaz biriktirilmagan');
+      if (student.center.id !== centerId) throw new ForbiddenException("Faqat o'z markazingiz o'quvchilari");
+    }
+
+    const profile = await this.ensureBillingProfile(student);
+    const joinDate = this.toUtcDateOnly(new Date(profile.joinDate));
+    const leaveDate = this.toUtcDateOnly(new Date(dto.leaveDate));
+    if (Number.isNaN(leaveDate.getTime())) throw new BadRequestException('leaveDate noto‘g‘ri');
+    if (leaveDate < joinDate) {
+      throw new BadRequestException("Ketish sanasi qo'shilgan sanadan oldin bo‘lishi mumkin emas");
+    }
+
+    const monthlyAmount = Number(profile.monthlyAmount || 0);
+    if (!Number.isFinite(monthlyAmount) || monthlyAmount < 0) {
+      throw new BadRequestException('monthlyAmount noto‘g‘ri');
+    }
+    if (monthlyAmount === 0) {
+      throw new BadRequestException("Oylik summa 0. Avval o'quvchi uchun oylik summani belgilang");
+    }
+
+    const dueDay = Number(profile.dueDay || 1);
+    const startMonth = this.monthStartUtc(joinDate);
+    const endMonth = this.monthStartUtc(leaveDate);
+
+    const months: Array<{
+      billingMonth: Date;
+      daysInMonth: number;
+      activeDays: number;
+      activeFrom: Date;
+      activeTo: Date;
+      amountDue: number;
+      amountPaid: number;
+      remaining: number;
+      status: MonthlyPaymentStatus;
+      monthlyPaymentId?: number;
+    }> = [];
+
+    // Load existing monthly payments for student in range
+    const existing = await this.monthlyPaymentRepository.find({
+      where: { studentId: student.id, billingMonth: In(this.enumerateMonthStarts(startMonth, endMonth)) } as any,
+      order: { billingMonth: 'ASC' } as any,
+    });
+    const existingByMonth = new Map<string, MonthlyPayment>();
+    existing.forEach((m) => existingByMonth.set(String(m.billingMonth), m));
+
+    let totalDue = 0;
+    let totalPaid = 0;
+    let totalRemaining = 0;
+
+    // Iterate months
+    for (let m = startMonth; m <= endMonth; m = this.addMonthsUtc(m, 1)) {
+      const monthEnd = this.monthEndUtc(m);
+      const daysInMonth = monthEnd.getUTCDate();
+      const activeStart = joinDate > m ? joinDate : m;
+      const activeEnd = leaveDate < monthEnd ? leaveDate : monthEnd;
+      const activeDays = this.diffDaysInclusiveUtc(activeStart, activeEnd);
+      if (activeDays <= 0) continue;
+
+      const amountDue = this.roundMoney((monthlyAmount * activeDays) / daysInMonth);
+      const dueDate = this.computeDueDateForMonth(m, dueDay);
+
+      const existingMp = existingByMonth.get(String(m)) || null;
+      const amountPaid = existingMp ? Number(existingMp.amountPaid || 0) : 0;
+      const remaining = this.roundMoney(Math.max(0, amountDue - amountPaid));
+      const status =
+        amountPaid >= amountDue && amountDue > 0 ? MonthlyPaymentStatus.PAID : MonthlyPaymentStatus.PENDING;
+
+      months.push({
+        billingMonth: m,
+        daysInMonth,
+        activeDays,
+        activeFrom: activeStart,
+        activeTo: activeEnd,
+        amountDue,
+        amountPaid,
+        remaining,
+        status,
+        monthlyPaymentId: existingMp?.id,
+      });
+
+      totalDue += amountDue;
+      totalPaid += amountPaid;
+      totalRemaining += remaining;
+
+      if (persist) {
+        if (!existingMp) {
+          const created = await this.monthlyPaymentRepository.save(
+            this.monthlyPaymentRepository.create({
+              studentId: student.id,
+              centerId: student.center.id,
+              billingMonth: m,
+              dueDate,
+              amountDue,
+              amountPaid: 0,
+              status: MonthlyPaymentStatus.PENDING,
+              note: `Ketish hisob-kitobi (${dto.leaveDate})`,
+            }),
+          );
+          // Update id in response
+          months[months.length - 1].monthlyPaymentId = created.id;
+        } else {
+          // Update existing month row to match prorated due
+          existingMp.dueDate = dueDate;
+          existingMp.amountDue = amountDue as any;
+          existingMp.status = status;
+          if (status === MonthlyPaymentStatus.PAID) {
+            existingMp.paidAt = existingMp.paidAt || new Date();
+          } else {
+            existingMp.paidAt = null;
+          }
+          if (!existingMp.note) {
+            existingMp.note = `Ketish hisob-kitobi (${dto.leaveDate})`;
+          }
+          await this.monthlyPaymentRepository.save(existingMp);
+        }
+      }
+    }
+
+    if (persist) {
+      profile.leaveDate = leaveDate;
+      await this.billingProfileRepository.save(profile);
+    }
+
+    return {
+      student: {
+        id: student.id,
+        firstName: student.firstName,
+        lastName: student.lastName,
+        username: student.username,
+      },
+      center: { id: student.center.id, name: student.center.name },
+      joinDate: joinDate.toISOString().slice(0, 10),
+      leaveDate: leaveDate.toISOString().slice(0, 10),
+      monthlyAmount,
+      summary: {
+        totalDue: this.roundMoney(totalDue),
+        totalPaid: this.roundMoney(totalPaid),
+        totalRemaining: this.roundMoney(totalRemaining),
+      },
+      months: months.map((x) => ({
+        billingMonth: x.billingMonth.toISOString().slice(0, 10),
+        activeFrom: x.activeFrom.toISOString().slice(0, 10),
+        activeTo: x.activeTo.toISOString().slice(0, 10),
+        activeDays: x.activeDays,
+        daysInMonth: x.daysInMonth,
+        amountDue: x.amountDue,
+        amountPaid: x.amountPaid,
+        remaining: x.remaining,
+        status: x.status,
+        monthlyPaymentId: x.monthlyPaymentId,
+      })),
+      persisted: persist,
+    };
+  }
+
+  private enumerateMonthStarts(startMonth: Date, endMonth: Date): Date[] {
+    const res: Date[] = [];
+    for (let m = startMonth; m <= endMonth; m = this.addMonthsUtc(m, 1)) {
+      res.push(m);
+    }
+    return res;
+  }
+
+  async updateMonthlyPayment(
+    id: number,
+    dto: { amountDue?: number; dueDate?: string; status?: MonthlyPaymentStatus; note?: string },
+    user: User,
+  ) {
+    const mp = await this.monthlyPaymentRepository.findOne({ where: { id }, relations: ['student', 'center'] } as any);
+    if (!mp) throw new NotFoundException('Oylik to‘lov topilmadi');
+
+    if (user.role !== UserRole.SUPERADMIN) {
+      const centerId = user.center?.id;
+      if (!centerId) throw new ForbiddenException('Markaz biriktirilmagan');
+      if (mp.centerId !== centerId) throw new ForbiddenException("Faqat o'z markazingiz to'lovlari");
+    }
+
+    if (mp.status === MonthlyPaymentStatus.PAID && (dto.amountDue !== undefined || dto.dueDate || dto.status)) {
+      throw new BadRequestException("To'langan oylik to'lovni o'zgartirib bo'lmaydi");
+    }
+
+    if (dto.amountDue !== undefined) {
+      const amt = Number(dto.amountDue);
+      if (!Number.isFinite(amt) || amt < 0) throw new BadRequestException('amountDue noto‘g‘ri');
+      mp.amountDue = amt as any;
+      // Re-evaluate status if needed
+      if (Number(mp.amountPaid) >= amt && amt > 0) {
+        mp.status = MonthlyPaymentStatus.PAID;
+        mp.paidAt = mp.paidAt || new Date();
+      }
+    }
+    if (dto.dueDate) {
+      const d = new Date(dto.dueDate);
+      if (Number.isNaN(d.getTime())) throw new BadRequestException('dueDate noto‘g‘ri');
+      mp.dueDate = new Date(
+        Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()),
+      );
+    }
+    if (dto.status) {
+      mp.status = dto.status;
+    }
+    if (dto.note !== undefined) {
+      mp.note = dto.note || null;
+    }
+
+    await this.monthlyPaymentRepository.save(mp);
+    return mp;
+  }
+
+  async collectMonthlyPayment(
+    dto: { studentId: number; month?: string; amount: number; note?: string; amountDueOverride?: number },
+    user: User,
+  ) {
+    const student = await this.userRepository.findOne({
+      where: { id: dto.studentId, role: UserRole.STUDENT } as any,
+      relations: ['center'],
+    });
+    if (!student) throw new NotFoundException('Student topilmadi');
+    if (!student.center?.id) throw new BadRequestException('Student markazga biriktirilmagan');
+
+    if (user.role !== UserRole.SUPERADMIN) {
+      const centerId = user.center?.id;
+      if (!centerId) throw new ForbiddenException('Markaz biriktirilmagan');
+      if (student.center.id !== centerId) throw new ForbiddenException("Faqat o'z markazingiz studentlari");
+    }
+
+    const amount = Number(dto.amount);
+    if (!Number.isFinite(amount) || amount <= 0) throw new BadRequestException('amount noto‘g‘ri');
+
+    const profile = await this.ensureBillingProfile(student);
+
+    // Disallow collecting payments if monthly amount is not set.
+    // (User can still adjust schedule via profile first.)
+    const monthlyAmount = Number(profile.monthlyAmount || 0);
+    if (!Number.isFinite(monthlyAmount) || monthlyAmount <= 0) {
+      throw new BadRequestException(
+        "Oylik summa kiritilmagan. Avval o'quvchi uchun oylik summani belgilang",
+      );
+    }
+    const billingMonth = this.parseMonthOrThrow(dto.month);
+
+    let mp = await this.monthlyPaymentRepository.findOne({
+      where: { studentId: student.id, billingMonth } as any,
+    });
+
+    if (!mp) {
+      const dueDate = this.computeDueDateForMonth(billingMonth, profile.dueDay || 1);
+      const amountDue =
+        dto.amountDueOverride !== undefined
+          ? Number(dto.amountDueOverride)
+          : Number(profile.monthlyAmount);
+      mp = this.monthlyPaymentRepository.create({
+        studentId: student.id,
+        centerId: student.center.id,
+        billingMonth,
+        dueDate,
+        amountDue: Number.isFinite(amountDue) ? amountDue : 0,
+        amountPaid: 0,
+        status: MonthlyPaymentStatus.PENDING,
+        note: dto.note || null,
+      });
+      mp = await this.monthlyPaymentRepository.save(mp);
+    } else if (dto.note !== undefined) {
+      mp.note = dto.note || null;
+    }
+
+    mp.amountPaid = (Number(mp.amountPaid) + amount) as any;
+    mp.lastPaymentAt = new Date();
+
+    if (Number(mp.amountDue) > 0 && Number(mp.amountPaid) >= Number(mp.amountDue)) {
+      mp.status = MonthlyPaymentStatus.PAID;
+      mp.paidAt = mp.paidAt || new Date();
+    }
+
+    mp = await this.monthlyPaymentRepository.save(mp);
+
+    // If paid, create next month payment automatically
+    if (mp.status === MonthlyPaymentStatus.PAID) {
+      const nextMonth = new Date(
+        Date.UTC(
+          billingMonth.getUTCFullYear(),
+          billingMonth.getUTCMonth() + 1,
+          1,
+        ),
+      );
+      const existingNext = await this.monthlyPaymentRepository.findOne({
+        where: { studentId: student.id, billingMonth: nextMonth } as any,
+      });
+      if (!existingNext) {
+        const nextDue = this.computeDueDateForMonth(nextMonth, profile.dueDay || 1);
+        await this.monthlyPaymentRepository.save(
+          this.monthlyPaymentRepository.create({
+            studentId: student.id,
+            centerId: student.center.id,
+            billingMonth: nextMonth,
+            dueDate: nextDue,
+            amountDue: Number(profile.monthlyAmount),
+            amountPaid: 0,
+            status: MonthlyPaymentStatus.PENDING,
+          }),
+        );
+      }
+    }
+
+    return mp;
+  }
+
   // Create a new payment
   async create(createPaymentDto: CreatePaymentDto, teacherId: number): Promise<Payment> {
     // Verify student exists and is a student
@@ -30,7 +579,7 @@ export class PaymentsService {
       where: { id: createPaymentDto.studentId, role: UserRole.STUDENT }
     });
     if (!student) {
-      throw new NotFoundException('Student not found');
+      throw new NotFoundException("O'quvchi topilmadi");
     }
 
     // Verify group exists and teacher has access to it
@@ -38,7 +587,7 @@ export class PaymentsService {
       where: { id: createPaymentDto.groupId, teacher: { id: teacherId } }
     });
     if (!group) {
-      throw new NotFoundException('Group not found or you do not have access to it');
+      throw new NotFoundException("Guruh topilmadi yoki sizda ruxsat yo'q");
     }
 
     const payment = this.paymentRepository.create({
@@ -102,7 +651,7 @@ export class PaymentsService {
       where: { id: groupId, teacher: { id: teacherId } }
     });
     if (!group) {
-      throw new NotFoundException('Group not found or you do not have access to it');
+      throw new NotFoundException("Guruh topilmadi yoki sizda ruxsat yo'q");
     }
 
     return this.paymentRepository.find({
@@ -120,7 +669,7 @@ export class PaymentsService {
     });
     
     if (!payment) {
-      throw new NotFoundException('Payment not found');
+      throw new NotFoundException("To'lov topilmadi");
     }
 
     return payment;
@@ -215,7 +764,7 @@ export class PaymentsService {
       }
     } catch (error) {
       // Don't fail the request if Telegram fails
-      console.log(`Failed to send payment paid notification to Telegram:`, error);
+      console.log(`Telegramga to'lov xabarini yuborib bo'lmadi:`, error);
     }
 
     return this.findOne(id);
@@ -244,7 +793,7 @@ export class PaymentsService {
     });
 
     if (!group) {
-      throw new NotFoundException('Group not found or you do not have access to it');
+      throw new NotFoundException("Guruh topilmadi yoki sizda ruxsat yo'q");
     }
 
     const payments: Payment[] = [];
@@ -306,7 +855,7 @@ export class PaymentsService {
       try {
         await this.telegramService.sendPaymentReminder(payment.studentId, payment);
       } catch (error) {
-        console.log(`Failed to send telegram reminder for payment ${payment.id}:`, error);
+        console.log(`Telegram eslatmasini yuborib bo'lmadi (payment ${payment.id}):`, error);
       }
     }
   }

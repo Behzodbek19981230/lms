@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Body,
+  Query,
   Patch,
   Param,
   Delete,
@@ -17,6 +18,12 @@ import {
   UpdatePaymentDto,
   CreateMonthlyPaymentsDto,
   SendPaymentRemindersDto,
+  BillingLedgerQueryDto,
+  UpdateStudentBillingProfileDto,
+  CollectMonthlyPaymentDto,
+  UpdateMonthlyPaymentDto,
+  PreviewStudentSettlementDto,
+  CloseStudentSettlementDto,
 } from './dto/payment.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -29,6 +36,67 @@ import { CenterPermissionKey } from '../centers/permissions/center-permissions';
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class PaymentsController {
   constructor(private readonly paymentsService: PaymentsService) {}
+
+  // ==========================
+  // Monthly billing (NEW)
+  // ==========================
+
+  @Get('billing/ledger')
+  @Roles(UserRole.TEACHER, UserRole.ADMIN, UserRole.SUPERADMIN)
+  @RequireCenterPermissions(CenterPermissionKey.PAYMENTS)
+  async getBillingLedger(
+    @Query() query: BillingLedgerQueryDto,
+    @Request() req,
+  ) {
+    return this.paymentsService.getBillingLedger(req.user, query?.month);
+  }
+
+  @Patch('billing/students/:studentId')
+  @Roles(UserRole.TEACHER, UserRole.ADMIN, UserRole.SUPERADMIN)
+  @RequireCenterPermissions(CenterPermissionKey.PAYMENTS)
+  async updateStudentBillingProfile(
+    @Param('studentId') studentId: string,
+    @Body() dto: UpdateStudentBillingProfileDto,
+    @Request() req,
+  ) {
+    return this.paymentsService.updateStudentBillingProfile(
+      Number(studentId),
+      dto,
+      req.user,
+    );
+  }
+
+  @Post('billing/settlement/preview')
+  @Roles(UserRole.TEACHER, UserRole.ADMIN, UserRole.SUPERADMIN)
+  @RequireCenterPermissions(CenterPermissionKey.PAYMENTS)
+  async previewSettlement(@Body() dto: PreviewStudentSettlementDto, @Request() req) {
+    return this.paymentsService.previewStudentSettlement(dto as any, req.user);
+  }
+
+  @Post('billing/settlement/close')
+  @Roles(UserRole.TEACHER, UserRole.ADMIN, UserRole.SUPERADMIN)
+  @RequireCenterPermissions(CenterPermissionKey.PAYMENTS)
+  async closeSettlement(@Body() dto: CloseStudentSettlementDto, @Request() req) {
+    return this.paymentsService.closeStudentSettlement(dto as any, req.user);
+  }
+
+  @Post('billing/collect')
+  @Roles(UserRole.TEACHER, UserRole.ADMIN, UserRole.SUPERADMIN)
+  @RequireCenterPermissions(CenterPermissionKey.PAYMENTS)
+  async collectMonthlyPayment(@Body() dto: CollectMonthlyPaymentDto, @Request() req) {
+    return this.paymentsService.collectMonthlyPayment(dto as any, req.user);
+  }
+
+  @Patch('billing/monthly/:id')
+  @Roles(UserRole.TEACHER, UserRole.ADMIN, UserRole.SUPERADMIN)
+  @RequireCenterPermissions(CenterPermissionKey.PAYMENTS)
+  async updateMonthlyPayment(
+    @Param('id') id: string,
+    @Body() dto: UpdateMonthlyPaymentDto,
+    @Request() req,
+  ) {
+    return this.paymentsService.updateMonthlyPayment(Number(id), dto as any, req.user);
+  }
 
   // Create a new payment (teacher only)
   @Post()
