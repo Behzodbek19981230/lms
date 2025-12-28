@@ -62,6 +62,36 @@ export class SendPaymentRemindersDto {
   paymentIds: number[];
 }
 
+export class SendMonthlyBillingDebtRemindersDto {
+  @IsOptional()
+  @IsString()
+  // Optional upper bound month (YYYY-MM). If omitted, uses current month.
+  upToMonth?: string;
+
+  @IsOptional()
+  @IsNumber()
+  // Required for superadmin; ignored for teacher/admin (uses own center)
+  centerId?: number;
+}
+
+export class MonthlyBillingDebtQueryDto {
+  @IsOptional()
+  @IsString()
+  upToMonth?: string; // YYYY-MM
+
+  @IsOptional()
+  @IsNumber()
+  page?: number;
+
+  @IsOptional()
+  @IsNumber()
+  pageSize?: number;
+
+  @IsOptional()
+  @IsString()
+  search?: string;
+}
+
 export class PaymentStatsDto {
   totalPending: number;
   totalPaid: number;
@@ -80,6 +110,28 @@ export class BillingLedgerQueryDto {
   @IsString()
   // Format: YYYY-MM
   month?: string;
+
+  @IsOptional()
+  @IsNumber()
+  page?: number;
+
+  @IsOptional()
+  @IsNumber()
+  pageSize?: number;
+
+  @IsOptional()
+  @IsString()
+  search?: string;
+
+  @IsOptional()
+  @IsString()
+  // all | pending | paid | overdue
+  status?: string;
+
+  @IsOptional()
+  @IsString()
+  // all | withDebt | noDebt
+  debt?: string;
 }
 
 export class UpdateStudentBillingProfileDto {

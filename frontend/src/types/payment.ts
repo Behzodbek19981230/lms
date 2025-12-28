@@ -122,6 +122,18 @@ export interface BillingLedgerItem {
 
 export interface BillingLedgerQuery {
   month?: string; // YYYY-MM
+  page?: number;
+  pageSize?: number;
+  search?: string;
+  status?: 'all' | MonthlyPaymentStatus;
+  debt?: 'all' | 'withDebt' | 'noDebt';
+}
+
+export interface BillingLedgerPage {
+  items: BillingLedgerItem[];
+  total: number;
+  page: number;
+  pageSize: number;
 }
 
 export interface UpdateStudentBillingProfileDto {

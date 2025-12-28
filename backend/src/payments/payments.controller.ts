@@ -18,7 +18,9 @@ import {
   UpdatePaymentDto,
   CreateMonthlyPaymentsDto,
   SendPaymentRemindersDto,
+  SendMonthlyBillingDebtRemindersDto,
   BillingLedgerQueryDto,
+  MonthlyBillingDebtQueryDto,
   UpdateStudentBillingProfileDto,
   CollectMonthlyPaymentDto,
   UpdateMonthlyPaymentDto,
@@ -48,7 +50,7 @@ export class PaymentsController {
     @Query() query: BillingLedgerQueryDto,
     @Request() req,
   ) {
-    return this.paymentsService.getBillingLedger(req.user, query?.month);
+    return this.paymentsService.getBillingLedger(req.user, query as any);
   }
 
   @Patch('billing/students/:studentId')
@@ -69,28 +71,66 @@ export class PaymentsController {
   @Post('billing/settlement/preview')
   @Roles(UserRole.TEACHER, UserRole.ADMIN, UserRole.SUPERADMIN)
   @RequireCenterPermissions(CenterPermissionKey.PAYMENTS)
-  async previewSettlement(@Body() dto: PreviewStudentSettlementDto, @Request() req) {
+  async previewSettlement(
+    @Body() dto: PreviewStudentSettlementDto,
+    @Request() req,
+  ) {
     return this.paymentsService.previewStudentSettlement(dto as any, req.user);
   }
 
   @Post('billing/settlement/close')
   @Roles(UserRole.TEACHER, UserRole.ADMIN, UserRole.SUPERADMIN)
   @RequireCenterPermissions(CenterPermissionKey.PAYMENTS)
-  async closeSettlement(@Body() dto: CloseStudentSettlementDto, @Request() req) {
+  async closeSettlement(
+    @Body() dto: CloseStudentSettlementDto,
+    @Request() req,
+  ) {
     return this.paymentsService.closeStudentSettlement(dto as any, req.user);
   }
 
   @Post('billing/collect')
   @Roles(UserRole.TEACHER, UserRole.ADMIN, UserRole.SUPERADMIN)
   @RequireCenterPermissions(CenterPermissionKey.PAYMENTS)
-  async collectMonthlyPayment(@Body() dto: CollectMonthlyPaymentDto, @Request() req) {
+  async collectMonthlyPayment(
+    @Body() dto: CollectMonthlyPaymentDto,
+    @Request() req,
+  ) {
     return this.paymentsService.collectMonthlyPayment(dto as any, req.user);
+  }
+
+  @Post('billing/reminders/debts')
+  @Roles(UserRole.TEACHER, UserRole.ADMIN, UserRole.SUPERADMIN)
+  @RequireCenterPermissions(CenterPermissionKey.PAYMENTS)
+  async sendMonthlyDebtReminders(
+    @Body() dto: SendMonthlyBillingDebtRemindersDto,
+    @Request() req,
+  ) {
+    return this.paymentsService.sendMonthlyBillingDebtReminders(
+      req.user,
+      dto as any,
+    );
+  }
+
+  @Get('billing/debts')
+  @Roles(UserRole.TEACHER, UserRole.ADMIN, UserRole.SUPERADMIN)
+  @RequireCenterPermissions(CenterPermissionKey.PAYMENTS)
+  async getMonthlyDebtSummary(
+    @Query() query: MonthlyBillingDebtQueryDto,
+    @Request() req,
+  ) {
+    return this.paymentsService.getMonthlyBillingDebtSummary(
+      req.user,
+      query as any,
+    );
   }
 
   @Get('billing/me')
   @Roles(UserRole.STUDENT)
   @RequireCenterPermissions(CenterPermissionKey.PAYMENTS)
-  async getMyMonthlyBilling(@Query() query: BillingLedgerQueryDto, @Request() req) {
+  async getMyMonthlyBilling(
+    @Query() query: BillingLedgerQueryDto,
+    @Request() req,
+  ) {
     return this.paymentsService.getMyMonthlyBilling(req.user, query?.month);
   }
 
@@ -102,11 +142,20 @@ export class PaymentsController {
     @Body() dto: UpdateMonthlyPaymentDto,
     @Request() req,
   ) {
-    return this.paymentsService.updateMonthlyPayment(Number(id), dto as any, req.user);
+    return this.paymentsService.updateMonthlyPayment(
+      Number(id),
+      dto as any,
+      req.user,
+    );
   }
 
   @Get('billing/monthly/:id/history')
-  @Roles(UserRole.TEACHER, UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.STUDENT)
+  @Roles(
+    UserRole.TEACHER,
+    UserRole.ADMIN,
+    UserRole.SUPERADMIN,
+    UserRole.STUDENT,
+  )
   @RequireCenterPermissions(CenterPermissionKey.PAYMENTS)
   async getMonthlyHistory(@Param('id') id: string, @Request() req) {
     return this.paymentsService.getMonthlyPaymentHistory(Number(id), req.user);

@@ -6,6 +6,7 @@ import {
   PaymentStats,
   BillingLedgerItem,
   BillingLedgerQuery,
+  BillingLedgerPage,
   UpdateStudentBillingProfileDto,
   CollectMonthlyPaymentDto,
   UpdateMonthlyPaymentDto,
@@ -151,10 +152,10 @@ class PaymentService {
   // Monthly billing (NEW)
   // ======================
 
-  async getBillingLedger(query?: BillingLedgerQuery): Promise<APIResponse<BillingLedgerItem[]>> {
+  async getBillingLedger(query?: BillingLedgerQuery): Promise<APIResponse<BillingLedgerPage>> {
     try {
       const response = await request.get('/payments/billing/ledger', { params: query });
-      return this.handleResponse<BillingLedgerItem[]>(response);
+      return this.handleResponse<BillingLedgerPage>(response);
     } catch (error) {
       throw new Error("Oylik to'lovlar jadvalini yuklab bo'lmadi");
     }
@@ -236,6 +237,31 @@ class PaymentService {
       return this.handleResponse<any>(response);
     } catch (error) {
       const msg = getApiErrorMessage(error) || "Oylik to'lov ma'lumotlarini yuklab bo'lmadi";
+      throw new Error(msg);
+    }
+  }
+
+  async sendMonthlyBillingDebtReminders(data?: { upToMonth?: string }): Promise<APIResponse<any>> {
+    try {
+      const response = await request.post('/payments/billing/reminders/debts', data || {});
+      return this.handleResponse<any>(response);
+    } catch (error) {
+      const msg = getApiErrorMessage(error) || "Eslatmalarni yuborib bo'lmadi";
+      throw new Error(msg);
+    }
+  }
+
+  async getMonthlyBillingDebtSummary(query?: {
+    upToMonth?: string;
+    page?: number;
+    pageSize?: number;
+    search?: string;
+  }): Promise<APIResponse<any>> {
+    try {
+      const response = await request.get('/payments/billing/debts', { params: query });
+      return this.handleResponse<any>(response);
+    } catch (error) {
+      const msg = getApiErrorMessage(error) || "Qarzdorliklar ro'yxatini yuklab bo'lmadi";
       throw new Error(msg);
     }
   }

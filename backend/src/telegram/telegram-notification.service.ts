@@ -73,6 +73,104 @@ export class TelegramNotificationService {
   }
 
   /**
+   * Queue private message to a user (student) if Telegram is connected.
+   */
+  async queuePrivateMessageToUser(params: {
+    userId: number;
+    message: string;
+    type?: MessageType;
+    priority?: MessagePriority;
+    metadata?: any;
+  }): Promise<void> {
+    // Find user's private chat
+    const chat = await this.telegramChatRepo.findOne({
+      where: {
+        user: { id: params.userId } as any,
+        type: ChatType.PRIVATE,
+        status: ChatStatus.ACTIVE,
+      } as any,
+      relations: ['user'],
+    });
+    if (!chat?.telegramUserId) return;
+
+    await this.telegramQueueService.queueMessage({
+      chatId: chat.telegramUserId,
+      message: params.message,
+      type: params.type || MessageType.PAYMENT,
+      priority: params.priority || MessagePriority.NORMAL,
+      metadata: { ...params.metadata, userId: params.userId },
+      parseMode: 'HTML',
+    });
+  }
+
+  /**
+   * Send monthly billing debt summary to center-wide channel (single channel per center).
+   */
+  async sendMonthlyBillingDebtSummaryToCenterChannel(params: {
+    centerId: number;
+    title?: string; // e.g. "2025-12"
+    items: Array<{
+      studentName: string;
+      months: Array<{ month: string; remaining: number }>;
+      totalRemaining: number;
+    }>;
+  }): Promise<void> {
+    const enabled = await this.isCenterPermissionEnabled(
+      params.centerId,
+      CenterPermissionKey.PAYMENTS_TELEGRAM_NOTIFICATIONS,
+    );
+    if (!enabled) return;
+
+    const centerChannel = await this.getCenterMainChannel(params.centerId);
+    if (!centerChannel) return;
+    if (!params.items || params.items.length === 0) return;
+
+    const header =
+      `💰 <b>Qarzdor o‘quvchilar</b>\n` +
+      (params.title ? `📅 <b>Holat:</b> ${params.title}\n` : '') +
+      `👥 <b>Soni:</b> ${params.items.length}\n\n`;
+
+    const maxLen = 3500;
+    const messages: string[] = [];
+    let current = header;
+    const pushCurrent = () => {
+      if (current.trim().length > 0) messages.push(current);
+      current = header;
+    };
+
+    params.items.forEach((it, idx) => {
+      const monthsText = it.months
+        .slice(0, 12)
+        .map((m) => `${m.month} (${m.remaining} so‘m)`)
+        .join(', ');
+      const line =
+        `${idx + 1}. <b>${it.studentName}</b>\n` +
+        `   📌 Oylar: ${monthsText}${it.months.length > 12 ? ` ... (+${it.months.length - 12})` : ''}\n` +
+        `   💸 Jami: ${it.totalRemaining} so‘m\n\n`;
+      if ((current + line).length > maxLen) pushCurrent();
+      current += line;
+    });
+
+    if (current !== header) pushCurrent();
+
+    for (const msg of messages) {
+      await this.telegramQueueService.queueMessage({
+        chatId: centerChannel.chatId,
+        message: msg,
+        type: MessageType.PAYMENT,
+        priority: MessagePriority.HIGH,
+        metadata: {
+          centerId: params.centerId,
+          kind: 'monthly_billing_debts',
+          count: params.items.length,
+          title: params.title,
+        },
+        parseMode: 'HTML',
+      });
+    }
+  }
+
+  /**
    * Send attendance summary to the center-wide channel (single channel per center).
    */
   async sendAttendanceSummaryToCenterChannel(params: {
