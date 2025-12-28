@@ -234,6 +234,8 @@ export class PaymentsService {
     const qb = this.userRepository
       .createQueryBuilder('u')
       .leftJoinAndSelect('u.center', 'center')
+      .leftJoinAndSelect('u.groups', 'g')
+      .leftJoinAndSelect('g.subject', 'subject')
       .where('u.role = :role', { role: UserRole.STUDENT })
       .orderBy('u.createdAt', 'DESC');
 
@@ -269,6 +271,63 @@ export class PaymentsService {
     for (const s of missing) {
       const p = await this.ensureBillingProfile(s);
       profileByStudentId.set(s.id, p);
+    }
+
+    // If profile.monthlyAmount is not set, infer it from the student's primary group (latest created),
+    // using the latest legacy payment amount for that group.
+    const studentPrimaryGroupId = new Map<number, number>();
+    const groupIds: number[] = [];
+    for (const s of students) {
+      const groups = ((s as any).groups || []) as Array<{
+        id: number;
+        createdAt?: any;
+      }>;
+      if (!groups || groups.length === 0) continue;
+      const sorted = [...groups].sort((a, b) => {
+        const ad = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const bd = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        return bd - ad;
+      });
+      const gid = Number(sorted[0]?.id);
+      if (!gid) continue;
+      studentPrimaryGroupId.set(s.id, gid);
+      groupIds.push(gid);
+    }
+    const uniqueGroupIds = Array.from(new Set(groupIds));
+    const amountByGroupId = new Map<number, number>();
+    if (uniqueGroupIds.length > 0) {
+      // Postgres: pick latest payment per group
+      const rows = await this.paymentRepository
+        .createQueryBuilder('p')
+        .select('p.groupId', 'groupId')
+        .addSelect('p.amount', 'amount')
+        .where('p.groupId IN (:...ids)', { ids: uniqueGroupIds })
+        .distinctOn(['p.groupId'])
+        .orderBy('p.groupId', 'ASC')
+        .addOrderBy('p.createdAt', 'DESC')
+        .getRawMany();
+      for (const r of rows as any[]) {
+        const gid = Number(r.groupId);
+        const amt = Number(r.amount);
+        if (gid && Number.isFinite(amt) && amt > 0)
+          amountByGroupId.set(gid, amt);
+      }
+    }
+    const profilesToUpdate: StudentBillingProfile[] = [];
+    for (const s of students) {
+      const p = profileByStudentId.get(s.id);
+      if (!p) continue;
+      const currentAmt = Number((p as any).monthlyAmount || 0);
+      if (Number.isFinite(currentAmt) && currentAmt > 0) continue;
+      const gid = studentPrimaryGroupId.get(s.id);
+      if (!gid) continue;
+      const inferred = amountByGroupId.get(gid) || 0;
+      if (!Number.isFinite(inferred) || inferred <= 0) continue;
+      (p as any).monthlyAmount = inferred;
+      profilesToUpdate.push(p);
+    }
+    if (profilesToUpdate.length > 0) {
+      await this.billingProfileRepository.save(profilesToUpdate);
     }
 
     const monthly = await this.monthlyPaymentRepository.find({
@@ -1383,7 +1442,7 @@ export class PaymentsService {
   ): Promise<void> {
     const students = await this.userRepository.find({
       where: { role: UserRole.STUDENT, center: { id: centerId } } as any,
-      relations: ['center'],
+      relations: ['center', 'groups'],
     });
     if (students.length === 0) return;
     const studentIds = students.map((s) => s.id);
@@ -1398,6 +1457,61 @@ export class PaymentsService {
         const p = await this.ensureBillingProfile(s);
         profileByStudentId.set(s.id, p);
       }
+    }
+
+    // Infer monthlyAmount from student's primary group using latest legacy payment amount for that group
+    const studentPrimaryGroupId = new Map<number, number>();
+    const groupIds: number[] = [];
+    for (const s of students) {
+      const groups = ((s as any).groups || []) as Array<{
+        id: number;
+        createdAt?: any;
+      }>;
+      if (!groups || groups.length === 0) continue;
+      const sorted = [...groups].sort((a, b) => {
+        const ad = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const bd = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        return bd - ad;
+      });
+      const gid = Number(sorted[0]?.id);
+      if (!gid) continue;
+      studentPrimaryGroupId.set(s.id, gid);
+      groupIds.push(gid);
+    }
+    const uniqueGroupIds = Array.from(new Set(groupIds));
+    const amountByGroupId = new Map<number, number>();
+    if (uniqueGroupIds.length > 0) {
+      const rows = await this.paymentRepository
+        .createQueryBuilder('p')
+        .select('p.groupId', 'groupId')
+        .addSelect('p.amount', 'amount')
+        .where('p.groupId IN (:...ids)', { ids: uniqueGroupIds })
+        .distinctOn(['p.groupId'])
+        .orderBy('p.groupId', 'ASC')
+        .addOrderBy('p.createdAt', 'DESC')
+        .getRawMany();
+      for (const r of rows as any[]) {
+        const gid = Number(r.groupId);
+        const amt = Number(r.amount);
+        if (gid && Number.isFinite(amt) && amt > 0)
+          amountByGroupId.set(gid, amt);
+      }
+    }
+    const profilesToUpdate: StudentBillingProfile[] = [];
+    for (const s of students) {
+      const p = profileByStudentId.get(s.id);
+      if (!p) continue;
+      const currentAmt = Number((p as any).monthlyAmount || 0);
+      if (Number.isFinite(currentAmt) && currentAmt > 0) continue;
+      const gid = studentPrimaryGroupId.get(s.id);
+      if (!gid) continue;
+      const inferred = amountByGroupId.get(gid) || 0;
+      if (!Number.isFinite(inferred) || inferred <= 0) continue;
+      (p as any).monthlyAmount = inferred;
+      profilesToUpdate.push(p);
+    }
+    if (profilesToUpdate.length > 0) {
+      await this.billingProfileRepository.save(profilesToUpdate);
     }
 
     const joinMonths = students.map((s) => {
