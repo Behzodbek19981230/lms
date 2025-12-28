@@ -16,6 +16,7 @@ export interface Payment {
   group: {
     id: string;
     name: string;
+    subject?: { name: string } | null;
   };
   teacherId: string;
   teacher: {
@@ -173,4 +174,13 @@ export interface StudentSettlementResult {
     monthlyPaymentId?: number;
   }>;
   persisted: boolean;
+}
+
+export interface MonthlyPaymentTransaction {
+  id: number;
+  amount: number;
+  note?: string | null;
+  paidAt: string;
+  createdAt: string;
+  createdByUserId?: number | null;
 }

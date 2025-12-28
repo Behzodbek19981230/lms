@@ -187,7 +187,7 @@ const StudentDashboard = () => {
 				<div className='flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-4'>
 					<div className='animate-slide-up'>
 						<h1 className='text-xl sm:text-2xl md:text-3xl font-bold bg-gradient-to-r from-primary via-accent to-primary bg-clip-text text-transparent'>
-							Student paneli
+							O‘quvchi paneli
 						</h1>
 						<p
 							className='text-xs sm:text-sm text-muted-foreground animate-fade-in'

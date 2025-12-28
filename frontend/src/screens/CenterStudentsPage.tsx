@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   Table,
@@ -46,6 +47,7 @@ import {
 } from 'lucide-react';
 import { request } from '@/configs/request';
 import { useToast } from '@/hooks/use-toast';
+import { getApiErrorMessage } from '@/utils/api-error';
 
 interface Student {
   id: number;
@@ -73,6 +75,15 @@ export default function CenterStudentsPage() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [showDetails, setShowDetails] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [createForm, setCreateForm] = useState({
+    firstName: '',
+    lastName: '',
+    username: '',
+    phone: '',
+    password: 'lms1234',
+  });
 
   const filteredStudents = students.filter(student => {
     const matchesSearch = 
@@ -139,12 +150,12 @@ export default function CenterStudentsPage() {
       
       toast({
         title: 'Muvaffaqiyat',
-        description: 'Student holati o\'zgartirildi'
+        description: "O‘quvchi holati o'zgartirildi"
       });
     } catch (error: any) {
       toast({
         title: 'Xato',
-        description: 'Student holatini o\'zgartirishda xatolik',
+        description: "O‘quvchi holatini o'zgartirishda xatolik",
         variant: 'destructive'
       });
     }
@@ -177,27 +188,105 @@ export default function CenterStudentsPage() {
     setShowDetails(true);
   };
 
+  const handleCreateStudent = async () => {
+    try {
+      setCreating(true);
+      const payload = {
+        username: createForm.username.trim(),
+        password: createForm.password,
+        firstName: createForm.firstName.trim(),
+        lastName: createForm.lastName.trim(),
+        phone: createForm.phone.trim() || undefined,
+        role: 'student',
+      };
+      await request.post('/users/students', payload);
+      toast({
+        title: 'Muvaffaqiyat',
+        description: "Yangi o‘quvchi qo‘shildi",
+      });
+      setCreateOpen(false);
+      setCreateForm({
+        firstName: '',
+        lastName: '',
+        username: '',
+        phone: '',
+        password: 'lms1234',
+      });
+      await loadStudents();
+    } catch (e: any) {
+      const msg = getApiErrorMessage(e) || "O‘quvchi qo‘shishda xatolik";
+      toast({ title: 'Xato', description: msg, variant: 'destructive' });
+    } finally {
+      setCreating(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Studentlarim</h1>
+          <h1 className="text-3xl font-bold tracking-tight">O‘quvchilarim</h1>
           <p className="text-muted-foreground">
-            Markazimdagi barcha studentlarni boshqarish
+            Markazimdagi barcha o‘quvchilarni boshqarish
           </p>
         </div>
-        <Button>
-          <UserPlus className="h-4 w-4 mr-2" />
-          Yangi student qo'shish
-        </Button>
+        <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+          <DialogTrigger asChild>
+            <Button>
+              <UserPlus className="h-4 w-4 mr-2" />
+              Yangi o‘quvchi qo‘shish
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-xl">
+            <DialogHeader>
+              <DialogTitle>Yangi o‘quvchi qo‘shish</DialogTitle>
+              <DialogDescription>
+                O‘quvchi login (username) va parolini kiriting. Keyin u tizimga kira oladi.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid grid-cols-1 gap-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label>Ism</Label>
+                  <Input value={createForm.firstName} onChange={(e) => setCreateForm((p) => ({ ...p, firstName: e.target.value }))} />
+                </div>
+                <div>
+                  <Label>Familiya</Label>
+                  <Input value={createForm.lastName} onChange={(e) => setCreateForm((p) => ({ ...p, lastName: e.target.value }))} />
+                </div>
+              </div>
+              <div>
+                <Label>Username</Label>
+                <Input value={createForm.username} onChange={(e) => setCreateForm((p) => ({ ...p, username: e.target.value }))} />
+              </div>
+              <div>
+                <Label>Telefon (ixtiyoriy)</Label>
+                <Input value={createForm.phone} onChange={(e) => setCreateForm((p) => ({ ...p, phone: e.target.value }))} />
+              </div>
+              <div>
+                <Label>Parol</Label>
+                <Input type="text" value={createForm.password} onChange={(e) => setCreateForm((p) => ({ ...p, password: e.target.value }))} />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Standart: <code className="px-1 rounded bg-muted">lms1234</code>
+                </p>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="outline" onClick={() => setCreateOpen(false)} disabled={creating}>Bekor</Button>
+              <Button onClick={handleCreateStudent} disabled={creating}>
+                {creating ? "Saqlanmoqda..." : "Saqlash"}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
 
       {/* Stats Cards */}
       <div className="grid gap-4 md:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Jami studentlar</CardTitle>
+            <CardTitle className="text-sm font-medium">Jami o‘quvchilar</CardTitle>
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -207,7 +296,7 @@ export default function CenterStudentsPage() {
         
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Faol studentlar</CardTitle>
+            <CardTitle className="text-sm font-medium">Faol o‘quvchilar</CardTitle>
             <GraduationCap className="h-4 w-4 text-green-600" />
           </CardHeader>
           <CardContent>
@@ -217,7 +306,7 @@ export default function CenterStudentsPage() {
         
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Nofaol studentlar</CardTitle>
+            <CardTitle className="text-sm font-medium">Nofaol o‘quvchilar</CardTitle>
             <Users className="h-4 w-4 text-red-600" />
           </CardHeader>
           <CardContent>
@@ -239,7 +328,7 @@ export default function CenterStudentsPage() {
       {/* Filters and Search */}
       <Card>
         <CardHeader>
-          <CardTitle>Studentlar ro'yxati</CardTitle>
+          <CardTitle>O‘quvchilar ro'yxati</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="flex items-center justify-between mb-4">
@@ -247,7 +336,7 @@ export default function CenterStudentsPage() {
               <div className="relative">
                 <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Student qidirish..."
+                  placeholder="O‘quvchi qidirish..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-8 w-[300px]"
@@ -259,9 +348,9 @@ export default function CenterStudentsPage() {
                   <SelectValue placeholder="Holatni tanlang" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">Barcha studentlar</SelectItem>
-                  <SelectItem value="active">Faol studentlar</SelectItem>
-                  <SelectItem value="inactive">Nofaol studentlar</SelectItem>
+                  <SelectItem value="all">Barcha o‘quvchilar</SelectItem>
+                  <SelectItem value="active">Faol o‘quvchilar</SelectItem>
+                  <SelectItem value="inactive">Nofaol o‘quvchilar</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -277,7 +366,7 @@ export default function CenterStudentsPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Student</TableHead>
+                  <TableHead>O‘quvchi</TableHead>
                   <TableHead>username</TableHead>
                   <TableHead>Telefon</TableHead>
                   <TableHead>Guruhlar</TableHead>
@@ -296,7 +385,7 @@ export default function CenterStudentsPage() {
                 ) : filteredStudents.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={7} className="text-center py-4">
-                      Studentlar topilmadi
+                      O‘quvchilar topilmadi
                     </TableCell>
                   </TableRow>
                 ) : (
@@ -388,7 +477,7 @@ export default function CenterStudentsPage() {
       <Dialog open={showDetails} onOpenChange={setShowDetails}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Student ma'lumotlari</DialogTitle>
+            <DialogTitle>O‘quvchi ma'lumotlari</DialogTitle>
             <DialogDescription>
               {selectedStudent && `${selectedStudent.firstName} ${selectedStudent.lastName}`} haqida batafsil ma'lumot
             </DialogDescription>

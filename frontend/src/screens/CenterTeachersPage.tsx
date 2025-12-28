@@ -222,7 +222,7 @@ export default function CenterTeachersPage() {
 
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Jami studentlar</CardTitle>
+                        <CardTitle className="text-sm font-medium">Jami o‘quvchilar</CardTitle>
                         <GraduationCap className="h-4 w-4 text-blue-600" />
                     </CardHeader>
                     <CardContent>

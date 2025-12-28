@@ -87,6 +87,13 @@ export class PaymentsController {
     return this.paymentsService.collectMonthlyPayment(dto as any, req.user);
   }
 
+  @Get('billing/me')
+  @Roles(UserRole.STUDENT)
+  @RequireCenterPermissions(CenterPermissionKey.PAYMENTS)
+  async getMyMonthlyBilling(@Query() query: BillingLedgerQueryDto, @Request() req) {
+    return this.paymentsService.getMyMonthlyBilling(req.user, query?.month);
+  }
+
   @Patch('billing/monthly/:id')
   @Roles(UserRole.TEACHER, UserRole.ADMIN, UserRole.SUPERADMIN)
   @RequireCenterPermissions(CenterPermissionKey.PAYMENTS)
@@ -96,6 +103,13 @@ export class PaymentsController {
     @Request() req,
   ) {
     return this.paymentsService.updateMonthlyPayment(Number(id), dto as any, req.user);
+  }
+
+  @Get('billing/monthly/:id/history')
+  @Roles(UserRole.TEACHER, UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.STUDENT)
+  @RequireCenterPermissions(CenterPermissionKey.PAYMENTS)
+  async getMonthlyHistory(@Param('id') id: string, @Request() req) {
+    return this.paymentsService.getMonthlyPaymentHistory(Number(id), req.user);
   }
 
   // Create a new payment (teacher only)

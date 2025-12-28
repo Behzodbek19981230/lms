@@ -137,7 +137,14 @@ const PaymentTable: React.FC<PaymentTableProps> = ({
                     {payment.student.firstName} {payment.student.lastName}
                   </TableCell>
                 )}
-                <TableCell>{payment.group.name}</TableCell>
+                <TableCell>
+                  <div className="font-medium">{payment.group.name}</div>
+                  {payment.group.subject?.name ? (
+                    <div className="text-xs text-muted-foreground">
+                      Fan: {payment.group.subject.name}
+                    </div>
+                  ) : null}
+                </TableCell>
                 <TableCell className="font-semibold">
                   {formatAmount(payment.amount)}
                 </TableCell>

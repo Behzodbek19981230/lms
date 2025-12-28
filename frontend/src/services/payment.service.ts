@@ -12,6 +12,7 @@ import {
   MonthlyPayment,
   StudentSettlementPreviewDto,
   StudentSettlementResult,
+  MonthlyPaymentTransaction,
 } from '../types/payment';
 import { request } from '../configs/request';
 import { AxiosResponse } from 'axios';
@@ -213,6 +214,28 @@ class PaymentService {
       return this.handleResponse<StudentSettlementResult>(response);
     } catch (error) {
       const msg = getApiErrorMessage(error) || "O'quvchini ketdi qilib yopib bo'lmadi (hisob-kitob xatosi)";
+      throw new Error(msg);
+    }
+  }
+
+  async getMonthlyPaymentHistory(
+    monthlyPaymentId: number | string,
+  ): Promise<APIResponse<MonthlyPaymentTransaction[]>> {
+    try {
+      const response = await request.get(`/payments/billing/monthly/${monthlyPaymentId}/history`);
+      return this.handleResponse<MonthlyPaymentTransaction[]>(response);
+    } catch (error) {
+      const msg = getApiErrorMessage(error) || "To'lovlar tarixini yuklab bo'lmadi";
+      throw new Error(msg);
+    }
+  }
+
+  async getMyMonthlyBilling(query?: BillingLedgerQuery): Promise<APIResponse<any>> {
+    try {
+      const response = await request.get('/payments/billing/me', { params: query });
+      return this.handleResponse<any>(response);
+    } catch (error) {
+      const msg = getApiErrorMessage(error) || "Oylik to'lov ma'lumotlarini yuklab bo'lmadi";
       throw new Error(msg);
     }
   }

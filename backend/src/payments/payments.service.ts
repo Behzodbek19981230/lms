@@ -10,6 +10,7 @@ import { TelegramService } from '../telegram/telegram.service';
 import { TelegramNotificationService } from '../telegram/telegram-notification.service';
 import { StudentBillingProfile } from './billing-profile.entity';
 import { MonthlyPayment, MonthlyPaymentStatus } from './monthly-payment.entity';
+import { MonthlyPaymentTransaction } from './monthly-payment-transaction.entity';
 
 @Injectable()
 export class PaymentsService {
@@ -20,6 +21,8 @@ export class PaymentsService {
     private billingProfileRepository: Repository<StudentBillingProfile>,
     @InjectRepository(MonthlyPayment)
     private monthlyPaymentRepository: Repository<MonthlyPayment>,
+    @InjectRepository(MonthlyPaymentTransaction)
+    private monthlyPaymentTransactionRepository: Repository<MonthlyPaymentTransaction>,
     @InjectRepository(User)
     private userRepository: Repository<User>,
     @InjectRepository(Group)
@@ -59,8 +62,15 @@ export class PaymentsService {
     return new Date(Date.UTC(year, monthIndex, dd));
   }
 
-  private toUtcDateOnly(date: Date): Date {
-    return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+  private toUtcDateOnly(date: Date | string): Date {
+    const d =
+      typeof date === 'string'
+        ? new Date(`${date}T00:00:00.000Z`)
+        : date;
+    if (!(d instanceof Date) || Number.isNaN(d.getTime())) {
+      throw new BadRequestException('Sana noto‘g‘ri');
+    }
+    return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
   }
 
   private diffDaysInclusiveUtc(a: Date, b: Date): number {
@@ -85,6 +95,41 @@ export class PaymentsService {
   private roundMoney(n: number): number {
     // keep 2 decimals (DB numeric(10,2))
     return Math.round((n + Number.EPSILON) * 100) / 100;
+  }
+
+  private getActiveCoverageForMonth(params: {
+    billingMonth: Date;
+    joinDate: Date | string;
+    leaveDate?: Date | string | null;
+  }): null | { activeFrom: Date; activeTo: Date; activeDays: number; daysInMonth: number } {
+    const monthStart = params.billingMonth;
+    const monthEnd = this.monthEndUtc(monthStart);
+    const join = this.toUtcDateOnly(params.joinDate);
+    const leave = params.leaveDate ? this.toUtcDateOnly(params.leaveDate) : null;
+
+    const activeFrom = join > monthStart ? join : monthStart;
+    const activeTo = leave && leave < monthEnd ? leave : monthEnd;
+    if (activeTo < activeFrom) return null;
+
+    const activeDays = this.diffDaysInclusiveUtc(activeFrom, activeTo);
+    const daysInMonth = monthEnd.getUTCDate();
+    if (activeDays <= 0) return null;
+    return { activeFrom, activeTo, activeDays, daysInMonth };
+  }
+
+  private computeProratedAmountDue(params: {
+    billingMonth: Date;
+    monthlyAmount: number;
+    joinDate: Date | string;
+    leaveDate?: Date | string | null;
+  }): number {
+    const cov = this.getActiveCoverageForMonth({
+      billingMonth: params.billingMonth,
+      joinDate: params.joinDate,
+      leaveDate: params.leaveDate,
+    });
+    if (!cov) return 0;
+    return this.roundMoney((params.monthlyAmount * cov.activeDays) / cov.daysInMonth);
   }
 
   private async ensureBillingProfile(student: User): Promise<StudentBillingProfile> {
@@ -154,6 +199,39 @@ export class PaymentsService {
     });
     const monthlyByStudentId = new Map<number, MonthlyPayment>();
     monthly.forEach((m) => monthlyByStudentId.set(m.studentId, m));
+
+    // Auto-create monthly rows for the selected month when possible
+    for (const s of students) {
+      const profile = profileByStudentId.get(s.id);
+      if (!profile) continue;
+      if (monthlyByStudentId.has(s.id)) continue;
+
+      const monthlyAmount = Number(profile.monthlyAmount || 0);
+      if (!Number.isFinite(monthlyAmount) || monthlyAmount <= 0) continue;
+
+      const amountDue = this.computeProratedAmountDue({
+        billingMonth,
+        monthlyAmount,
+        joinDate: profile.joinDate,
+        leaveDate: (profile as any).leaveDate || null,
+      });
+      if (amountDue <= 0) continue;
+
+      const dueDate = this.computeDueDateForMonth(billingMonth, profile.dueDay || 1);
+      const created = await this.monthlyPaymentRepository.save(
+        this.monthlyPaymentRepository.create({
+          studentId: s.id,
+          centerId: s.center?.id as number,
+          billingMonth,
+          dueDate,
+          amountDue,
+          amountPaid: 0,
+          status: MonthlyPaymentStatus.PENDING,
+          note: 'Avtomatik yaratildi',
+        }),
+      );
+      monthlyByStudentId.set(s.id, created);
+    }
 
     return students.map((s) => {
       const p = profileByStudentId.get(s.id)!;
@@ -515,7 +593,12 @@ export class PaymentsService {
       const amountDue =
         dto.amountDueOverride !== undefined
           ? Number(dto.amountDueOverride)
-          : Number(profile.monthlyAmount);
+          : this.computeProratedAmountDue({
+              billingMonth,
+              monthlyAmount,
+              joinDate: profile.joinDate,
+              leaveDate: (profile as any).leaveDate || null,
+            });
       mp = this.monthlyPaymentRepository.create({
         studentId: student.id,
         centerId: student.center.id,
@@ -531,6 +614,19 @@ export class PaymentsService {
       mp.note = dto.note || null;
     }
 
+    // Create transaction (history)
+    await this.monthlyPaymentTransactionRepository.save(
+      this.monthlyPaymentTransactionRepository.create({
+        monthlyPaymentId: mp.id,
+        studentId: student.id,
+        centerId: student.center.id,
+        amount,
+        note: dto.note || null,
+        paidAt: new Date(),
+        createdByUserId: user?.id ?? null,
+      }),
+    );
+
     mp.amountPaid = (Number(mp.amountPaid) + amount) as any;
     mp.lastPaymentAt = new Date();
 
@@ -540,6 +636,31 @@ export class PaymentsService {
     }
 
     mp = await this.monthlyPaymentRepository.save(mp);
+
+    // Notify student about payment status
+    try {
+      const remaining = Math.max(0, Number(mp.amountDue) - Number(mp.amountPaid));
+      const monthLabel = mp.billingMonth
+        ? `${new Date(mp.billingMonth).toISOString().slice(0, 7)}`
+        : '';
+      const title =
+        mp.status === MonthlyPaymentStatus.PAID
+          ? "Oylik to'lov yopildi"
+          : "To'lov qabul qilindi";
+      const message =
+        mp.status === MonthlyPaymentStatus.PAID
+          ? `${monthLabel} oyi uchun to'lovingiz yopildi.`
+          : `${monthLabel} oyi uchun to'lov qabul qilindi. Qoldiq: ${remaining} so'm`;
+
+      await this.notificationsService.createForUsers(
+        [student.id],
+        title,
+        message,
+        'system' as any,
+        'medium' as any,
+        { monthlyPaymentId: mp.id },
+      );
+    } catch {}
 
     // If paid, create next month payment automatically
     if (mp.status === MonthlyPaymentStatus.PAID) {
@@ -570,6 +691,129 @@ export class PaymentsService {
     }
 
     return mp;
+  }
+
+  async getMonthlyPaymentHistory(
+    monthlyPaymentId: number,
+    user: User,
+  ): Promise<
+    Array<{
+      id: number;
+      amount: number;
+      note: string | null;
+      paidAt: Date;
+      createdAt: Date;
+      createdByUserId: number | null;
+    }>
+  > {
+    const mp = await this.monthlyPaymentRepository.findOne({
+      where: { id: monthlyPaymentId } as any,
+      relations: ['center'],
+    });
+    if (!mp) throw new NotFoundException("Oylik to'lov topilmadi");
+
+    // Student can only view own history
+    if (user.role === UserRole.STUDENT) {
+      if (mp.studentId !== user.id) {
+        throw new ForbiddenException("Faqat o'zingizning to'lov tarixingizni ko'ra olasiz");
+      }
+    } else
+    if (user.role !== UserRole.SUPERADMIN) {
+      const centerId = user.center?.id;
+      if (!centerId) throw new ForbiddenException('Markaz biriktirilmagan');
+      if (mp.centerId !== centerId) {
+        throw new ForbiddenException("Faqat o'z markazingiz to'lovlari");
+      }
+    }
+
+    const txs = await this.monthlyPaymentTransactionRepository.find({
+      where: { monthlyPaymentId } as any,
+      order: { paidAt: 'DESC' } as any,
+      take: 200,
+    });
+
+    return txs.map((t) => ({
+      id: t.id,
+      amount: Number(t.amount),
+      note: t.note,
+      paidAt: t.paidAt,
+      createdAt: t.createdAt,
+      createdByUserId: t.createdByUserId,
+    }));
+  }
+
+  async getMyMonthlyBilling(user: User, month?: string) {
+    if (user.role !== UserRole.STUDENT) {
+      throw new ForbiddenException("Faqat o'quvchi uchun");
+    }
+    const student = await this.userRepository.findOne({
+      where: { id: user.id, role: UserRole.STUDENT } as any,
+      relations: ['center'],
+    });
+    if (!student) throw new NotFoundException("O'quvchi topilmadi");
+    if (!student.center?.id) throw new BadRequestException('Markaz biriktirilmagan');
+
+    const billingMonth = this.parseMonthOrThrow(month);
+    const profile = await this.ensureBillingProfile(student);
+
+    let mp = await this.monthlyPaymentRepository.findOne({
+      where: { studentId: student.id, billingMonth } as any,
+    });
+    if (!mp) {
+      const monthlyAmount = Number(profile.monthlyAmount || 0);
+      if (Number.isFinite(monthlyAmount) && monthlyAmount > 0) {
+        const amountDue = this.computeProratedAmountDue({
+          billingMonth,
+          monthlyAmount,
+          joinDate: profile.joinDate,
+          leaveDate: (profile as any).leaveDate || null,
+        });
+        if (amountDue > 0) {
+          const dueDate = this.computeDueDateForMonth(billingMonth, profile.dueDay || 1);
+          mp = await this.monthlyPaymentRepository.save(
+            this.monthlyPaymentRepository.create({
+              studentId: student.id,
+              centerId: student.center.id,
+              billingMonth,
+              dueDate,
+              amountDue,
+              amountPaid: 0,
+              status: MonthlyPaymentStatus.PENDING,
+              note: 'Avtomatik yaratildi',
+            }),
+          );
+        }
+      }
+    }
+
+    return {
+      student: {
+        id: student.id,
+        firstName: student.firstName,
+        lastName: student.lastName,
+        username: student.username,
+      },
+      center: { id: student.center.id, name: student.center.name },
+      profile: {
+        joinDate: profile.joinDate,
+        monthlyAmount: Number(profile.monthlyAmount || 0),
+        dueDay: profile.dueDay,
+      },
+      month: billingMonth,
+      monthlyPayment: mp
+        ? {
+            id: mp.id,
+            billingMonth: mp.billingMonth,
+            dueDate: mp.dueDate,
+            amountDue: Number(mp.amountDue),
+            amountPaid: Number(mp.amountPaid),
+            status: mp.status,
+            lastPaymentAt: mp.lastPaymentAt,
+            paidAt: mp.paidAt,
+            note: mp.note,
+          }
+        : null,
+    };
   }
 
   // Create a new payment
@@ -615,7 +859,7 @@ export class PaymentsService {
   async findAllByTeacher(teacherId: number): Promise<Payment[]> {
     return this.paymentRepository.find({
       where: { teacherId },
-      relations: ['student', 'group'],
+      relations: ['student', 'group', 'group.subject'],
       order: { createdAt: 'DESC' }
     });
   }
@@ -630,7 +874,7 @@ export class PaymentsService {
     if (groupIds.length === 0) return [];
     return this.paymentRepository.find({
       where: { groupId: In(groupIds) },
-      relations: ['student', 'group', 'teacher'],
+      relations: ['student', 'group', 'group.subject', 'teacher'],
       order: { createdAt: 'DESC' },
     });
   }
@@ -639,7 +883,7 @@ export class PaymentsService {
   async findAllByStudent(studentId: number): Promise<Payment[]> {
     return this.paymentRepository.find({
       where: { studentId },
-      relations: ['teacher', 'group'],
+      relations: ['teacher', 'group', 'group.subject'],
       order: { createdAt: 'DESC' }
     });
   }
@@ -656,7 +900,7 @@ export class PaymentsService {
 
     return this.paymentRepository.find({
       where: { groupId },
-      relations: ['student', 'group'],
+      relations: ['student', 'group', 'group.subject'],
       order: { createdAt: 'DESC' }
     });
   }
@@ -665,7 +909,7 @@ export class PaymentsService {
   async findOne(id: number): Promise<Payment> {
     const payment = await this.paymentRepository.findOne({
       where: { id },
-      relations: ['student', 'teacher', 'group']
+      relations: ['student', 'teacher', 'group', 'group.subject']
     });
     
     if (!payment) {

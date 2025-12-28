@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { BillingLedgerItem, StudentSettlementResult } from '@/types/payment';
+import { BillingLedgerItem, MonthlyPaymentTransaction, StudentSettlementResult } from '@/types/payment';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -30,6 +30,7 @@ type Props = {
 	onCollect: (data: { studentId: number; month: string; amount: number; note?: string; amountDueOverride?: number }) => Promise<void>;
 	onUpdateMonthly: (monthlyPaymentId: number, data: { amountDue?: number; dueDate?: string; note?: string }) => Promise<void>;
 	onSettleStudent: (data: { studentId: number; leaveDate: string; persist: boolean }) => Promise<StudentSettlementResult>;
+	onGetHistory: (monthlyPaymentId: number) => Promise<MonthlyPaymentTransaction[]>;
 };
 
 function statusBadge(status?: string | null) {
@@ -45,11 +46,12 @@ function statusBadge(status?: string | null) {
 	}
 }
 
-export default function MonthlyBillingTable({ month, ledger, onSaveProfile, onCollect, onUpdateMonthly, onSettleStudent }: Props) {
+export default function MonthlyBillingTable({ month, ledger, onSaveProfile, onCollect, onUpdateMonthly, onSettleStudent, onGetHistory }: Props) {
 	const [profileOpen, setProfileOpen] = useState(false);
 	const [collectOpen, setCollectOpen] = useState(false);
 	const [editMonthlyOpen, setEditMonthlyOpen] = useState(false);
 	const [settleOpen, setSettleOpen] = useState(false);
+	const [historyOpen, setHistoryOpen] = useState(false);
 
 	const [activeStudentId, setActiveStudentId] = useState<number | null>(null);
 	const activeRow = useMemo(
@@ -78,6 +80,10 @@ export default function MonthlyBillingTable({ month, ledger, onSaveProfile, onCo
 	const [leaveDate, setLeaveDate] = useState<string>(() => new Date().toISOString().slice(0, 10));
 	const [settleResult, setSettleResult] = useState<StudentSettlementResult | null>(null);
 	const [settleError, setSettleError] = useState<string | null>(null);
+
+	// History
+	const [history, setHistory] = useState<MonthlyPaymentTransaction[]>([]);
+	const [historyError, setHistoryError] = useState<string | null>(null);
 
 	const openProfile = (row: BillingLedgerItem) => {
 		setActiveStudentId(row.student.id);
@@ -113,11 +119,25 @@ export default function MonthlyBillingTable({ month, ledger, onSaveProfile, onCo
 		setSettleOpen(true);
 	};
 
+	const openHistory = async (row: BillingLedgerItem) => {
+		if (!row.monthlyPayment) return;
+		setActiveStudentId(row.student.id);
+		setHistoryError(null);
+		setHistory([]);
+		setHistoryOpen(true);
+		try {
+			const data = await onGetHistory(row.monthlyPayment.id);
+			setHistory(data);
+		} catch (e: any) {
+			setHistoryError(e?.message || "Tarixni yuklashda xatolik");
+		}
+	};
+
 	return (
 		<div className='space-y-3'>
 			<Card className='p-3'>
 				<div className='text-sm text-muted-foreground'>
-					Oy: <span className='font-medium text-foreground'>{month}</span>. Bu jadval studentlar bo‘yicha oylik to‘lov
+					Oy: <span className='font-medium text-foreground'>{month}</span>. Bu jadval o‘quvchilar bo‘yicha oylik to‘lov
 					holatini ko‘rsatadi (joinDate default: student yaratilgan sana).
 				</div>
 			</Card>
@@ -372,6 +392,63 @@ export default function MonthlyBillingTable({ month, ledger, onSaveProfile, onCo
 				</DialogContent>
 			</Dialog>
 
+			<Dialog open={historyOpen} onOpenChange={setHistoryOpen}>
+				<DialogContent className='max-w-[96vw] sm:max-w-3xl lg:max-w-5xl max-h-[85vh] overflow-y-auto'>
+					<DialogHeader>
+						<DialogTitle>To‘lovlar tarixi</DialogTitle>
+					</DialogHeader>
+
+					{historyError && (
+						<Card className='p-3 border border-red-200 bg-red-50'>
+							<div className='text-sm text-red-800'>
+								<b>Xatolik:</b> {historyError}
+							</div>
+						</Card>
+					)}
+
+					<div className='w-full overflow-x-auto border rounded-md'>
+						<Table className='min-w-[640px]'>
+							<TableHeader>
+								<TableRow>
+									<TableHead>Sana</TableHead>
+									<TableHead>Summa</TableHead>
+									<TableHead>Izoh</TableHead>
+								</TableRow>
+							</TableHeader>
+							<TableBody>
+								{history.length === 0 ? (
+									<TableRow>
+										<TableCell colSpan={3} className='text-center py-6 text-muted-foreground'>
+											Hozircha to‘lovlar yo‘q
+										</TableCell>
+									</TableRow>
+								) : (
+									history.map((t) => (
+										<TableRow key={t.id}>
+											<TableCell>
+												{new Date(t.paidAt).toLocaleString('uz-UZ')}
+											</TableCell>
+											<TableCell className='font-medium'>
+												{Number(t.amount).toLocaleString('uz-UZ')} UZS
+											</TableCell>
+											<TableCell className='max-w-[420px] truncate'>
+												{t.note || '—'}
+											</TableCell>
+										</TableRow>
+									))
+								)}
+							</TableBody>
+						</Table>
+					</div>
+
+					<DialogFooter>
+						<Button variant='outline' onClick={() => setHistoryOpen(false)}>
+							Yopish
+						</Button>
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
+
 			<Card className='p-0 overflow-hidden'>
 				<div className='w-full overflow-x-auto'>
 					<Table className='min-w-[980px]'>
@@ -391,7 +468,7 @@ export default function MonthlyBillingTable({ month, ledger, onSaveProfile, onCo
 						{ledger.length === 0 ? (
 							<TableRow>
 								<TableCell colSpan={8} className='text-center py-8 text-muted-foreground'>
-									Student topilmadi
+									O‘quvchilar topilmadi
 								</TableCell>
 							</TableRow>
 						) : (
@@ -439,6 +516,12 @@ export default function MonthlyBillingTable({ month, ledger, onSaveProfile, onCo
 														onClick={() => openEditMonthly(row)}
 													>
 														Oylikni tahrirlash
+													</DropdownMenuItem>
+													<DropdownMenuItem
+														disabled={!row.monthlyPayment}
+														onClick={() => openHistory(row)}
+													>
+														Tarix
 													</DropdownMenuItem>
 													<DropdownMenuItem
 														className='text-red-600 focus:text-red-600'

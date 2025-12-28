@@ -56,7 +56,7 @@ const superAdminMenuItems = [
 ];
 const centerAdminMenuItems = [
 	{ title: 'Dashboard', url: '/account/admin', icon: LayoutDashboard },
-	{ title: 'Studentlarim', url: '/account/students', icon: GraduationCap },
+	{ title: "O‘quvchilarim", url: '/account/students', icon: GraduationCap },
 	{ title: "O'qituvchilarim", url: '/account/teachers', icon: UserCheck },
 	{ title: 'Mening fanlarim', url: '/account/subjects', icon: Book },
 	{ title: 'Telegram Management', url: '/account/telegram', icon: Send },

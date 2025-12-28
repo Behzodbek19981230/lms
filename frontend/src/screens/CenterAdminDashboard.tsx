@@ -196,7 +196,7 @@ const CenterAdminDashboard = () => {
 							<span className='hidden sm:inline text-xs sm:text-sm'>Bildirishnomalar</span>
 							<Badge className='ml-1 sm:ml-2 bg-destructive text-[10px] sm:text-xs px-1.5'>3</Badge>
 						</Button>
-						<TeacherStudentCreate label="Student qo'shish" defaultRole='student' variant='hero' />
+						<TeacherStudentCreate label="O‘quvchi qo'shish" defaultRole='student' variant='hero' />
 						<TeacherStudentCreate label="O'qituvchi" defaultRole='teacher' variant='outline' />
 					</div>
 				</div>
@@ -210,7 +210,7 @@ const CenterAdminDashboard = () => {
 
 						<CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2 relative z-10'>
 							<CardTitle className='text-xs sm:text-sm font-medium text-muted-foreground group-hover:text-foreground/80 transition-colors'>
-								Studentlar
+								O‘quvchilar
 							</CardTitle>
 							<div className='p-1.5 sm:p-2 rounded-lg sm:rounded-xl bg-gradient-to-br from-primary/20 to-primary-glow/20 group-hover:scale-110 transition-transform duration-300'>
 								<GraduationCap className='h-3.5 w-3.5 sm:h-4 sm:w-4 text-primary group-hover:scale-110 transition-transform duration-300' />

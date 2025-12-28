@@ -380,7 +380,7 @@ const SuperAdminDashboard = () => {
 
 						<CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2 relative z-10'>
 							<CardTitle className='text-xs sm:text-sm font-medium text-muted-foreground group-hover:text-foreground/80 transition-colors'>
-								Faol studentlar
+								Faol o‘quvchilar
 							</CardTitle>
 							<div className='p-1.5 sm:p-2 rounded-lg sm:rounded-xl bg-gradient-to-br from-accent/20 to-accent-glow/20 group-hover:scale-110 transition-transform duration-300'>
 								<GraduationCap className='h-3.5 w-3.5 sm:h-4 sm:w-4 text-accent group-hover:scale-110 transition-transform duration-300' />

@@ -99,6 +99,46 @@ export class UsersController {
     } as CreateUserDto);
   }
 
+  @Post('students')
+  @Roles(UserRole.TEACHER, UserRole.ADMIN, UserRole.SUPERADMIN)
+  async createStudent(
+    @Body() dto: CreateUserDto,
+    @Request() req,
+  ): Promise<User> {
+    const hashedPassword = await bcrypt.hash(dto.password, 12);
+
+    const currentUser = req.user as { id: number; role: UserRole };
+    const me = await this.usersService.findOne(Number(currentUser.id));
+
+    // Teacher/Admin: force centerId to own center
+    if (me.role === UserRole.TEACHER || me.role === UserRole.ADMIN) {
+      if (!me.center?.id) {
+        throw new BadRequestException("Foydalanuvchiga markaz biriktirilmagan");
+      }
+      return this.usersService.create({
+        ...dto,
+        password: hashedPassword,
+        role: UserRole.STUDENT,
+        centerId: me.center.id,
+      } as CreateUserDto);
+    }
+
+    // Superadmin: allow specifying centerId in body
+    if (me.role === UserRole.SUPERADMIN) {
+      if (!dto.centerId) {
+        throw new BadRequestException("Student yaratish uchun centerId majburiy");
+      }
+      return this.usersService.create({
+        ...dto,
+        password: hashedPassword,
+        role: UserRole.STUDENT,
+        centerId: Number(dto.centerId),
+      } as CreateUserDto);
+    }
+
+    throw new BadRequestException("Ruxsat yo'q");
+  }
+
   @Get()
   @Roles(UserRole.TEACHER, UserRole.ADMIN, UserRole.SUPERADMIN)
   @ApiOperation({ summary: 'Get users list with optional filters' })

@@ -297,7 +297,7 @@ const TeacherPayments: React.FC = () => {
 					<div>
 						<CardTitle className='text-lg'>Oylik to‘lovlar</CardTitle>
 						<p className='text-sm text-muted-foreground mt-1'>
-							Student qo‘shilganda avtomatik ko‘rinadi (joinDate default: user yaratilgan sana). Qarzdorliklarni oy bo‘yicha
+							O‘quvchi qo‘shilganda avtomatik ko‘rinadi (joinDate default: user yaratilgan sana). Qarzdorliklarni oy bo‘yicha
 							belgilab, qisman to‘lov kiritish mumkin.
 						</p>
 					</div>
@@ -362,6 +362,10 @@ const TeacherPayments: React.FC = () => {
 								toast.error(e?.message || 'Xatolik yuz berdi');
 								throw e;
 							}
+						}}
+						onGetHistory={async (monthlyPaymentId) => {
+							const res = await paymentService.getMonthlyPaymentHistory(monthlyPaymentId);
+							return res.data || [];
 						}}
 					/>
 				</div>
