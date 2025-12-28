@@ -390,17 +390,19 @@ export class PaymentsService {
         : null;
       const remaining = Math.max(0, amountDue - amountPaid);
 
+      // Status should reflect current dueDate + remaining, not stale DB status.
+      // (Important after dueDay edits.)
       let effectiveStatus: MonthlyPaymentStatus | null = mp
         ? (mp.status as any)
         : null;
-      if (
-        mp &&
-        effectiveStatus === MonthlyPaymentStatus.PENDING &&
-        dueDate &&
-        remaining > 0 &&
-        dueDate < today
-      ) {
-        effectiveStatus = MonthlyPaymentStatus.OVERDUE;
+      if (mp && effectiveStatus !== MonthlyPaymentStatus.CANCELLED) {
+        if (remaining <= 0 && amountDue > 0) {
+          effectiveStatus = MonthlyPaymentStatus.PAID;
+        } else if (dueDate && remaining > 0 && dueDate < today) {
+          effectiveStatus = MonthlyPaymentStatus.OVERDUE;
+        } else {
+          effectiveStatus = MonthlyPaymentStatus.PENDING;
+        }
       }
 
       return {
@@ -473,6 +475,7 @@ export class PaymentsService {
     }
 
     const profile = await this.ensureBillingProfile(student);
+    const prevDueDay = profile.dueDay;
 
     if (dto.joinDate) {
       const jd = new Date(dto.joinDate);
@@ -502,6 +505,31 @@ export class PaymentsService {
     }
 
     await this.billingProfileRepository.save(profile);
+
+    // If dueDay changed, recompute dueDate for existing unpaid months
+    if (dto.dueDay !== undefined && profile.dueDay !== prevDueDay) {
+      const unpaid = await this.monthlyPaymentRepository.find({
+        where: {
+          studentId,
+        } as any,
+        order: { billingMonth: 'ASC' } as any,
+      });
+      const toUpdate: MonthlyPayment[] = [];
+      for (const mp of unpaid) {
+        if (mp.status === MonthlyPaymentStatus.CANCELLED) continue;
+        const due = Number(mp.amountDue);
+        const paid = Number(mp.amountPaid);
+        if (!(due > 0) || paid >= due) continue; // already settled
+        mp.dueDate = this.computeDueDateForMonth(
+          this.toUtcDateOnly(mp.billingMonth as any),
+          profile.dueDay,
+        ) as any;
+        toUpdate.push(mp);
+      }
+      if (toUpdate.length > 0) {
+        await this.monthlyPaymentRepository.save(toUpdate);
+      }
+    }
     return profile;
   }
 
@@ -1055,7 +1083,23 @@ export class PaymentsService {
             dueDate: mp.dueDate,
             amountDue: Number(mp.amountDue),
             amountPaid: Number(mp.amountPaid),
-            status: mp.status,
+            status:
+              mp.status === MonthlyPaymentStatus.CANCELLED
+                ? mp.status
+                : (() => {
+                    const due = Number(mp.amountDue);
+                    const paid = Number(mp.amountPaid);
+                    const remaining = Math.max(0, due - paid);
+                    const dd = mp.dueDate
+                      ? this.toUtcDateOnly(mp.dueDate as any)
+                      : null;
+                    const today = this.toUtcDateOnly(new Date());
+                    if (remaining <= 0 && due > 0)
+                      return MonthlyPaymentStatus.PAID;
+                    if (dd && remaining > 0 && dd < today)
+                      return MonthlyPaymentStatus.OVERDUE;
+                    return MonthlyPaymentStatus.PENDING;
+                  })(),
             lastPaymentAt: mp.lastPaymentAt,
             paidAt: mp.paidAt,
             note: mp.note,
