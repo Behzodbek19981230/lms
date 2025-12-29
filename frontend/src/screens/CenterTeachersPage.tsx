@@ -82,6 +82,15 @@ export default function CenterTeachersPage() {
         phone: '',
     });
     const [creating, setCreating] = useState(false);
+    const [showEditDialog, setShowEditDialog] = useState(false);
+    const [editForm, setEditForm] = useState({
+        id: 0,
+        firstName: '',
+        lastName: '',
+        username: '',
+        phone: '',
+    });
+    const [editing, setEditing] = useState(false);
 
     const filteredTeachers = teachers.filter(teacher => {
         const matchesSearch =
@@ -236,6 +245,71 @@ export default function CenterTeachersPage() {
     const handleViewDetails = (teacher: Teacher) => {
         setSelectedTeacher(teacher);
         setShowDetails(true);
+    };
+
+    const handleEdit = (teacher: Teacher) => {
+        setEditForm({
+            id: teacher.id,
+            firstName: teacher.firstName,
+            lastName: teacher.lastName,
+            username: teacher.username,
+            phone: teacher.phone || '',
+        });
+        setShowEditDialog(true);
+    };
+
+    const handleDelete = async (teacherId: number) => {
+        if (!confirm('Haqiqatan ham bu o\'qituvchini o\'chirmoqchimisiz?')) {
+            return;
+        }
+
+        try {
+            await request.delete(`/users/${teacherId}`);
+            setTeachers(prev => prev.filter(t => t.id !== teacherId));
+            toast({
+                title: 'Muvaffaqiyat',
+                description: 'O\'qituvchi muvaffaqiyatli o\'chirildi'
+            });
+        } catch (error: any) {
+            toast({
+                title: 'Xato',
+                description: error.response?.data?.message || 'O\'qituvchini o\'chirishda xatolik',
+                variant: 'destructive'
+            });
+        }
+    };
+
+    const handleEditSubmit = async () => {
+        try {
+            setEditing(true);
+            await request.patch(`/users/${editForm.id}`, {
+                firstName: editForm.firstName,
+                lastName: editForm.lastName,
+                username: editForm.username,
+                phone: editForm.phone,
+            });
+
+            setTeachers(prev =>
+                prev.map(teacher =>
+                    teacher.id === editForm.id
+                        ? { ...teacher, ...editForm }
+                        : teacher
+                )
+            );
+            setShowEditDialog(false);
+            toast({
+                title: 'Muvaffaqiyat',
+                description: 'O\'qituvchi muvaffaqiyatli tahrirlandi'
+            });
+        } catch (error: any) {
+            toast({
+                title: 'Xato',
+                description: error.response?.data?.message || 'O\'qituvchini tahrirlashda xatolik',
+                variant: 'destructive'
+            });
+        } finally {
+            setEditing(false);
+        }
     };
 
     return (
@@ -422,7 +496,7 @@ export default function CenterTeachersPage() {
                                                             <Eye className="mr-2 h-4 w-4" />
                                                             Ko'rish
                                                         </DropdownMenuItem>
-                                                        <DropdownMenuItem>
+                                                        <DropdownMenuItem onClick={() => handleEdit(teacher)}>
                                                             <Edit className="mr-2 h-4 w-4" />
                                                             Tahrirlash
                                                         </DropdownMenuItem>
@@ -441,7 +515,10 @@ export default function CenterTeachersPage() {
                                                                 </>
                                                             )}
                                                         </DropdownMenuItem>
-                                                        <DropdownMenuItem className="text-red-600">
+                                                        <DropdownMenuItem
+                                                            className="text-red-600"
+                                                            onClick={() => handleDelete(teacher.id)}
+                                                        >
                                                             <Trash2 className="mr-2 h-4 w-4" />
                                                             O'chirish
                                                         </DropdownMenuItem>
@@ -621,6 +698,76 @@ export default function CenterTeachersPage() {
                         </Button>
                         <Button onClick={handleCreateTeacher} disabled={creating}>
                             {creating ? 'Qo\'shilmoqda...' : 'Qo\'shish'}
+                        </Button>
+                    </div>
+                </DialogContent>
+            </Dialog>
+
+            {/* Edit Teacher Dialog */}
+            <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
+                <DialogContent className="sm:max-w-[425px]">
+                    <DialogHeader>
+                        <DialogTitle>O'qituvchini tahrirlash</DialogTitle>
+                        <DialogDescription>
+                            O'qituvchi ma'lumotlarini o'zgartirish.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="grid gap-4 py-4">
+                        <div className="grid grid-cols-4 items-center gap-4">
+                            <Label htmlFor="editFirstName" className="text-right text-sm font-medium">
+                                Ism *
+                            </Label>
+                            <Input
+                                id="editFirstName"
+                                value={editForm.firstName}
+                                onChange={(e) => setEditForm(prev => ({ ...prev, firstName: e.target.value }))}
+                                className="col-span-3"
+                                placeholder="Ism"
+                            />
+                        </div>
+                        <div className="grid grid-cols-4 items-center gap-4">
+                            <Label htmlFor="editLastName" className="text-right text-sm font-medium">
+                                Familiya *
+                            </Label>
+                            <Input
+                                id="editLastName"
+                                value={editForm.lastName}
+                                onChange={(e) => setEditForm(prev => ({ ...prev, lastName: e.target.value }))}
+                                className="col-span-3"
+                                placeholder="Familiya"
+                            />
+                        </div>
+                        <div className="grid grid-cols-4 items-center gap-4">
+                            <Label htmlFor="editUsername" className="text-right text-sm font-medium">
+                                Username *
+                            </Label>
+                            <Input
+                                id="editUsername"
+                                value={editForm.username}
+                                onChange={(e) => setEditForm(prev => ({ ...prev, username: e.target.value }))}
+                                className="col-span-3"
+                                placeholder="Username"
+                            />
+                        </div>
+                        <div className="grid grid-cols-4 items-center gap-4">
+                            <Label htmlFor="editPhone" className="text-right text-sm font-medium">
+                                Telefon
+                            </Label>
+                            <Input
+                                id="editPhone"
+                                value={editForm.phone}
+                                onChange={(e) => setEditForm(prev => ({ ...prev, phone: e.target.value }))}
+                                className="col-span-3"
+                                placeholder="Telefon raqam"
+                            />
+                        </div>
+                    </div>
+                    <div className="flex justify-end gap-3">
+                        <Button variant="outline" onClick={() => setShowEditDialog(false)}>
+                            Bekor qilish
+                        </Button>
+                        <Button onClick={handleEditSubmit} disabled={editing}>
+                            {editing ? 'Saqlanmoqda...' : 'Saqlash'}
                         </Button>
                     </div>
                 </DialogContent>

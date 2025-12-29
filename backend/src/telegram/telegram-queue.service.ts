@@ -11,6 +11,7 @@ import {
   MessagePriority,
 } from './entities/telegram-message-log.entity';
 import { LogsService } from '../logs/logs.service';
+import { User, UserRole } from '../users/entities/user.entity';
 
 interface QueueMessageParams {
   chatId: string;
@@ -99,10 +100,24 @@ export class TelegramQueueService {
   }
 
   /**
-   * Process pending messages - runs every 30 seconds
+   * Process pending messages - runs every 30 seconds (for all centers)
    */
   @Cron(CronExpression.EVERY_30_SECONDS)
-  async processQueue(): Promise<void> {
+  async processQueueCron(): Promise<void> {
+    await this.processQueueInternal();
+  }
+
+  /**
+   * Process pending messages manually (with center filtering)
+   */
+  async processQueue(user?: User): Promise<void> {
+    await this.processQueueInternal(user);
+  }
+
+  /**
+   * Internal queue processing logic
+   */
+  private async processQueueInternal(user?: User): Promise<void> {
     if (this.isProcessing) {
       this.logger.debug('⏭️ Queue processing already in progress, skipping...');
       return;
@@ -116,15 +131,23 @@ export class TelegramQueueService {
     this.isProcessing = true;
 
     try {
+      const whereClause: any[] = [
+        { status: MessageStatus.PENDING },
+        {
+          status: MessageStatus.FAILED,
+          nextRetryAt: LessThan(new Date()),
+        },
+      ];
+
+      // Agar user berilgan bo'lsa va superadmin bo'lmasa, faqat o'z centerining xabarlarini process qiladi
+      if (user && user.role !== UserRole.SUPERADMIN && user.center?.id) {
+        whereClause[0].centerId = user.center.id;
+        whereClause[1].centerId = user.center.id;
+      }
+
       // Get pending and retry messages, ordered by priority and creation time
       const pendingMessages = await this.messageLogRepo.find({
-        where: [
-          { status: MessageStatus.PENDING },
-          {
-            status: MessageStatus.FAILED,
-            nextRetryAt: LessThan(new Date()),
-          },
-        ],
+        where: whereClause,
         order: {
           priority: 'DESC', // HIGH > NORMAL > LOW
           createdAt: 'ASC', // Oldest first
@@ -309,6 +332,7 @@ export class TelegramQueueService {
   async getStatistics(
     startDate?: Date,
     endDate?: Date,
+    user?: User,
   ): Promise<{
     total: number;
     sent: number;
@@ -325,6 +349,11 @@ export class TelegramQueueService {
         $gte: startDate,
         $lte: endDate,
       };
+    }
+
+    // Agar superadmin bo'lmasa, faqat o'z centerining statistikasini ko'rsat
+    if (user && user.role !== UserRole.SUPERADMIN && user.center?.id) {
+      whereClause.centerId = user.center.id;
     }
 
     const [total, sent, failed, pending, retrying] = await Promise.all([
@@ -398,27 +427,50 @@ export class TelegramQueueService {
   /**
    * Get pending message count (for monitoring)
    */
-  async getPendingCount(): Promise<number> {
+  async getPendingCount(user?: User): Promise<number> {
+    const whereClause: any = {
+      status: In([MessageStatus.PENDING, MessageStatus.RETRYING]),
+    };
+
+    // Agar superadmin bo'lmasa, faqat o'z centerining pending xabarlarini sanaydi
+    if (user && user.role !== UserRole.SUPERADMIN && user.center?.id) {
+      whereClause.centerId = user.center.id;
+    }
+
     return this.messageLogRepo.count({
-      where: { status: In([MessageStatus.PENDING, MessageStatus.RETRYING]) },
+      where: whereClause,
     });
   }
 
   /**
    * Get failed message count (for monitoring)
    */
-  async getFailedCount(): Promise<number> {
+  async getFailedCount(user?: User): Promise<number> {
+    const whereClause: any = { status: MessageStatus.FAILED };
+
+    // Agar superadmin bo'lmasa, faqat o'z centerining failed xabarlarini sanaydi
+    if (user && user.role !== UserRole.SUPERADMIN && user.center?.id) {
+      whereClause.centerId = user.center.id;
+    }
+
     return this.messageLogRepo.count({
-      where: { status: MessageStatus.FAILED },
+      where: whereClause,
     });
   }
 
   /**
    * Retry all permanently failed messages (manual admin action)
    */
-  async retryFailedMessages(): Promise<number> {
+  async retryFailedMessages(user?: User): Promise<number> {
+    const whereClause: any = { status: MessageStatus.FAILED };
+
+    // Agar superadmin bo'lmasa, faqat o'z centerining failed xabarlarini retry qiladi
+    if (user && user.role !== UserRole.SUPERADMIN && user.center?.id) {
+      whereClause.centerId = user.center.id;
+    }
+
     const failedMessages = await this.messageLogRepo.find({
-      where: { status: MessageStatus.FAILED },
+      where: whereClause,
       take: 100, // Limit to prevent overload
     });
 
@@ -439,8 +491,19 @@ export class TelegramQueueService {
   /**
    * Get recent message logs (for frontend monitoring)
    */
-  async getRecentLogs(limit: number = 50): Promise<TelegramMessageLog[]> {
+  async getRecentLogs(
+    limit: number = 50,
+    user?: User,
+  ): Promise<TelegramMessageLog[]> {
+    const whereClause: any = {};
+
+    // Agar superadmin bo'lmasa, faqat o'z centerining loglarini ko'rsat
+    if (user && user.role !== UserRole.SUPERADMIN && user.center?.id) {
+      whereClause.centerId = user.center.id;
+    }
+
     return this.messageLogRepo.find({
+      where: whereClause,
       order: {
         createdAt: 'DESC',
       },
@@ -454,9 +517,17 @@ export class TelegramQueueService {
   async getLogsByStatus(
     status: MessageStatus,
     limit: number = 50,
+    user?: User,
   ): Promise<TelegramMessageLog[]> {
+    const whereClause: any = { status };
+
+    // Agar superadmin bo'lmasa, faqat o'z centerining loglarini ko'rsat
+    if (user && user.role !== UserRole.SUPERADMIN && user.center?.id) {
+      whereClause.centerId = user.center.id;
+    }
+
     return this.messageLogRepo.find({
-      where: { status },
+      where: whereClause,
       order: {
         createdAt: 'DESC',
       },
