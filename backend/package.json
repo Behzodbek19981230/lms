@@ -11,7 +11,7 @@
     "start": "nest start",
     "start:dev": "nest start --watch",
     "start:debug": "nest start --debug --watch",
-    "start:prod": "node dist/main",
+    "start:prod": "node dist/src/main",
     "migration:generate": "npm run build && typeorm migration:generate src/migrations/Init -d src/datasource.ts",
     "migration:run": "npm run build && typeorm migration:run -d dist/datasource.js",
     "migration:revert": "npm run build && typeorm migration:revert -d dist/datasource.js",
