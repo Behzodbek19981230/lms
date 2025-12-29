@@ -31,6 +31,9 @@ const Hero = () => {
                             <Button
                                 className='text-lg px-8 py-6 bg-gradient-primary hover:shadow-glow transition-all duration-300 hover:scale-105 hover:-translate-y-1 group'
                                 size='lg'
+                                onClick={
+                                    ()=>window.location.href='#contact'
+                                }
                             >
                                 Bepul sinab ko'ring
                                 <ArrowRight className='h-5 w-5 group-hover:translate-x-1 transition-transform duration-300' />
@@ -53,7 +56,7 @@ const Hero = () => {
                                         <Building2 className='h-6 w-6 text-white' />
                                     </div>
                                     <span className='text-3xl font-bold bg-gradient-primary bg-clip-text text-transparent'>
-                                        500+
+                                        5+
                                     </span>
                                 </div>
                                 <p className='text-sm font-semibold text-muted-foreground group-hover:text-primary transition-colors'>
@@ -66,7 +69,7 @@ const Hero = () => {
                                         <Users className='h-6 w-6 text-white' />
                                     </div>
                                     <span className='text-3xl font-bold bg-gradient-accent bg-clip-text text-transparent'>
-                                        50K+
+                                        250+
                                     </span>
                                 </div>
                                 <p className='text-sm font-semibold text-muted-foreground group-hover:text-accent transition-colors'>
@@ -79,7 +82,7 @@ const Hero = () => {
                                         <GraduationCap className='h-6 w-6 text-white' />
                                     </div>
                                     <span className='text-3xl font-bold bg-gradient-primary bg-clip-text text-transparent'>
-                                        10K+
+                                        20+
                                     </span>
                                 </div>
                                 <p className='text-sm font-semibold text-muted-foreground group-hover:text-primary transition-colors'>

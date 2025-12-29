@@ -77,7 +77,7 @@ const Header = () => {
 								className='bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white'
 								asChild
 							>
-								<Link href='/register'>Bepul sinab ko'ring</Link>
+								<Link href='#contact'>Bepul sinab ko'ring</Link>
 							</Button>
 						</>
 					)}

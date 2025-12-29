@@ -20,11 +20,11 @@ const Footer = () => {
             <div className="space-y-3">
               <div className="flex items-center space-x-3">
                 <Mail className="h-4 w-4 text-primary" />
-                <span className="text-background/80">info@EduOne.uz</span>
+                <a href="mailto:behzodrasulov432@gmail.com" className="text-background/80" >info@EduOne.uz</a>
               </div>
               <div className="flex items-center space-x-3">
                 <Phone className="h-4 w-4 text-primary" />
-                <span className="text-background/80">+998 99 123 45 67</span>
+                <a href="tel:+998930013098" className="text-background/80">+998 930013098</a>
               </div>
               <div className="flex items-center space-x-3">
                 <MapPin className="h-4 w-4 text-primary" />
@@ -72,17 +72,7 @@ const Footer = () => {
             <p className="text-background/60 text-sm">
               © 2024 EduOne. Barcha huquqlar himoyalangan.
             </p>
-            <div className="flex space-x-6">
-              <a href="#privacy" className="text-background/60 hover:text-background text-sm transition-colors">
-                Maxfiylik siyosati
-              </a>
-              <a href="#terms" className="text-background/60 hover:text-background text-sm transition-colors">
-                Foydalanish shartlari
-              </a>
-              <a href="#cookies" className="text-background/60 hover:text-background text-sm transition-colors">
-                Cookie siyosati
-              </a>
-            </div>
+           
           </div>
         </div>
       </div>

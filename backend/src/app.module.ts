@@ -18,6 +18,7 @@ import { PaymentsModule } from './payments/payments.module';
 import { AssignedTestsModule } from './assigned-tests/assigned-tests.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { LogsModule } from './logs/logs.module';
+import { ContactsModule } from './contacts/contacts.module';
 import { CenterPermissionGuard } from './centers/permissions/center-permission.guard';
 
 @Module({
@@ -57,6 +58,7 @@ import { CenterPermissionGuard } from './centers/permissions/center-permission.g
     AttendanceModule,
     CronJobsModule,
     LogsModule,
+    ContactsModule,
   ],
   providers: [
     // Global center-permission guard: only enforces when @RequireCenterPermissions() is present

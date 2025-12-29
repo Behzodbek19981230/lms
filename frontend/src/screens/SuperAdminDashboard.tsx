@@ -16,6 +16,7 @@ import {
 	Bell,
 	Search,
 	Filter,
+    MessageSquare,
 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -277,6 +278,39 @@ const SuperAdminDashboard = () => {
 					</div>
 				</div>
 			</header>
+
+			{/* Navigation */}
+			<nav className='bg-card/50 backdrop-blur-sm border-b border-border/60 px-3 sm:px-4 md:px-6 py-3'>
+				<div className='flex flex-wrap items-center gap-2 sm:gap-4'>
+					<Button
+						variant='ghost'
+						size='sm'
+						className='text-muted-foreground hover:text-foreground hover:bg-primary/10'
+						onClick={() => router.push('/account/superadmin')}
+					>
+						<BarChart3 className='h-4 w-4 mr-2' />
+						Dashboard
+					</Button>
+					<Button
+						variant='ghost'
+						size='sm'
+						className='text-muted-foreground hover:text-foreground hover:bg-primary/10'
+						onClick={() => router.push('/account/superadmin/contacts')}
+					>
+						<MessageSquare className='h-4 w-4 mr-2' />
+						Xabarlar
+					</Button>
+					<Button
+						variant='ghost'
+						size='sm'
+						className='text-muted-foreground hover:text-foreground hover:bg-primary/10'
+						onClick={() => router.push('/account/superadmin/logs')}
+					>
+						<Settings className='h-4 w-4 mr-2' />
+						Loglar
+					</Button>
+				</div>
+			</nav>
 
 			<div className='p-3 sm:p-4 md:p-6'>
 				{/* Stats Grid */}

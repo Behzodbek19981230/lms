@@ -50,7 +50,6 @@ const Pricing = () => {
         "Barcha funksiyalar",
         "Sertifikat tizimi",
         "AI test yaratish",
-        "Marketplace",
         "Batafsil analitika",
         "Shaxsiy menejer",
         "API kirish"
@@ -125,6 +124,9 @@ const Pricing = () => {
                   variant={plan.buttonVariant} 
                   size="lg" 
                   className="w-full"
+                    onClick={() => {
+                        window.location.href='#contact'
+                    }}
                 >
                   {plan.buttonText}
                 </Button>
