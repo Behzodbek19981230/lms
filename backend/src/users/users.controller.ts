@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Patch,
@@ -249,6 +250,46 @@ export class UsersController {
       Number(currentUser.id),
       telegramUsername,
     );
+  }
+
+  @Delete(':id')
+  @Roles(UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.TEACHER)
+  @ApiOperation({ summary: 'Delete user' })
+  @ApiResponse({
+    status: 200,
+    description: 'User deleted successfully',
+  })
+  async deleteUser(
+    @Param('id') id: string,
+    @Request() req,
+  ): Promise<{ message: string }> {
+    const currentUser = req.user as User;
+
+    // Superadmin barcha userni o'chira oladi
+    // Admin faqat o'z centeridagi userni o'chira oladi
+    // Teacher faqat o'z centeridagi studentlarni o'chira oladi
+    if (currentUser.role !== UserRole.SUPERADMIN) {
+      const userToDelete = await this.usersService.findOne(+id);
+      if (!userToDelete) {
+        throw new BadRequestException('User not found');
+      }
+
+      if (currentUser.center?.id !== userToDelete.center?.id) {
+        throw new BadRequestException(
+          'You can only delete users from your center',
+        );
+      }
+
+      if (
+        currentUser.role === UserRole.TEACHER &&
+        userToDelete.role !== UserRole.STUDENT
+      ) {
+        throw new BadRequestException('Teachers can only delete students');
+      }
+    }
+
+    await this.usersService.remove(+id);
+    return { message: 'User deleted successfully' };
   }
 
   @Get('me')

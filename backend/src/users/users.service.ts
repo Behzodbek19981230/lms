@@ -194,4 +194,13 @@ export class UsersService {
       telegramUsername,
     };
   }
+
+  async remove(id: number): Promise<void> {
+    const user = await this.findOne(id);
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    await this.userRepository.remove(user);
+  }
 }
