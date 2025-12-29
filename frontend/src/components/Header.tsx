@@ -61,9 +61,9 @@ const Header = () => {
 				<div className='hidden md:flex items-center space-x-4'>
 					{user ? (
 						<div className='flex items-center space-x-3'>
-							<span className='text-sm font-medium text-foreground'>
+							<Button className='text-sm font-medium text-foreground' variant='ghost' > 
 								{user.firstName} {user.lastName}
-							</span>
+							</Button>
 							<Button variant='outline' onClick={handleLogout} size='sm'>
 								Chiqish
 							</Button>
