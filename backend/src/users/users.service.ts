@@ -54,12 +54,14 @@ export class UsersService {
 
   async findAll({
     user,
+    centerId,
     includeSubjects,
     includeGroups,
     unassigned,
     role,
   }: {
     user?: User;
+    centerId?: number;
     includeSubjects?: boolean;
     includeGroups?: boolean;
     unassigned?: boolean;
@@ -88,6 +90,8 @@ export class UsersService {
         qb.where('user.center IS NULL').andWhere('user.role != :superadmin', {
           superadmin: UserRole.SUPERADMIN,
         });
+      } else if (centerId) {
+        qb.where('center.id = :centerId', { centerId });
       }
       if (role) {
         qb.andWhere('user.role = :role', { role });

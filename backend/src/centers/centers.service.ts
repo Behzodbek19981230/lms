@@ -21,12 +21,22 @@ export class CentersService {
 
   async findAll(user: User): Promise<Center[]> {
     if (user.role === UserRole.SUPERADMIN) {
-      // Superadmins can see all centers
-      return this.centerRepo.find({ relations: ['users', 'subjects'] });
+      // Superadmins can see all centers with their users and subjects
+      return this.centerRepo
+        .createQueryBuilder('center')
+        .leftJoinAndSelect('center.users', 'user', 'user.centerId = center.id')
+        .leftJoinAndSelect(
+          'center.subjects',
+          'subject',
+          'subject.centerId = center.id',
+        )
+        .getMany();
     } else if (user.role === UserRole.ADMIN || user.role === UserRole.TEACHER) {
       // Teachers and admins can only see their own center
       if (!user.center) {
-        console.warn(`User ${user.id} (${user.role}) does not have a center assigned`);
+        console.warn(
+          `User ${user.id} (${user.role}) does not have a center assigned`,
+        );
         // Return empty array instead of throwing error to allow Telegram management to work
         return [];
       }
@@ -37,7 +47,7 @@ export class CentersService {
       return [user.center];
     } else {
       throw new ForbiddenException(
-        'Markazlarni ko\'rish uchun ruxsatingiz yo\'q',
+        "Markazlarni ko'rish uchun ruxsatingiz yo'q",
       );
     }
   }
@@ -82,7 +92,8 @@ export class CentersService {
       allowed.description = (dto as any).description;
     if (typeof (dto as any).address === 'string')
       allowed.address = (dto as any).address;
-    if (typeof (dto as any).phone === 'string') allowed.phone = (dto as any).phone;
+    if (typeof (dto as any).phone === 'string')
+      allowed.phone = (dto as any).phone;
     if (typeof (dto as any).isActive === 'boolean')
       allowed.isActive = (dto as any).isActive;
 
@@ -90,9 +101,15 @@ export class CentersService {
     return this.findOne(id, user);
   }
 
-  async updateStatus(id: number, isActive: boolean, user: User): Promise<Center> {
+  async updateStatus(
+    id: number,
+    isActive: boolean,
+    user: User,
+  ): Promise<Center> {
     if (user.role !== UserRole.SUPERADMIN) {
-      throw new ForbiddenException('Faqat superadmin markaz holatini o‘zgartiradi');
+      throw new ForbiddenException(
+        'Faqat superadmin markaz holatini o‘zgartiradi',
+      );
     }
     await this.findOne(id, user);
     await this.centerRepo.update(id, { isActive });

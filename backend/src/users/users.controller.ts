@@ -113,7 +113,7 @@ export class UsersController {
     // Teacher/Admin: force centerId to own center
     if (me.role === UserRole.TEACHER || me.role === UserRole.ADMIN) {
       if (!me.center?.id) {
-        throw new BadRequestException("Foydalanuvchiga markaz biriktirilmagan");
+        throw new BadRequestException('Foydalanuvchiga markaz biriktirilmagan');
       }
       return this.usersService.create({
         ...dto,
@@ -126,7 +126,9 @@ export class UsersController {
     // Superadmin: allow specifying centerId in body
     if (me.role === UserRole.SUPERADMIN) {
       if (!dto.centerId) {
-        throw new BadRequestException("Student yaratish uchun centerId majburiy");
+        throw new BadRequestException(
+          'Student yaratish uchun centerId majburiy',
+        );
       }
       return this.usersService.create({
         ...dto,
@@ -145,6 +147,7 @@ export class UsersController {
   @ApiResponse({ status: 200, description: 'Users list' })
   async getUsers(
     @Query('role') role?: UserRole,
+    @Query('centerId') centerId?: string,
     @Query('includeSubjects') includeSubjects?: string,
     @Query('includeGroups') includeGroups?: string,
     @Query('unassigned') unassigned?: string,
@@ -154,6 +157,7 @@ export class UsersController {
 
     return this.usersService.findAll({
       user: currentUser,
+      centerId: centerId ? Number(centerId) : undefined,
       includeSubjects: includeSubjects === 'true',
       includeGroups: includeGroups === 'true',
       unassigned: unassigned === 'true',
