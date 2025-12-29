@@ -30,6 +30,13 @@ const SuperAdminDashboard = () => {
 	const [timeRange, setTimeRange] = useState('30d');
 	const [centers, setCenters] = useState<any[]>([]);
 	const [users, setUsers] = useState<any[]>([]);
+	const [stats, setStats] = useState({
+		totalCenters: 0,
+		totalUsers: 0,
+		monthlyRevenue: 0,
+		activeStudents: 0,
+	});
+	const [statsLoading, setStatsLoading] = useState(true);
 	const [createCenterOpen, setCreateCenterOpen] = useState(false);
 	const [assignAdminOpen, setAssignAdminOpen] = useState(false);
 	const [newCenter, setNewCenter] = useState({ name: '', description: '', phone: '', address: '' });
@@ -43,6 +50,21 @@ const SuperAdminDashboard = () => {
 	});
 	const { toast } = useToast();
 
+	// Check if user is superadmin
+	useEffect(() => {
+		const user = localStorage.getItem('EduOne_user');
+		if (user) {
+			const userData = JSON.parse(user);
+			if (userData.role !== 'superadmin') {
+				router.push('/account');
+				return;
+			}
+		} else {
+			router.push('/login');
+			return;
+		}
+	}, [router]);
+
 	const loadCenters = async () => {
 		try {
 			const { data } = await request.get('/centers');
@@ -52,8 +74,25 @@ const SuperAdminDashboard = () => {
 		}
 	};
 
+	const loadStats = async () => {
+		try {
+			setStatsLoading(true);
+			const { data } = await request.get('/admin/dashboard-stats');
+			setStats(data);
+		} catch (e) {
+			toast({
+				title: 'Xatolik',
+				description: 'Statistika yuklanmadi',
+				variant: 'destructive',
+			});
+		} finally {
+			setStatsLoading(false);
+		}
+	};
+
 	useEffect(() => {
 		loadCenters();
+		loadStats();
 		(async () => {
 			try {
 				const { data } = await request.get('/users');
@@ -61,13 +100,6 @@ const SuperAdminDashboard = () => {
 			} catch (e) {}
 		})();
 	}, []);
-
-	const stats = {
-		totalCenters: centers.length,
-		totalUsers: users.length,
-		monthlyRevenue: 0,
-		activeStudents: users.filter((u: any) => u.role === 'student').length,
-	};
 
 	const recentCenters = centers.slice(0, 4).map((c: any) => ({
 		id: c.id,
@@ -329,7 +361,7 @@ const SuperAdminDashboard = () => {
 						</CardHeader>
 						<CardContent className='relative z-10'>
 							<div className='text-xl sm:text-2xl font-bold text-foreground group-hover:text-primary transition-colors duration-300'>
-								{stats.totalCenters}
+								{statsLoading ? '...' : stats.totalCenters}
 							</div>
 							<p className='text-[10px] sm:text-xs text-accent flex items-center mt-1 sm:mt-2'>
 								<TrendingUp className='h-2.5 w-2.5 sm:h-3 sm:w-3 mr-1 animate-pulse-glow' />
@@ -361,7 +393,7 @@ const SuperAdminDashboard = () => {
 						</CardHeader>
 						<CardContent className='relative z-10'>
 							<div className='text-xl sm:text-2xl font-bold text-foreground group-hover:text-accent transition-colors duration-300'>
-								{stats.totalUsers.toLocaleString()}
+								{statsLoading ? '...' : stats.totalUsers.toLocaleString()}
 							</div>
 							<p className='text-[10px] sm:text-xs text-accent flex items-center mt-1 sm:mt-2'>
 								<TrendingUp className='h-2.5 w-2.5 sm:h-3 sm:w-3 mr-1 animate-pulse-glow' />
@@ -392,7 +424,7 @@ const SuperAdminDashboard = () => {
 						</CardHeader>
 						<CardContent className='relative z-10'>
 							<div className='text-xl sm:text-2xl font-bold text-foreground group-hover:text-primary transition-colors duration-300'>
-								{(stats.monthlyRevenue / 1000000).toFixed(1)}M so'm
+								{statsLoading ? '...' : `${(stats.monthlyRevenue / 1000000).toFixed(1)}M so'm`}
 							</div>
 							<p className='text-[10px] sm:text-xs text-accent flex items-center mt-1 sm:mt-2'>
 								<TrendingUp className='h-2.5 w-2.5 sm:h-3 sm:w-3 mr-1 animate-pulse-glow' />
@@ -422,7 +454,7 @@ const SuperAdminDashboard = () => {
 						</CardHeader>
 						<CardContent className='relative z-10'>
 							<div className='text-xl sm:text-2xl font-bold text-foreground group-hover:text-accent transition-colors duration-300'>
-								{stats.activeStudents.toLocaleString()}
+								{statsLoading ? '...' : stats.activeStudents.toLocaleString()}
 							</div>
 							<p className='text-[10px] sm:text-xs text-accent flex items-center mt-1 sm:mt-2'>
 								<TrendingUp className='h-2.5 w-2.5 sm:h-3 sm:w-3 mr-1 animate-pulse-glow' />

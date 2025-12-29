@@ -7,6 +7,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Center } from './entities/center.entity';
 import { User, UserRole } from '../users/entities/user.entity';
+import { Group } from '../groups/entities/group.entity';
+import { Payment } from '../payments/payment.entity';
 import {
   CenterPermissions,
   getEffectiveCenterPermissions,
@@ -17,6 +19,10 @@ export class CentersService {
   constructor(
     @InjectRepository(Center)
     private readonly centerRepo: Repository<Center>,
+    @InjectRepository(Group)
+    private readonly groupRepo: Repository<Group>,
+    @InjectRepository(Payment)
+    private readonly paymentRepo: Repository<Payment>,
   ) {}
 
   async findAll(user: User): Promise<Center[]> {
@@ -141,5 +147,55 @@ export class CentersService {
     };
     await this.centerRepo.save(center);
     return getEffectiveCenterPermissions(center.permissions);
+  }
+
+  async getCenterStats(centerId: number, user: User) {
+    // Check if user has access to this center
+    const center = await this.findOne(centerId, user);
+
+    const [totalGroups, totalStudents, totalTeachers, monthlyRevenue] =
+      await Promise.all([
+        this.groupRepo
+          .createQueryBuilder('group')
+          .where('group.centerId = :centerId', { centerId })
+          .getCount(),
+        this.centerRepo
+          .createQueryBuilder('center')
+          .leftJoin('center.users', 'user')
+          .where('center.id = :centerId', { centerId })
+          .andWhere('user.role = :role', { role: UserRole.STUDENT })
+          .getCount(),
+        this.centerRepo
+          .createQueryBuilder('center')
+          .leftJoin('center.users', 'user')
+          .where('center.id = :centerId', { centerId })
+          .andWhere('user.role = :role', { role: UserRole.TEACHER })
+          .getCount(),
+        this.paymentRepo
+          .createQueryBuilder('payment')
+          .leftJoin('payment.group', 'group')
+          .where('group.centerId = :centerId', { centerId })
+          .andWhere('payment.status = :status', { status: 'paid' })
+          .andWhere(
+            'EXTRACT(MONTH FROM payment.paidDate) = EXTRACT(MONTH FROM CURRENT_DATE)',
+          )
+          .andWhere(
+            'EXTRACT(YEAR FROM payment.paidDate) = EXTRACT(YEAR FROM CURRENT_DATE)',
+          )
+          .select('SUM(payment.amount)', 'total')
+          .getRawOne()
+          .then((result) => parseFloat(result?.total || '0')),
+      ]);
+
+    // For now, active classes = total groups (simplified)
+    const activeClasses = totalGroups;
+
+    return {
+      totalStudents,
+      totalTeachers,
+      totalGroups,
+      monthlyRevenue,
+      activeClasses,
+    };
   }
 }

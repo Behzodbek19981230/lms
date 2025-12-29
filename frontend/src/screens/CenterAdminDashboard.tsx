@@ -128,9 +128,30 @@ const CenterAdminDashboard = () => {
 	const [users, setUsers] = useState<any[]>([]);
 	const [notifications, setNotifications] = useState<any[]>([]);
 	const [subjects, setSubjects] = useState<any[]>([]);
+	const [centerStats, setCenterStats] = useState({
+		totalStudents: 0,
+		totalTeachers: 0,
+		totalGroups: 0,
+		monthlyRevenue: 0,
+		activeClasses: 0,
+	});
+	const [statsLoading, setStatsLoading] = useState(true);
 
 	const router = useRouter();
     const {user}=useAuth();
+
+	const loadCenterStats = async () => {
+		if (!user?.center?.id) return;
+		try {
+			setStatsLoading(true);
+			const { data } = await request.get(`/centers/${user.center.id}/stats`);
+			setCenterStats(data);
+		} catch (e) {
+			console.error('Error loading center stats:', e);
+		} finally {
+			setStatsLoading(false);
+		}
+	};
 
 	useEffect(() => {
 		(async () => {
@@ -146,18 +167,9 @@ const CenterAdminDashboard = () => {
 				const { data } = await request.get('/subjects');
 				setSubjects(data || []);
 			} catch (e) {}
+			await loadCenterStats();
 		})();
-	}, []);
-
-	const centerStats = {
-		totalStudents: users.filter((u: any) => u.role === 'student').length,
-		totalTeachers: users.filter((u: any) => u.role === 'teacher').length,
-		totalGroups: 12,
-		monthlyRevenue: 125000000, // so'm
-		activeClasses: 8,
-	};
-
-
+	}, [user]);
 
 	const upcomingClasses = subjects.slice(0, 5).map((s: any, idx: number) => ({
 		id: s.id,
@@ -208,7 +220,7 @@ const CenterAdminDashboard = () => {
 						</CardHeader>
 						<CardContent className='relative z-10'>
 							<div className='text-xl sm:text-2xl font-bold text-foreground group-hover:text-primary transition-colors duration-300'>
-								{centerStats.totalStudents}
+								{statsLoading ? '...' : centerStats.totalStudents}
 							</div>
 							<p className='text-[10px] sm:text-xs text-accent flex items-center mt-1 sm:mt-2'>
 								<TrendingUp className='h-2.5 w-2.5 sm:h-3 sm:w-3 mr-1 animate-pulse-glow' />
@@ -231,7 +243,7 @@ const CenterAdminDashboard = () => {
 						</CardHeader>
 						<CardContent>
 							<div className='text-xl sm:text-2xl font-bold text-foreground'>
-								{centerStats.totalTeachers}
+								{statsLoading ? '...' : centerStats.totalTeachers}
 							</div>
 							<p className='text-[10px] sm:text-xs text-muted-foreground'>Faol</p>
 						</CardContent>
@@ -246,9 +258,9 @@ const CenterAdminDashboard = () => {
 						</CardHeader>
 						<CardContent>
 							<div className='text-xl sm:text-2xl font-bold text-foreground'>
-								{centerStats.totalGroups}
+								{statsLoading ? '...' : centerStats.totalGroups}
 							</div>
-							<p className='text-[10px] sm:text-xs text-accent'>{centerStats.activeClasses} faol dars</p>
+							<p className='text-[10px] sm:text-xs text-accent'>{statsLoading ? '...' : centerStats.activeClasses} faol dars</p>
 						</CardContent>
 					</Card>
 
@@ -261,7 +273,7 @@ const CenterAdminDashboard = () => {
 						</CardHeader>
 						<CardContent>
 							<div className='text-xl sm:text-2xl font-bold text-foreground'>
-								{(centerStats.monthlyRevenue / 1000000).toFixed(1)}M
+								{statsLoading ? '...' : (centerStats.monthlyRevenue / 1000000).toFixed(1)}
 							</div>
 							<p className='text-[10px] sm:text-xs text-accent'>so'm</p>
 						</CardContent>

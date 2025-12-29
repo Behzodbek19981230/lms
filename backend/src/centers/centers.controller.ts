@@ -168,7 +168,9 @@ export class CentersController {
 
   @Post(':id/import/excel')
   @Roles(UserRole.SUPERADMIN)
-  @ApiOperation({ summary: 'Import center data from Excel (groups, students, payments)' })
+  @ApiOperation({
+    summary: 'Import center data from Excel (groups, students, payments)',
+  })
   @UseInterceptors(FileInterceptor('file'))
   async importExcel(
     @Param('id') id: number,
@@ -187,5 +189,12 @@ export class CentersController {
       throw new BadRequestException('Fayl topilmadi');
     }
     return this.centerImportService.importExcel(Number(id), file.buffer);
+  }
+
+  @Get(':id/stats')
+  @ApiOperation({ summary: 'Get center statistics' })
+  @ApiResponse({ status: 200, description: 'Center statistics' })
+  async getCenterStats(@Param('id') id: string, @Request() req: any) {
+    return this.centerService.getCenterStats(Number(id), req.user);
   }
 }

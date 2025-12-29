@@ -19,6 +19,7 @@ import { AssignedTestsModule } from './assigned-tests/assigned-tests.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { LogsModule } from './logs/logs.module';
 import { ContactsModule } from './contacts/contacts.module';
+import { AdminModule } from './admin/admin.module';
 import { CenterPermissionGuard } from './centers/permissions/center-permission.guard';
 
 @Module({
@@ -59,6 +60,7 @@ import { CenterPermissionGuard } from './centers/permissions/center-permission.g
     CronJobsModule,
     LogsModule,
     ContactsModule,
+    AdminModule,
   ],
   providers: [
     // Global center-permission guard: only enforces when @RequireCenterPermissions() is present
