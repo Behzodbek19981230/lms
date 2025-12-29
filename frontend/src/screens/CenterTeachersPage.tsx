@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
     Table,
@@ -72,6 +73,15 @@ export default function CenterTeachersPage() {
     const [statusFilter, setStatusFilter] = useState<string>('all');
     const [selectedTeacher, setSelectedTeacher] = useState<Teacher | null>(null);
     const [showDetails, setShowDetails] = useState(false);
+    const [showCreateDialog, setShowCreateDialog] = useState(false);
+    const [createForm, setCreateForm] = useState({
+        firstName: '',
+        lastName: '',
+        username: '',
+        password: '',
+        phone: '',
+    });
+    const [creating, setCreating] = useState(false);
 
     const filteredTeachers = teachers.filter(teacher => {
         const matchesSearch =
@@ -177,6 +187,52 @@ export default function CenterTeachersPage() {
         URL.revokeObjectURL(url);
     };
 
+    const handleCreateTeacher = async () => {
+        if (!createForm.firstName || !createForm.lastName || !createForm.username || !createForm.password) {
+            toast({
+                title: 'Xato',
+                description: 'Barcha majburiy maydonlarni to\'ldiring',
+                variant: 'destructive'
+            });
+            return;
+        }
+
+        setCreating(true);
+        try {
+            const response = await request.post('/users', {
+                firstName: createForm.firstName,
+                lastName: createForm.lastName,
+                username: createForm.username,
+                password: createForm.password,
+                phone: createForm.phone,
+                role: 'teacher',
+            });
+
+            setTeachers(prev => [response, ...prev]);
+            setShowCreateDialog(false);
+            setCreateForm({
+                firstName: '',
+                lastName: '',
+                username: '',
+                password: '',
+                phone: '',
+            });
+
+            toast({
+                title: 'Muvaffaqiyat',
+                description: 'O\'qituvchi muvaffaqiyatli qo\'shildi'
+            });
+        } catch (error: any) {
+            toast({
+                title: 'Xato',
+                description: error.response?.data?.message || 'O\'qituvchi qo\'shishda xatolik',
+                variant: 'destructive'
+            });
+        } finally {
+            setCreating(false);
+        }
+    };
+
     const handleViewDetails = (teacher: Teacher) => {
         setSelectedTeacher(teacher);
         setShowDetails(true);
@@ -192,7 +248,7 @@ export default function CenterTeachersPage() {
                         Markazimdagi barcha o'qituvchilarni boshqarish
                     </p>
                 </div>
-                <Button>
+                <Button onClick={() => setShowCreateDialog(true)}>
                     <UserPlus className="h-4 w-4 mr-2" />
                     Yangi o'qituvchi qo'shish
                 </Button>
@@ -484,6 +540,89 @@ export default function CenterTeachersPage() {
                             )}
                         </div>
                     )}
+                </DialogContent>
+            </Dialog>
+
+            {/* Create Teacher Dialog */}
+            <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+                <DialogContent className="sm:max-w-[425px]">
+                    <DialogHeader>
+                        <DialogTitle>Yangi o'qituvchi qo'shish</DialogTitle>
+                        <DialogDescription>
+                            O'qituvchi uchun barcha ma'lumotlarni kiriting.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="grid gap-4 py-4">
+                        <div className="grid grid-cols-4 items-center gap-4">
+                            <Label htmlFor="firstName" className="text-right text-sm font-medium">
+                                Ism *
+                            </Label>
+                            <Input
+                                id="firstName"
+                                value={createForm.firstName}
+                                onChange={(e) => setCreateForm(prev => ({ ...prev, firstName: e.target.value }))}
+                                className="col-span-3"
+                                placeholder="Ism"
+                            />
+                        </div>
+                        <div className="grid grid-cols-4 items-center gap-4">
+                            <Label htmlFor="lastName" className="text-right text-sm font-medium">
+                                Familiya *
+                            </Label>
+                            <Input
+                                id="lastName"
+                                value={createForm.lastName}
+                                onChange={(e) => setCreateForm(prev => ({ ...prev, lastName: e.target.value }))}
+                                className="col-span-3"
+                                placeholder="Familiya"
+                            />
+                        </div>
+                        <div className="grid grid-cols-4 items-center gap-4">
+                            <Label htmlFor="username" className="text-right text-sm font-medium">
+                                Username *
+                            </Label>
+                            <Input
+                                id="username"
+                                value={createForm.username}
+                                onChange={(e) => setCreateForm(prev => ({ ...prev, username: e.target.value }))}
+                                className="col-span-3"
+                                placeholder="Username"
+                            />
+                        </div>
+                        <div className="grid grid-cols-4 items-center gap-4">
+                            <Label htmlFor="password" className="text-right text-sm font-medium">
+                                Parol *
+                            </Label>
+                            <Input
+                                id="password"
+                                type="password"
+                                value={createForm.password}
+                                onChange={(e) => setCreateForm(prev => ({ ...prev, password: e.target.value }))}
+                                className="col-span-3"
+                                placeholder="Parol"
+                            />
+                        </div>
+                        <div className="grid grid-cols-4 items-center gap-4">
+                            <Label htmlFor="phone" className="text-right text-sm font-medium">
+                                Telefon
+                            </Label>
+                            <Input
+                                id="phone"
+                                value={createForm.phone}
+                                onChange={(e) => setCreateForm(prev => ({ ...prev, phone: e.target.value }))}
+                                className="col-span-3"
+                                placeholder="Telefon raqam"
+                            />
+                        </div>
+                    </div>
+                    <div className="flex justify-end gap-3">
+                        <Button variant="outline" onClick={() => setShowCreateDialog(false)}>
+                            Bekor qilish
+                        </Button>
+                        <Button onClick={handleCreateTeacher} disabled={creating}>
+                            {creating ? 'Qo\'shilmoqda...' : 'Qo\'shish'}
+                        </Button>
+                    </div>
                 </DialogContent>
             </Dialog>
         </div>

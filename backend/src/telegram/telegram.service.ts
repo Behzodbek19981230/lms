@@ -297,7 +297,9 @@ export class TelegramService {
           center: { id: center!.id },
           subject: IsNull(),
           group: IsNull(),
-          chatId: existingChat?.chatId ? Not(existingChat.chatId) : Not(dto.chatId),
+          chatId: existingChat?.chatId
+            ? Not(existingChat.chatId)
+            : Not(dto.chatId),
         },
         { status: ChatStatus.INACTIVE },
       );
@@ -396,11 +398,49 @@ export class TelegramService {
     });
   }
 
-  async getAllChats(): Promise<TelegramChat[]> {
-    return this.telegramChatRepo.find({
-      relations: ['center', 'subject', 'user'],
-      order: { lastActivity: 'DESC' },
-    });
+  async getAllChats(user?: User): Promise<TelegramChat[]> {
+    const qb = this.telegramChatRepo
+      .createQueryBuilder('chat')
+      .leftJoinAndSelect('chat.center', 'center')
+      .leftJoinAndSelect('chat.subject', 'subject')
+      .leftJoinAndSelect('chat.user', 'user')
+      .orderBy('chat.lastActivity', 'DESC');
+
+    // Agar superadmin bo'lmasa, faqat o'z centerining chatlarini ko'rsat
+    if (user && user.role !== UserRole.SUPERADMIN) {
+      if (user.centerId) {
+        qb.where('chat.centerId = :centerId', { centerId: user.centerId });
+      } else {
+        // Agar centerId yo'q bo'lsa, hech narsa qaytarmaymiz
+        return [];
+      }
+    }
+
+    return qb.getMany();
+  }
+
+  async getAdminChannels(user?: User): Promise<TelegramChat[]> {
+    const qb = this.telegramChatRepo
+      .createQueryBuilder('chat')
+      .leftJoinAndSelect('chat.center', 'center')
+      .leftJoinAndSelect('chat.subject', 'subject')
+      .leftJoinAndSelect('chat.user', 'user')
+      .where('chat.type IN (:...types)', {
+        types: [ChatType.CHANNEL, ChatType.GROUP],
+      })
+      .orderBy('chat.lastActivity', 'DESC');
+
+    // Agar superadmin bo'lmasa, faqat o'z centerining admin kanallarini ko'rsat
+    if (user && user.role !== UserRole.SUPERADMIN) {
+      if (user.centerId) {
+        qb.andWhere('chat.centerId = :centerId', { centerId: user.centerId });
+      } else {
+        // Agar centerId yo'q bo'lsa, hech narsa qaytarmaymiz
+        return [];
+      }
+    }
+
+    return qb.getMany();
   }
 
   // ==================== Enhanced User Authentication & Auto-Connection ====================
@@ -689,7 +729,9 @@ export class TelegramService {
           Object.assign(existingChat, chatData);
           await this.telegramChatRepo.save(existingChat);
         } else {
-          await this.telegramChatRepo.save(this.telegramChatRepo.create(chatData));
+          await this.telegramChatRepo.save(
+            this.telegramChatRepo.create(chatData),
+          );
         }
 
         return {
@@ -723,7 +765,10 @@ export class TelegramService {
         if (linkedUser) {
           await this.userRepo.update(
             { id: linkedUser.id } as any,
-            { telegramConnected: true, telegramId: telegramUserId as any } as any,
+            {
+              telegramConnected: true,
+              telegramId: telegramUserId as any,
+            } as any,
           );
         }
       } catch {}
@@ -824,14 +869,15 @@ export class TelegramService {
     if (linkToken.usedAt) {
       return {
         success: false,
-        message: "Bu ulanishingiz allaqachon ishlatilgan. LMS’dan qayta link oling.",
+        message:
+          'Bu ulanishingiz allaqachon ishlatilgan. LMS’dan qayta link oling.',
         autoConnected: false,
       };
     }
     if (linkToken.expiresAt && linkToken.expiresAt.getTime() < Date.now()) {
       return {
         success: false,
-        message: "Ulanish linki eskirgan. LMS’dan qayta link oling.",
+        message: 'Ulanish linki eskirgan. LMS’dan qayta link oling.',
         autoConnected: false,
       };
     }
@@ -840,7 +886,7 @@ export class TelegramService {
     if (!user || !user.isActive) {
       return {
         success: false,
-        message: "LMS foydalanuvchisi topilmadi yoki faol emas.",
+        message: 'LMS foydalanuvchisi topilmadi yoki faol emas.',
         autoConnected: false,
       };
     }
@@ -853,7 +899,7 @@ export class TelegramService {
     if (existingChat?.user && existingChat.user.id !== user.id) {
       return {
         success: false,
-        message: "Bu Telegram hisobi boshqa LMS foydalanuvchiga ulangan.",
+        message: 'Bu Telegram hisobi boshqa LMS foydalanuvchiga ulangan.',
         autoConnected: false,
       };
     }
@@ -957,14 +1003,15 @@ export class TelegramService {
     if (!group || !group.telegramJoinToken) {
       return {
         success: false,
-        message: "❌ Guruh topilmadi yoki Telegram link sozlanmagan.",
+        message: '❌ Guruh topilmadi yoki Telegram link sozlanmagan.',
         autoConnected: false,
       };
     }
     if (group.telegramJoinToken !== token) {
       return {
         success: false,
-        message: "❌ Telegram link noto'g'ri yoki eskirgan. O'qituvchingizdan yangi havola oling.",
+        message:
+          "❌ Telegram link noto'g'ri yoki eskirgan. O'qituvchingizdan yangi havola oling.",
         autoConnected: false,
       };
     }
@@ -1015,7 +1062,10 @@ export class TelegramService {
         // Link chat to student and mark student as telegram connected
         chat.user = student;
         chat.status = ChatStatus.ACTIVE;
-        chat.metadata = { ...(chat.metadata || {}), linkedAt: new Date().toISOString() };
+        chat.metadata = {
+          ...(chat.metadata || {}),
+          linkedAt: new Date().toISOString(),
+        };
         await this.telegramChatRepo.save(chat);
 
         student.telegramId = telegramUserId;
@@ -1455,11 +1505,24 @@ export class TelegramService {
     }
   }
 
-  async getUnlinkedTelegramUsers(): Promise<TelegramChat[]> {
-    return this.telegramChatRepo.find({
-      where: { user: IsNull(), type: ChatType.PRIVATE },
-      order: { createdAt: 'DESC' },
-    });
+  async getUnlinkedTelegramUsers(user?: User): Promise<TelegramChat[]> {
+    const qb = this.telegramChatRepo
+      .createQueryBuilder('chat')
+      .where('chat.user IS NULL')
+      .andWhere('chat.type = :type', { type: ChatType.PRIVATE })
+      .orderBy('chat.createdAt', 'DESC');
+
+    // Agar superadmin bo'lmasa, faqat o'z centerining unlinked userlarini ko'rsat
+    if (user && user.role !== UserRole.SUPERADMIN) {
+      if (user.centerId) {
+        qb.andWhere('chat.centerId = :centerId', { centerId: user.centerId });
+      } else {
+        // Agar centerId yo'q bo'lsa, hech narsa qaytarmaymiz
+        return [];
+      }
+    }
+
+    return qb.getMany();
   }
 
   async generateChannelInviteLink(channelId: string): Promise<{

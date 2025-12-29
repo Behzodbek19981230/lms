@@ -125,8 +125,21 @@ export class TelegramController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get all Telegram chats' })
   @ApiResponse({ status: 200, description: 'All chats retrieved' })
-  async getAllChats() {
-    return this.telegramService.getAllChats();
+  async getAllChats(@Request() req) {
+    const user = req.user as User;
+    return this.telegramService.getAllChats(user);
+  }
+
+  @Get('admin-channels')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.TEACHER, UserRole.ADMIN, UserRole.SUPERADMIN)
+  @RequireCenterPermissions(CenterPermissionKey.TELEGRAM_INTEGRATION)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get admin channels for the bot' })
+  @ApiResponse({ status: 200, description: 'Admin channels retrieved' })
+  async getAdminChannels(@Request() req) {
+    const user = req.user as User;
+    return this.telegramService.getAdminChannels(user);
   }
 
   // ==================== Authentication ====================
@@ -148,7 +161,9 @@ export class TelegramController {
   @UseGuards(JwtAuthGuard)
   @RequireCenterPermissions(CenterPermissionKey.TELEGRAM_INTEGRATION)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Generate a user-specific Telegram bot deep link to auto-connect' })
+  @ApiOperation({
+    summary: 'Generate a user-specific Telegram bot deep link to auto-connect',
+  })
   async createConnectLink(@Request() req) {
     return this.telegramService.createUserConnectLink(req.user.id);
   }
@@ -198,8 +213,9 @@ export class TelegramController {
       throw new BadRequestException('User not authenticated');
     }
 
-    console.log(`User role: ${req.user.role}, User ID: ${req.user.id}`);
-    return this.telegramService.getUnlinkedTelegramUsers();
+    const user = req.user as User;
+    console.log(`User role: ${user.role}, User ID: ${user.id}`);
+    return this.telegramService.getUnlinkedTelegramUsers(user);
   }
 
   // ==================== Test Debug Endpoints ====================
@@ -345,7 +361,9 @@ export class TelegramController {
     if (message.text) {
       const rawText = String(message.text).trim();
       const [rawCommand, ...rest] = rawText.split(/\s+/);
-      const command = String(rawCommand ?? '').toLowerCase().trim();
+      const command = String(rawCommand ?? '')
+        .toLowerCase()
+        .trim();
       const startPayload = rest.length > 0 ? rest.join(' ') : undefined;
 
       switch (command) {
@@ -389,19 +407,19 @@ export class TelegramController {
           return;
         default:
           // Check if it's a group selection for attendance
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+
           if (command.startsWith('grup_')) {
             await this.handleGroupSelection(message);
             return;
           }
           // Check if it's attendance marking (new format: studentId_status)
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+
           if (command.match(/^\d+_(keldi|kelmadi|kechikdi)$/)) {
             await this.handleAttendanceMarking(message);
             return;
           }
           // Check if it's old format attendance marking
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+
           if (command.includes('_yoklama_')) {
             await this.handleAttendanceMarking(message);
             return;

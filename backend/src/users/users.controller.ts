@@ -32,13 +32,28 @@ export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
   @Post()
-  @Roles(UserRole.SUPERADMIN, UserRole.ADMIN)
-  async createUser(@Body() createUserDto: CreateUserDto): Promise<User> {
+  @Roles(UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.TEACHER)
+  async createUser(
+    @Body() createUserDto: CreateUserDto,
+    @Request() req,
+  ): Promise<User> {
     const hashedPassword = await bcrypt.hash(createUserDto.password, 12);
+    const currentUser = req.user as User;
+
+    // Agar admin yoki teacher user qo'shsa, o'z centerId sini qo'shish
+    let centerId = createUserDto.centerId;
+    if (
+      !centerId &&
+      currentUser.centerId &&
+      currentUser.role !== UserRole.SUPERADMIN
+    ) {
+      centerId = currentUser.centerId;
+    }
 
     return this.usersService.create({
       ...createUserDto,
       password: hashedPassword,
+      centerId,
     });
   }
 
