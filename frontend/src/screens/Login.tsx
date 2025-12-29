@@ -165,17 +165,7 @@ const Login = () => {
 							</Button>
 						</form>
 
-						<div className='mt-6 text-center'>
-							<p className='text-sm text-muted-foreground'>
-								Hisobingiz yo'qmi?{' '}
-								<Link
-									href='/register'
-									className='text-primary hover:text-primary-glow font-medium transition-colors'
-								>
-									Ro'yxatdan o'ting
-								</Link>
-							</p>
-						</div>
+						
 					</CardContent>
 				</Card>
 
