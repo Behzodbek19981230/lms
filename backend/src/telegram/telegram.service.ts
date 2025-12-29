@@ -408,8 +408,8 @@ export class TelegramService {
 
     // Agar superadmin bo'lmasa, faqat o'z centerining chatlarini ko'rsat
     if (user && user.role !== UserRole.SUPERADMIN) {
-      if (user.centerId) {
-        qb.where('chat.centerId = :centerId', { centerId: user.centerId });
+      if (user.center?.id) {
+        qb.where('chat.centerId = :centerId', { centerId: user.center?.id });
       } else {
         // Agar centerId yo'q bo'lsa, hech narsa qaytarmaymiz
         return [];
@@ -432,8 +432,8 @@ export class TelegramService {
 
     // Agar superadmin bo'lmasa, faqat o'z centerining admin kanallarini ko'rsat
     if (user && user.role !== UserRole.SUPERADMIN) {
-      if (user.centerId) {
-        qb.andWhere('chat.centerId = :centerId', { centerId: user.centerId });
+      if (user.center?.id) {
+        qb.andWhere('chat.centerId = :centerId', { centerId: user.center?.id });
       } else {
         // Agar centerId yo'q bo'lsa, hech narsa qaytarmaymiz
         return [];
@@ -1514,8 +1514,8 @@ export class TelegramService {
 
     // Agar superadmin bo'lmasa, faqat o'z centerining unlinked userlarini ko'rsat
     if (user && user.role !== UserRole.SUPERADMIN) {
-      if (user.centerId) {
-        qb.andWhere('chat.centerId = :centerId', { centerId: user.centerId });
+      if (user.center?.id) {
+        qb.andWhere('chat.centerId = :centerId', { centerId: user.center?.id });
       } else {
         // Agar centerId yo'q bo'lsa, hech narsa qaytarmaymiz
         return [];

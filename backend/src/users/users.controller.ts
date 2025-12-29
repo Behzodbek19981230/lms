@@ -44,10 +44,10 @@ export class UsersController {
     let centerId = createUserDto.centerId;
     if (
       !centerId &&
-      currentUser.centerId &&
+      currentUser.center?.id &&
       currentUser.role !== UserRole.SUPERADMIN
     ) {
-      centerId = currentUser.centerId;
+      centerId = currentUser.center?.id;
     }
 
     return this.usersService.create({
