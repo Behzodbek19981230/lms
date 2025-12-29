@@ -20,6 +20,7 @@ interface QueueMessageParams {
   priority?: MessagePriority;
   metadata?: any;
   parseMode?: 'HTML' | 'Markdown';
+  centerId?: number;
 }
 
 @Injectable()
@@ -57,6 +58,7 @@ export class TelegramQueueService {
       messageType: params.type,
       priority: params.priority || MessagePriority.NORMAL,
       status: MessageStatus.PENDING,
+      centerId: params.centerId,
       metadata: {
         ...params.metadata,
         parseMode: params.parseMode || 'HTML',
@@ -85,6 +87,7 @@ export class TelegramQueueService {
         messageType: params.type,
         priority: params.priority || MessagePriority.NORMAL,
         status: MessageStatus.PENDING,
+        centerId: params.centerId,
         metadata: {
           ...params.metadata,
           parseMode: params.parseMode || 'HTML',

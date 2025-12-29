@@ -1,5 +1,6 @@
-import { Column, Entity, Index } from 'typeorm';
+import { Column, Entity, Index, ManyToOne, JoinColumn } from 'typeorm';
 import { BaseEntity } from '../../common/entities/base.entity';
+import { Center } from '../../centers/entities/center.entity';
 
 export enum MessageType {
   EXAM_START = 'exam_start',
@@ -28,6 +29,14 @@ export class TelegramMessageLog extends BaseEntity {
   @Column()
   @Index()
   chatId: string;
+
+  @Column({ nullable: true })
+  @Index()
+  centerId?: number;
+
+  @ManyToOne(() => Center, { nullable: true })
+  @JoinColumn({ name: 'centerId' })
+  center?: Center;
 
   @Column({
     type: 'enum',

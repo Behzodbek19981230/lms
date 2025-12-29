@@ -57,7 +57,9 @@ export class TelegramNotificationService {
    * Resolve the main (single) center Telegram channel for admin notifications.
    * We pick a channel mapped to the center with no subject/group binding (center-wide).
    */
-  private async getCenterMainChannel(centerId: number): Promise<TelegramChat | null> {
+  private async getCenterMainChannel(
+    centerId: number,
+  ): Promise<TelegramChat | null> {
     if (!centerId) return null;
     return this.telegramChatRepo.findOne({
       where: {
@@ -98,6 +100,7 @@ export class TelegramNotificationService {
       message: params.message,
       type: params.type || MessageType.PAYMENT,
       priority: params.priority || MessagePriority.NORMAL,
+      centerId: chat.center?.id,
       metadata: { ...params.metadata, userId: params.userId },
       parseMode: 'HTML',
     });
@@ -159,6 +162,7 @@ export class TelegramNotificationService {
         message: msg,
         type: MessageType.PAYMENT,
         priority: MessagePriority.HIGH,
+        centerId: params.centerId,
         metadata: {
           centerId: params.centerId,
           kind: 'monthly_billing_debts',
@@ -210,10 +214,14 @@ export class TelegramNotificationService {
         .map((s, i) => `${i + 1}. ${s}`)
         .join('\n');
       messageLines.push('');
-      messageLines.push(`❌ <b>Kelmadi ro‘yxati (${params.absentStudents.length}):</b>`);
+      messageLines.push(
+        `❌ <b>Kelmadi ro‘yxati (${params.absentStudents.length}):</b>`,
+      );
       messageLines.push(list);
       if (params.absentStudents.length > 25) {
-        messageLines.push(`... va yana ${params.absentStudents.length - 25} ta`);
+        messageLines.push(
+          `... va yana ${params.absentStudents.length - 25} ta`,
+        );
       }
     }
 
@@ -222,6 +230,7 @@ export class TelegramNotificationService {
       message: messageLines.join('\n'),
       type: MessageType.ATTENDANCE,
       priority: MessagePriority.NORMAL,
+      centerId: params.centerId,
       metadata: {
         centerId: params.centerId,
         groupName: params.groupName,
@@ -277,6 +286,7 @@ export class TelegramNotificationService {
         message,
         type: MessageType.PAYMENT,
         priority: MessagePriority.NORMAL,
+        centerId: groupChat.center?.id,
         metadata: {
           paymentId: payment.id,
           groupId: payment.groupId,
@@ -293,6 +303,7 @@ export class TelegramNotificationService {
         message,
         type: MessageType.PAYMENT,
         priority: MessagePriority.NORMAL,
+        centerId: centerId,
         metadata: {
           paymentId: payment.id,
           centerId,
@@ -363,9 +374,12 @@ export class TelegramNotificationService {
       groupBlockLines.push(`👥 <b>${groupName}</b>`);
 
       rows.forEach((r, idx) => {
-        const amount = typeof r.amount === 'number' ? String(r.amount) : r.amount;
+        const amount =
+          typeof r.amount === 'number' ? String(r.amount) : r.amount;
         const desc = r.description ? ` — ${r.description}` : '';
-        groupBlockLines.push(`${idx + 1}. ${r.studentName} — ${amount} so‘m${desc}`);
+        groupBlockLines.push(
+          `${idx + 1}. ${r.studentName} — ${amount} so‘m${desc}`,
+        );
       });
       groupBlockLines.push(''); // blank line
 
@@ -385,6 +399,7 @@ export class TelegramNotificationService {
         message: msg,
         type: MessageType.PAYMENT,
         priority: MessagePriority.HIGH,
+        centerId: params.centerId,
         metadata: {
           centerId: params.centerId,
           date: params.date,
@@ -452,6 +467,7 @@ export class TelegramNotificationService {
               message: examMessage,
               type: MessageType.EXAM_START,
               priority: MessagePriority.HIGH,
+              centerId: groupChat.center?.id,
               metadata: {
                 examId,
                 groupId,
@@ -505,6 +521,7 @@ export class TelegramNotificationService {
               message: examMessage,
               type: MessageType.EXAM_START,
               priority: MessagePriority.NORMAL,
+              centerId: studentChat.center?.id,
               metadata: {
                 examId,
                 studentId: student.id,
@@ -596,6 +613,7 @@ export class TelegramNotificationService {
           message,
           type: MessageType.ATTENDANCE,
           priority: MessagePriority.NORMAL,
+          centerId: groupChat.center?.id,
           metadata: {
             groupId,
             groupName: group.name,
@@ -632,6 +650,7 @@ export class TelegramNotificationService {
             message,
             type: MessageType.ATTENDANCE,
             priority: MessagePriority.NORMAL,
+            centerId: subjectChat.center?.id,
             metadata: {
               groupId,
               groupName: group.name,
@@ -727,6 +746,7 @@ export class TelegramNotificationService {
         message: resultsMessage,
         type: MessageType.RESULTS,
         priority: MessagePriority.HIGH,
+        centerId: targetChat.center?.id,
         metadata: {
           testId,
           groupId,
@@ -749,6 +769,7 @@ export class TelegramNotificationService {
           message: paymentMessage,
           type: MessageType.PAYMENT,
           priority: MessagePriority.NORMAL,
+          centerId: targetChat.center?.id,
           metadata: {
             groupId,
             groupName: group.name,
@@ -908,6 +929,7 @@ export class TelegramNotificationService {
             message,
             type: MessageType.ANNOUNCEMENT,
             priority,
+            centerId: centerId,
             metadata: {
               centerId,
               channelId: channel.id,
