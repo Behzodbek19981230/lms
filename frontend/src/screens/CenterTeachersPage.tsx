@@ -208,7 +208,7 @@ export default function CenterTeachersPage() {
                 role: 'teacher',
             });
 
-            setTeachers(prev => [response, ...prev]);
+            setTeachers(prev => [response.data, ...prev]);
             setShowCreateDialog(false);
             setCreateForm({
                 firstName: '',

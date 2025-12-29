@@ -26,6 +26,7 @@ import { request } from '@/configs/request';
 import { useToast } from '@/components/ui/use-toast';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { useAuth } from '@/contexts/AuthContext';
 const TeacherStudentCreate = ({
 	label = 'Yangi foydalanuvchi',
 	defaultRole = 'teacher',
@@ -127,9 +128,9 @@ const CenterAdminDashboard = () => {
 	const [users, setUsers] = useState<any[]>([]);
 	const [notifications, setNotifications] = useState<any[]>([]);
 	const [subjects, setSubjects] = useState<any[]>([]);
-	const [subjectModalOpen, setSubjectModalOpen] = useState(false);
-	const [newSubject, setNewSubject] = useState({ name: '', description: '' });
+
 	const router = useRouter();
+    const {user}=useAuth();
 
 	useEffect(() => {
 		(async () => {
@@ -156,11 +157,7 @@ const CenterAdminDashboard = () => {
 		activeClasses: 8,
 	};
 
-	const recentActivities = [
-		{ id: 2, type: 'attendance', message: "Ingliz tili guruhida yo'qlama olindi", time: '1 soat oldin' },
-		{ id: 3, type: 'test', message: 'Matematika fanidan yangi test yaratildi', time: '2 soat oldin' },
-		{ id: 4, type: 'enrollment', message: "Yangi student qo'shildi", time: '3 soat oldin' },
-	];
+
 
 	const upcomingClasses = subjects.slice(0, 5).map((s: any, idx: number) => ({
 		id: s.id,
@@ -183,19 +180,12 @@ const CenterAdminDashboard = () => {
 						<p
 							className='text-xs sm:text-sm text-muted-foreground animate-fade-in'
 							style={{ animationDelay: '0.2s' }}
-						>
-							Najot Ta'lim Toshkent
-						</p>
+						>{user?.center?.name}</p>
 					</div>
 					<div
 						className='flex flex-wrap items-center gap-2 sm:gap-3 md:gap-4 animate-slide-up w-full sm:w-auto'
 						style={{ animationDelay: '0.3s' }}
 					>
-						<Button variant='outline' size='sm' className='flex-1 sm:flex-initial'>
-							<Bell className='h-3.5 w-3.5 sm:h-4 sm:w-4 sm:mr-2' />
-							<span className='hidden sm:inline text-xs sm:text-sm'>Bildirishnomalar</span>
-							<Badge className='ml-1 sm:ml-2 bg-destructive text-[10px] sm:text-xs px-1.5'>3</Badge>
-						</Button>
 						<TeacherStudentCreate label="O‘quvchi qo'shish" defaultRole='student' variant='hero' />
 						<TeacherStudentCreate label="O'qituvchi" defaultRole='teacher' variant='outline' />
 					</div>
