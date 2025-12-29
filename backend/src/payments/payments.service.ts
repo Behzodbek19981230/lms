@@ -1636,9 +1636,20 @@ export class PaymentsService {
     // Verify group exists and teacher has access to it
     const group = await this.groupRepository.findOne({
       where: { id: createPaymentDto.groupId, teacher: { id: teacherId } },
+      relations: ['students'],
     });
     if (!group) {
       throw new NotFoundException("Guruh topilmadi yoki sizda ruxsat yo'q");
+    }
+
+    // Ensure student belongs to the selected group
+    const inGroup = Array.isArray(group.students)
+      ? group.students.some((s) => Number((s as any).id) === Number(student.id))
+      : false;
+    if (!inGroup) {
+      throw new BadRequestException(
+        "O'quvchi tanlangan guruhga biriktirilmagan",
+      );
     }
 
     const payment = this.paymentRepository.create({
@@ -1664,11 +1675,15 @@ export class PaymentsService {
 
   // Get all payments for teacher
   async findAllByTeacher(teacherId: number): Promise<Payment[]> {
-    return this.paymentRepository.find({
-      where: { teacherId },
-      relations: ['student', 'group', 'group.subject'],
-      order: { createdAt: 'DESC' },
-    });
+    return this.paymentRepository
+      .createQueryBuilder('p')
+      .innerJoinAndSelect('p.group', 'g')
+      .leftJoinAndSelect('g.subject', 'subject')
+      .leftJoinAndSelect('p.student', 'student')
+      .leftJoinAndSelect('p.teacher', 'teacher')
+      .where('g.teacherId = :teacherId', { teacherId })
+      .orderBy('p.createdAt', 'DESC')
+      .getMany();
   }
 
   // Get all payments for a center (admin view)
@@ -1684,6 +1699,34 @@ export class PaymentsService {
       relations: ['student', 'group', 'group.subject', 'teacher'],
       order: { createdAt: 'DESC' },
     });
+  }
+
+  async findStudentsWithoutGroup(centerId: number): Promise<
+    Array<{
+      id: number;
+      firstName: string;
+      lastName: string;
+      username: string;
+    }>
+  > {
+    const rows = await this.userRepository
+      .createQueryBuilder('u')
+      .leftJoin('u.center', 'center')
+      .leftJoin('u.groups', 'g')
+      .where('u.role = :role', { role: UserRole.STUDENT })
+      .andWhere('center.id = :centerId', { centerId })
+      .groupBy('u.id')
+      .having('COUNT(g.id) = 0')
+      .select(['u.id', 'u.firstName', 'u.lastName', 'u.username'])
+      .orderBy('u.createdAt', 'DESC')
+      .getMany();
+
+    return rows.map((u) => ({
+      id: u.id,
+      firstName: u.firstName,
+      lastName: u.lastName,
+      username: u.username,
+    }));
   }
 
   // Get all payments for student
@@ -1922,9 +1965,11 @@ export class PaymentsService {
 
   // Get payment statistics for teacher
   async getTeacherStats(teacherId: number): Promise<PaymentStatsDto> {
-    const payments = await this.paymentRepository.find({
-      where: { teacherId },
-    });
+    const payments = await this.paymentRepository
+      .createQueryBuilder('p')
+      .innerJoin('p.group', 'g')
+      .where('g.teacherId = :teacherId', { teacherId })
+      .getMany();
 
     const now = new Date();
     const currentMonthStart = new Date(now);

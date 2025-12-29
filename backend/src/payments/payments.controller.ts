@@ -175,11 +175,16 @@ export class PaymentsController {
   @RequireCenterPermissions(CenterPermissionKey.PAYMENTS)
   async findAllByTeacher(@Request() req) {
     if (req.user.role === UserRole.TEACHER) {
-      return this.paymentsService.findAllByTeacher(req.user.id);
+      const payments = await this.paymentsService.findAllByTeacher(req.user.id);
+      return { payments, studentsWithoutGroup: [] };
     }
     const centerId = req.user?.center?.id;
-    if (!centerId) return [];
-    return this.paymentsService.findAllByCenter(centerId);
+    if (!centerId) return { payments: [], studentsWithoutGroup: [] };
+    const [payments, studentsWithoutGroup] = await Promise.all([
+      this.paymentsService.findAllByCenter(centerId),
+      this.paymentsService.findStudentsWithoutGroup(centerId),
+    ]);
+    return { payments, studentsWithoutGroup };
   }
 
   // Get teacher payment statistics

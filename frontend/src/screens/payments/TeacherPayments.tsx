@@ -4,9 +4,15 @@ import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Badge } from '../../components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
-import { Plus, Search, Filter, DollarSign, Users, Clock, AlertTriangle } from 'lucide-react';
-import { BillingLedgerItem, Payment, PaymentStats, PaymentStatus, CreatePaymentDto } from '../../types/payment';
+import { Plus, Search, DollarSign, Users, Clock, AlertTriangle } from 'lucide-react';
+import {
+	BillingLedgerItem,
+	Payment,
+	PaymentStats,
+	PaymentStatus,
+	CreatePaymentDto,
+	NoGroupStudent,
+} from '../../types/payment';
 import { Group } from '../../types/group';
 import { paymentService } from '../../services/payment.service';
 import { groupService } from '../../services/group.service';
@@ -23,6 +29,7 @@ const TeacherPayments: React.FC = () => {
 	const { user } = useAuth();
 	const [payments, setPayments] = useState<Payment[]>([]);
 	const [filteredPayments, setFilteredPayments] = useState<Payment[]>([]);
+	const [studentsWithoutGroup, setStudentsWithoutGroup] = useState<NoGroupStudent[]>([]);
 	const [stats, setStats] = useState<PaymentStats | null>(null);
 	const [groups, setGroups] = useState<Group[]>([]);
 	const [loading, setLoading] = useState(true);
@@ -55,7 +62,6 @@ const TeacherPayments: React.FC = () => {
 	const [searchTerm, setSearchTerm] = useState('');
 	const [statusFilter, setStatusFilter] = useState<string>('all');
 	const [groupFilter, setGroupFilter] = useState<string>('all');
-	const [activeTab, setActiveTab] = useState<string>('all');
 
 	useEffect(() => {
 		fetchData();
@@ -63,7 +69,7 @@ const TeacherPayments: React.FC = () => {
 
 	useEffect(() => {
 		applyFilters();
-	}, [payments, searchTerm, statusFilter, groupFilter, activeTab]);
+	}, [payments, searchTerm, statusFilter, groupFilter]);
 
 	const fetchData = async () => {
 		setLoading(true);
@@ -75,9 +81,11 @@ const TeacherPayments: React.FC = () => {
 			]);
 
 			if (paymentsResponse.success && paymentsResponse.data) {
-				setPayments(paymentsResponse.data);
+				setPayments(paymentsResponse.data.payments || []);
+				setStudentsWithoutGroup(paymentsResponse.data.studentsWithoutGroup || []);
 			} else {
 				setPayments([]);
+				setStudentsWithoutGroup([]);
 			}
 
 			if (statsResponse.success && statsResponse.data) {
@@ -187,19 +195,6 @@ const TeacherPayments: React.FC = () => {
 		// Group filter
 		if (groupFilter !== 'all') {
 			filtered = filtered.filter((payment) => payment.groupId === groupFilter);
-		}
-
-		// Tab filter
-		switch (activeTab) {
-			case 'pending':
-				filtered = filtered.filter((payment) => payment.status === PaymentStatus.PENDING);
-				break;
-			case 'overdue':
-				filtered = filtered.filter((payment) => payment.status === PaymentStatus.OVERDUE);
-				break;
-			case 'paid':
-				filtered = filtered.filter((payment) => payment.status === PaymentStatus.PAID);
-				break;
 		}
 
 		setFilteredPayments(filtered);
@@ -789,43 +784,46 @@ const TeacherPayments: React.FC = () => {
 					<CardTitle>To'lovlar ro'yxati</CardTitle>
 				</CardHeader>
 				<CardContent>
-					<Tabs value={activeTab} onValueChange={setActiveTab}>
-						<TabsList className='grid w-full grid-cols-2 sm:grid-cols-4 gap-1'>
-							<TabsTrigger value='all' className='text-xs sm:text-sm px-2 sm:px-4'>
-								<span className='hidden sm:inline'>Barchasi</span>
-								<span className='sm:hidden'>Hammasi</span>
-								<span className='ml-1'>({payments.length})</span>
-							</TabsTrigger>
-							<TabsTrigger value='pending' className='text-xs sm:text-sm px-2 sm:px-4'>
-								<span className='hidden sm:inline'>Kutilayotgan</span>
-								<span className='sm:hidden'>Kutish</span>
-								<span className='ml-1'>({stats?.totalPending || 0})</span>
-							</TabsTrigger>
-							<TabsTrigger value='overdue' className='text-xs sm:text-sm px-2 sm:px-4'>
-								<span className='hidden sm:inline'>Kechikkan</span>
-								<span className='sm:hidden'>Kech</span>
-								<span className='ml-1'>({stats?.totalOverdue || 0})</span>
-							</TabsTrigger>
-							<TabsTrigger value='paid' className='text-xs sm:text-sm px-2 sm:px-4'>
-								<span className='hidden sm:inline'>To'langan</span>
-								<span className='sm:hidden'>To'lov</span>
-								<span className='ml-1'>({stats?.totalPaid || 0})</span>
-							</TabsTrigger>
-						</TabsList>
-
-						<TabsContent value={activeTab} className='mt-4'>
-							<PaymentTable
-								payments={filteredPayments}
-								onMarkPaid={handleMarkPaid}
-								onSendReminder={handleSendReminder}
-								onDelete={handleDeletePayment}
-								onEditAmount={handleEditAmount}
-								role={user?.role === 'teacher' ? 'teacher' : 'center_admin'}
-							/>
-						</TabsContent>
-					</Tabs>
+					<PaymentTable
+						payments={filteredPayments}
+						onMarkPaid={handleMarkPaid}
+						onSendReminder={handleSendReminder}
+						onDelete={handleDeletePayment}
+						onEditAmount={handleEditAmount}
+						role={user?.role === 'teacher' ? 'teacher' : 'center_admin'}
+					/>
 				</CardContent>
 			</Card>
+
+			{/* Students without group (admin/superadmin) */}
+			{user?.role !== 'teacher' && studentsWithoutGroup.length > 0 && (
+				<Card>
+					<CardHeader>
+						<CardTitle>Guruhi yo‘q o‘quvchilar</CardTitle>
+					</CardHeader>
+					<CardContent>
+						<div className='text-sm text-muted-foreground mb-3'>
+							Bu o‘quvchilarga guruh biriktirilmagani uchun to‘lov kiritib bo‘lmaydi.
+						</div>
+						<div className='space-y-2'>
+							{studentsWithoutGroup.map((s) => (
+								<div
+									key={s.id}
+									className='flex items-center justify-between border rounded-md px-3 py-2'
+								>
+									<div className='text-sm'>
+										<span className='font-medium'>
+											{s.firstName} {s.lastName}
+										</span>{' '}
+										<span className='text-xs text-muted-foreground'>@{s.username}</span>
+									</div>
+									<Badge variant='secondary'>Guruh yo‘q</Badge>
+								</div>
+							))}
+						</div>
+					</CardContent>
+				</Card>
+			)}
 
 			{/* Create Payment Form */}
 			{user?.role === 'teacher' && (

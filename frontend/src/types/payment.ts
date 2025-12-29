@@ -44,6 +44,18 @@ export interface PaymentStats {
   overdueAmount: number;
 }
 
+export interface NoGroupStudent {
+  id: number;
+  firstName: string;
+  lastName: string;
+  username: string;
+}
+
+export interface TeacherPaymentsResponse {
+  payments: Payment[];
+  studentsWithoutGroup: NoGroupStudent[];
+}
+
 export interface CreatePaymentDto {
   amount: number;
   dueDate: string;

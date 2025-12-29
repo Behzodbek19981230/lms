@@ -7,6 +7,7 @@ import {
   BillingLedgerItem,
   BillingLedgerQuery,
   BillingLedgerPage,
+  TeacherPaymentsResponse,
   UpdateStudentBillingProfileDto,
   CollectMonthlyPaymentDto,
   UpdateMonthlyPaymentDto,
@@ -29,10 +30,10 @@ class PaymentService {
   }
 
   // Get all payments for teacher
-  async getTeacherPayments(): Promise<APIResponse<Payment[]>> {
+  async getTeacherPayments(): Promise<APIResponse<TeacherPaymentsResponse>> {
     try {
       const response = await request.get('/payments/teacher');
-      return this.handleResponse<Payment[]>(response);
+      return this.handleResponse<TeacherPaymentsResponse>(response);
     } catch (error) {
       throw new Error("O'qituvchi to'lovlarini yuklab bo'lmadi");
     }

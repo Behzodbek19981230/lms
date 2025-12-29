@@ -325,14 +325,14 @@ const TelegramConnectCard: React.FC = () => {
 								)}
 							</Button>
 
-							<div className='p-1 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg'>
+							{/* <div className='p-1 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg'>
 								<TelegramAuthButton
 									onSuccess={handleAuthSuccess}
 									onError={handleAuthError}
 									className='w-full bg-white hover:bg-gray-50 text-gray-800 border-0 shadow-none hover:shadow-sm transition-all duration-300'
 									size='sm'
 								/>
-							</div>
+							</div> */}
 
 							<div className='flex items-center gap-3'>
 								<div className='flex-1 h-px bg-gradient-to-r from-transparent via-gray-300 to-transparent'></div>
