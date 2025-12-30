@@ -921,28 +921,26 @@ const TeacherPayments: React.FC = () => {
 						</Select>
 					</div>
 
-					{user?.role !== 'teacher' && (
-						<div className='w-full sm:w-[200px]'>
-							<Select
-								value={ledgerGroupId ? String(ledgerGroupId) : 'all'}
-								onValueChange={(v) => {
-									setLedgerGroupId(v === 'all' ? undefined : Number(v));
-								}}
-							>
-								<SelectTrigger>
-									<SelectValue placeholder='Guruh' />
-								</SelectTrigger>
-								<SelectContent>
-									<SelectItem value='all'>Barcha guruhlar</SelectItem>
-									{groups.map((group) => (
-										<SelectItem key={group.id} value={String(group.id)}>
-											{group.name}
-										</SelectItem>
-									))}
-								</SelectContent>
-							</Select>
-						</div>
-					)}
+					<div className='w-full sm:w-[200px]'>
+						<Select
+							value={ledgerGroupId ? String(ledgerGroupId) : 'all'}
+							onValueChange={(v) => {
+								setLedgerGroupId(v === 'all' ? undefined : Number(v));
+							}}
+						>
+							<SelectTrigger>
+								<SelectValue placeholder='Guruh' />
+							</SelectTrigger>
+							<SelectContent>
+								<SelectItem value='all'>Barcha guruhlar</SelectItem>
+								{groups.map((group) => (
+									<SelectItem key={group.id} value={String(group.id)}>
+										{group.name}
+									</SelectItem>
+								))}
+							</SelectContent>
+						</Select>
+					</div>
 
 					<div className='w-full sm:w-[160px]'>
 						<Select
