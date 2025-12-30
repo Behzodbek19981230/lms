@@ -25,24 +25,53 @@ export class GroupsService {
   ) {}
 
   async create(dto: CreateGroupDto, userId: number): Promise<GroupResponseDto> {
-    const teacher = await this.userRepo.findOne({
+    const user = await this.userRepo.findOne({
       where: { id: userId },
       relations: ['center'],
     });
-    if (!teacher) throw new NotFoundException('Foydalanuvchi topilmadi');
-    if (teacher.role !== UserRole.TEACHER)
-      throw new ForbiddenException("Faqat o'qituvchi guruh yaratishi mumkin");
-    if (!teacher.center)
-      throw new ForbiddenException("O'qituvchi markazga biriktirilmagan");
-
-    let subject: Subject | null = null;
-    if (dto.subjectId) {
-      subject = await this.subjectRepo.findOne({
-        where: { id: dto.subjectId },
-      });
-      if (!subject) throw new NotFoundException('Fan topilmadi');
+    if (!user) throw new NotFoundException('Foydalanuvchi topilmadi');
+    
+    // Faqat admin yoki superadmin guruh yarata oladi
+    if (user.role !== UserRole.ADMIN && user.role !== UserRole.SUPERADMIN) {
+      throw new ForbiddenException("Faqat admin yoki superadmin guruh yaratishi mumkin");
+    }
+    
+    if (!user.center && user.role === UserRole.ADMIN) {
+      throw new ForbiddenException("Admin markazga biriktirilmagan");
     }
 
+    // Teacher'ni topish va tekshirish
+    const teacher = await this.userRepo.findOne({
+      where: { id: dto.teacherId },
+      relations: ['center'],
+    });
+    if (!teacher) throw new NotFoundException('O\'qituvchi topilmadi');
+    if (teacher.role !== UserRole.TEACHER) {
+      throw new ForbiddenException("Tanlangan foydalanuvchi o'qituvchi emas");
+    }
+    
+    // Admin uchun teacher o'z markazida bo'lishi kerak
+    if (user.role === UserRole.ADMIN && teacher.center?.id !== user.center?.id) {
+      throw new ForbiddenException("O'qituvchi sizning markazingizda emas");
+    }
+    
+    if (!teacher.center) {
+      throw new ForbiddenException("O'qituvchi markazga biriktirilmagan");
+    }
+
+    // Subject'ni topish va tekshirish (majburiy)
+    const subject = await this.subjectRepo.findOne({
+      where: { id: dto.subjectId },
+      relations: ['center'],
+    });
+    if (!subject) throw new NotFoundException('Fan topilmadi');
+    
+    // Admin uchun subject o'z markazida bo'lishi kerak
+    if (user.role === UserRole.ADMIN && subject.center?.id !== user.center?.id) {
+      throw new ForbiddenException("Fan sizning markazingizda emas");
+    }
+
+    // Students'ni topish
     const students: User[] = [];
     if (dto.studentIds && dto.studentIds.length > 0) {
       const found = await this.userRepo.find({
@@ -59,7 +88,7 @@ export class GroupsService {
     const group = this.groupRepo.create({
       name: dto.name,
       description: dto.description,
-      subject: subject || null,
+      subject,
       teacher,
       center: teacher.center,
       students,
@@ -114,8 +143,23 @@ export class GroupsService {
       relations: ['teacher', 'students', 'center'],
     });
     if (!group) throw new NotFoundException('Guruh topilmadi');
-    if (group.teacher.id !== userId)
-      throw new ForbiddenException("Faqat o'qituvchi o'zgartira oladi");
+    
+    const user = await this.userRepo.findOne({
+      where: { id: userId },
+      relations: ['center'],
+    });
+    if (!user) throw new NotFoundException('Foydalanuvchi topilmadi');
+    
+    // Teacher yoki Admin o'zgartira oladi
+    const canEdit = 
+      group.teacher.id === userId ||
+      (user.role === UserRole.ADMIN && user.center?.id === group.center?.id) ||
+      user.role === UserRole.SUPERADMIN;
+    
+    if (!canEdit) {
+      throw new ForbiddenException("Siz bu guruhni o'zgartira olmaysiz");
+    }
+    
     const students = await this.userRepo.find({
       where: { id: In(studentIds) },
       relations: ['center'],
@@ -138,11 +182,26 @@ export class GroupsService {
   ): Promise<GroupResponseDto> {
     const group = await this.groupRepo.findOne({
       where: { id: groupId },
-      relations: ['teacher', 'students'],
+      relations: ['teacher', 'students', 'center'],
     });
     if (!group) throw new NotFoundException('Guruh topilmadi');
-    if (group.teacher.id !== userId)
-      throw new ForbiddenException("Faqat o'qituvchi o'zgartira oladi");
+    
+    const user = await this.userRepo.findOne({
+      where: { id: userId },
+      relations: ['center'],
+    });
+    if (!user) throw new NotFoundException('Foydalanuvchi topilmadi');
+    
+    // Teacher yoki Admin o'zgartira oladi
+    const canEdit = 
+      group.teacher.id === userId ||
+      (user.role === UserRole.ADMIN && user.center?.id === group.center?.id) ||
+      user.role === UserRole.SUPERADMIN;
+    
+    if (!canEdit) {
+      throw new ForbiddenException("Siz bu guruhni o'zgartira olmaysiz");
+    }
+    
     group.students = (group.students || []).filter((s) => s.id !== studentId);
     const saved = await this.groupRepo.save(group);
     return this.map(saved);
@@ -193,16 +252,58 @@ export class GroupsService {
       relations: ['teacher', 'center', 'students', 'subject'],
     });
     if (!group) throw new NotFoundException('Guruh topilmadi');
-    if (group.teacher.id !== userId)
-      throw new ForbiddenException("Faqat o'qituvchi tahrirlashi mumkin");
+    
+    const user = await this.userRepo.findOne({
+      where: { id: userId },
+      relations: ['center'],
+    });
+    if (!user) throw new NotFoundException('Foydalanuvchi topilmadi');
+    
+    // Teacher yoki Admin tahrirlashi mumkin
+    const canEdit = 
+      group.teacher.id === userId ||
+      (user.role === UserRole.ADMIN && user.center?.id === group.center?.id) ||
+      user.role === UserRole.SUPERADMIN;
+    
+    if (!canEdit) {
+      throw new ForbiddenException("Siz bu guruhni tahrirlay olmaysiz");
+    }
 
-    if (dto.subjectId) {
+    // Subject yangilash (majburiy bo'lishi mumkin)
+    if (dto.subjectId !== undefined) {
       const subject = await this.subjectRepo.findOne({
         where: { id: dto.subjectId },
+        relations: ['center'],
       });
       if (!subject) throw new NotFoundException('Fan topilmadi');
+      
+      // Admin uchun subject o'z markazida bo'lishi kerak
+      if (user.role === UserRole.ADMIN && subject.center?.id !== user.center?.id) {
+        throw new ForbiddenException("Fan sizning markazingizda emas");
+      }
+      
       group.subject = subject;
     }
+    
+    // Teacher yangilash (majburiy bo'lishi mumkin)
+    if (dto.teacherId !== undefined) {
+      const teacher = await this.userRepo.findOne({
+        where: { id: dto.teacherId },
+        relations: ['center'],
+      });
+      if (!teacher) throw new NotFoundException('O\'qituvchi topilmadi');
+      if (teacher.role !== UserRole.TEACHER) {
+        throw new ForbiddenException("Tanlangan foydalanuvchi o'qituvchi emas");
+      }
+      
+      // Admin uchun teacher o'z markazida bo'lishi kerak
+      if (user.role === UserRole.ADMIN && teacher.center?.id !== user.center?.id) {
+        throw new ForbiddenException("O'qituvchi sizning markazingizda emas");
+      }
+      
+      group.teacher = teacher;
+    }
+    
     if (dto.name !== undefined) group.name = dto.name as string;
     if (dto.description !== undefined)
       group.description = dto.description as string;
@@ -228,11 +329,26 @@ export class GroupsService {
   async delete(id: number, userId: number): Promise<void> {
     const group = await this.groupRepo.findOne({
       where: { id },
-      relations: ['teacher'],
+      relations: ['teacher', 'center'],
     });
     if (!group) throw new NotFoundException('Guruh topilmadi');
-    if (group.teacher.id !== userId)
-      throw new ForbiddenException("Faqat o'qituvchi o'chira oladi");
+    
+    const user = await this.userRepo.findOne({
+      where: { id: userId },
+      relations: ['center'],
+    });
+    if (!user) throw new NotFoundException('Foydalanuvchi topilmadi');
+    
+    // Teacher yoki Admin o'chira oladi
+    const canDelete = 
+      group.teacher.id === userId ||
+      (user.role === UserRole.ADMIN && user.center?.id === group.center?.id) ||
+      user.role === UserRole.SUPERADMIN;
+    
+    if (!canDelete) {
+      throw new ForbiddenException("Siz bu guruhni o'chira olmaysiz");
+    }
+    
     await this.groupRepo.remove(group);
   }
 
@@ -260,6 +376,7 @@ export class GroupsService {
     name: g.name,
     description: g.description,
     subjectId: g.subject?.id ?? null,
+    teacherId: g.teacher?.id ?? 0,
     studentIds: (g.students || []).map((s) => s.id),
     students: (g.students || []).map((s) => ({
       id: s.id,

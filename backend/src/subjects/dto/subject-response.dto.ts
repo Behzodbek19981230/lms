@@ -1,6 +1,20 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { SubjectCategory } from '../entities/subject.entity';
 
+export class TeacherDto {
+  @ApiProperty()
+  id: number;
+
+  @ApiProperty()
+  firstName: string;
+
+  @ApiProperty()
+  lastName: string;
+
+  @ApiProperty()
+  username: string;
+}
+
 export class SubjectResponseDto {
   @ApiProperty()
   id: number;
@@ -22,6 +36,9 @@ export class SubjectResponseDto {
 
   @ApiProperty()
   testsCount: number;
+
+  @ApiProperty({ type: [TeacherDto], required: false })
+  teachers?: TeacherDto[];
 
   @ApiProperty()
   createdAt: Date;

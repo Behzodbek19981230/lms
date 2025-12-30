@@ -30,6 +30,9 @@ export class GroupResponseDto {
   @ApiProperty({ required: false })
   subjectId?: number | null;
 
+  @ApiProperty()
+  teacherId: number;
+
   @ApiProperty({ type: [Number] })
   studentIds: number[];
 

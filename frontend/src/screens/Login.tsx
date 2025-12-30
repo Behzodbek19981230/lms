@@ -72,9 +72,10 @@ const Login = () => {
 				});
 			}
 		} catch (err) {
+			console.log('Login error:', err);
 			toast({
 				title: 'Xatolik',
-				description: getApiErrorMessage(err) || "Xatolik yuz berdi",
+				description: getApiErrorMessage(err) || 'Xatolik yuz berdi',
 				variant: 'destructive',
 			});
 		} finally {
@@ -164,8 +165,6 @@ const Login = () => {
 								{isLoading ? 'Tekshirilmoqda...' : 'Kirish'}
 							</Button>
 						</form>
-
-						
 					</CardContent>
 				</Card>
 

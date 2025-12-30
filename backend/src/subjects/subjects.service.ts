@@ -67,7 +67,11 @@ export class SubjectsService {
     return this.mapToResponseDto(savedSubject);
   }
 
-  /** BARCHA SUBJECTLARNI KO'RISH (teacher va student uchun markazdagilari, admin/superadmin uchun ham markazdagilari) */
+  /** BARCHA SUBJECTLARNI KO'RISH 
+   * - Admin/Superadmin: markazdagi barcha fanlar
+   * - Teacher: faqat o'ziga biriktirilgan fanlar
+   * - Student: markazdagi barcha fanlar (lekin frontend'da ko'rsatilmaydi)
+   */
   async findAll(userId: number): Promise<SubjectResponseDto[]> {
     const user = await this.userRepository.findOne({
       where: { id: userId },
@@ -75,6 +79,19 @@ export class SubjectsService {
     });
     if (!user) throw new NotFoundException('Foydalanuvchi topilmadi');
 
+    // Teacher uchun faqat o'ziga biriktirilgan fanlar
+    if (user.role === UserRole.TEACHER) {
+      const subjects: Subject[] = await this.subjectRepository.find({
+        where: { 
+          center: { id: user.center?.id },
+          teachers: { id: user.id }
+        },
+        relations: ['center', 'teachers'],
+      });
+      return subjects.map(this.mapToResponseDto);
+    }
+
+    // Admin/Superadmin/Student uchun markazdagi barcha fanlar
     const subjects: Subject[] = await this.subjectRepository.find({
       where: { center: { id: user.center?.id } },
       relations: ['center', 'teachers'],
@@ -82,6 +99,21 @@ export class SubjectsService {
 
     // eslint-disable-next-line @typescript-eslint/unbound-method
     return subjects.map(this.mapToResponseDto);
+  }
+
+  /** TEACHER UCHUN O'ZIGA BIRIKTIRILGAN FANLAR */
+  async findMySubjects(userId: number): Promise<SubjectResponseDto[]> {
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+      relations: ['center', 'subjects', 'subjects.teachers', 'subjects.center'],
+    });
+    if (!user) throw new NotFoundException('Foydalanuvchi topilmadi');
+    
+    if (user.role !== UserRole.TEACHER) {
+      throw new ForbiddenException("Faqat o'qituvchi o'z fanlarini ko'ra oladi");
+    }
+
+    return user.subjects.map(this.mapToResponseDto);
   }
 
   /** BITTA SUBJECTNI KO'RISH */
@@ -230,6 +262,14 @@ export class SubjectsService {
       hasFormulas: subject.hasFormulas,
       isActive: subject.isActive,
       testsCount: subject.testsCount,
+      teachers: subject.teachers
+        ? subject.teachers.map((t) => ({
+            id: t.id,
+            firstName: t.firstName,
+            lastName: t.lastName,
+            username: t.username,
+          }))
+        : undefined,
       createdAt: subject.createdAt,
       updatedAt: subject.updatedAt,
     };
@@ -241,5 +281,56 @@ export class SubjectsService {
     return this.subjectRepository.find({
       where: { id: In(ids) },
     });
+  }
+
+  /** TEACHER'LARNI SUBJECT'GA BIRIKTIRISH (Admin/Superadmin uchun) */
+  async assignTeachers(
+    subjectId: number,
+    teacherIds: number[],
+    userId: number,
+  ): Promise<SubjectResponseDto> {
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+      relations: ['center'],
+    });
+    if (!user) throw new NotFoundException('Foydalanuvchi topilmadi');
+
+    if (user.role !== UserRole.ADMIN && user.role !== UserRole.SUPERADMIN) {
+      throw new ForbiddenException("Faqat admin yoki superadmin teacher'larni biriktira oladi");
+    }
+
+    const subject = await this.subjectRepository.findOne({
+      where: { id: subjectId },
+      relations: ['teachers', 'center'],
+    });
+    if (!subject) throw new NotFoundException('Fan topilmadi');
+
+    // Markaz tekshiruvi
+    if (user.role === UserRole.ADMIN && subject.center?.id !== user.center?.id) {
+      throw new ForbiddenException("Bu fanga ruxsatingiz yo'q");
+    }
+
+    // Teacher'larni topish
+    const teachers = await this.userRepository.find({
+      where: { 
+        id: In(teacherIds),
+        role: UserRole.TEACHER,
+      },
+      relations: ['center'],
+    });
+
+    // Markaz tekshiruvi (admin uchun)
+    if (user.role === UserRole.ADMIN) {
+      const validTeachers = teachers.filter(
+        (t) => t.center?.id === user.center?.id,
+      );
+      subject.teachers = validTeachers;
+    } else {
+      // Superadmin uchun barcha teacher'lar
+      subject.teachers = teachers;
+    }
+
+    const savedSubject = await this.subjectRepository.save(subject);
+    return this.mapToResponseDto(savedSubject);
   }
 }

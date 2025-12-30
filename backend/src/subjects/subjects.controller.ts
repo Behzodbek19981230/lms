@@ -23,6 +23,7 @@ import { SubjectsService } from './subjects.service';
 import { CreateSubjectDto } from './dto/create-subject.dto';
 import { UpdateSubjectDto } from './dto/update-subject.dto';
 import { SubjectResponseDto } from './dto/subject-response.dto';
+import { AssignTeachersDto } from './dto/assign-teachers.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @ApiTags('Subjects')
@@ -55,8 +56,18 @@ export class SubjectsController {
     type: [SubjectResponseDto],
   })
   async findAll(@Request() req): Promise<SubjectResponseDto[]> {
-    console.log('User ID:', req.user);
     return this.subjectsService.findAll(req.user.id);
+  }
+
+  @Get('me')
+  @ApiOperation({ summary: "O'qituvchi uchun o'ziga biriktirilgan fanlar" })
+  @ApiResponse({
+    status: 200,
+    description: "O'qituvchiga biriktirilgan fanlar",
+    type: [SubjectResponseDto],
+  })
+  async findMySubjects(@Request() req): Promise<SubjectResponseDto[]> {
+    return this.subjectsService.findMySubjects(req.user.id);
   }
 
   @Get('stats')
@@ -117,5 +128,21 @@ export class SubjectsController {
   @ApiResponse({ status: 204, description: "Fan muvaffaqiyatli o'chirildi" })
   async remove(@Param('id') id: number, @Request() req): Promise<void> {
     return this.subjectsService.remove(id, req.user.id);
+  }
+
+  @Post(':id/assign-teachers')
+  @ApiOperation({ summary: "Fanga teacher'larni biriktirish (Admin/Superadmin)" })
+  @ApiResponse({
+    status: 200,
+    description: "Teacher'lar muvaffaqiyatli biriktirildi",
+    type: SubjectResponseDto,
+  })
+  @ApiBody({ type: AssignTeachersDto })
+  async assignTeachers(
+    @Param('id') id: number,
+    @Body() dto: AssignTeachersDto,
+    @Request() req,
+  ): Promise<SubjectResponseDto> {
+    return this.subjectsService.assignTeachers(id, dto.teacherIds, req.user.id);
   }
 }

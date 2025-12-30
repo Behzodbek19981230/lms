@@ -10,6 +10,13 @@ export const SubjectCategoryLabels: Record<SubjectCategory, string> = {
 	[SubjectCategory.other]: 'Boshqa',
 };
 
+export type TeacherLite = {
+	id: number;
+	firstName: string;
+	lastName: string;
+	username: string;
+};
+
 export type SubjectType = {
 	category: SubjectCategory;
 	createdAt: string;
@@ -20,6 +27,7 @@ export type SubjectType = {
 	name: string;
 	testsCount: number;
 	updatedAt: string;
+	teachers?: TeacherLite[];
 };
 export type CreateSubjectType = {
 	name: string;

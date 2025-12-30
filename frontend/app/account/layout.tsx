@@ -53,6 +53,16 @@ export default function AccountLayout({ children }: { children: React.ReactNode 
 		)
 			return deny();
 		if (p.startsWith('/account/results') && !hasCenterPermission(perms, 'reports_tests')) return deny();
+		// Student uchun subjects sahifasiga ruxsat yo'q
+		if (p.startsWith('/account/subjects') && user.role === 'student') {
+			toast({
+				title: "Ruxsat yo'q",
+				description: 'Bu sahifa studentlar uchun mavjud emas',
+				variant: 'destructive',
+			});
+			router.replace('/account/profile');
+			return;
+		}
 	}, [user, pathname, router, toast]);
 	if (isLoading || !user) return <PageLoader title='Sessiya tekshirilmoqda...' />;
 	return (

@@ -7,11 +7,13 @@ import {
   IsOptional,
   IsString,
   IsIn,
+  IsNotEmpty,
 } from 'class-validator';
 
 export class CreateGroupDto {
   @ApiProperty()
   @IsString()
+  @IsNotEmpty()
   name: string;
 
   @ApiProperty({ required: false })
@@ -19,11 +21,17 @@ export class CreateGroupDto {
   @IsString()
   description?: string;
 
-  @ApiProperty({ required: false })
-  @IsOptional()
+  @ApiProperty()
   @Type(() => Number)
   @IsInt()
-  subjectId?: number;
+  @IsNotEmpty()
+  subjectId: number;
+
+  @ApiProperty()
+  @Type(() => Number)
+  @IsInt()
+  @IsNotEmpty()
+  teacherId: number;
 
   @ApiProperty({ type: [Number], required: false })
   @IsOptional()
