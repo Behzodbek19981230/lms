@@ -7,13 +7,13 @@ export class CreatePaymentDto {
   @IsNotEmpty()
   amount: number;
 
+  @IsOptional()
   @IsDateString()
-  @IsNotEmpty()
-  dueDate: string;
+  dueDate?: string;
 
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  description: string;
+  description?: string;
 
   @IsNumber()
   @IsNotEmpty()
@@ -127,6 +127,11 @@ export class BillingLedgerQueryDto {
   @IsString()
   // all | pending | paid | overdue
   status?: string;
+
+  @IsOptional()
+  @IsNumber()
+  // Filter by group ID
+  groupId?: number;
 
   @IsOptional()
   @IsString()

@@ -214,6 +214,7 @@ export class PaymentsService {
       search?: string;
       status?: string;
       debt?: string;
+      groupId?: number;
     },
   ) {
     if (!user?.role) throw new BadRequestException('Foydalanuvchi aniqlanmadi');
@@ -231,16 +232,108 @@ export class PaymentsService {
     const statusFilter = (query?.status || 'all').trim().toLowerCase(); // all|pending|paid|overdue
     const debtFilter = (query?.debt || 'all').trim().toLowerCase(); // all|withDebt|noDebt
 
+    // Avval payment jadvalidan student ID'larni va group ID'larni olish (faqat payment yaratilgan studentlar)
+    const paymentQuery = this.paymentRepository
+      .createQueryBuilder('p')
+      .select('p.studentId', 'studentId')
+      .addSelect('p.groupId', 'groupId')
+      .where('p.studentId IS NOT NULL')
+      .andWhere('p.groupId IS NOT NULL')
+      .distinct(true);
+
+    if (user.role !== UserRole.SUPERADMIN) {
+      paymentQuery
+        .leftJoin('p.student', 'student')
+        .leftJoin('student.center', 'center')
+        .andWhere('center.id = :centerId', { centerId: Number(centerId) });
+    }
+
+    // Teacher uchun faqat o'zining guruhlaridagi payment'larni ko'rsatish
+    if (user.role === UserRole.TEACHER) {
+      paymentQuery
+        .leftJoin('p.group', 'group')
+        .andWhere('group.teacherId = :teacherId', { teacherId: user.id });
+    }
+
+    // Guruh bo'yicha filter (admin/superadmin uchun)
+    if (
+      query?.groupId &&
+      (user.role === UserRole.ADMIN || user.role === UserRole.SUPERADMIN)
+    ) {
+      paymentQuery.andWhere('p.groupId = :groupId', {
+        groupId: Number(query.groupId),
+      });
+    }
+
+    const paymentRows = await paymentQuery.getRawMany();
+    const studentIdsFromPayments = paymentRows
+      .map((r: any) => Number(r.studentId))
+      .filter((id: number) => Number.isFinite(id) && id > 0);
+
+    // Create a map of studentId -> groupIds that have payments
+    const studentGroupMap = new Map<number, Set<number>>();
+    for (const row of paymentRows) {
+      const studentId = Number(row.studentId);
+      const groupId = Number(row.groupId);
+      if (
+        Number.isFinite(studentId) &&
+        studentId > 0 &&
+        Number.isFinite(groupId) &&
+        groupId > 0
+      ) {
+        if (!studentGroupMap.has(studentId)) {
+          studentGroupMap.set(studentId, new Set());
+        }
+        studentGroupMap.get(studentId)!.add(groupId);
+      }
+    }
+
+    // Agar payment jadvalida studentlar bo'lmasa, bo'sh qaytarish
+    if (studentIdsFromPayments.length === 0) {
+      return { items: [], total: 0, page, pageSize };
+    }
+
+    // Endi faqat payment jadvalida mavjud bo'lgan studentlarni yuklash
     const qb = this.userRepository
       .createQueryBuilder('u')
       .leftJoinAndSelect('u.center', 'center')
-      .leftJoinAndSelect('u.groups', 'g')
-      .leftJoinAndSelect('g.subject', 'subject')
       .where('u.role = :role', { role: UserRole.STUDENT })
+      .andWhere('u.id IN (:...studentIds)', {
+        studentIds: studentIdsFromPayments,
+      })
       .orderBy('u.createdAt', 'DESC');
 
     if (user.role !== UserRole.SUPERADMIN) {
       qb.andWhere('center.id = :centerId', { centerId: Number(centerId) });
+    }
+
+    // Load groups based on filter
+    // Note: We need to load groups separately to avoid TypeORM's duplicate row issue
+    if (
+      query?.groupId &&
+      (user.role === UserRole.ADMIN || user.role === UserRole.SUPERADMIN)
+    ) {
+      // If groupId filter is applied, only load that specific group
+      qb.leftJoinAndSelect('u.groups', 'g', 'g.id = :groupId', {
+        groupId: Number(query.groupId),
+      });
+      qb.leftJoinAndSelect('g.subject', 'subject');
+      qb.leftJoinAndSelect('g.teacher', 'teacher');
+      qb.andWhere('g.id IS NOT NULL'); // Only students in this group
+    } else if (user.role === UserRole.TEACHER) {
+      // Teacher: only load groups they teach
+      qb.leftJoinAndSelect('u.groups', 'g');
+      qb.leftJoinAndSelect('g.subject', 'subject');
+      qb.leftJoinAndSelect('g.teacher', 'teacher');
+      qb.andWhere('g.id IS NOT NULL');
+      qb.andWhere('g.teacherId = :teacherId', { teacherId: user.id });
+    } else {
+      // Admin/Superadmin: load all groups (without filter to get all groups per student)
+      qb.leftJoinAndSelect('u.groups', 'g');
+      qb.leftJoinAndSelect('g.subject', 'subject');
+      qb.leftJoinAndSelect('g.teacher', 'teacher');
+      // Don't filter by g.id IS NOT NULL here, as we want all students with payments
+      // We'll filter out students without groups in the loop below
     }
 
     if (search) {
@@ -252,9 +345,32 @@ export class PaymentsService {
 
     // We paginate AFTER applying computed filters (status/debt). To keep totals correct, we load
     // candidates here (already center+search filtered), then compute + filter in memory.
-    const students = await qb.getMany();
+    // Use getRawAndEntities to avoid duplicate students when they have multiple groups
+    const result = await qb.getRawAndEntities();
+    const students = result.entities;
 
-    const studentIds = students.map((s) => s.id);
+    // Deduplicate students (TypeORM may return duplicates when using leftJoinAndSelect with multiple groups)
+    const uniqueStudents = new Map<number, any>();
+    for (const student of students) {
+      if (!uniqueStudents.has(student.id)) {
+        uniqueStudents.set(student.id, student);
+      } else {
+        // Merge groups if student already exists
+        const existing = uniqueStudents.get(student.id);
+        const existingGroups = existing.groups || [];
+        const newGroups = student.groups || [];
+        const allGroups = [...existingGroups];
+        for (const newGroup of newGroups) {
+          if (!allGroups.some((g: any) => g.id === newGroup.id)) {
+            allGroups.push(newGroup);
+          }
+        }
+        existing.groups = allGroups;
+      }
+    }
+    const deduplicatedStudents = Array.from(uniqueStudents.values());
+
+    const studentIds = deduplicatedStudents.map((s) => s.id);
     if (studentIds.length === 0) {
       return { items: [], total: 0, page, pageSize };
     }
@@ -267,7 +383,9 @@ export class PaymentsService {
     profiles.forEach((p) => profileByStudentId.set(p.studentId, p));
 
     // Create missing profiles for students not yet in table
-    const missing = students.filter((s) => !profileByStudentId.has(s.id));
+    const missing = deduplicatedStudents.filter(
+      (s) => !profileByStudentId.has(s.id),
+    );
     for (const s of missing) {
       const p = await this.ensureBillingProfile(s);
       profileByStudentId.set(s.id, p);
@@ -277,7 +395,7 @@ export class PaymentsService {
     // using the latest legacy payment amount for that group.
     const studentPrimaryGroupId = new Map<number, number>();
     const groupIds: number[] = [];
-    for (const s of students) {
+    for (const s of deduplicatedStudents) {
       const groups = ((s as any).groups || []) as Array<{
         id: number;
         createdAt?: any;
@@ -339,7 +457,7 @@ export class PaymentsService {
 
     // Auto-create monthly rows for the selected month when possible (batch)
     const toCreate: MonthlyPayment[] = [];
-    for (const s of students) {
+    for (const s of deduplicatedStudents) {
       const profile = profileByStudentId.get(s.id);
       if (!profile) continue;
       if (monthlyByStudentId.has(s.id)) continue;
@@ -359,10 +477,15 @@ export class PaymentsService {
         billingMonth,
         profile.dueDay || 1,
       );
+
+      // Get student's primary group ID
+      const primaryGroupId = studentPrimaryGroupId.get(s.id) || null;
+
       toCreate.push(
         this.monthlyPaymentRepository.create({
           studentId: s.id,
           centerId: s.center?.id as number,
+          groupId: primaryGroupId,
           billingMonth,
           dueDate,
           amountDue,
@@ -379,61 +502,114 @@ export class PaymentsService {
 
     const today = this.toUtcDateOnly(new Date());
 
-    const allItems = students.map((s) => {
+    // Create items: one row per student-group combination
+    const allItems: any[] = [];
+    for (const s of deduplicatedStudents) {
       const p = profileByStudentId.get(s.id)!;
       const mp = monthlyByStudentId.get(s.id) || null;
+      const groups = ((s as any).groups || []) as Array<{
+        id: number;
+        name: string;
+        subject?: { id: number; name: string } | null;
+        teacher?: { id: number; firstName: string; lastName: string } | null;
+      }>;
 
-      const amountDue = mp ? Number(mp.amountDue) : 0;
-      const amountPaid = mp ? Number(mp.amountPaid) : 0;
-      const dueDate = mp?.dueDate
-        ? this.toUtcDateOnly(mp.dueDate as any)
-        : null;
-      const remaining = Math.max(0, amountDue - amountPaid);
+      // If no groups, skip this student (shouldn't happen due to filter, but safety check)
+      if (!groups || groups.length === 0) continue;
 
-      // Status should reflect current dueDate + remaining, not stale DB status.
-      // (Important after dueDay edits.)
-      let effectiveStatus: MonthlyPaymentStatus | null = mp
-        ? (mp.status as any)
-        : null;
-      if (mp && effectiveStatus !== MonthlyPaymentStatus.CANCELLED) {
-        if (remaining <= 0 && amountDue > 0) {
-          effectiveStatus = MonthlyPaymentStatus.PAID;
-        } else if (dueDate && remaining > 0 && dueDate < today) {
-          effectiveStatus = MonthlyPaymentStatus.OVERDUE;
-        } else {
-          effectiveStatus = MonthlyPaymentStatus.PENDING;
-        }
+      // Get groups that have payments for this student
+      const groupsWithPayments = studentGroupMap.get(s.id) || new Set<number>();
+
+      // If groupId filter is applied, only include matching groups
+      // Otherwise, only show groups that have payments
+      let filteredGroups: typeof groups;
+      if (query?.groupId) {
+        // Filter by specific group
+        filteredGroups = groups.filter(
+          (g) => Number(g.id) === Number(query.groupId),
+        );
+        // If groupId filter is applied but student doesn't have that group, skip
+        if (filteredGroups.length === 0) continue;
+      } else {
+        // No groupId filter: only show groups that have payments
+        filteredGroups = groups.filter((g) =>
+          groupsWithPayments.has(Number(g.id)),
+        );
+        // If student has no groups with payments, skip
+        if (filteredGroups.length === 0) continue;
       }
 
-      return {
-        student: {
-          id: s.id,
-          firstName: s.firstName,
-          lastName: s.lastName,
-          username: s.username,
-        },
-        center: s.center ? { id: s.center.id, name: s.center.name } : null,
-        profile: {
-          joinDate: p.joinDate,
-          monthlyAmount: Number(p.monthlyAmount),
-          dueDay: p.dueDay,
-        },
-        month: billingMonth,
-        monthlyPayment: mp
-          ? {
-              id: mp.id,
-              billingMonth: mp.billingMonth,
-              dueDate: mp.dueDate,
-              amountDue: Number(mp.amountDue),
-              amountPaid: Number(mp.amountPaid),
-              status: effectiveStatus || mp.status,
-              paidAt: mp.paidAt,
-              lastPaymentAt: mp.lastPaymentAt,
-              note: mp.note,
-            }
-          : null,
-      };
-    });
+      // Create one row per group
+      for (const group of filteredGroups) {
+        const amountDue = mp ? Number(mp.amountDue) : 0;
+        const amountPaid = mp ? Number(mp.amountPaid) : 0;
+        const dueDate = mp?.dueDate
+          ? this.toUtcDateOnly(mp.dueDate as any)
+          : null;
+        const remaining = Math.max(0, amountDue - amountPaid);
+
+        // Status should reflect current dueDate + remaining, not stale DB status.
+        // (Important after dueDay edits.)
+        let effectiveStatus: MonthlyPaymentStatus | null = mp
+          ? (mp.status as any)
+          : null;
+        if (mp && effectiveStatus !== MonthlyPaymentStatus.CANCELLED) {
+          if (remaining <= 0 && amountDue > 0) {
+            effectiveStatus = MonthlyPaymentStatus.PAID;
+          } else if (dueDate && remaining > 0 && dueDate < today) {
+            effectiveStatus = MonthlyPaymentStatus.OVERDUE;
+          } else {
+            effectiveStatus = MonthlyPaymentStatus.PENDING;
+          }
+        }
+
+        allItems.push({
+          student: {
+            id: s.id,
+            firstName: s.firstName,
+            lastName: s.lastName,
+            username: s.username,
+          },
+          center: s.center ? { id: s.center.id, name: s.center.name } : null,
+          group: {
+            id: group.id,
+            name: group.name,
+            subject: group.subject
+              ? {
+                  id: group.subject.id,
+                  name: group.subject.name,
+                }
+              : null,
+            teacher: group.teacher
+              ? {
+                  id: group.teacher.id,
+                  firstName: group.teacher.firstName,
+                  lastName: group.teacher.lastName,
+                }
+              : null,
+          },
+          profile: {
+            joinDate: p.joinDate,
+            monthlyAmount: Number(p.monthlyAmount),
+            dueDay: p.dueDay,
+          },
+          month: billingMonth,
+          monthlyPayment: mp
+            ? {
+                id: mp.id,
+                billingMonth: mp.billingMonth,
+                dueDate: mp.dueDate,
+                amountDue: Number(mp.amountDue),
+                amountPaid: Number(mp.amountPaid),
+                status: effectiveStatus || mp.status,
+                paidAt: mp.paidAt,
+                lastPaymentAt: mp.lastPaymentAt,
+                note: mp.note,
+              }
+            : null,
+        });
+      }
+    }
 
     const filtered = allItems.filter((row) => {
       const mp = row.monthlyPayment;
@@ -841,6 +1017,21 @@ export class PaymentsService {
     }
     const billingMonth = this.parseMonthOrThrow(dto.month);
 
+    // Get student's primary group (latest created)
+    const studentWithGroups = await this.userRepository.findOne({
+      where: { id: student.id },
+      relations: ['groups'],
+    });
+    let primaryGroupId: number | null = null;
+    if (studentWithGroups?.groups && studentWithGroups.groups.length > 0) {
+      const sorted = [...studentWithGroups.groups].sort((a, b) => {
+        const ad = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const bd = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        return bd - ad;
+      });
+      primaryGroupId = sorted[0]?.id || null;
+    }
+
     let mp = await this.monthlyPaymentRepository.findOne({
       where: { studentId: student.id, billingMonth } as any,
     });
@@ -862,6 +1053,7 @@ export class PaymentsService {
       mp = this.monthlyPaymentRepository.create({
         studentId: student.id,
         centerId: student.center.id,
+        groupId: primaryGroupId,
         billingMonth,
         dueDate,
         amountDue: Number.isFinite(amountDue) ? amountDue : 0,
@@ -872,6 +1064,12 @@ export class PaymentsService {
       mp = await this.monthlyPaymentRepository.save(mp);
     } else if (dto.note !== undefined) {
       mp.note = dto.note || null;
+    }
+
+    // Update groupId if it's missing
+    if (!mp.groupId && primaryGroupId) {
+      mp.groupId = primaryGroupId;
+      mp = await this.monthlyPaymentRepository.save(mp);
     }
 
     // Create transaction (history)
@@ -1278,17 +1476,19 @@ export class PaymentsService {
       );
       const message = lines.join('\n');
 
-      // In-app notification
+      // In-app notification (with amounts)
+      const notificationMessage = `${upToLabel} holatiga ko'ra sizda qarzdorlik bor:\n${months
+        .slice(0, 6)
+        .map((m) => `${m.month}: ${Math.round(m.remaining).toLocaleString('uz-UZ')} so'm`)
+        .join('\n')}${months.length > 6 ? `\n... va yana ${months.length - 6} oy` : ''}\n\nJami: ${Math.round(totalRemaining).toLocaleString('uz-UZ')} so'm`;
+      
       await this.notificationsService.createForUsers(
         [s.id],
         "To'lov eslatmasi",
-        `${upToLabel} holatiga ko‘ra sizda qarzdorlik bor. Oylar: ${months
-          .slice(0, 6)
-          .map((m) => m.month)
-          .join(', ')}${months.length > 6 ? ' ...' : ''}`,
+        notificationMessage,
         'system' as any,
         'high' as any,
-        { kind: 'monthly_billing_debt', upToMonth: upToLabel, months },
+        { kind: 'monthly_billing_debt', upToMonth: upToLabel, months, totalRemaining },
       );
 
       // Telegram private (queued)
@@ -1623,23 +1823,90 @@ export class PaymentsService {
   // Create a new payment
   async create(
     createPaymentDto: CreatePaymentDto,
-    teacherId: number,
+    userId: number,
   ): Promise<Payment> {
+    // Get current user first
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+      relations: ['center'],
+    });
+    if (!user) {
+      throw new NotFoundException(`Foydalanuvchi topilmadi (ID: ${userId})`);
+    }
+
+    // Verify group exists with proper relations
+    const group = await this.groupRepository.findOne({
+      where: { id: createPaymentDto.groupId },
+      relations: ['students', 'teacher', 'center'],
+    });
+
+    if (!group) {
+      throw new NotFoundException(
+        `Guruh topilmadi (ID: ${createPaymentDto.groupId})`,
+      );
+    }
+
+    // Check permissions with detailed error messages
+    if (user.role === UserRole.TEACHER) {
+      if (!group.teacher) {
+        throw new NotFoundException(
+          `Guruhga o'qituvchi biriktirilmagan (Guruh ID: ${group.id})`,
+        );
+      }
+      if (group.teacher.id !== userId) {
+        throw new ForbiddenException(
+          `Sizda bu guruhga ruxsat yo'q. Guruh boshqa o'qituvchiga (ID: ${group.teacher.id}) biriktirilgan, sizning ID: ${userId}`,
+        );
+      }
+    } else if (user.role === UserRole.ADMIN) {
+      // Admin must have a center
+      if (!user.center) {
+        throw new ForbiddenException(
+          `Sizning markazingiz biriktirilmagan. Iltimos, superadmin bilan bog'laning (Foydalanuvchi ID: ${userId})`,
+        );
+      }
+      if (!user.center.id) {
+        throw new ForbiddenException(
+          `Sizning markazingiz ID'si mavjud emas. Iltimos, superadmin bilan bog'laning (Foydalanuvchi ID: ${userId})`,
+        );
+      }
+
+      // Group must have a center (should always exist, but check for safety)
+      if (!group.center) {
+        throw new NotFoundException(
+          `Guruh markazga biriktirilmagan (Guruh ID: ${group.id}, Guruh nomi: ${group.name})`,
+        );
+      }
+      if (!group.center.id) {
+        throw new NotFoundException(
+          `Guruh markazining ID'si mavjud emas (Guruh ID: ${group.id}, Guruh nomi: ${group.name})`,
+        );
+      }
+
+      // Admin's center must match group's center
+      const userCenterId = Number(user.center.id);
+      const groupCenterId = Number(group.center.id);
+
+      if (userCenterId !== groupCenterId) {
+        throw new ForbiddenException(
+          `Sizda bu guruhga ruxsat yo'q. ` +
+            `Guruh "${group.name}" (ID: ${group.id}) boshqa markazga (Markaz ID: ${groupCenterId}, Markaz nomi: ${group.center.name || "Noma'lum"}) tegishli. ` +
+            `Sizning markazingiz (Markaz ID: ${userCenterId}, Markaz nomi: ${user.center.name || "Noma'lum"}). ` +
+            `Faqat o'z markazingizdagi guruhlar uchun to'lov yarata olasiz.`,
+        );
+      }
+    } else if (user.role !== UserRole.SUPERADMIN) {
+      throw new ForbiddenException(
+        `Ruxsat yo'q. Sizning rolingiz: ${user.role}`,
+      );
+    }
+
     // Verify student exists and is a student
     const student = await this.userRepository.findOne({
       where: { id: createPaymentDto.studentId, role: UserRole.STUDENT },
     });
     if (!student) {
       throw new NotFoundException("O'quvchi topilmadi");
-    }
-
-    // Verify group exists and teacher has access to it
-    const group = await this.groupRepository.findOne({
-      where: { id: createPaymentDto.groupId, teacher: { id: teacherId } },
-      relations: ['students'],
-    });
-    if (!group) {
-      throw new NotFoundException("Guruh topilmadi yoki sizda ruxsat yo'q");
     }
 
     // Ensure student belongs to the selected group
@@ -1652,19 +1919,31 @@ export class PaymentsService {
       );
     }
 
+    // Get teacherId from group
+    const teacherId = group.teacher?.id || userId;
+
     const payment = this.paymentRepository.create({
-      ...createPaymentDto,
+      amount: createPaymentDto.amount,
+      studentId: createPaymentDto.studentId,
+      groupId: createPaymentDto.groupId,
       teacherId,
-      dueDate: new Date(createPaymentDto.dueDate),
-    });
+      dueDate: createPaymentDto.dueDate
+        ? new Date(createPaymentDto.dueDate)
+        : null,
+      description: createPaymentDto.description || null,
+    } as Payment);
 
     const savedPayment = await this.paymentRepository.save(payment);
 
     // Create notification for student
+    const notificationMessage = createPaymentDto.description
+      ? `${createPaymentDto.description} - ${createPaymentDto.amount} so'm`
+      : `Yangi to'lov: ${createPaymentDto.amount} so'm`;
+
     await this.notificationsService.createForUsers(
       [createPaymentDto.studentId],
       "Yangi to'lov",
-      `${createPaymentDto.description} - ${createPaymentDto.amount} so'm`,
+      notificationMessage,
       'system' as any,
       'medium' as any,
       { paymentId: savedPayment.id },

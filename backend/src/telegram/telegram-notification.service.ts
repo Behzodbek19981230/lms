@@ -141,15 +141,14 @@ export class TelegramNotificationService {
     };
 
     params.items.forEach((it, idx) => {
+      // Telegram kanalga faqat oylar ko'rsatiladi, summa kerakmas
       const monthsText = it.months
         .slice(0, 12)
-        .map((m) => `${m.month} (${m.remaining} so‘m)`)
+        .map((m) => m.month)
         .join(', ');
       const line =
         `${idx + 1}. <b>${it.studentName}</b>\n` +
-        `📌 Oylar: <b>${monthsText}</b>\n` +
-        // `   📌 Oylar: ${monthsText}${it.months.length > 12 ? ` ... (+${it.months.length - 12})` : ''}\n` +
-        `   💸 Jami: ${it.totalRemaining} so‘m\n\n`;
+        `📌 Qarzdor oylar: <b>${monthsText}${it.months.length > 12 ? ` ... (+${it.months.length - 12})` : ''}</b>\n\n`;
       if ((current + line).length > maxLen) pushCurrent();
       current += line;
     });

@@ -161,10 +161,10 @@ export class PaymentsController {
     return this.paymentsService.getMonthlyPaymentHistory(Number(id), req.user);
   }
 
-  // Create a new payment (teacher only)
+  // Create a new payment (admin/superadmin only)
   @Post()
-  @Roles(UserRole.TEACHER)
-  @RequireCenterPermissions(CenterPermissionKey.PAYMENTS)
+  @Roles(UserRole.ADMIN, UserRole.SUPERADMIN)
+  //   @RequireCenterPermissions(CenterPermissionKey.PAYMENTS)
   async create(@Body() createPaymentDto: CreatePaymentDto, @Request() req) {
     return this.paymentsService.create(createPaymentDto, req.user.id);
   }
@@ -178,7 +178,7 @@ export class PaymentsController {
       const payments = await this.paymentsService.findAllByTeacher(req.user.id);
       return { payments, studentsWithoutGroup: [] };
     }
-    const centerId = req.user?.center?.id;
+    const centerId = req.user?.center?.id as number;
     if (!centerId) return { payments: [], studentsWithoutGroup: [] };
     const [payments, studentsWithoutGroup] = await Promise.all([
       this.paymentsService.findAllByCenter(centerId),
@@ -237,7 +237,7 @@ export class PaymentsController {
   @Get('stats')
   @Roles(UserRole.ADMIN, UserRole.SUPERADMIN)
   @RequireCenterPermissions(CenterPermissionKey.REPORTS_PAYMENTS)
-  async getPaymentStats() {
+  getPaymentStats() {
     // This would aggregate stats from all payments
     // Implementation would depend on admin requirements
     return { message: 'Admin stats endpoint - to be implemented' };
@@ -294,9 +294,9 @@ export class PaymentsController {
     );
   }
 
-  // Send payment reminders
+  // Send payment reminders (admin/superadmin only)
   @Post('send-reminders')
-  @Roles(UserRole.TEACHER, UserRole.STUDENT)
+  @Roles(UserRole.ADMIN, UserRole.SUPERADMIN)
   @RequireCenterPermissions(CenterPermissionKey.PAYMENTS)
   async sendReminders(
     @Body() sendRemindersDto: SendPaymentRemindersDto,

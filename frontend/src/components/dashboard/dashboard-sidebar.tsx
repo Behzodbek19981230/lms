@@ -34,6 +34,7 @@ import {
 	Wand2,
 	ChevronsLeft,
 	ChevronsRight,
+	HelpCircle,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useEffect, useState } from 'react';
@@ -59,8 +60,10 @@ const centerAdminMenuItems = [
 	{ title: "O'quvchilarim", url: '/account/students', icon: GraduationCap },
 	{ title: "O'qituvchilarim", url: '/account/teachers', icon: UserCheck },
 	{ title: 'Guruhlar', url: '/account/groups', icon: Users2 },
+	{ title: "To'lovlar", url: '/account/payments', icon: DollarSign },
 	{ title: 'Mening fanlarim', url: '/account/subjects', icon: Book },
 	{ title: 'Telegram Management', url: '/account/telegram', icon: Send },
+	{ title: "Foydalanish qo'llanmasi", url: '/account/guide', icon: HelpCircle },
 ];
 // Add Results menu item for admin
 centerAdminMenuItems.splice(4, 0, { title: 'Natijalar', url: '/account/results', icon: FileText });

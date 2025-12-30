@@ -9,28 +9,43 @@ import {
 	DropdownMenuItem,
 	DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import {
-	Dialog,
-	DialogContent,
-	DialogHeader,
-	DialogTitle,
-	DialogFooter,
-} from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { format } from 'date-fns';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { format, parse } from 'date-fns';
 import { uz } from 'date-fns/locale';
-import { MoreHorizontal } from 'lucide-react';
+import { MoreHorizontal, CalendarIcon } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 type Props = {
 	month: string; // YYYY-MM
 	ledger: BillingLedgerItem[];
-	onSaveProfile: (studentId: number, data: { joinDate?: string; monthlyAmount?: number; dueDay?: number }) => Promise<void>;
-	onCollect: (data: { studentId: number; month: string; amount: number; note?: string; amountDueOverride?: number }) => Promise<void>;
-	onUpdateMonthly: (monthlyPaymentId: number, data: { amountDue?: number; dueDate?: string; note?: string }) => Promise<void>;
-	onSettleStudent: (data: { studentId: number; leaveDate: string; persist: boolean }) => Promise<StudentSettlementResult>;
+	onSaveProfile: (
+		studentId: number,
+		data: { joinDate?: string; monthlyAmount?: number; dueDay?: number }
+	) => Promise<void>;
+	onCollect: (data: {
+		studentId: number;
+		month: string;
+		amount: number;
+		note?: string;
+		amountDueOverride?: number;
+	}) => Promise<void>;
+	onUpdateMonthly: (
+		monthlyPaymentId: number,
+		data: { amountDue?: number; dueDate?: string; note?: string }
+	) => Promise<void>;
+	onSettleStudent: (data: {
+		studentId: number;
+		leaveDate: string;
+		persist: boolean;
+	}) => Promise<StudentSettlementResult>;
 	onGetHistory: (monthlyPaymentId: number) => Promise<MonthlyPaymentTransaction[]>;
+	isTeacher?: boolean; // Teacher uchun actions'larni yashirish
 };
 
 function statusBadge(status?: string | null) {
@@ -46,7 +61,16 @@ function statusBadge(status?: string | null) {
 	}
 }
 
-export default function MonthlyBillingTable({ month, ledger, onSaveProfile, onCollect, onUpdateMonthly, onSettleStudent, onGetHistory }: Props) {
+export default function MonthlyBillingTable({
+	month,
+	ledger,
+	onSaveProfile,
+	onCollect,
+	onUpdateMonthly,
+	onSettleStudent,
+	onGetHistory,
+	isTeacher = false,
+}: Props) {
 	const [profileOpen, setProfileOpen] = useState(false);
 	const [collectOpen, setCollectOpen] = useState(false);
 	const [editMonthlyOpen, setEditMonthlyOpen] = useState(false);
@@ -77,7 +101,7 @@ export default function MonthlyBillingTable({ month, ledger, onSaveProfile, onCo
 	const [editNote, setEditNote] = useState<string>('');
 
 	// Settlement (leave)
-	const [leaveDate, setLeaveDate] = useState<string>(() => new Date().toISOString().slice(0, 10));
+	const [leaveDate, setLeaveDate] = useState<string>(() => format(new Date(), 'dd-MM-yyyy'));
 	const [settleResult, setSettleResult] = useState<StudentSettlementResult | null>(null);
 	const [settleError, setSettleError] = useState<string | null>(null);
 
@@ -87,7 +111,8 @@ export default function MonthlyBillingTable({ month, ledger, onSaveProfile, onCo
 
 	const openProfile = (row: BillingLedgerItem) => {
 		setActiveStudentId(row.student.id);
-		setJoinDate(String(row.profile.joinDate).slice(0, 10));
+		const joinDateObj = new Date(row.profile.joinDate);
+		setJoinDate(format(joinDateObj, 'dd-MM-yyyy'));
 		setMonthlyAmount(String(row.profile.monthlyAmount ?? 0));
 		setDueDay(String(row.profile.dueDay ?? 1));
 		setProfileOpen(true);
@@ -105,7 +130,12 @@ export default function MonthlyBillingTable({ month, ledger, onSaveProfile, onCo
 	const openEditMonthly = (row: BillingLedgerItem) => {
 		if (!row.monthlyPayment) return;
 		setActiveStudentId(row.student.id);
-		setEditDueDate(String(row.monthlyPayment.dueDate).slice(0, 10));
+		if (row.monthlyPayment?.dueDate) {
+			const dueDateObj = new Date(row.monthlyPayment.dueDate);
+			setEditDueDate(format(dueDateObj, 'dd-MM-yyyy'));
+		} else {
+			setEditDueDate('');
+		}
 		setEditAmountDue(String(row.monthlyPayment.amountDue ?? 0));
 		setEditNote(row.monthlyPayment.note || '');
 		setEditMonthlyOpen(true);
@@ -129,7 +159,7 @@ export default function MonthlyBillingTable({ month, ledger, onSaveProfile, onCo
 			const data = await onGetHistory(row.monthlyPayment.id);
 			setHistory(data);
 		} catch (e: any) {
-			setHistoryError(e?.message || "Tarixni yuklashda xatolik");
+			setHistoryError(e?.message || 'Tarixni yuklashda xatolik');
 		}
 	};
 
@@ -137,8 +167,8 @@ export default function MonthlyBillingTable({ month, ledger, onSaveProfile, onCo
 		<div className='space-y-3'>
 			<Card className='p-3'>
 				<div className='text-sm text-muted-foreground'>
-					Oy: <span className='font-medium text-foreground'>{month}</span>. Bu jadval o‘quvchilar bo‘yicha oylik to‘lov
-					holatini ko‘rsatadi (joinDate default: student yaratilgan sana).
+					Oy: <span className='font-medium text-foreground'>{month}</span>. Bu jadval o‘quvchilar bo‘yicha
+					oylik to‘lov holatini ko‘rsatadi (joinDate default: student yaratilgan sana).
 				</div>
 			</Card>
 
@@ -149,12 +179,41 @@ export default function MonthlyBillingTable({ month, ledger, onSaveProfile, onCo
 					</DialogHeader>
 					<div className='grid grid-cols-1 gap-4'>
 						<div>
-							<Label>Qo‘shilgan sana (joinDate)</Label>
-							<Input type='date' value={joinDate} onChange={(e) => setJoinDate(e.target.value)} />
+							<Label>Qo'shilgan sana (joinDate)</Label>
+							<Popover>
+								<PopoverTrigger asChild>
+									<Button
+										variant='outline'
+										className={cn(
+											'w-full justify-start text-left font-normal',
+											!joinDate && 'text-muted-foreground'
+										)}
+									>
+										<CalendarIcon className='mr-2 h-4 w-4' />
+										{joinDate ? joinDate : <span>Sana tanlang</span>}
+									</Button>
+								</PopoverTrigger>
+								<PopoverContent className='w-auto p-0' align='start'>
+									<Calendar
+										mode='single'
+										selected={joinDate ? parse(joinDate, 'dd-MM-yyyy', new Date()) : undefined}
+										onSelect={(date) => {
+											if (date) {
+												setJoinDate(format(date, 'dd-MM-yyyy'));
+											}
+										}}
+										initialFocus
+									/>
+								</PopoverContent>
+							</Popover>
 						</div>
 						<div>
 							<Label>Oylik summa (UZS)</Label>
-							<Input inputMode='numeric' value={monthlyAmount} onChange={(e) => setMonthlyAmount(e.target.value)} />
+							<Input
+								inputMode='numeric'
+								value={monthlyAmount}
+								onChange={(e) => setMonthlyAmount(e.target.value)}
+							/>
 						</div>
 						<div>
 							<Label>To‘lov kuni (1-31)</Label>
@@ -168,8 +227,18 @@ export default function MonthlyBillingTable({ month, ledger, onSaveProfile, onCo
 						<Button
 							onClick={async () => {
 								if (!activeStudentId) return;
+								// Convert DD-MM-YYYY to YYYY-MM-DD for backend
+								let joinDateFormatted: string | undefined;
+								if (joinDate) {
+									try {
+										const parsed = parse(joinDate, 'dd-MM-yyyy', new Date());
+										joinDateFormatted = format(parsed, 'yyyy-MM-dd');
+									} catch {
+										joinDateFormatted = joinDate;
+									}
+								}
 								await onSaveProfile(activeStudentId, {
-									joinDate: joinDate || undefined,
+									joinDate: joinDateFormatted,
 									monthlyAmount: monthlyAmount ? Number(monthlyAmount) : undefined,
 									dueDay: dueDay ? Number(dueDay) : undefined,
 								});
@@ -191,21 +260,66 @@ export default function MonthlyBillingTable({ month, ledger, onSaveProfile, onCo
 						{monthlyAmountMissing && (
 							<Card className='p-3 border border-red-200 bg-red-50'>
 								<div className='text-sm text-red-800'>
-									<b>Diqqat:</b> Oylik summa kiritilmagan. Avval “Sozlash” bo‘limida oylik summani belgilang.
+									<b>Diqqat:</b> Oylik summa kiritilmagan. Avval “Sozlash” bo‘limida oylik summani
+									belgilang.
 								</div>
 							</Card>
 						)}
 						<div>
 							<Label>Oy (YYYY-MM)</Label>
-							<Input value={collectMonth} onChange={(e) => setCollectMonth(e.target.value)} placeholder='2025-12' />
+							<Select value={collectMonth} onValueChange={(value) => setCollectMonth(value)}>
+								<SelectTrigger className='w-full'>
+									<SelectValue placeholder='Oy tanlang'>
+										{collectMonth
+											? format(
+													parse(collectMonth + '-01', 'yyyy-MM-dd', new Date()),
+													'MMMM yyyy',
+													{
+														locale: uz,
+													}
+											  )
+											: 'Oy tanlang'}
+									</SelectValue>
+								</SelectTrigger>
+								<SelectContent className='max-h-[300px]'>
+									{[2025, 2026, 2027, 2028, 2029].map((year) => (
+										<div key={year}>
+											<div className='px-2 py-1.5 text-sm font-semibold text-muted-foreground'>
+												{year}
+											</div>
+											{[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((month) => {
+												const monthStr = `${year}-${String(month).padStart(2, '0')}`;
+												const monthName = format(
+													parse(monthStr + '-01', 'yyyy-MM-dd', new Date()),
+													'MMMM',
+													{ locale: uz }
+												);
+												return (
+													<SelectItem key={monthStr} value={monthStr}>
+														{monthName} {year}
+													</SelectItem>
+												);
+											})}
+										</div>
+									))}
+								</SelectContent>
+							</Select>
 						</div>
 						<div>
 							<Label>To‘langan summa (UZS)</Label>
-							<Input inputMode='numeric' value={collectAmount} onChange={(e) => setCollectAmount(e.target.value)} />
+							<Input
+								inputMode='numeric'
+								value={collectAmount}
+								onChange={(e) => setCollectAmount(e.target.value)}
+							/>
 						</div>
 						<div>
 							<Label>Izoh (ixtiyoriy)</Label>
-							<Input value={collectNote} onChange={(e) => setCollectNote(e.target.value)} placeholder='Dekabr uchun qisman' />
+							<Input
+								value={collectNote}
+								onChange={(e) => setCollectNote(e.target.value)}
+								placeholder='Dekabr uchun qisman'
+							/>
 						</div>
 						<div>
 							<Label>Shu oy uchun kerakli summa (ixtiyoriy)</Label>
@@ -216,7 +330,8 @@ export default function MonthlyBillingTable({ month, ledger, onSaveProfile, onCo
 								placeholder='Masalan: 150000'
 							/>
 							<p className='text-xs text-muted-foreground mt-1'>
-								Agar tanlangan oy uchun oylik yozuvi hali yaratilmagan bo‘lsa, shu summa bilan yaratiladi (qisman oylar uchun qulay).
+								Agar tanlangan oy uchun oylik yozuvi hali yaratilmagan bo‘lsa, shu summa bilan
+								yaratiladi (qisman oylar uchun qulay).
 							</p>
 						</div>
 					</div>
@@ -251,12 +366,43 @@ export default function MonthlyBillingTable({ month, ledger, onSaveProfile, onCo
 					</DialogHeader>
 					<div className='grid grid-cols-1 gap-4'>
 						<div>
-							<Label>To‘lov sanasi</Label>
-							<Input type='date' value={editDueDate} onChange={(e) => setEditDueDate(e.target.value)} />
+							<Label>To'lov sanasi</Label>
+							<Popover>
+								<PopoverTrigger asChild>
+									<Button
+										variant='outline'
+										className={cn(
+											'w-full justify-start text-left font-normal',
+											!editDueDate && 'text-muted-foreground'
+										)}
+									>
+										<CalendarIcon className='mr-2 h-4 w-4' />
+										{editDueDate ? editDueDate : <span>Sana tanlang</span>}
+									</Button>
+								</PopoverTrigger>
+								<PopoverContent className='w-auto p-0' align='start'>
+									<Calendar
+										mode='single'
+										selected={
+											editDueDate ? parse(editDueDate, 'dd-MM-yyyy', new Date()) : undefined
+										}
+										onSelect={(date) => {
+											if (date) {
+												setEditDueDate(format(date, 'dd-MM-yyyy'));
+											}
+										}}
+										initialFocus
+									/>
+								</PopoverContent>
+							</Popover>
 						</div>
 						<div>
 							<Label>Shu oy uchun summa (UZS)</Label>
-							<Input inputMode='numeric' value={editAmountDue} onChange={(e) => setEditAmountDue(e.target.value)} />
+							<Input
+								inputMode='numeric'
+								value={editAmountDue}
+								onChange={(e) => setEditAmountDue(e.target.value)}
+							/>
 						</div>
 						<div>
 							<Label>Izoh</Label>
@@ -270,8 +416,18 @@ export default function MonthlyBillingTable({ month, ledger, onSaveProfile, onCo
 						<Button
 							onClick={async () => {
 								if (!activeRow?.monthlyPayment) return;
+								// Convert DD-MM-YYYY to YYYY-MM-DD for backend
+								let dueDateFormatted: string | undefined;
+								if (editDueDate) {
+									try {
+										const parsed = parse(editDueDate, 'dd-MM-yyyy', new Date());
+										dueDateFormatted = format(parsed, 'yyyy-MM-dd');
+									} catch {
+										dueDateFormatted = editDueDate;
+									}
+								}
 								await onUpdateMonthly(activeRow.monthlyPayment.id, {
-									dueDate: editDueDate || undefined,
+									dueDate: dueDateFormatted,
 									amountDue: editAmountDue ? Number(editAmountDue) : undefined,
 									note: editNote || undefined,
 								});
@@ -292,9 +448,35 @@ export default function MonthlyBillingTable({ month, ledger, onSaveProfile, onCo
 					<div className='space-y-4'>
 						<div>
 							<Label>Ketish sanasi</Label>
-							<Input type='date' value={leaveDate} onChange={(e) => setLeaveDate(e.target.value)} />
+							<Popover>
+								<PopoverTrigger asChild>
+									<Button
+										variant='outline'
+										className={cn(
+											'w-full justify-start text-left font-normal',
+											!leaveDate && 'text-muted-foreground'
+										)}
+									>
+										<CalendarIcon className='mr-2 h-4 w-4' />
+										{leaveDate ? leaveDate : <span>Sana tanlang</span>}
+									</Button>
+								</PopoverTrigger>
+								<PopoverContent className='w-auto p-0' align='start'>
+									<Calendar
+										mode='single'
+										selected={leaveDate ? parse(leaveDate, 'dd-MM-yyyy', new Date()) : undefined}
+										onSelect={(date) => {
+											if (date) {
+												setLeaveDate(format(date, 'dd-MM-yyyy'));
+											}
+										}}
+										initialFocus
+									/>
+								</PopoverContent>
+							</Popover>
 							<p className='text-xs text-muted-foreground mt-1'>
-								Tizim joinDate va oylik summaga qarab shu sanagacha bo‘lgan qarzdorlikni kunlar bo‘yicha hisoblaydi.
+								Tizim joinDate va oylik summaga qarab shu sanagacha bo'lgan qarzdorlikni kunlar bo'yicha
+								hisoblaydi.
 							</p>
 						</div>
 
@@ -310,11 +492,12 @@ export default function MonthlyBillingTable({ month, ledger, onSaveProfile, onCo
 							<div className='space-y-3'>
 								<Card className='p-3'>
 									<div className='text-sm'>
-										<b>Jami hisoblandi:</b> {Number(settleResult.summary.totalDue).toLocaleString('uz-UZ')} UZS
-										{'  '}|{' '}
-										<b>To‘langan:</b> {Number(settleResult.summary.totalPaid).toLocaleString('uz-UZ')} UZS
-										{'  '}|{' '}
-										<b>Qolgan qarz:</b> {Number(settleResult.summary.totalRemaining).toLocaleString('uz-UZ')} UZS
+										<b>Jami hisoblandi:</b>{' '}
+										{Number(settleResult.summary.totalDue).toLocaleString('uz-UZ')} UZS
+										{'  '}| <b>To‘langan:</b>{' '}
+										{Number(settleResult.summary.totalPaid).toLocaleString('uz-UZ')} UZS
+										{'  '}| <b>Qolgan qarz:</b>{' '}
+										{Number(settleResult.summary.totalRemaining).toLocaleString('uz-UZ')} UZS
 									</div>
 								</Card>
 
@@ -333,16 +516,28 @@ export default function MonthlyBillingTable({ month, ledger, onSaveProfile, onCo
 										<TableBody>
 											{settleResult.months.map((m) => (
 												<TableRow key={m.billingMonth}>
-													<TableCell className='font-medium'>{m.billingMonth.slice(0, 7)}</TableCell>
+													<TableCell className='font-medium'>
+														{m.billingMonth.slice(0, 7)}
+													</TableCell>
 													<TableCell>
 														{m.activeFrom} → {m.activeTo}
 													</TableCell>
 													<TableCell>
 														{m.activeDays}/{m.daysInMonth}
 													</TableCell>
-													<TableCell>{Number(m.amountDue).toLocaleString('uz-UZ')} UZS</TableCell>
-													<TableCell>{Number(m.amountPaid).toLocaleString('uz-UZ')} UZS</TableCell>
-													<TableCell className={m.remaining > 0 ? 'font-semibold text-red-600' : 'text-green-700'}>
+													<TableCell>
+														{Number(m.amountDue).toLocaleString('uz-UZ')} UZS
+													</TableCell>
+													<TableCell>
+														{Number(m.amountPaid).toLocaleString('uz-UZ')} UZS
+													</TableCell>
+													<TableCell
+														className={
+															m.remaining > 0
+																? 'font-semibold text-red-600'
+																: 'text-green-700'
+														}
+													>
 														{Number(m.remaining).toLocaleString('uz-UZ')} UZS
 													</TableCell>
 												</TableRow>
@@ -363,11 +558,25 @@ export default function MonthlyBillingTable({ month, ledger, onSaveProfile, onCo
 								if (!activeStudentId) return;
 								try {
 									setSettleError(null);
-									const res = await onSettleStudent({ studentId: activeStudentId, leaveDate, persist: false });
+									// Convert DD-MM-YYYY to YYYY-MM-DD for backend
+									let leaveDateFormatted = leaveDate;
+									if (leaveDate) {
+										try {
+											const parsed = parse(leaveDate, 'dd-MM-yyyy', new Date());
+											leaveDateFormatted = format(parsed, 'yyyy-MM-dd');
+										} catch {
+											leaveDateFormatted = leaveDate;
+										}
+									}
+									const res = await onSettleStudent({
+										studentId: activeStudentId,
+										leaveDate: leaveDateFormatted,
+										persist: false,
+									});
 									setSettleResult(res);
 								} catch (e: any) {
 									setSettleResult(null);
-									setSettleError(e?.message || "Hisoblashda xatolik");
+									setSettleError(e?.message || 'Hisoblashda xatolik');
 								}
 							}}
 						>
@@ -378,11 +587,25 @@ export default function MonthlyBillingTable({ month, ledger, onSaveProfile, onCo
 								if (!activeStudentId) return;
 								try {
 									setSettleError(null);
-									const res = await onSettleStudent({ studentId: activeStudentId, leaveDate, persist: true });
+									// Convert DD-MM-YYYY to YYYY-MM-DD for backend
+									let leaveDateFormatted = leaveDate;
+									if (leaveDate) {
+										try {
+											const parsed = parse(leaveDate, 'dd-MM-yyyy', new Date());
+											leaveDateFormatted = format(parsed, 'yyyy-MM-dd');
+										} catch {
+											leaveDateFormatted = leaveDate;
+										}
+									}
+									const res = await onSettleStudent({
+										studentId: activeStudentId,
+										leaveDate: leaveDateFormatted,
+										persist: true,
+									});
 									setSettleResult(res);
 									setSettleOpen(false);
 								} catch (e: any) {
-									setSettleError(e?.message || "Yopishda xatolik");
+									setSettleError(e?.message || 'Yopishda xatolik');
 								}
 							}}
 						>
@@ -425,15 +648,11 @@ export default function MonthlyBillingTable({ month, ledger, onSaveProfile, onCo
 								) : (
 									history.map((t) => (
 										<TableRow key={t.id}>
-											<TableCell>
-												{new Date(t.paidAt).toLocaleString('uz-UZ')}
-											</TableCell>
+											<TableCell>{new Date(t.paidAt).toLocaleString('uz-UZ')}</TableCell>
 											<TableCell className='font-medium'>
 												{Number(t.amount).toLocaleString('uz-UZ')} UZS
 											</TableCell>
-											<TableCell className='max-w-[420px] truncate'>
-												{t.note || '—'}
-											</TableCell>
+											<TableCell className='max-w-[420px] truncate'>{t.note || '—'}</TableCell>
 										</TableRow>
 									))
 								)}
@@ -452,91 +671,139 @@ export default function MonthlyBillingTable({ month, ledger, onSaveProfile, onCo
 			<Card className='p-0 overflow-hidden'>
 				<div className='w-full overflow-x-auto'>
 					<Table className='min-w-[980px]'>
-					<TableHeader>
-						<TableRow>
-							<TableHead>O‘quvchi</TableHead>
-							<TableHead>Qo‘shilgan sana</TableHead>
-							<TableHead>Oylik</TableHead>
-							<TableHead>Muddat / summa</TableHead>
-							<TableHead>To‘langan</TableHead>
-							<TableHead>Qoldiq</TableHead>
-							<TableHead>Holat</TableHead>
-							<TableHead className='text-right'>Amallar</TableHead>
-						</TableRow>
-					</TableHeader>
-					<TableBody>
-						{ledger.length === 0 ? (
+						<TableHeader>
 							<TableRow>
-								<TableCell colSpan={8} className='text-center py-8 text-muted-foreground'>
-									O‘quvchilar topilmadi
-								</TableCell>
+								<TableHead>O'quvchi</TableHead>
+								<TableHead>Guruh</TableHead>
+								<TableHead>Qo'shilgan sana</TableHead>
+								<TableHead>Oylik</TableHead>
+								<TableHead>Muddat / summa</TableHead>
+								<TableHead>To'langan</TableHead>
+								<TableHead>Qoldiq</TableHead>
+								<TableHead>Holat</TableHead>
+								{!isTeacher && <TableHead className='text-right'>Amallar</TableHead>}
+								{isTeacher && <TableHead className='text-right'>Tarix</TableHead>}
 							</TableRow>
-						) : (
-							ledger.map((row) => {
-								const mp = row.monthlyPayment;
-								const due = mp?.amountDue ?? 0;
-								const paid = mp?.amountPaid ?? 0;
-								const remain = Math.max(0, Number(due) - Number(paid));
-								return (
-									<TableRow key={row.student.id}>
-										<TableCell className='font-medium'>
-											{row.student.firstName} {row.student.lastName}
-											<div className='text-xs text-muted-foreground'>@{row.student.username}</div>
-										</TableCell>
-										<TableCell>{String(row.profile.joinDate).slice(0, 10)}</TableCell>
-										<TableCell>{Number(row.profile.monthlyAmount || 0).toLocaleString('uz-UZ')}</TableCell>
-										<TableCell>
-											{mp?.dueDate ? format(new Date(mp.dueDate), 'dd MMM yyyy', { locale: uz }) : '-'}
-											<div className='text-xs text-muted-foreground'>
-												{Number(due).toLocaleString('uz-UZ')} UZS
-											</div>
-										</TableCell>
-										<TableCell>{Number(paid).toLocaleString('uz-UZ')} UZS</TableCell>
-										<TableCell className={remain > 0 ? 'font-semibold text-red-600' : 'text-green-700'}>
-											{Number(remain).toLocaleString('uz-UZ')} UZS
-										</TableCell>
-										<TableCell>{statusBadge(mp?.status || (remain > 0 ? 'pending' : 'paid'))}</TableCell>
-										<TableCell className='text-right'>
-											<DropdownMenu>
-												<DropdownMenuTrigger asChild>
-													<Button variant='ghost' size='sm' className='h-8 w-8 p-0'>
-														<span className='sr-only'>Amallar</span>
-														<MoreHorizontal className='h-4 w-4' />
-													</Button>
-												</DropdownMenuTrigger>
-												<DropdownMenuContent align='end'>
-													<DropdownMenuItem disabled={(row.profile.monthlyAmount ?? 0) <= 0} onClick={() => openCollect(row)}>
-														To‘lov kiritish
-													</DropdownMenuItem>
-													<DropdownMenuItem onClick={() => openProfile(row)}>
-														Sozlash (join/oylik/kuni)
-													</DropdownMenuItem>
-													<DropdownMenuItem
-														disabled={!row.monthlyPayment}
-														onClick={() => openEditMonthly(row)}
-													>
-														Oylikni tahrirlash
-													</DropdownMenuItem>
-													<DropdownMenuItem
+						</TableHeader>
+						<TableBody>
+							{ledger.length === 0 ? (
+								<TableRow>
+									<TableCell
+										colSpan={isTeacher ? 8 : 9}
+										className='text-center py-8 text-muted-foreground'
+									>
+										O'quvchilar topilmadi
+									</TableCell>
+								</TableRow>
+							) : (
+								ledger.map((row) => {
+									const mp = row.monthlyPayment;
+									const due = mp?.amountDue ?? 0;
+									const paid = mp?.amountPaid ?? 0;
+									const remain = Math.max(0, Number(due) - Number(paid));
+									return (
+										<TableRow key={`${row.student.id}-${row.group.id}`}>
+											<TableCell className='font-medium'>
+												{row.student.firstName} {row.student.lastName}
+												<div className='text-xs text-muted-foreground'>
+													@{row.student.username}
+												</div>
+											</TableCell>
+											<TableCell>
+												<div className='font-medium'>{row.group.name}</div>
+												{row.group.subject && (
+													<div className='text-xs text-muted-foreground'>
+														{row.group.subject.name}
+													</div>
+												)}
+												{row.group.teacher && (
+													<div className='text-xs text-muted-foreground'>
+														{row.group.teacher.firstName} {row.group.teacher.lastName}
+													</div>
+												)}
+											</TableCell>
+											<TableCell>{String(row.profile.joinDate).slice(0, 10)}</TableCell>
+											<TableCell>
+												{Number(row.profile.monthlyAmount || 0).toLocaleString('uz-UZ')}
+											</TableCell>
+											<TableCell>
+												{mp?.dueDate
+													? format(new Date(mp.dueDate), 'dd MMM yyyy', { locale: uz })
+													: '-'}
+												<div className='text-xs text-muted-foreground'>
+													{Number(due).toLocaleString('uz-UZ')} UZS
+												</div>
+											</TableCell>
+											<TableCell>{Number(paid).toLocaleString('uz-UZ')} UZS</TableCell>
+											<TableCell
+												className={remain > 0 ? 'font-semibold text-red-600' : 'text-green-700'}
+											>
+												{Number(remain).toLocaleString('uz-UZ')} UZS
+											</TableCell>
+											<TableCell>
+												{statusBadge(mp?.status || (remain > 0 ? 'pending' : 'paid'))}
+											</TableCell>
+											{!isTeacher && (
+												<TableCell className='text-right'>
+													<DropdownMenu>
+														<DropdownMenuTrigger asChild>
+															<Button variant='ghost' size='sm' className='h-8 w-8 p-0'>
+																<span className='sr-only'>Amallar</span>
+																<MoreHorizontal className='h-4 w-4' />
+															</Button>
+														</DropdownMenuTrigger>
+														<DropdownMenuContent align='end'>
+															<DropdownMenuItem
+																disabled={(row.profile.monthlyAmount ?? 0) <= 0}
+																onClick={() => openCollect(row)}
+															>
+																To'lov kiritish
+															</DropdownMenuItem>
+															<DropdownMenuItem onClick={() => openProfile(row)}>
+																Sozlash (join/oylik/kuni)
+															</DropdownMenuItem>
+															<DropdownMenuItem
+																disabled={!row.monthlyPayment}
+																onClick={() => openEditMonthly(row)}
+															>
+																Oylikni tahrirlash
+															</DropdownMenuItem>
+															<DropdownMenuItem
+																disabled={!row.monthlyPayment}
+																onClick={() => openHistory(row)}
+															>
+																Tarix
+															</DropdownMenuItem>
+															<DropdownMenuItem
+																className='text-red-600 focus:text-red-600'
+																onClick={() => openSettle(row)}
+															>
+																Ketdi (hisoblash)
+															</DropdownMenuItem>
+														</DropdownMenuContent>
+													</DropdownMenu>
+												</TableCell>
+											)}
+											{isTeacher && (
+												<TableCell className='text-right'>
+													<Button
+														variant='ghost'
+														size='sm'
+														className='h-8 w-8 p-0'
 														disabled={!row.monthlyPayment}
 														onClick={() => openHistory(row)}
+														title='Tarix'
 													>
-														Tarix
-													</DropdownMenuItem>
-													<DropdownMenuItem
-														className='text-red-600 focus:text-red-600'
-														onClick={() => openSettle(row)}
-													>
-														Ketdi (hisoblash)
-													</DropdownMenuItem>
-												</DropdownMenuContent>
-											</DropdownMenu>
-										</TableCell>
-									</TableRow>
-								);
-							})
-						)}
-					</TableBody>
+														<span className='sr-only'>Tarix</span>
+														<MoreHorizontal className='h-4 w-4' />
+													</Button>
+												</TableCell>
+											)}
+										</TableRow>
+									);
+								})
+							)}
+						</TableBody>
 					</Table>
 				</div>
 			</Card>

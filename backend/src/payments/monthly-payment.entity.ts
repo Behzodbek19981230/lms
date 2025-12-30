@@ -9,6 +9,7 @@ import {
 } from 'typeorm';
 import { User } from '../users/entities/user.entity';
 import { Center } from '../centers/entities/center.entity';
+import { Group } from '../groups/entities/group.entity';
 
 export enum MonthlyPaymentStatus {
   PENDING = 'pending',
@@ -35,6 +36,13 @@ export class MonthlyPayment {
   @ManyToOne(() => Center, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'centerId' })
   center: Center;
+
+  @Column({ nullable: true })
+  groupId: number | null;
+
+  @ManyToOne(() => Group, { onDelete: 'SET NULL', nullable: true })
+  @JoinColumn({ name: 'groupId' })
+  group: Group | null;
 
   // First day of month (e.g. 2025-12-01)
   @Column({ type: 'date' })

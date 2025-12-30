@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
-import { Textarea } from '../ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../ui/dialog';
 import { CreatePaymentDto } from '../../types/payment';
 import { groupService } from '../../services/group.service';
@@ -23,8 +22,6 @@ interface Student extends User {
 const CreatePaymentForm: React.FC<CreatePaymentFormProps> = ({ open, onClose, onSubmit, selectedGroup }) => {
 	const [formData, setFormData] = useState<CreatePaymentDto>({
 		amount: 0,
-		dueDate: '',
-		description: '',
 		studentId: '',
 		groupId: selectedGroup?.id || '',
 	});
@@ -81,18 +78,23 @@ const CreatePaymentForm: React.FC<CreatePaymentFormProps> = ({ open, onClose, on
 
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
+		
+		// Validation
+		if (!formData.groupId) {
+			alert('Iltimos, guruhni tanlang');
+			return;
+		}
+		
 		setLoading(true);
 		try {
-			const paymentData = {
-				...formData,
-				studentId: formData.studentId ? Number(formData.studentId) : undefined,
+			const paymentData: any = {
+				amount: formData.amount,
 				groupId: Number(formData.groupId),
+				studentId: formData.studentId ? Number(formData.studentId) : undefined,
 			};
-			await onSubmit(paymentData as any);
+			await onSubmit(paymentData);
 			setFormData({
 				amount: 0,
-				dueDate: '',
-				description: '',
 				studentId: '',
 				groupId: selectedGroup?.id || '',
 			});
@@ -105,25 +107,23 @@ const CreatePaymentForm: React.FC<CreatePaymentFormProps> = ({ open, onClose, on
 	};
 
 	const handleCreateForAllStudents = async () => {
-		if (!formData.groupId || formData.amount <= 0 || !formData.dueDate || !formData.description) {
-			alert("Iltimos, barcha maydonlarni to'ldiring");
+		if (!formData.groupId || formData.amount <= 0) {
+			alert("Iltimos, guruh va miqdorni to'ldiring");
 			return;
 		}
 
 		setLoading(true);
 		try {
 			for (const student of students) {
-				const paymentData = {
-					...formData,
-					studentId: Number(student.id),
+				const paymentData: any = {
+					amount: formData.amount,
 					groupId: Number(formData.groupId),
+					studentId: Number(student.id),
 				};
-				await onSubmit(paymentData as any);
+				await onSubmit(paymentData);
 			}
 			setFormData({
 				amount: 0,
-				dueDate: '',
-				description: '',
 				studentId: '',
 				groupId: selectedGroup?.id || '',
 			});
@@ -145,13 +145,14 @@ const CreatePaymentForm: React.FC<CreatePaymentFormProps> = ({ open, onClose, on
 					<div className='grid grid-cols-1 md:grid-cols-2 gap-6'>
 						<div>
 							<Label htmlFor='group' className='text-sm font-medium'>
-								Guruh
+								Guruh *
 							</Label>
 							<select
 								id='group'
 								value={formData.groupId}
 								onChange={(e) => setFormData({ ...formData, groupId: e.target.value, studentId: '' })}
 								disabled={!!selectedGroup}
+								required
 								className='flex h-11 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50'
 							>
 								<option value=''>Guruhni tanlang</option>
@@ -202,35 +203,6 @@ const CreatePaymentForm: React.FC<CreatePaymentFormProps> = ({ open, onClose, on
 								placeholder='100000'
 							/>
 						</div>
-
-						<div>
-							<Label htmlFor='dueDate' className='text-sm font-medium'>
-								To'lov muddati
-							</Label>
-							<Input
-								id='dueDate'
-								type='date'
-								value={formData.dueDate}
-								onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
-								required
-								className='h-11'
-							/>
-						</div>
-					</div>
-
-					<div>
-						<Label htmlFor='description' className='text-sm font-medium'>
-							Tavsif
-						</Label>
-						<Textarea
-							id='description'
-							value={formData.description}
-							onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-							required
-							placeholder="Masalan: Oktyabr oyi uchun to'lov, Kurs to'lovi, Kitob to'lovi"
-							rows={3}
-							className='resize-none'
-						/>
 					</div>
 
 					<DialogFooter className='flex flex-col sm:flex-row gap-3 pt-6 border-t'>

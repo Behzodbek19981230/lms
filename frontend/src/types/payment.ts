@@ -42,6 +42,7 @@ export interface PaymentStats {
   monthlyRevenue: number;
   pendingAmount: number;
   overdueAmount: number;
+  paidAmount?: number; // Jami to'langan summa
 }
 
 export interface NoGroupStudent {
@@ -58,8 +59,8 @@ export interface TeacherPaymentsResponse {
 
 export interface CreatePaymentDto {
   amount: number;
-  dueDate: string;
-  description: string;
+  dueDate?: string;
+  description?: string;
   studentId: number | string;
   groupId: number | string;
 }
@@ -127,6 +128,12 @@ export interface BillingLedgerItem {
     username: string;
   };
   center: { id: number; name: string } | null;
+  group: {
+    id: number;
+    name: string;
+    subject: { id: number; name: string } | null;
+    teacher: { id: number; firstName: string; lastName: string } | null;
+  };
   profile: StudentBillingProfile;
   month: string; // ISO date for selected month start
   monthlyPayment: MonthlyPayment | null;
@@ -139,6 +146,7 @@ export interface BillingLedgerQuery {
   search?: string;
   status?: 'all' | MonthlyPaymentStatus;
   debt?: 'all' | 'withDebt' | 'noDebt';
+  groupId?: number;
 }
 
 export interface BillingLedgerPage {

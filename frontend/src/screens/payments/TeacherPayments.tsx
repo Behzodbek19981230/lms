@@ -4,7 +4,11 @@ import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Badge } from '../../components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
-import { Plus, Search, DollarSign, Users, Clock, AlertTriangle } from 'lucide-react';
+import { Plus, Search, DollarSign, Users, Clock, AlertTriangle, Download } from 'lucide-react';
+import { format, parse } from 'date-fns';
+import { uz } from 'date-fns/locale';
+import * as XLSX from 'xlsx';
+import { saveAs } from 'file-saver';
 import {
 	BillingLedgerItem,
 	Payment,
@@ -46,6 +50,7 @@ const TeacherPayments: React.FC = () => {
 	const [ledgerSearch, setLedgerSearch] = useState('');
 	const [ledgerStatus, setLedgerStatus] = useState<string>('all'); // all|pending|paid|overdue
 	const [ledgerDebt, setLedgerDebt] = useState<string>('all'); // all|withDebt|noDebt
+	const [ledgerGroupId, setLedgerGroupId] = useState<number | undefined>(undefined);
 
 	// Debts summary modal
 	const [debtsOpen, setDebtsOpen] = useState(false);
@@ -57,6 +62,10 @@ const TeacherPayments: React.FC = () => {
 	const [debtsTotalSum, setDebtsTotalSum] = useState(0);
 	const [debtsItems, setDebtsItems] = useState<any[]>([]);
 	const [debtsError, setDebtsError] = useState<string | null>(null);
+
+	// Send reminder confirmation modal
+	const [reminderDialogOpen, setReminderDialogOpen] = useState(false);
+	const [sendingReminder, setSendingReminder] = useState(false);
 
 	// Filters
 	const [searchTerm, setSearchTerm] = useState('');
@@ -70,6 +79,16 @@ const TeacherPayments: React.FC = () => {
 	useEffect(() => {
 		applyFilters();
 	}, [payments, searchTerm, statusFilter, groupFilter]);
+
+	// Refresh ledger when filters change
+	useEffect(() => {
+		if (!loading) {
+			const timeoutId = setTimeout(() => {
+				refreshLedger({ updateStats: true });
+			}, 300); // Debounce for search
+			return () => clearTimeout(timeoutId);
+		}
+	}, [ledgerSearch, ledgerStatus, ledgerDebt, ledgerGroupId, billingMonth, loading]);
 
 	const fetchData = async () => {
 		setLoading(true);
@@ -109,6 +128,7 @@ const TeacherPayments: React.FC = () => {
 					search: ledgerSearch || undefined,
 					status: (ledgerStatus as any) || undefined,
 					debt: (ledgerDebt as any) || undefined,
+					groupId: ledgerGroupId,
 				});
 				if (ledgerRes.success && ledgerRes.data) {
 					setLedger(ledgerRes.data.items || []);
@@ -131,9 +151,24 @@ const TeacherPayments: React.FC = () => {
 		}
 	};
 
-	const refreshLedger = async (opts?: { month?: string; page?: number }) => {
+	const refreshLedger = async (opts?: { month?: string; page?: number; updateStats?: boolean }) => {
 		const m = opts?.month || billingMonth;
 		const p = opts?.page || ledgerPage;
+		const shouldUpdateStats = opts?.updateStats !== false;
+
+		// Get all items for stats calculation (no pagination)
+		const statsRes = shouldUpdateStats
+			? await paymentService.getBillingLedger({
+					month: m,
+					page: 1,
+					pageSize: 10000, // Get all for stats
+					search: ledgerSearch || undefined,
+					status: (ledgerStatus as any) || undefined,
+					debt: (ledgerDebt as any) || undefined,
+					groupId: ledgerGroupId,
+			  })
+			: null;
+
 		const ledgerRes = await paymentService.getBillingLedger({
 			month: m,
 			page: p,
@@ -141,12 +176,68 @@ const TeacherPayments: React.FC = () => {
 			search: ledgerSearch || undefined,
 			status: (ledgerStatus as any) || undefined,
 			debt: (ledgerDebt as any) || undefined,
+			groupId: ledgerGroupId,
 		});
+
 		if (ledgerRes.success && ledgerRes.data) {
 			setLedger(ledgerRes.data.items || []);
 			setLedgerTotal(ledgerRes.data.total || 0);
 			setLedgerPage(ledgerRes.data.page || p);
 			setLedgerPageSize(ledgerRes.data.pageSize || ledgerPageSize);
+		}
+
+		// Update stats from filtered data
+		if (shouldUpdateStats && statsRes?.success && statsRes.data) {
+			const allItems = statsRes.data.items || [];
+			let totalPending = 0;
+			let totalOverdue = 0;
+			let totalPaid = 0;
+			let pendingAmount = 0;
+			let overdueAmount = 0;
+			let monthlyRevenue = 0;
+			let paidAmount = 0; // Jami to'langan summa
+
+			allItems.forEach((item) => {
+				const mp = item.monthlyPayment;
+				if (!mp) {
+					totalPending++;
+					return;
+				}
+				const due = Number(mp.amountDue || 0);
+				const paid = Number(mp.amountPaid || 0);
+				const remain = Math.max(0, due - paid);
+				const status = mp.status || 'pending';
+
+				// Jami to'langan summani hisoblash (barcha to'lovlar uchun)
+				paidAmount += paid;
+
+				// Oylik daromad - tanlangan oy uchun barcha to'langan summalar (qisman ham bo'lishi mumkin)
+				monthlyRevenue += paid;
+
+				if (status === 'paid' || remain === 0) {
+					totalPaid++;
+				} else if (status === 'overdue') {
+					totalOverdue++;
+					overdueAmount += remain;
+				} else {
+					totalPending++;
+					pendingAmount += remain;
+				}
+			});
+
+			// Update stats
+			if (stats) {
+				setStats({
+					...stats,
+					totalPending,
+					totalOverdue,
+					totalPaid,
+					pendingAmount,
+					overdueAmount,
+					monthlyRevenue,
+					paidAmount, // Jami to'langan summa
+				});
+			}
 		}
 	};
 
@@ -174,6 +265,68 @@ const TeacherPayments: React.FC = () => {
 		}
 	};
 
+	// Qarzdorliklar uchun Excel export
+	const exportDebtsToExcel = async () => {
+		try {
+			toast.info("Ma'lumotlar yuklanmoqda...");
+
+			// Barcha ma'lumotlarni olish (pagination'siz)
+			const res = await paymentService.getMonthlyBillingDebtSummary({
+				upToMonth: billingMonth,
+				page: 1,
+				pageSize: 10000, // Barcha ma'lumotlarni olish
+				search: debtsSearch || undefined,
+			});
+
+			if (!res.success || !res.data || res.data.items.length === 0) {
+				toast.error("Eksport qilish uchun ma'lumot topilmadi");
+				return;
+			}
+
+			const allItems = res.data.items;
+
+			const excelData = allItems.map((it: any) => {
+				const monthsList = (it.months || [])
+					.map((m: any) => `${m.month} (${Number(m.remaining || 0).toLocaleString('uz-UZ')} UZS)`)
+					.join('; ');
+
+				return {
+					"O'quvchi": `${it.student?.firstName || ''} ${it.student?.lastName || ''}`,
+					Username: it.student?.username || '',
+					'Umumiy qarz': Number(it.totalRemaining || 0).toLocaleString('uz-UZ'),
+					'Qarz oylari': monthsList || '',
+					'Oylar soni': (it.months || []).length,
+				};
+			});
+
+			const ws = XLSX.utils.json_to_sheet(excelData);
+			const wb = XLSX.utils.book_new();
+			XLSX.utils.book_append_sheet(wb, ws, 'Qarzdorliklar');
+
+			// Ustun kengliklari
+			ws['!cols'] = [
+				{ width: 30 }, // O'quvchi
+				{ width: 15 }, // Username
+				{ width: 20 }, // Umumiy qarz
+				{ width: 60 }, // Qarz oylari
+				{ width: 15 }, // Oylar soni
+			];
+
+			const excelBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+			const data = new Blob([excelBuffer], {
+				type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+			});
+
+			const monthName = format(parse(billingMonth + '-01', 'yyyy-MM-dd', new Date()), 'MMMM_yyyy', {
+				locale: uz,
+			});
+			saveAs(data, `qarzdorliklar_${monthName}_${new Date().getTime()}.xlsx`);
+			toast.success('Excel fayl yuklandi');
+		} catch (e: any) {
+			toast.error(e?.message || 'Export qilishda xatolik');
+		}
+	};
+
 	const applyFilters = () => {
 		let filtered = [...payments];
 
@@ -198,6 +351,136 @@ const TeacherPayments: React.FC = () => {
 		}
 
 		setFilteredPayments(filtered);
+	};
+
+	// Excel export funksiyalari
+	const exportMonthlyBillingToExcel = async () => {
+		try {
+			toast.info("Ma'lumotlar yuklanmoqda...");
+
+			// Barcha ma'lumotlarni olish (pagination'siz)
+			const res = await paymentService.getBillingLedger({
+				month: billingMonth,
+				page: 1,
+				pageSize: 10000, // Barcha ma'lumotlarni olish
+				search: ledgerSearch || undefined,
+				status: (ledgerStatus as any) || undefined,
+				debt: (ledgerDebt as any) || undefined,
+				groupId: ledgerGroupId,
+			});
+
+			if (!res.success || !res.data || res.data.items.length === 0) {
+				toast.error("Eksport qilish uchun ma'lumot topilmadi");
+				return;
+			}
+
+			const allItems = res.data.items;
+			const monthName = format(parse(billingMonth + '-01', 'yyyy-MM-dd', new Date()), 'MMMM yyyy', {
+				locale: uz,
+			});
+
+			const excelData = allItems.map((item) => {
+				const mp = item.monthlyPayment;
+				const due = mp?.amountDue ?? 0;
+				const paid = mp?.amountPaid ?? 0;
+				const remain = Math.max(0, Number(due) - Number(paid));
+				const status = mp?.status || (remain > 0 ? 'pending' : 'paid');
+
+				return {
+					"O'quvchi": `${item.student.firstName} ${item.student.lastName}`,
+					Username: item.student.username,
+					Guruh: item.group.name,
+					Fan: item.group.subject?.name || '',
+					"O'qituvchi": item.group.teacher
+						? `${item.group.teacher.firstName} ${item.group.teacher.lastName}`
+						: '',
+					"Qo'shilgan sana": format(new Date(item.profile.joinDate), 'dd-MM-yyyy'),
+					'Oylik summa': Number(item.profile.monthlyAmount || 0).toLocaleString('uz-UZ'),
+					Muddat: mp?.dueDate ? format(new Date(mp.dueDate), 'dd-MM-yyyy') : '',
+					'Jami summa': Number(due).toLocaleString('uz-UZ'),
+					"To'langan": Number(paid).toLocaleString('uz-UZ'),
+					Qoldiq: Number(remain).toLocaleString('uz-UZ'),
+					Holat: status === 'paid' ? "To'langan" : status === 'overdue' ? 'Kechikkan' : 'Kutilayotgan',
+				};
+			});
+
+			const ws = XLSX.utils.json_to_sheet(excelData);
+			const wb = XLSX.utils.book_new();
+			XLSX.utils.book_append_sheet(wb, ws, "Oylik to'lovlar");
+
+			// Ustun kengliklari
+			ws['!cols'] = [
+				{ width: 25 }, // O'quvchi
+				{ width: 15 }, // Username
+				{ width: 20 }, // Guruh
+				{ width: 20 }, // Fan
+				{ width: 20 }, // O'qituvchi
+				{ width: 15 }, // Qo'shilgan sana
+				{ width: 15 }, // Oylik summa
+				{ width: 15 }, // Muddat
+				{ width: 15 }, // Jami summa
+				{ width: 15 }, // To'langan
+				{ width: 15 }, // Qoldiq
+				{ width: 15 }, // Holat
+			];
+
+			const excelBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+			const data = new Blob([excelBuffer], {
+				type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+			});
+
+			saveAs(data, `oylik_tolovlar_${billingMonth}_${new Date().getTime()}.xlsx`);
+			toast.success('Excel fayl yuklandi');
+		} catch (e: any) {
+			toast.error(e?.message || 'Export qilishda xatolik');
+		}
+	};
+
+	const exportPaymentsToExcel = () => {
+		if (filteredPayments.length === 0) {
+			toast.error("Eksport qilish uchun ma'lumot topilmadi");
+			return;
+		}
+
+		const excelData = filteredPayments.map((payment) => ({
+			"O'quvchi": `${payment.student.firstName} ${payment.student.lastName}`,
+			Username: payment.student.username,
+			Guruh: payment.group.name,
+			Fan: payment.group.subject?.name || '',
+			Summa: Number(payment.amount).toLocaleString('uz-UZ'),
+			Holat:
+				payment.status === 'paid' ? "To'langan" : payment.status === 'overdue' ? 'Kechikkan' : 'Kutilayotgan',
+			Muddat: payment.dueDate ? format(new Date(payment.dueDate), 'dd-MM-yyyy') : '',
+			"To'langan sana": payment.paidDate ? format(new Date(payment.paidDate), 'dd-MM-yyyy') : '',
+			Tavsif: payment.description || '',
+			Yaratilgan: format(new Date(payment.createdAt), 'dd-MM-yyyy HH:mm'),
+		}));
+
+		const ws = XLSX.utils.json_to_sheet(excelData);
+		const wb = XLSX.utils.book_new();
+		XLSX.utils.book_append_sheet(wb, ws, "To'lovlar");
+
+		// Ustun kengliklari
+		ws['!cols'] = [
+			{ width: 25 }, // O'quvchi
+			{ width: 15 }, // Username
+			{ width: 20 }, // Guruh
+			{ width: 20 }, // Fan
+			{ width: 15 }, // Summa
+			{ width: 15 }, // Holat
+			{ width: 15 }, // Muddat
+			{ width: 15 }, // To'langan sana
+			{ width: 30 }, // Tavsif
+			{ width: 20 }, // Yaratilgan
+		];
+
+		const excelBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+		const data = new Blob([excelBuffer], {
+			type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+		});
+
+		saveAs(data, `tolovlar_${new Date().getTime()}.xlsx`);
+		toast.success('Excel fayl yuklandi');
 	};
 
 	const handleCreatePayment = async (paymentData: CreatePaymentDto) => {
@@ -291,7 +574,7 @@ const TeacherPayments: React.FC = () => {
 							<div className='relative'>
 								<Search className='absolute left-2 top-2.5 h-4 w-4 text-muted-foreground' />
 								<Input
-									placeholder="O‘quvchi qidirish..."
+									placeholder='O‘quvchi qidirish...'
 									value={debtsSearch}
 									onChange={(e) => setDebtsSearch(e.target.value)}
 									className='pl-8'
@@ -317,6 +600,10 @@ const TeacherPayments: React.FC = () => {
 								</SelectContent>
 							</Select>
 						</div>
+						<Button size='sm' variant='outline' onClick={exportDebtsToExcel}>
+							<Download className='w-4 h-4 mr-2' />
+							Excel export
+						</Button>
 						<Button
 							variant='outline'
 							onClick={async () => {
@@ -330,14 +617,13 @@ const TeacherPayments: React.FC = () => {
 
 					<Card className='p-3'>
 						<div className='text-sm text-muted-foreground'>
-							Jami qarzdorlar: <span className='font-medium text-foreground'>{debtsTotal}</span> | Umumiy qarzdorlik:{' '}
+							Jami qarzdorlar: <span className='font-medium text-foreground'>{debtsTotal}</span> | Umumiy
+							qarzdorlik:{' '}
 							<span className='font-medium text-foreground'>
 								{Number(debtsTotalSum || 0).toLocaleString('uz-UZ')} UZS
 							</span>
 						</div>
-						{debtsError ? (
-							<div className='text-sm text-red-600 mt-2'>{debtsError}</div>
-						) : null}
+						{debtsError ? <div className='text-sm text-red-600 mt-2'>{debtsError}</div> : null}
 					</Card>
 
 					<div className='w-full overflow-x-auto border rounded-md'>
@@ -367,7 +653,9 @@ const TeacherPayments: React.FC = () => {
 										<TableRow key={it.student?.id}>
 											<TableCell className='font-medium'>
 												{it.student?.firstName} {it.student?.lastName}{' '}
-												<span className='text-xs text-muted-foreground'>@{it.student?.username}</span>
+												<span className='text-xs text-muted-foreground'>
+													@{it.student?.username}
+												</span>
 											</TableCell>
 											<TableCell className='font-semibold text-red-600'>
 												{Number(it.totalRemaining || 0).toLocaleString('uz-UZ')} UZS
@@ -375,9 +663,16 @@ const TeacherPayments: React.FC = () => {
 											<TableCell className='text-sm'>
 												{(it.months || [])
 													.slice(0, 10)
-													.map((m: any) => `${m.month} (${Number(m.remaining || 0).toLocaleString('uz-UZ')})`)
+													.map(
+														(m: any) =>
+															`${m.month} (${Number(m.remaining || 0).toLocaleString(
+																'uz-UZ'
+															)})`
+													)
 													.join(', ')}
-												{(it.months || []).length > 10 ? ` ... (+${(it.months || []).length - 10})` : ''}
+												{(it.months || []).length > 10
+													? ` ... (+${(it.months || []).length - 10})`
+													: ''}
 											</TableCell>
 										</TableRow>
 									))
@@ -429,7 +724,7 @@ const TeacherPayments: React.FC = () => {
 
 			<div className='flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4'>
 				<h1 className='text-xl sm:text-2xl md:text-3xl font-bold'>To'lovlarni boshqarish</h1>
-				{user?.role === 'teacher' && (
+				{(user?.role === 'admin' || user?.role === 'superadmin') && (
 					<Button onClick={() => setShowCreateForm(true)} size='sm' className='w-full sm:w-auto'>
 						<Plus className='w-3.5 h-3.5 sm:w-4 sm:h-4 sm:mr-2' />
 						<span className='text-xs sm:text-sm'>Yangi to'lov</span>
@@ -474,10 +769,12 @@ const TeacherPayments: React.FC = () => {
 						<CardContent className='p-4 sm:p-5 md:p-6'>
 							<div className='flex items-center'>
 								<DollarSign className='w-5 h-5 sm:w-4 sm:h-4 text-green-500' />
-								<div className='ml-4'>
-									<p className='text-sm font-medium text-muted-foreground'>To'langan</p>
-									<p className='text-2xl font-bold'>{stats.totalPaid}</p>
-									<p className='text-sm text-muted-foreground'>Bu oy</p>
+								<div className='ml-3 sm:ml-4'>
+									<p className='text-xs sm:text-sm font-medium text-muted-foreground'>To'langan</p>
+									<p className='text-xl sm:text-2xl font-bold'>{stats.totalPaid}</p>
+									<p className='text-[10px] sm:text-sm text-muted-foreground truncate'>
+										{formatAmount(stats.paidAmount || 0)}
+									</p>
 								</div>
 							</div>
 						</CardContent>
@@ -507,18 +804,45 @@ const TeacherPayments: React.FC = () => {
 					<div>
 						<CardTitle className='text-lg'>Oylik to‘lovlar</CardTitle>
 						<p className='text-sm text-muted-foreground mt-1'>
-							O‘quvchi qo‘shilganda avtomatik ko‘rinadi (joinDate default: user yaratilgan sana). Qarzdorliklarni oy bo‘yicha
-							belgilab, qisman to‘lov kiritish mumkin.
+							O‘quvchi qo‘shilganda avtomatik ko‘rinadi (joinDate default: user yaratilgan sana).
+							Qarzdorliklarni oy bo‘yicha belgilab, qisman to‘lov kiritish mumkin.
 						</p>
 					</div>
 					<div className='flex items-center gap-2'>
 						<span className='text-sm text-muted-foreground'>Oy</span>
-						<Input
-							className='w-[130px]'
-							value={billingMonth}
-							onChange={(e) => setBillingMonth(e.target.value)}
-							placeholder='YYYY-MM'
-						/>
+						<Select value={billingMonth} onValueChange={(value) => setBillingMonth(value)}>
+							<SelectTrigger className='w-[180px]'>
+								<SelectValue placeholder='Oy tanlang'>
+									{billingMonth
+										? format(parse(billingMonth + '-01', 'yyyy-MM-dd', new Date()), 'MMMM yyyy', {
+												locale: uz,
+										  })
+										: 'Oy tanlang'}
+								</SelectValue>
+							</SelectTrigger>
+							<SelectContent className='max-h-[300px]'>
+								{[2025, 2026, 2027, 2028, 2029].map((year) => (
+									<div key={year}>
+										<div className='px-2 py-1.5 text-sm font-semibold text-muted-foreground'>
+											{year}
+										</div>
+										{[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((month) => {
+											const monthStr = `${year}-${String(month).padStart(2, '0')}`;
+											const monthName = format(
+												parse(monthStr + '-01', 'yyyy-MM-dd', new Date()),
+												'MMMM',
+												{ locale: uz }
+											);
+											return (
+												<SelectItem key={monthStr} value={monthStr}>
+													{monthName} {year}
+												</SelectItem>
+											);
+										})}
+									</div>
+								))}
+							</SelectContent>
+						</Select>
 						<Button
 							size='sm'
 							variant='outline'
@@ -530,27 +854,14 @@ const TeacherPayments: React.FC = () => {
 						>
 							Qarzdorliklar
 						</Button>
-						<Button
-							size='sm'
-							variant='outline'
-							onClick={async () => {
-								try {
-									const ok = confirm(
-										"Qarzdor o‘quvchilarga (barcha oylar bo‘yicha) Telegram + bildirishnoma yuborilsinmi?",
-									);
-									if (!ok) return;
-									const res = await paymentService.sendMonthlyBillingDebtReminders({
-										upToMonth: billingMonth,
-									});
-									const s = res.data?.studentsNotified ?? 0;
-									const t = res.data?.totalDebtors ?? 0;
-									toast.success(`Yuborildi: ${s}. Qarzdorlar: ${t}.`);
-								} catch (e: any) {
-									toast.error(e?.message || 'Xatolik');
-								}
-							}}
-						>
-							Eslatma yuborish
+						{user?.role === 'admin' && (
+							<Button size='sm' variant='outline' onClick={() => setReminderDialogOpen(true)}>
+								Eslatma yuborish
+							</Button>
+						)}
+						<Button size='sm' variant='outline' onClick={exportMonthlyBillingToExcel}>
+							<Download className='w-4 h-4 mr-2' />
+							Excel export
 						</Button>
 						<Button
 							size='sm'
@@ -561,7 +872,7 @@ const TeacherPayments: React.FC = () => {
 									await refreshLedger({ month: billingMonth, page: 1 });
 									toast.success('Oylik jadval yangilandi');
 								} catch {
-									toast.error("Yangilashda xatolik");
+									toast.error('Yangilashda xatolik');
 								}
 							}}
 						>
@@ -575,7 +886,7 @@ const TeacherPayments: React.FC = () => {
 						<div className='relative'>
 							<Search className='absolute left-2 top-2.5 h-4 w-4 text-muted-foreground' />
 							<Input
-								placeholder="O‘quvchi bo‘yicha qidirish (ism/familiya/username)..."
+								placeholder='O‘quvchi bo‘yicha qidirish (ism/familiya/username)...'
 								value={ledgerSearch}
 								onChange={(e) => setLedgerSearch(e.target.value)}
 								className='pl-8'
@@ -609,6 +920,29 @@ const TeacherPayments: React.FC = () => {
 							</SelectContent>
 						</Select>
 					</div>
+
+					{user?.role !== 'teacher' && (
+						<div className='w-full sm:w-[200px]'>
+							<Select
+								value={ledgerGroupId ? String(ledgerGroupId) : 'all'}
+								onValueChange={(v) => {
+									setLedgerGroupId(v === 'all' ? undefined : Number(v));
+								}}
+							>
+								<SelectTrigger>
+									<SelectValue placeholder='Guruh' />
+								</SelectTrigger>
+								<SelectContent>
+									<SelectItem value='all'>Barcha guruhlar</SelectItem>
+									{groups.map((group) => (
+										<SelectItem key={group.id} value={String(group.id)}>
+											{group.name}
+										</SelectItem>
+									))}
+								</SelectContent>
+							</Select>
+						</div>
+					)}
 
 					<div className='w-full sm:w-[160px]'>
 						<Select
@@ -650,20 +984,21 @@ const TeacherPayments: React.FC = () => {
 					<MonthlyBillingTable
 						month={billingMonth}
 						ledger={ledger}
+						isTeacher={user?.role === 'teacher'}
 						onSaveProfile={async (studentId, data) => {
 							await paymentService.updateStudentBillingProfile(studentId, data as any);
 							toast.success('Sozlamalar saqlandi');
-							await refreshLedger();
+							await refreshLedger({ updateStats: true });
 						}}
 						onCollect={async (data) => {
 							await paymentService.collectMonthlyPayment(data as any);
 							toast.success("To'lov kiritildi");
-							await refreshLedger();
+							await refreshLedger({ updateStats: true });
 						}}
 						onUpdateMonthly={async (monthlyPaymentId, data) => {
 							await paymentService.updateMonthlyPayment(monthlyPaymentId, data as any);
-									toast.success("Oylik to'lov yangilandi");
-							await refreshLedger();
+							toast.success("Oylik to'lov yangilandi");
+							await refreshLedger({ updateStats: true });
 						}}
 						onSettleStudent={async ({ studentId, leaveDate, persist }) => {
 							try {
@@ -671,7 +1006,9 @@ const TeacherPayments: React.FC = () => {
 									const res = await paymentService.closeStudentSettlement({ studentId, leaveDate });
 									const totalRemaining = res.data?.summary?.totalRemaining ?? 0;
 									toast.success(
-										`Hisoblandi. Qolgan qarzdorlik: ${Number(totalRemaining).toLocaleString('uz-UZ')} UZS`
+										`Hisoblandi. Qolgan qarzdorlik: ${Number(totalRemaining).toLocaleString(
+											'uz-UZ'
+										)} UZS`
 									);
 									await refreshLedger();
 									return res.data as any;
@@ -733,68 +1070,6 @@ const TeacherPayments: React.FC = () => {
 				</div>
 			</Card>
 
-			{/* Filters */}
-			<Card>
-				<CardContent className='p-6'>
-					<div className='flex flex-wrap gap-4'>
-						<div className='flex-1 min-w-[200px]'>
-							<div className='relative'>
-								<Search className='absolute left-2 top-2.5 h-4 w-4 text-muted-foreground' />
-								<Input
-									placeholder="O'quvchi yoki tavsif bo'yicha qidirish..."
-									value={searchTerm}
-									onChange={(e) => setSearchTerm(e.target.value)}
-									className='pl-8'
-								/>
-							</div>
-						</div>
-
-						<Select value={statusFilter} onValueChange={setStatusFilter}>
-							<SelectTrigger className='w-[150px]'>
-								<SelectValue placeholder='Holat' />
-							</SelectTrigger>
-							<SelectContent>
-								<SelectItem value='all'>Barcha holatlar</SelectItem>
-								<SelectItem value={PaymentStatus.PENDING}>Kutilmoqda</SelectItem>
-								<SelectItem value={PaymentStatus.PAID}>To'langan</SelectItem>
-								<SelectItem value={PaymentStatus.OVERDUE}>Kechikkan</SelectItem>
-							</SelectContent>
-						</Select>
-
-						<Select value={groupFilter} onValueChange={setGroupFilter}>
-							<SelectTrigger className='w-[150px]'>
-								<SelectValue placeholder='Guruh' />
-							</SelectTrigger>
-							<SelectContent>
-								<SelectItem value='all'>Barcha guruhlar</SelectItem>
-								{groups.map((group) => (
-									<SelectItem key={group.id} value={group.id}>
-										{group.name}
-									</SelectItem>
-								))}
-							</SelectContent>
-						</Select>
-					</div>
-				</CardContent>
-			</Card>
-
-			{/* Payment Table with Tabs */}
-			<Card>
-				<CardHeader>
-					<CardTitle>To'lovlar ro'yxati</CardTitle>
-				</CardHeader>
-				<CardContent>
-					<PaymentTable
-						payments={filteredPayments}
-						onMarkPaid={handleMarkPaid}
-						onSendReminder={handleSendReminder}
-						onDelete={handleDeletePayment}
-						onEditAmount={handleEditAmount}
-						role={user?.role === 'teacher' ? 'teacher' : 'center_admin'}
-					/>
-				</CardContent>
-			</Card>
-
 			{/* Students without group (admin/superadmin) */}
 			{user?.role !== 'teacher' && studentsWithoutGroup.length > 0 && (
 				<Card>
@@ -826,7 +1101,7 @@ const TeacherPayments: React.FC = () => {
 			)}
 
 			{/* Create Payment Form */}
-			{user?.role === 'teacher' && (
+			{(user?.role === 'admin' || user?.role === 'superadmin') && (
 				<CreatePaymentForm
 					open={showCreateForm}
 					onClose={() => {
@@ -837,6 +1112,58 @@ const TeacherPayments: React.FC = () => {
 					selectedGroup={selectedGroup}
 				/>
 			)}
+
+			{/* Send Reminder Confirmation Dialog */}
+			<Dialog open={reminderDialogOpen} onOpenChange={setReminderDialogOpen}>
+				<DialogContent>
+					<DialogHeader>
+						<DialogTitle>Eslatma yuborish</DialogTitle>
+					</DialogHeader>
+					<div className='py-4'>
+						<p className='text-sm text-muted-foreground'>
+							Qarzdor o'quvchilarga (barcha oylar bo'yicha) Telegram + bildirishnoma yuborilsinmi?
+						</p>
+						<p className='text-xs text-muted-foreground mt-2'>
+							Oy:{' '}
+							<span className='font-medium'>
+								{format(parse(billingMonth + '-01', 'yyyy-MM-dd', new Date()), 'MMMM yyyy', {
+									locale: uz,
+								})}
+							</span>
+						</p>
+					</div>
+					<DialogFooter>
+						<Button
+							variant='outline'
+							onClick={() => setReminderDialogOpen(false)}
+							disabled={sendingReminder}
+						>
+							Bekor qilish
+						</Button>
+						<Button
+							onClick={async () => {
+								try {
+									setSendingReminder(true);
+									const res = await paymentService.sendMonthlyBillingDebtReminders({
+										upToMonth: billingMonth,
+									});
+									const s = res.data?.studentsNotified ?? 0;
+									const t = res.data?.totalDebtors ?? 0;
+									toast.success(`Yuborildi: ${s}. Qarzdorlar: ${t}.`);
+									setReminderDialogOpen(false);
+								} catch (e: any) {
+									toast.error(e?.message || 'Xatolik');
+								} finally {
+									setSendingReminder(false);
+								}
+							}}
+							disabled={sendingReminder}
+						>
+							{sendingReminder ? 'Yuborilmoqda...' : 'Yuborish'}
+						</Button>
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
 		</div>
 	);
 };
