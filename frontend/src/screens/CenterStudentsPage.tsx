@@ -66,6 +66,8 @@ export default function CenterStudentsPage() {
 	const [loading, setLoading] = useState(true);
 	const [searchTerm, setSearchTerm] = useState('');
 	const [statusFilter, setStatusFilter] = useState<string>('all');
+	const [page, setPage] = useState(1);
+	const pageSize = 20;
 	const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
 	const [showDetails, setShowDetails] = useState(false);
 	const [createOpen, setCreateOpen] = useState(false);
@@ -105,6 +107,16 @@ export default function CenterStudentsPage() {
 
 		return matchesSearch && matchesStatus;
 	});
+
+	useEffect(() => {
+		setPage(1);
+	}, [searchTerm, statusFilter, students.length]);
+
+	const totalPages = Math.max(1, Math.ceil(filteredStudents.length / pageSize));
+	const safePage = Math.min(page, totalPages);
+	const pageStart = (safePage - 1) * pageSize;
+	const pageEnd = Math.min(pageStart + pageSize, filteredStudents.length);
+	const paginatedStudents = filteredStudents.slice(pageStart, pageEnd);
 
 	const activeStudentsCount = students.filter((s) => s.isActive).length;
 	const inactiveStudentsCount = students.filter((s) => !s.isActive).length;
@@ -168,7 +180,7 @@ export default function CenterStudentsPage() {
 		try {
 			const XLSX = await import('xlsx');
 
-			const rows = filteredStudents.map((student) => ({
+			const rows = students.map((student) => ({
 				Ism: student.firstName,
 				Familiya: student.lastName,
 				Username: student.username,
@@ -484,7 +496,7 @@ export default function CenterStudentsPage() {
 										</TableCell>
 									</TableRow>
 								) : (
-									filteredStudents.map((student) => (
+									paginatedStudents.map((student) => (
 										<TableRow key={student.id}>
 											<TableCell>
 												<div className='font-medium'>
@@ -573,6 +585,35 @@ export default function CenterStudentsPage() {
 							</TableBody>
 						</Table>
 					</div>
+
+					{!loading && filteredStudents.length > 0 ? (
+						<div className='flex items-center justify-between mt-3'>
+							<div className='text-sm text-muted-foreground'>
+								{pageStart + 1}-{pageEnd} / {filteredStudents.length}
+							</div>
+							<div className='flex items-center gap-2'>
+								<Button
+									variant='outline'
+									size='sm'
+									onClick={() => setPage((p) => Math.max(1, p - 1))}
+									disabled={safePage <= 1}
+								>
+									Oldingi
+								</Button>
+								<div className='text-sm text-muted-foreground'>
+									Sahifa {safePage} / {totalPages}
+								</div>
+								<Button
+									variant='outline'
+									size='sm'
+									onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+									disabled={safePage >= totalPages}
+								>
+									Keyingi
+								</Button>
+							</div>
+						</div>
+					) : null}
 				</CardContent>
 			</Card>
 
