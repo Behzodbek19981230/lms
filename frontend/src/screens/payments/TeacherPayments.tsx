@@ -495,7 +495,12 @@ const TeacherPayments: React.FC = () => {
 		try {
 			const response = await paymentService.createPayment(paymentData);
 			if (response.success) {
-				toast.success("To'lov muvaffaqiyatli yaratildi");
+				const data: any = response.data as any;
+				if (data && typeof data.createdCount === 'number') {
+					toast.success(`To'lovlar yaratildi: ${data.createdCount}`);
+				} else {
+					toast.success("To'lov muvaffaqiyatli yaratildi");
+				}
 				fetchData();
 			}
 		} catch (error) {

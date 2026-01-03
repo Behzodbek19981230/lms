@@ -61,8 +61,9 @@ export interface CreatePaymentDto {
 	amount: number;
 	dueDate?: string;
 	description?: string;
-	studentId: number | string;
+	studentId?: number | string;
 	groupId: number | string;
+	forAllGroupStudents?: boolean;
 }
 
 export interface UpdatePaymentDto {

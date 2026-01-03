@@ -6,6 +6,7 @@ import {
   IsOptional,
   IsEnum,
   IsArray,
+  IsBoolean,
 } from 'class-validator';
 import { PaymentStatus } from '../payment.entity';
 import { MonthlyPaymentStatus } from '../monthly-payment.entity';
@@ -23,13 +24,18 @@ export class CreatePaymentDto {
   @IsString()
   description?: string;
 
+  @IsOptional()
   @IsNumber()
-  @IsNotEmpty()
-  studentId: number;
+  studentId?: number;
 
   @IsNumber()
   @IsNotEmpty()
   groupId: number;
+
+  @IsOptional()
+  @IsBoolean()
+  // If true, creates payments for all students in the group (single backend request)
+  forAllGroupStudents?: boolean;
 }
 
 export class UpdatePaymentDto {

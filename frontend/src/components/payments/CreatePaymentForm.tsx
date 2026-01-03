@@ -48,12 +48,12 @@ const CreatePaymentForm: React.FC<CreatePaymentFormProps> = ({ open, onClose, on
 
 	const fetchGroups = async () => {
 		try {
-            const response = await groupService.getMyGroups();
-            if (response.success && response.data) {
-                setGroups(response.data);
-            } else {
-                setGroups([]);
-            }
+			const response = await groupService.getMyGroups();
+			if (response.success && response.data) {
+				setGroups(response.data);
+			} else {
+				setGroups([]);
+			}
 		} catch (error) {
 			console.error('Error fetching groups:', error);
 		}
@@ -62,12 +62,12 @@ const CreatePaymentForm: React.FC<CreatePaymentFormProps> = ({ open, onClose, on
 	const fetchGroupStudents = async (groupId: string) => {
 		setLoadingStudents(true);
 		try {
-            const response = await groupService.getGroupStudents(groupId);
-            if (response.success && response.data) {
-                setStudents(response.data as any);
-            } else {
-                setStudents([]);
-            }
+			const response = await groupService.getGroupStudents(groupId);
+			if (response.success && response.data) {
+				setStudents(response.data as any);
+			} else {
+				setStudents([]);
+			}
 		} catch (error) {
 			console.error('Error fetching group students:', error);
 			setStudents([]);
@@ -78,19 +78,21 @@ const CreatePaymentForm: React.FC<CreatePaymentFormProps> = ({ open, onClose, on
 
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
-		
+
 		// Validation
 		if (!formData.groupId) {
 			alert('Iltimos, guruhni tanlang');
 			return;
 		}
-		
+
 		setLoading(true);
 		try {
+			const hasStudent = Boolean(formData.studentId);
 			const paymentData: any = {
 				amount: formData.amount,
 				groupId: Number(formData.groupId),
-				studentId: formData.studentId ? Number(formData.studentId) : undefined,
+				studentId: hasStudent ? Number(formData.studentId) : undefined,
+				forAllGroupStudents: !hasStudent,
 			};
 			await onSubmit(paymentData);
 			setFormData({
@@ -114,14 +116,12 @@ const CreatePaymentForm: React.FC<CreatePaymentFormProps> = ({ open, onClose, on
 
 		setLoading(true);
 		try {
-			for (const student of students) {
-				const paymentData: any = {
-					amount: formData.amount,
-					groupId: Number(formData.groupId),
-					studentId: Number(student.id),
-				};
-				await onSubmit(paymentData);
-			}
+			const paymentData: any = {
+				amount: formData.amount,
+				groupId: Number(formData.groupId),
+				forAllGroupStudents: true,
+			};
+			await onSubmit(paymentData);
 			setFormData({
 				amount: 0,
 				studentId: '',
@@ -169,7 +169,7 @@ const CreatePaymentForm: React.FC<CreatePaymentFormProps> = ({ open, onClose, on
 								O'quvchi (ixtiyoriy)
 							</Label>
 							<p className='text-xs text-muted-foreground mb-2'>
-								Barcha o'quvchilar uchun yaratish uchun bo'sh qoldiring
+								Barcha o'quvchilar uchun yaratish uchun bo'sh qoldiring (1 ta bulk so'rov)
 							</p>
 							<select
 								id='student'

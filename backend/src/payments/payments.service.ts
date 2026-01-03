@@ -2257,6 +2257,59 @@ export class PaymentsService {
       );
     }
 
+    const forAllGroupStudents =
+      (createPaymentDto as any).forAllGroupStudents === true;
+
+    // Bulk create (single request): one payment per student in group
+    if (forAllGroupStudents) {
+      const groupStudents = Array.isArray((group as any).students)
+        ? ((group as any).students as any[])
+        : [];
+      if (groupStudents.length === 0) {
+        throw new BadRequestException("Guruhda o'quvchilar topilmadi");
+      }
+
+      const teacherId = group.teacher?.id || userId;
+      const dueDate = createPaymentDto.dueDate
+        ? new Date(createPaymentDto.dueDate)
+        : null;
+      const description = createPaymentDto.description || null;
+      const notificationMessage = description
+        ? `${description} - ${createPaymentDto.amount} so'm`
+        : `Yangi to'lov: ${createPaymentDto.amount} so'm`;
+
+      const paymentsToSave = groupStudents.map((s) =>
+        this.paymentRepository.create({
+          amount: createPaymentDto.amount,
+          studentId: Number((s as any).id),
+          groupId: createPaymentDto.groupId,
+          teacherId,
+          dueDate,
+          description,
+        } as Payment),
+      );
+
+      const savedPayments = await this.paymentRepository.save(paymentsToSave);
+
+      for (const p of savedPayments) {
+        await this.notificationsService.createForUsers(
+          [p.studentId],
+          "Yangi to'lov",
+          notificationMessage,
+          'system' as any,
+          'medium' as any,
+          { paymentId: p.id },
+        );
+      }
+
+      // Keep response compatible with older frontend by returning an object
+      // (frontend checks createdCount to show proper toast)
+      return {
+        createdCount: savedPayments.length,
+        paymentIds: savedPayments.map((p) => p.id),
+      } as any;
+    }
+
     // Verify student exists and is a student
     const student = await this.userRepository.findOne({
       where: { id: createPaymentDto.studentId, role: UserRole.STUDENT },
@@ -2264,6 +2317,8 @@ export class PaymentsService {
     if (!student) {
       throw new NotFoundException("O'quvchi topilmadi");
     }
+
+    const studentId = Number(student.id);
 
     // Ensure student belongs to the selected group
     const inGroup = Array.isArray(group.students)
@@ -2280,7 +2335,7 @@ export class PaymentsService {
 
     const payment = this.paymentRepository.create({
       amount: createPaymentDto.amount,
-      studentId: createPaymentDto.studentId,
+      studentId,
       groupId: createPaymentDto.groupId,
       teacherId,
       dueDate: createPaymentDto.dueDate
@@ -2297,7 +2352,7 @@ export class PaymentsService {
       : `Yangi to'lov: ${createPaymentDto.amount} so'm`;
 
     await this.notificationsService.createForUsers(
-      [createPaymentDto.studentId],
+      [studentId],
       "Yangi to'lov",
       notificationMessage,
       'system' as any,
