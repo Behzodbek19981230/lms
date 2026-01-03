@@ -68,6 +68,23 @@ export class PaymentsController {
     );
   }
 
+  @Patch('billing/students/:studentId/groups/:groupId')
+  @Roles(UserRole.TEACHER, UserRole.ADMIN, UserRole.SUPERADMIN)
+  @RequireCenterPermissions(CenterPermissionKey.PAYMENTS)
+  async updateStudentGroupBillingProfile(
+    @Param('studentId') studentId: string,
+    @Param('groupId') groupId: string,
+    @Body() dto: UpdateStudentBillingProfileDto,
+    @Request() req,
+  ) {
+    return this.paymentsService.updateStudentGroupBillingProfile(
+      Number(studentId),
+      Number(groupId),
+      dto,
+      req.user,
+    );
+  }
+
   @Post('billing/settlement/preview')
   @Roles(UserRole.TEACHER, UserRole.ADMIN, UserRole.SUPERADMIN)
   @RequireCenterPermissions(CenterPermissionKey.PAYMENTS)

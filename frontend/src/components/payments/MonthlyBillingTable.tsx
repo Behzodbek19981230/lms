@@ -16,7 +16,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { format, parse } from 'date-fns';
+import { format, isValid, parse } from 'date-fns';
 import { uz } from 'date-fns/locale';
 import { MoreHorizontal, CalendarIcon, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -24,12 +24,17 @@ import { cn } from '@/lib/utils';
 type Props = {
 	month: string; // YYYY-MM
 	ledger: BillingLedgerItem[];
+	sortKey: SortKey | null;
+	sortDir: 'asc' | 'desc';
+	onSortChange: (key: SortKey, dir: 'asc' | 'desc') => void;
 	onSaveProfile: (
 		studentId: number,
+		groupId: number,
 		data: { joinDate?: string; monthlyAmount?: number; dueDay?: number }
 	) => Promise<void>;
 	onCollect: (data: {
 		studentId: number;
+		groupId: number;
 		month: string;
 		amount: number;
 		note?: string;
@@ -48,7 +53,16 @@ type Props = {
 	isTeacher?: boolean; // Teacher uchun actions'larni yashirish
 };
 
-type SortKey = 'student' | 'group' | 'joinDate' | 'monthlyAmount' | 'dueDate' | 'due' | 'paid' | 'remain' | 'status';
+export type SortKey =
+	| 'student'
+	| 'group'
+	| 'joinDate'
+	| 'monthlyAmount'
+	| 'dueDate'
+	| 'due'
+	| 'paid'
+	| 'remain'
+	| 'status';
 
 function statusBadge(status?: string | null) {
 	switch (status) {
@@ -66,6 +80,9 @@ function statusBadge(status?: string | null) {
 export default function MonthlyBillingTable({
 	month,
 	ledger,
+	sortKey,
+	sortDir,
+	onSortChange,
 	onSaveProfile,
 	onCollect,
 	onUpdateMonthly,
@@ -79,11 +96,13 @@ export default function MonthlyBillingTable({
 	const [settleOpen, setSettleOpen] = useState(false);
 	const [historyOpen, setHistoryOpen] = useState(false);
 
-	const [activeStudentId, setActiveStudentId] = useState<number | null>(null);
-	const activeRow = useMemo(
-		() => (activeStudentId ? ledger.find((x) => x.student.id === activeStudentId) || null : null),
-		[activeStudentId, ledger]
-	);
+	const [activeRowKey, setActiveRowKey] = useState<{ studentId: number; groupId: number } | null>(null);
+	const activeRow = useMemo(() => {
+		if (!activeRowKey) return null;
+		return (
+			ledger.find((x) => x.student.id === activeRowKey.studentId && x.group.id === activeRowKey.groupId) || null
+		);
+	}, [activeRowKey, ledger]);
 
 	// Profile form
 	const [joinDate, setJoinDate] = useState<string>('');
@@ -111,87 +130,22 @@ export default function MonthlyBillingTable({
 	const [history, setHistory] = useState<MonthlyPaymentTransaction[]>([]);
 	const [historyError, setHistoryError] = useState<string | null>(null);
 
-	// Sorting (main ledger table)
-	const [sortKey, setSortKey] = useState<SortKey | null>(null);
-	const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
-
 	const toggleSort = (key: SortKey) => {
 		if (sortKey === key) {
-			setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+			onSortChange(key, sortDir === 'asc' ? 'desc' : 'asc');
 			return;
 		}
-		setSortKey(key);
-		setSortDir('asc');
+		onSortChange(key, 'asc');
 	};
 
-	const sortedLedger = useMemo(() => {
-		if (!sortKey) return ledger;
-		const dirFactor = sortDir === 'asc' ? 1 : -1;
-
-		const getValue = (row: BillingLedgerItem): string | number | null => {
-			const mp = row.monthlyPayment;
-			switch (sortKey) {
-				case 'student': {
-					const full = `${row.student.lastName || ''} ${row.student.firstName || ''}`.trim();
-					return full.toLocaleLowerCase();
-				}
-				case 'group':
-					return String(row.group.name || '').toLocaleLowerCase();
-				case 'joinDate': {
-					const t = row.profile?.joinDate ? new Date(row.profile.joinDate).getTime() : NaN;
-					return Number.isFinite(t) ? t : null;
-				}
-				case 'monthlyAmount':
-					return Number(row.profile?.monthlyAmount || 0);
-				case 'dueDate': {
-					if (!mp?.dueDate) return null;
-					const t = new Date(mp.dueDate).getTime();
-					return Number.isFinite(t) ? t : null;
-				}
-				case 'due':
-					return Number(mp?.amountDue || 0);
-				case 'paid':
-					return Number(mp?.amountPaid || 0);
-				case 'remain': {
-					const due = Number(mp?.amountDue || 0);
-					const paid = Number(mp?.amountPaid || 0);
-					return Math.max(0, due - paid);
-				}
-				case 'status': {
-					const due = Number(mp?.amountDue || 0);
-					const paid = Number(mp?.amountPaid || 0);
-					const remain = Math.max(0, due - paid);
-					return String(mp?.status || (remain > 0 ? 'pending' : 'paid')).toLocaleLowerCase();
-				}
-				default:
-					return null;
-			}
-		};
-
-		const compare = (a: BillingLedgerItem, b: BillingLedgerItem) => {
-			const va = getValue(a);
-			const vb = getValue(b);
-			if (va == null && vb == null) return 0;
-			if (va == null) return 1;
-			if (vb == null) return -1;
-
-			if (typeof va === 'number' && typeof vb === 'number') {
-				if (va === vb) return 0;
-				return va < vb ? -1 : 1;
-			}
-
-			const sa = String(va);
-			const sb = String(vb);
-			return sa.localeCompare(sb);
-		};
-
-		return [...ledger].sort((a, b) => dirFactor * compare(a, b));
-	}, [ledger, sortKey, sortDir]);
-
 	const SortHead = ({ label, col, className }: { label: string; col: SortKey; className?: string }) => (
-		<TableHead className={className}>
-			<Button type='button' variant='ghost' size='sm' className='h-8 px-2 -ml-2' onClick={() => toggleSort(col)}>
-				{label}
+		<TableHead className={cn('p-0', className)}>
+			<button
+				type='button'
+				onClick={() => toggleSort(col)}
+				className='flex w-full items-center h-10 sm:h-12 px-2 sm:px-3 md:px-4 text-left select-none hover:bg-muted/30'
+			>
+				<span className='font-medium text-muted-foreground'>{label}</span>
 				{sortKey === col ? (
 					sortDir === 'asc' ? (
 						<ArrowUp className='ml-2 h-4 w-4' />
@@ -201,21 +155,21 @@ export default function MonthlyBillingTable({
 				) : (
 					<ArrowUpDown className='ml-2 h-4 w-4 text-muted-foreground' />
 				)}
-			</Button>
+			</button>
 		</TableHead>
 	);
 
 	const openProfile = (row: BillingLedgerItem) => {
-		setActiveStudentId(row.student.id);
+		setActiveRowKey({ studentId: row.student.id, groupId: row.group.id });
 		const joinDateObj = new Date(row.profile.joinDate);
 		setJoinDate(format(joinDateObj, 'dd-MM-yyyy'));
 		setMonthlyAmount(String(row.profile.monthlyAmount ?? 0));
-		setDueDay(String(row.profile.dueDay ?? 1));
+		setDueDay(String(row.profile.dueDay ?? 10));
 		setProfileOpen(true);
 	};
 
 	const openCollect = (row: BillingLedgerItem) => {
-		setActiveStudentId(row.student.id);
+		setActiveRowKey({ studentId: row.student.id, groupId: row.group.id });
 		setCollectMonth(month);
 		setCollectAmount('');
 		setCollectNote('');
@@ -225,7 +179,7 @@ export default function MonthlyBillingTable({
 
 	const openEditMonthly = (row: BillingLedgerItem) => {
 		if (!row.monthlyPayment) return;
-		setActiveStudentId(row.student.id);
+		setActiveRowKey({ studentId: row.student.id, groupId: row.group.id });
 		if (row.monthlyPayment?.dueDate) {
 			const dueDateObj = new Date(row.monthlyPayment.dueDate);
 			setEditDueDate(format(dueDateObj, 'dd-MM-yyyy'));
@@ -238,7 +192,7 @@ export default function MonthlyBillingTable({
 	};
 
 	const openSettle = (row: BillingLedgerItem) => {
-		setActiveStudentId(row.student.id);
+		setActiveRowKey({ studentId: row.student.id, groupId: row.group.id });
 		setLeaveDate(new Date().toISOString().slice(0, 10));
 		setSettleResult(null);
 		setSettleError(null);
@@ -247,7 +201,7 @@ export default function MonthlyBillingTable({
 
 	const openHistory = async (row: BillingLedgerItem) => {
 		if (!row.monthlyPayment) return;
-		setActiveStudentId(row.student.id);
+		setActiveRowKey({ studentId: row.student.id, groupId: row.group.id });
 		setHistoryError(null);
 		setHistory([]);
 		setHistoryOpen(true);
@@ -322,7 +276,7 @@ export default function MonthlyBillingTable({
 						</Button>
 						<Button
 							onClick={async () => {
-								if (!activeStudentId) return;
+								if (!activeRow) return;
 								// Convert DD-MM-YYYY to YYYY-MM-DD for backend
 								let joinDateFormatted: string | undefined;
 								if (joinDate) {
@@ -333,7 +287,7 @@ export default function MonthlyBillingTable({
 										joinDateFormatted = joinDate;
 									}
 								}
-								await onSaveProfile(activeStudentId, {
+								await onSaveProfile(activeRow.student.id, activeRow.group.id, {
 									joinDate: joinDateFormatted,
 									monthlyAmount: monthlyAmount ? Number(monthlyAmount) : undefined,
 									dueDay: dueDay ? Number(dueDay) : undefined,
@@ -438,9 +392,10 @@ export default function MonthlyBillingTable({
 						<Button
 							disabled={monthlyAmountMissing}
 							onClick={async () => {
-								if (!activeStudentId) return;
+								if (!activeRow) return;
 								await onCollect({
-									studentId: activeStudentId,
+									studentId: activeRow.student.id,
+									groupId: activeRow.group.id,
 									month: collectMonth || month,
 									amount: Number(collectAmount),
 									note: collectNote || undefined,
@@ -651,7 +606,7 @@ export default function MonthlyBillingTable({
 						<Button
 							variant='secondary'
 							onClick={async () => {
-								if (!activeStudentId) return;
+								if (!activeRow) return;
 								try {
 									setSettleError(null);
 									// Convert DD-MM-YYYY to YYYY-MM-DD for backend
@@ -665,7 +620,7 @@ export default function MonthlyBillingTable({
 										}
 									}
 									const res = await onSettleStudent({
-										studentId: activeStudentId,
+										studentId: activeRow.student.id,
 										leaveDate: leaveDateFormatted,
 										persist: false,
 									});
@@ -680,7 +635,7 @@ export default function MonthlyBillingTable({
 						</Button>
 						<Button
 							onClick={async () => {
-								if (!activeStudentId) return;
+								if (!activeRow) return;
 								try {
 									setSettleError(null);
 									// Convert DD-MM-YYYY to YYYY-MM-DD for backend
@@ -694,7 +649,7 @@ export default function MonthlyBillingTable({
 										}
 									}
 									const res = await onSettleStudent({
-										studentId: activeStudentId,
+										studentId: activeRow.student.id,
 										leaveDate: leaveDateFormatted,
 										persist: true,
 									});
@@ -782,7 +737,7 @@ export default function MonthlyBillingTable({
 							</TableRow>
 						</TableHeader>
 						<TableBody>
-							{sortedLedger.length === 0 ? (
+							{ledger.length === 0 ? (
 								<TableRow>
 									<TableCell
 										colSpan={isTeacher ? 8 : 9}
@@ -792,7 +747,7 @@ export default function MonthlyBillingTable({
 									</TableCell>
 								</TableRow>
 							) : (
-								sortedLedger.map((row) => {
+								ledger.map((row) => {
 									const mp = row.monthlyPayment;
 									const due = mp?.amountDue ?? 0;
 									const paid = mp?.amountPaid ?? 0;
