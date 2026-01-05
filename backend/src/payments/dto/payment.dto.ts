@@ -1,4 +1,13 @@
-import { IsNotEmpty, IsNumber, IsString, IsDateString, IsOptional, IsEnum, IsArray } from 'class-validator';
+import {
+  IsNotEmpty,
+  IsNumber,
+  IsString,
+  IsDateString,
+  IsOptional,
+  IsEnum,
+  IsArray,
+  IsBoolean,
+} from 'class-validator';
 import { PaymentStatus } from '../payment.entity';
 import { MonthlyPaymentStatus } from '../monthly-payment.entity';
 
@@ -15,13 +24,18 @@ export class CreatePaymentDto {
   @IsString()
   description?: string;
 
+  @IsOptional()
   @IsNumber()
-  @IsNotEmpty()
-  studentId: number;
+  studentId?: number;
 
   @IsNumber()
   @IsNotEmpty()
   groupId: number;
+
+  @IsOptional()
+  @IsBoolean()
+  // If true, creates payments for all students in the group (single backend request)
+  forAllGroupStudents?: boolean;
 }
 
 export class UpdatePaymentDto {
@@ -137,6 +151,16 @@ export class BillingLedgerQueryDto {
   @IsString()
   // all | withDebt | noDebt
   debt?: string;
+
+  @IsOptional()
+  @IsString()
+  // student | group | joinDate | monthlyAmount | dueDate | due | paid | remain | status
+  sortBy?: string;
+
+  @IsOptional()
+  @IsString()
+  // asc | desc
+  sortDir?: string;
 }
 
 export class UpdateStudentBillingProfileDto {
@@ -161,6 +185,10 @@ export class CollectMonthlyPaymentDto {
   @IsNumber()
   @IsNotEmpty()
   studentId: number;
+
+  @IsNumber()
+  @IsNotEmpty()
+  groupId: number;
 
   @IsOptional()
   @IsString()

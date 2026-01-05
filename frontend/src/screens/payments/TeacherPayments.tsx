@@ -22,7 +22,7 @@ import { paymentService } from '../../services/payment.service';
 import { groupService } from '../../services/group.service';
 import PaymentTable from '../../components/payments/PaymentTable';
 import CreatePaymentForm from '../../components/payments/CreatePaymentForm';
-import MonthlyBillingTable from '@/components/payments/MonthlyBillingTable';
+import MonthlyBillingTable, { SortKey as BillingSortKey } from '@/components/payments/MonthlyBillingTable';
 import { toast } from 'sonner';
 import PageLoader from '@/components/PageLoader';
 import { useAuth } from '@/contexts/AuthContext';
@@ -51,6 +51,8 @@ const TeacherPayments: React.FC = () => {
 	const [ledgerStatus, setLedgerStatus] = useState<string>('all'); // all|pending|paid|overdue
 	const [ledgerDebt, setLedgerDebt] = useState<string>('all'); // all|withDebt|noDebt
 	const [ledgerGroupId, setLedgerGroupId] = useState<number | undefined>(undefined);
+	const [ledgerSortKey, setLedgerSortKey] = useState<BillingSortKey | null>(null);
+	const [ledgerSortDir, setLedgerSortDir] = useState<'asc' | 'desc'>('asc');
 
 	// Debts summary modal
 	const [debtsOpen, setDebtsOpen] = useState(false);
@@ -129,6 +131,8 @@ const TeacherPayments: React.FC = () => {
 					status: (ledgerStatus as any) || undefined,
 					debt: (ledgerDebt as any) || undefined,
 					groupId: ledgerGroupId,
+					sortBy: ledgerSortKey || undefined,
+					sortDir: ledgerSortKey ? ledgerSortDir : undefined,
 				});
 				if (ledgerRes.success && ledgerRes.data) {
 					setLedger(ledgerRes.data.items || []);
@@ -166,6 +170,8 @@ const TeacherPayments: React.FC = () => {
 					status: (ledgerStatus as any) || undefined,
 					debt: (ledgerDebt as any) || undefined,
 					groupId: ledgerGroupId,
+					sortBy: ledgerSortKey || undefined,
+					sortDir: ledgerSortKey ? ledgerSortDir : undefined,
 			  })
 			: null;
 
@@ -177,6 +183,8 @@ const TeacherPayments: React.FC = () => {
 			status: (ledgerStatus as any) || undefined,
 			debt: (ledgerDebt as any) || undefined,
 			groupId: ledgerGroupId,
+			sortBy: ledgerSortKey || undefined,
+			sortDir: ledgerSortKey ? ledgerSortDir : undefined,
 		});
 
 		if (ledgerRes.success && ledgerRes.data) {
@@ -487,7 +495,12 @@ const TeacherPayments: React.FC = () => {
 		try {
 			const response = await paymentService.createPayment(paymentData);
 			if (response.success) {
-				toast.success("To'lov muvaffaqiyatli yaratildi");
+				const data: any = response.data as any;
+				if (data && typeof data.createdCount === 'number') {
+					toast.success(`To'lovlar yaratildi: ${data.createdCount}`);
+				} else {
+					toast.success("To'lov muvaffaqiyatli yaratildi");
+				}
 				fetchData();
 			}
 		} catch (error) {
@@ -982,9 +995,17 @@ const TeacherPayments: React.FC = () => {
 					<MonthlyBillingTable
 						month={billingMonth}
 						ledger={ledger}
+						sortKey={ledgerSortKey}
+						sortDir={ledgerSortDir}
+						onSortChange={async (key, dir) => {
+							setLedgerSortKey(key);
+							setLedgerSortDir(dir);
+							setLedgerPage(1);
+							await refreshLedger({ page: 1, updateStats: true });
+						}}
 						isTeacher={user?.role === 'teacher'}
-						onSaveProfile={async (studentId, data) => {
-							await paymentService.updateStudentBillingProfile(studentId, data as any);
+						onSaveProfile={async (studentId, groupId, data) => {
+							await paymentService.updateStudentBillingProfile(studentId, groupId, data as any);
 							toast.success('Sozlamalar saqlandi');
 							await refreshLedger({ updateStats: true });
 						}}

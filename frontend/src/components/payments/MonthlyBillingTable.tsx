@@ -16,20 +16,25 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { format, parse } from 'date-fns';
+import { format, isValid, parse } from 'date-fns';
 import { uz } from 'date-fns/locale';
-import { MoreHorizontal, CalendarIcon } from 'lucide-react';
+import { MoreHorizontal, CalendarIcon, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 type Props = {
 	month: string; // YYYY-MM
 	ledger: BillingLedgerItem[];
+	sortKey: SortKey | null;
+	sortDir: 'asc' | 'desc';
+	onSortChange: (key: SortKey, dir: 'asc' | 'desc') => void;
 	onSaveProfile: (
 		studentId: number,
+		groupId: number,
 		data: { joinDate?: string; monthlyAmount?: number; dueDay?: number }
 	) => Promise<void>;
 	onCollect: (data: {
 		studentId: number;
+		groupId: number;
 		month: string;
 		amount: number;
 		note?: string;
@@ -48,6 +53,17 @@ type Props = {
 	isTeacher?: boolean; // Teacher uchun actions'larni yashirish
 };
 
+export type SortKey =
+	| 'student'
+	| 'group'
+	| 'joinDate'
+	| 'monthlyAmount'
+	| 'dueDate'
+	| 'due'
+	| 'paid'
+	| 'remain'
+	| 'status';
+
 function statusBadge(status?: string | null) {
 	switch (status) {
 		case 'paid':
@@ -64,6 +80,9 @@ function statusBadge(status?: string | null) {
 export default function MonthlyBillingTable({
 	month,
 	ledger,
+	sortKey,
+	sortDir,
+	onSortChange,
 	onSaveProfile,
 	onCollect,
 	onUpdateMonthly,
@@ -77,11 +96,13 @@ export default function MonthlyBillingTable({
 	const [settleOpen, setSettleOpen] = useState(false);
 	const [historyOpen, setHistoryOpen] = useState(false);
 
-	const [activeStudentId, setActiveStudentId] = useState<number | null>(null);
-	const activeRow = useMemo(
-		() => (activeStudentId ? ledger.find((x) => x.student.id === activeStudentId) || null : null),
-		[activeStudentId, ledger]
-	);
+	const [activeRowKey, setActiveRowKey] = useState<{ studentId: number; groupId: number } | null>(null);
+	const activeRow = useMemo(() => {
+		if (!activeRowKey) return null;
+		return (
+			ledger.find((x) => x.student.id === activeRowKey.studentId && x.group.id === activeRowKey.groupId) || null
+		);
+	}, [activeRowKey, ledger]);
 
 	// Profile form
 	const [joinDate, setJoinDate] = useState<string>('');
@@ -109,17 +130,46 @@ export default function MonthlyBillingTable({
 	const [history, setHistory] = useState<MonthlyPaymentTransaction[]>([]);
 	const [historyError, setHistoryError] = useState<string | null>(null);
 
+	const toggleSort = (key: SortKey) => {
+		if (sortKey === key) {
+			onSortChange(key, sortDir === 'asc' ? 'desc' : 'asc');
+			return;
+		}
+		onSortChange(key, 'asc');
+	};
+
+	const SortHead = ({ label, col, className }: { label: string; col: SortKey; className?: string }) => (
+		<TableHead className={cn('p-0', className)}>
+			<button
+				type='button'
+				onClick={() => toggleSort(col)}
+				className='flex w-full items-center h-10 sm:h-12 px-2 sm:px-3 md:px-4 text-left select-none hover:bg-muted/30'
+			>
+				<span className='font-medium text-muted-foreground'>{label}</span>
+				{sortKey === col ? (
+					sortDir === 'asc' ? (
+						<ArrowUp className='ml-2 h-4 w-4' />
+					) : (
+						<ArrowDown className='ml-2 h-4 w-4' />
+					)
+				) : (
+					<ArrowUpDown className='ml-2 h-4 w-4 text-muted-foreground' />
+				)}
+			</button>
+		</TableHead>
+	);
+
 	const openProfile = (row: BillingLedgerItem) => {
-		setActiveStudentId(row.student.id);
+		setActiveRowKey({ studentId: row.student.id, groupId: row.group.id });
 		const joinDateObj = new Date(row.profile.joinDate);
 		setJoinDate(format(joinDateObj, 'dd-MM-yyyy'));
 		setMonthlyAmount(String(row.profile.monthlyAmount ?? 0));
-		setDueDay(String(row.profile.dueDay ?? 1));
+		setDueDay(String(row.profile.dueDay ?? 10));
 		setProfileOpen(true);
 	};
 
 	const openCollect = (row: BillingLedgerItem) => {
-		setActiveStudentId(row.student.id);
+		setActiveRowKey({ studentId: row.student.id, groupId: row.group.id });
 		setCollectMonth(month);
 		setCollectAmount('');
 		setCollectNote('');
@@ -129,7 +179,7 @@ export default function MonthlyBillingTable({
 
 	const openEditMonthly = (row: BillingLedgerItem) => {
 		if (!row.monthlyPayment) return;
-		setActiveStudentId(row.student.id);
+		setActiveRowKey({ studentId: row.student.id, groupId: row.group.id });
 		if (row.monthlyPayment?.dueDate) {
 			const dueDateObj = new Date(row.monthlyPayment.dueDate);
 			setEditDueDate(format(dueDateObj, 'dd-MM-yyyy'));
@@ -142,7 +192,7 @@ export default function MonthlyBillingTable({
 	};
 
 	const openSettle = (row: BillingLedgerItem) => {
-		setActiveStudentId(row.student.id);
+		setActiveRowKey({ studentId: row.student.id, groupId: row.group.id });
 		setLeaveDate(new Date().toISOString().slice(0, 10));
 		setSettleResult(null);
 		setSettleError(null);
@@ -151,7 +201,7 @@ export default function MonthlyBillingTable({
 
 	const openHistory = async (row: BillingLedgerItem) => {
 		if (!row.monthlyPayment) return;
-		setActiveStudentId(row.student.id);
+		setActiveRowKey({ studentId: row.student.id, groupId: row.group.id });
 		setHistoryError(null);
 		setHistory([]);
 		setHistoryOpen(true);
@@ -226,7 +276,7 @@ export default function MonthlyBillingTable({
 						</Button>
 						<Button
 							onClick={async () => {
-								if (!activeStudentId) return;
+								if (!activeRow) return;
 								// Convert DD-MM-YYYY to YYYY-MM-DD for backend
 								let joinDateFormatted: string | undefined;
 								if (joinDate) {
@@ -237,7 +287,7 @@ export default function MonthlyBillingTable({
 										joinDateFormatted = joinDate;
 									}
 								}
-								await onSaveProfile(activeStudentId, {
+								await onSaveProfile(activeRow.student.id, activeRow.group.id, {
 									joinDate: joinDateFormatted,
 									monthlyAmount: monthlyAmount ? Number(monthlyAmount) : undefined,
 									dueDay: dueDay ? Number(dueDay) : undefined,
@@ -342,9 +392,10 @@ export default function MonthlyBillingTable({
 						<Button
 							disabled={monthlyAmountMissing}
 							onClick={async () => {
-								if (!activeStudentId) return;
+								if (!activeRow) return;
 								await onCollect({
-									studentId: activeStudentId,
+									studentId: activeRow.student.id,
+									groupId: activeRow.group.id,
 									month: collectMonth || month,
 									amount: Number(collectAmount),
 									note: collectNote || undefined,
@@ -555,7 +606,7 @@ export default function MonthlyBillingTable({
 						<Button
 							variant='secondary'
 							onClick={async () => {
-								if (!activeStudentId) return;
+								if (!activeRow) return;
 								try {
 									setSettleError(null);
 									// Convert DD-MM-YYYY to YYYY-MM-DD for backend
@@ -569,7 +620,7 @@ export default function MonthlyBillingTable({
 										}
 									}
 									const res = await onSettleStudent({
-										studentId: activeStudentId,
+										studentId: activeRow.student.id,
 										leaveDate: leaveDateFormatted,
 										persist: false,
 									});
@@ -584,7 +635,7 @@ export default function MonthlyBillingTable({
 						</Button>
 						<Button
 							onClick={async () => {
-								if (!activeStudentId) return;
+								if (!activeRow) return;
 								try {
 									setSettleError(null);
 									// Convert DD-MM-YYYY to YYYY-MM-DD for backend
@@ -598,7 +649,7 @@ export default function MonthlyBillingTable({
 										}
 									}
 									const res = await onSettleStudent({
-										studentId: activeStudentId,
+										studentId: activeRow.student.id,
 										leaveDate: leaveDateFormatted,
 										persist: true,
 									});
@@ -673,14 +724,14 @@ export default function MonthlyBillingTable({
 					<Table className='min-w-[980px]'>
 						<TableHeader>
 							<TableRow>
-								<TableHead>O'quvchi</TableHead>
-								<TableHead>Guruh</TableHead>
-								<TableHead>Qo'shilgan sana</TableHead>
-								<TableHead>Oylik</TableHead>
-								<TableHead>Muddat / summa</TableHead>
-								<TableHead>To'langan</TableHead>
-								<TableHead>Qoldiq</TableHead>
-								<TableHead>Holat</TableHead>
+								<SortHead label="O'quvchi" col='student' />
+								<SortHead label='Guruh' col='group' />
+								<SortHead label="Qo'shilgan sana" col='joinDate' />
+								<SortHead label='Oylik' col='monthlyAmount' />
+								<SortHead label='Muddat / summa' col='dueDate' />
+								<SortHead label="To'langan" col='paid' />
+								<SortHead label='Qoldiq' col='remain' />
+								<SortHead label='Holat' col='status' />
 								{!isTeacher && <TableHead className='text-right'>Amallar</TableHead>}
 								{isTeacher && <TableHead className='text-right'>Tarix</TableHead>}
 							</TableRow>
