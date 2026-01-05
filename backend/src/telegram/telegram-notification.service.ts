@@ -780,8 +780,34 @@ export class TelegramNotificationService {
         }
       }
 
+      // FINAL FALLBACK: center-wide main channel (davomatdek)
+      const centerId = group.center?.id;
+      const centerChannel = await this.getCenterMainChannel(centerId);
+      if (centerChannel) {
+        await this.telegramQueueService.queueMessage({
+          chatId: centerChannel.chatId,
+          message,
+          type: MessageType.ANNOUNCEMENT,
+          priority: MessagePriority.NORMAL,
+          metadata: {
+            centerId,
+            groupId,
+            groupName: group.name,
+            date,
+            notDoneCount: notDoneStudents.length,
+            kind: 'tasks_not_done',
+            target: 'center_main_channel',
+          },
+          parseMode: 'HTML',
+        });
+        this.logger.log(
+          `📚 Queued tasks-not-done notification to center main channel for ${group.name}`,
+        );
+        return;
+      }
+
       this.logger.warn(
-        `⚠️ No active channel found for group ${groupId} or its subject. Tasks notification not sent.`,
+        `⚠️ No active channel found for group ${groupId}, its subject, or center main channel. Tasks notification not sent.`,
       );
     } catch (error) {
       this.logger.error(

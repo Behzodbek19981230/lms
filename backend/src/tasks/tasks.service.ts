@@ -93,15 +93,7 @@ export class TasksService {
         .filter((s) => filteredNotDone.includes(s.id))
         .map((s) => `${s.firstName} ${s.lastName}`);
 
-      const telegram = this.telegramNotificationService as unknown as {
-        sendTaskNotDoneListToGroupChat: (
-          groupId: number,
-          date: string,
-          notDoneStudents: string[],
-        ) => Promise<void>;
-      };
-
-      await telegram.sendTaskNotDoneListToGroupChat(
+      await this.telegramNotificationService.sendTaskNotDoneListToGroupChat(
         group.id,
         dto.date,
         notDoneStudents,
