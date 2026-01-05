@@ -6,6 +6,8 @@ export type CenterPermissionKey =
 	| 'telegram_integration'
 	| 'attendance'
 	| 'attendance_telegram_notifications'
+	| 'tasks'
+	| 'tasks_telegram_notifications'
 	| 'payments'
 	| 'payments_telegram_notifications'
 	| 'reports_students'
@@ -21,6 +23,8 @@ export const PERMISSION_LABELS: Record<CenterPermissionKey, string> = {
 	telegram_integration: 'Telegram integratsiya',
 	attendance: 'Davomat qilish',
 	attendance_telegram_notifications: 'Davomatni bot orqali yuborish',
+	tasks: 'Vazifalar',
+	tasks_telegram_notifications: 'Vazifani bot orqali yuborish',
 	payments: "To'lovlarni nazorat qilish",
 	payments_telegram_notifications: "To'lovlarni bot orqali yuborish",
 	reports_students: "Hisobotlar: studentlar",

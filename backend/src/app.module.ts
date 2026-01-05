@@ -14,6 +14,7 @@ import { ExamsModule } from './exams/exams.module';
 import { StudentsModule } from './students/students.module';
 import { CronJobsModule } from './cron-jobs/cron-jobs.module';
 import { AttendanceModule } from './attendance/attendance.module';
+import { TasksModule } from './tasks/tasks.module';
 import { PaymentsModule } from './payments/payments.module';
 import { AssignedTestsModule } from './assigned-tests/assigned-tests.module';
 import { NotificationsModule } from './notifications/notifications.module';
@@ -57,6 +58,7 @@ import { CenterPermissionGuard } from './centers/permissions/center-permission.g
     TelegramModule,
     PaymentsModule,
     AttendanceModule,
+    TasksModule,
     CronJobsModule,
     LogsModule,
     ContactsModule,

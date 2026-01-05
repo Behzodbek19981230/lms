@@ -32,6 +32,7 @@ import {
 	FileText,
 	Scan,
 	Wand2,
+	ClipboardList,
 	ChevronsLeft,
 	ChevronsRight,
 	HelpCircle,
@@ -71,6 +72,8 @@ const teacherMenuItems = [
 	{ title: 'Dashboard', url: '/account/teacher', icon: LayoutDashboard },
 	{ title: 'Imtihonlar', url: '/account/exams', icon: AlertCircle },
 	{ title: 'Mening guruhlarim', url: '/account/groups', icon: Users2 },
+	{ title: 'Vazifalar', url: '/account/tasks', icon: ClipboardList },
+	// { title: 'Vazifalar tarixi', url: '/account/tasks/history', icon: ClipboardList },
 	{ title: "To'lovlar", url: '/account/payments', icon: DollarSign },
 	{ title: 'Mening fanlarim', url: '/account/subjects', icon: Book },
 	{ title: 'Test generatsiya', url: '/account/test-generator', icon: Wand2 },
@@ -127,6 +130,7 @@ export function DashboardSidebar() {
 			return hasCenterPermission(centerPerms, 'test_generation');
 		if (url.startsWith('/account/scanner')) return hasCenterPermission(centerPerms, 'checking');
 		if (url.startsWith('/account/telegram')) return hasCenterPermission(centerPerms, 'telegram_integration');
+		if (url.startsWith('/account/tasks')) return hasCenterPermission(centerPerms, 'tasks');
 		if (url.startsWith('/account/payments') || url.startsWith('/account/student-payments'))
 			return hasCenterPermission(centerPerms, 'payments');
 		if (url.startsWith('/account/results')) return hasCenterPermission(centerPerms, 'reports_tests');

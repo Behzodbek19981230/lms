@@ -676,6 +676,127 @@ export class TelegramNotificationService {
   }
 
   /**
+   * Send task-not-done list to GROUP-specific channel (subject fallback).
+   */
+  async sendTaskNotDoneListToGroupChat(
+    groupId: number,
+    date: string,
+    notDoneStudents: string[],
+  ): Promise<void> {
+    if (!notDoneStudents || notDoneStudents.length === 0) {
+      this.logger.debug(
+        `No task-not-done students for group ${groupId}, skipping notification`,
+      );
+      return;
+    }
+
+    try {
+      const group = await this.groupRepo.findOne({
+        where: { id: groupId },
+        relations: ['subject', 'center'],
+      });
+
+      if (!group) {
+        this.logger.warn(`Group ${groupId} not found`);
+        return;
+      }
+
+      const enabled = await this.isCenterPermissionEnabled(
+        group.center?.id,
+        CenterPermissionKey.TASKS_TELEGRAM_NOTIFICATIONS,
+      );
+      if (!enabled) return;
+
+      const headerLines: string[] = [];
+      headerLines.push(`📚 <b>Vazifa</b>`);
+      headerLines.push(`🏷️ <b>Guruh:</b> ${group.name}`);
+      headerLines.push(`📅 <b>Sana:</b> ${date}`);
+      headerLines.push(`❌ <b>Bajarmaganlar (${notDoneStudents.length}):</b>`);
+      const list = notDoneStudents
+        .slice(0, 30)
+        .map((s, i) => `${i + 1}. ${s}`)
+        .join('\n');
+
+      const message =
+        `${headerLines.join('\n')}\n${list}` +
+        (notDoneStudents.length > 30
+          ? `\n\n… yana ${notDoneStudents.length - 30} ta.`
+          : '');
+
+      // PRIORITY 1: group channel
+      const groupChat = await this.telegramChatRepo.findOne({
+        where: {
+          group: { id: groupId },
+          type: ChatType.CHANNEL,
+          status: ChatStatus.ACTIVE,
+        },
+      });
+
+      if (groupChat) {
+        await this.telegramQueueService.queueMessage({
+          chatId: groupChat.chatId,
+          message,
+          type: MessageType.ANNOUNCEMENT,
+          priority: MessagePriority.NORMAL,
+          metadata: {
+            groupId,
+            groupName: group.name,
+            date,
+            notDoneCount: notDoneStudents.length,
+            kind: 'tasks_not_done',
+          },
+          parseMode: 'HTML',
+        });
+        return;
+      }
+
+      // FALLBACK: subject channel
+      if (group.subject) {
+        const subjectChat = await this.telegramChatRepo.findOne({
+          where: {
+            subject: { id: group.subject.id },
+            type: ChatType.CHANNEL,
+            status: ChatStatus.ACTIVE,
+          },
+        });
+        if (subjectChat) {
+          await this.telegramQueueService.queueMessage({
+            chatId: subjectChat.chatId,
+            message,
+            type: MessageType.ANNOUNCEMENT,
+            priority: MessagePriority.NORMAL,
+            metadata: {
+              groupId,
+              groupName: group.name,
+              subjectId: group.subject.id,
+              subjectName: group.subject.name,
+              date,
+              notDoneCount: notDoneStudents.length,
+              kind: 'tasks_not_done',
+            },
+            parseMode: 'HTML',
+          });
+          return;
+        }
+      }
+
+      this.logger.warn(
+        `⚠️ No active channel found for group ${groupId} or its subject. Tasks notification not sent.`,
+      );
+    } catch (error) {
+      this.logger.error(
+        `Error sending tasks not-done list for group ${groupId}: ${error.message}`,
+        error.stack,
+      );
+      this.logsService.error(
+        `Failed to send tasks not-done notification for group ${groupId}`,
+        error.message,
+        'TelegramNotificationService',
+      );
+    }
+  }
+
+  /**
    * ✅ IMPROVED: Send test results to correct channel with payment reminders
    */
   async publishTestResultsWithPaymentCheck(

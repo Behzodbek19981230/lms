@@ -22,6 +22,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import TelegramManagementCard from '@/components/TelegramManagementCard';
 import TelegramConnectCard from '@/components/TelegramConnectCard';
 import AttendanceCard from '@/components/AttendanceCard';
+import TasksCard from '@/components/TasksCard';
 import PresentStudentsCard from '@/components/PresentStudentsCard';
 import PaymentStatsWidget from '@/components/payments/PaymentStatsWidget';
 import moment from 'moment';
@@ -310,6 +311,7 @@ export default function TeacherDashboard() {
 					<div className='space-y-6'>
 						<PaymentStatsWidget />
 						<AttendanceCard />
+						<TasksCard />
 					</div>
 				</div>
 
