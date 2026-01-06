@@ -30,6 +30,7 @@ const PaymentTable: React.FC<PaymentTableProps> = ({
 	showActions = true,
 	role = 'teacher',
 }) => {
+	const emptyColSpan = 5 + (role !== 'student' ? 2 : 0) + (showActions ? 1 : 0);
 	const [editOpen, setEditOpen] = useState(false);
 	const [editPaymentId, setEditPaymentId] = useState<string | null>(null);
 	const [editAmount, setEditAmount] = useState<string>('');
@@ -125,7 +126,7 @@ const PaymentTable: React.FC<PaymentTableProps> = ({
 				<TableBody>
 					{payments.length === 0 ? (
 						<TableRow>
-							<TableCell colSpan={role === 'student' ? 6 : 8} className='text-center py-8'>
+							<TableCell colSpan={emptyColSpan} className='text-center py-8'>
 								Hech qanday to'lov topilmadi
 							</TableCell>
 						</TableRow>

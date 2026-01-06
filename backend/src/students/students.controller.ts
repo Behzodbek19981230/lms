@@ -5,6 +5,7 @@ import {
   Request,
   Param,
   Res,
+  Query,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -25,6 +26,15 @@ import { UserRole } from '../users/entities/user.entity';
 @ApiBearerAuth()
 export class StudentsController {
   constructor(private readonly studentsService: StudentsService) {}
+
+  @Get('groups')
+  @Roles(UserRole.STUDENT)
+  @ApiOperation({ summary: 'Get my groups (student enrolled groups only)' })
+  @ApiResponse({ status: 200, description: 'Student groups' })
+  async getMyGroups(@Request() req) {
+    const groups = await this.studentsService.getMyGroups(req.user.id);
+    return { groups };
+  }
 
   @Get('dashboard')
   @Roles(UserRole.STUDENT)
@@ -74,6 +84,29 @@ export class StudentsController {
     return this.studentsService.getSubjects(req.user.id);
   }
 
+  @Get('attendance')
+  @Roles(UserRole.STUDENT)
+  @ApiOperation({ summary: 'Get student attendance (my attendance)' })
+  @ApiResponse({
+    status: 200,
+    description: 'Student attendance records and summary',
+  })
+  async getMyAttendance(
+    @Request() req,
+    @Query('groupId') groupId?: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+  ) {
+    const parsedGroupId = groupId ? Number(groupId) : undefined;
+    return this.studentsService.getMyAttendance(req.user.id, {
+      groupId: Number.isFinite(parsedGroupId as any)
+        ? parsedGroupId
+        : undefined,
+      from,
+      to,
+    });
+  }
+
   @Get('exams/:variantId/info')
   @Roles(UserRole.STUDENT)
   @ApiOperation({ summary: 'Get exam variant info for debugging' })
@@ -81,24 +114,37 @@ export class StudentsController {
     @Param('variantId') variantId: string,
     @Request() req,
   ) {
-    const variant = await this.studentsService.getExamVariantInfo(+variantId, req.user.id);
+    const variant = await this.studentsService.getExamVariantInfo(
+      +variantId,
+      req.user.id,
+    );
     return variant;
   }
 
   @Get('exams/:variantId/download')
   @Roles(UserRole.STUDENT)
   @ApiOperation({ summary: 'Download student exam variant PDF' })
-  @ApiResponse({ status: 200, description: 'PDF file downloaded and status updated' })
+  @ApiResponse({
+    status: 200,
+    description: 'PDF file downloaded and status updated',
+  })
   async downloadExamVariant(
     @Param('variantId') variantId: string,
     @Request() req,
     @Res() res: Response,
   ): Promise<void> {
-    console.log('Download request from user:', req.user?.id, 'role:', req.user?.role, 'for variant:', variantId);
-    
+    console.log(
+      'Download request from user:',
+      req.user?.id,
+      'role:',
+      req.user?.role,
+      'for variant:',
+      variantId,
+    );
+
     const buffer = await this.studentsService.downloadExamVariant(
-      +variantId, 
-      req.user.id
+      +variantId,
+      req.user.id,
     );
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader(

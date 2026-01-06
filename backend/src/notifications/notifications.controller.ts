@@ -1,5 +1,19 @@
-import { Controller, Get, Param, Patch, UseGuards, Request, Post } from '@nestjs/common';
-import { ApiBearerAuth, ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import {
+  Controller,
+  Get,
+  Param,
+  Patch,
+  UseGuards,
+  Request,
+  Post,
+  Delete,
+} from '@nestjs/common';
+import {
+  ApiBearerAuth,
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+} from '@nestjs/swagger';
 import { NotificationsService } from './notifications.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
@@ -29,6 +43,14 @@ export class NotificationsController {
   @ApiResponse({ status: 200, description: 'All notifications marked as read' })
   async markAllRead(@Request() req) {
     await this.notificationsService.markAllRead(req.user);
-    return { message: 'Barcha bildirishnomalar o\'qilgan deb belgilandi' };
+    return { message: "Barcha bildirishnomalar o'qilgan deb belgilandi" };
+  }
+
+  @Delete('clear')
+  @ApiOperation({ summary: 'Clear (delete) all my notifications' })
+  @ApiResponse({ status: 200, description: 'All notifications deleted' })
+  async clearAll(@Request() req) {
+    await this.notificationsService.clearAll(req.user);
+    return { message: 'Barcha bildirishnomalar tozalandi' };
   }
 }

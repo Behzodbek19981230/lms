@@ -192,6 +192,7 @@ export class CentersController {
   }
 
   @Get(':id/stats')
+  @Roles(UserRole.TEACHER, UserRole.ADMIN, UserRole.SUPERADMIN)
   @ApiOperation({ summary: 'Get center statistics' })
   @ApiResponse({ status: 200, description: 'Center statistics' })
   async getCenterStats(@Param('id') id: string, @Request() req: any) {

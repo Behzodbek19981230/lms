@@ -88,8 +88,10 @@ teacherMenuItems.splice(4, 0, { title: 'Natijalar', url: '/account/results', ico
 const studentMenuItems = [
 	{ title: 'Dashboard', url: '/account/student', icon: LayoutDashboard },
 	{ title: "Mening to'lovlarim", url: '/account/student-payments', icon: DollarSign },
-	{ title: 'Mening fanlarim', url: '/account/subjects', icon: Book },
-	{ title: 'Telegram', url: '/account/telegram-user', icon: Send },
+	{ title: 'Mening guruhlarim', url: '/account/student-groups', icon: Users2 },
+	{ title: 'Mening davomatim', url: '/account/student-attendance', icon: UserCheck },
+	{ title: 'Mening natijalarim', url: '/account/student-results', icon: FileText },
+	{ title: 'Telegram menyulari', url: '/account/telegram-user', icon: Send },
 ];
 
 export function DashboardSidebar() {

@@ -52,6 +52,15 @@ export class NotificationsService {
     );
   }
 
+  async clearAll(user: User): Promise<void> {
+    await this.notifRepo
+      .createQueryBuilder()
+      .delete()
+      .from(Notification)
+      .where('userId = :userId', { userId: user.id })
+      .execute();
+  }
+
   async createFor(
     user: User,
     title: string,

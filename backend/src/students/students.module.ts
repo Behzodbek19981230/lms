@@ -9,6 +9,7 @@ import { AssignedTestVariant } from '../assigned-tests/entities/assigned-test.en
 import { Notification } from '../notifications/entities/notification.entity';
 import { Subject } from '../subjects/entities/subject.entity';
 import { ExamsModule } from '../exams/exams.module';
+import { Attendance } from '../attendance/entities/attendance.entity';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { ExamsModule } from '../exams/exams.module';
       AssignedTestVariant,
       Notification,
       Subject,
+      Attendance,
     ]),
     ExamsModule,
   ],

@@ -150,8 +150,26 @@ export class CentersService {
   }
 
   async getCenterStats(centerId: number, user: User) {
-    // Check if user has access to this center
-    const center = await this.findOne(centerId, user);
+    if (user.role === UserRole.SUPERADMIN) {
+      const center = await this.centerRepo.findOne({ where: { id: centerId } });
+      if (!center) throw new NotFoundException('Markaz topilmadi');
+    } else if (user.role === UserRole.ADMIN || user.role === UserRole.TEACHER) {
+      if (!user.center || !user.center.id) {
+        throw new ForbiddenException('Markazga biriktirilmagansiz');
+      }
+      if (Number(user.center.id) !== Number(centerId)) {
+        throw new ForbiddenException(
+          "Faqat o'z markazingiz statistikalarini ko'ra olasiz",
+        );
+      }
+      if ((user.center as any).isActive === false) {
+        throw new ForbiddenException('Markaz nofaol');
+      }
+    } else {
+      throw new ForbiddenException(
+        "Markaz statistikalarini ko'rish uchun ruxsatingiz yo'q",
+      );
+    }
 
     const [totalGroups, totalStudents, totalTeachers, monthlyRevenue] =
       await Promise.all([

@@ -93,6 +93,15 @@ export const DashboardHeader = () => {
 		setNotifications((prev) => prev.filter((n) => n.id !== id));
 	};
 
+	const clearNotifications = async () => {
+		try {
+			await request.delete('/notifications/clear');
+			setNotifications([]);
+		} catch (e) {
+			// ignore
+		}
+	};
+
 	const downloadFromNotification = async (n: any) => {
 		const archiveUrl = n?.metadata?.archiveUrl as string | undefined;
 		if (!archiveUrl) {
@@ -205,6 +214,14 @@ export const DashboardHeader = () => {
 						</Button>
 					</DropdownMenuTrigger>
 					<DropdownMenuContent align='end' className='w-72 sm:w-80 max-h-80 sm:max-h-96 overflow-auto'>
+						{notifications.length > 0 && (
+							<>
+								<DropdownMenuItem onClick={() => void clearNotifications()} className='py-2 text-xs sm:text-sm'>
+									Tozalash
+								</DropdownMenuItem>
+								<DropdownMenuSeparator />
+							</>
+						)}
 						{notifications.length === 0 ? (
 							<div className='p-2 sm:p-3 text-xs sm:text-sm text-muted-foreground'>
 								Hozircha bildirishnoma yo'q
