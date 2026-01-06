@@ -19,6 +19,8 @@ export class CentersService {
   constructor(
     @InjectRepository(Center)
     private readonly centerRepo: Repository<Center>,
+    @InjectRepository(User)
+    private readonly userRepo: Repository<User>,
     @InjectRepository(Group)
     private readonly groupRepo: Repository<Group>,
     @InjectRepository(Payment)
@@ -177,16 +179,14 @@ export class CentersService {
           .createQueryBuilder('group')
           .where('group.centerId = :centerId', { centerId })
           .getCount(),
-        this.centerRepo
-          .createQueryBuilder('center')
-          .leftJoin('center.users', 'user')
-          .where('center.id = :centerId', { centerId })
+        this.userRepo
+          .createQueryBuilder('user')
+          .where('user.centerId = :centerId', { centerId })
           .andWhere('user.role = :role', { role: UserRole.STUDENT })
           .getCount(),
-        this.centerRepo
-          .createQueryBuilder('center')
-          .leftJoin('center.users', 'user')
-          .where('center.id = :centerId', { centerId })
+        this.userRepo
+          .createQueryBuilder('user')
+          .where('user.centerId = :centerId', { centerId })
           .andWhere('user.role = :role', { role: UserRole.TEACHER })
           .getCount(),
         this.paymentRepo
