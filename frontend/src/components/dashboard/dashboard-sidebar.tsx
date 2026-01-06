@@ -36,6 +36,7 @@ import {
 	ChevronsLeft,
 	ChevronsRight,
 	HelpCircle,
+	Smartphone,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useEffect, useState } from 'react';
@@ -50,6 +51,7 @@ const adminItems = [
 ];
 const superAdminMenuItems = [
 	{ title: 'Dashboard', url: '/account/superadmin', icon: LayoutDashboard },
+	{ title: 'Mobile Releases', url: '/account/superadmin/mobile-releases', icon: Smartphone },
 	{ title: 'Mening fanlarim', url: '/account/subjects', icon: Book },
 	{ title: 'Markazlar va foydalanuvchilar', url: '/account/center-users', icon: Users },
 	{ title: 'Telegram Management', url: '/account/telegram', icon: Send },

@@ -5,6 +5,7 @@ import * as bodyParser from 'body-parser';
 // import { CustomLogger } from './logs/custom-logger';
 import * as express from 'express';
 import { join } from 'path';
+import * as fs from 'fs';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
@@ -26,11 +27,23 @@ async function bootstrap() {
 
   // Static file serving for uploads and print (HTML/PDF)
 
-  app.use(
-    '/uploads',
-    express.static(join(__dirname, '..', 'public', 'uploads')),
-  );
-  app.use('/print', express.static(join(__dirname, '..', 'public', 'uploads')));
+  // Prefer process.cwd() (works for prod when running `node dist/src/main` from backend folder)
+  // Fallback to dist-relative path for safety.
+  const uploadsDirCandidates = [
+    join(process.cwd(), 'public', 'uploads'),
+    join(__dirname, '..', 'public', 'uploads'),
+  ];
+  const uploadsDir =
+    uploadsDirCandidates.find((p) => {
+      try {
+        return fs.existsSync(p);
+      } catch {
+        return false;
+      }
+    }) || uploadsDirCandidates[0];
+
+  app.use('/uploads', express.static(uploadsDir));
+  app.use('/print', express.static(uploadsDir));
 
   // Swagger documentation
   const config = new DocumentBuilder()

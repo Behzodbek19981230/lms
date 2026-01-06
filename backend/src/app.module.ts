@@ -22,6 +22,7 @@ import { LogsModule } from './logs/logs.module';
 import { ContactsModule } from './contacts/contacts.module';
 import { AdminModule } from './admin/admin.module';
 import { CenterPermissionGuard } from './centers/permissions/center-permission.guard';
+import { MobileReleasesModule } from './mobile-releases/mobile-releases.module';
 
 @Module({
   imports: [
@@ -63,6 +64,7 @@ import { CenterPermissionGuard } from './centers/permissions/center-permission.g
     LogsModule,
     ContactsModule,
     AdminModule,
+    MobileReleasesModule,
   ],
   providers: [
     // Global center-permission guard: only enforces when @RequireCenterPermissions() is present

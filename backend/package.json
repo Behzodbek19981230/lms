@@ -7,6 +7,7 @@
   "license": "UNLICENSED",
   "scripts": {
     "build": "nest build",
+    "postinstall": "node scripts/postinstall-fix-7zip.js",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "start": "nest start",
     "start:dev": "nest start --watch",
@@ -32,6 +33,7 @@
     "@types/node-telegram-bot-api": "^0.64.10",
     "axios": "^1.12.2",
     "bcryptjs": "^3.0.2",
+    "7zip-bin": "^5.2.0",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.2",
     "katex": "^0.16.22",

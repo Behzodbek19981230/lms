@@ -8,16 +8,28 @@ import {
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { BookOpen, Bell, Settings, LogOut, User } from 'lucide-react';
+import { BookOpen, Bell, Settings, LogOut, User, Smartphone } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { request } from '@/configs/request';
 
+type PublicMobileRelease = {
+	id: number;
+	platform: 'android' | 'ios';
+	version: string;
+	originalFileName: string;
+	archiveUrl: string;
+	archiveSizeBytes: number;
+	createdAt: string;
+} | null;
+
 export const DashboardHeader = () => {
 	const { user, logout } = useAuth();
 	const router = useRouter();
 	const [notifications, setNotifications] = useState<any[]>([]);
+	const [androidRelease, setAndroidRelease] = useState<PublicMobileRelease>(null);
+	const [iosRelease, setIosRelease] = useState<PublicMobileRelease>(null);
 	const unreadCount = notifications.filter((n) => !n.isRead).length;
 
 	const handleLogout = () => {
@@ -38,11 +50,79 @@ export const DashboardHeader = () => {
 		return () => clearInterval(t);
 	}, []);
 
+	const fetchMobileReleases = async () => {
+		try {
+			const [androidRes, iosRes] = await Promise.all([
+				request.get('/mobile-releases/public/latest', { params: { platform: 'android' } }),
+				request.get('/mobile-releases/public/latest', { params: { platform: 'ios' } }),
+			]);
+			setAndroidRelease(androidRes.data || null);
+			setIosRelease(iosRes.data || null);
+		} catch (e) {
+			setAndroidRelease(null);
+			setIosRelease(null);
+		}
+	};
+
+	useEffect(() => {
+		fetchMobileReleases();
+	}, []);
+
+	const apiBaseUrl = (process.env.NEXT_PUBLIC_API_BASE_URL as string | undefined) || '';
+	const downloadOrigin = apiBaseUrl.replace(/\/?api\/?$/, '');
+	const androidHref = androidRelease?.archiveUrl ? `${downloadOrigin}${androidRelease.archiveUrl}` : undefined;
+	const iosHref = iosRelease?.archiveUrl ? `${downloadOrigin}${iosRelease.archiveUrl}` : undefined;
+
+	const isMobileReleaseNotif = (n: any): boolean => {
+		return Boolean(n?.metadata && n?.metadata?.kind === 'mobile_release' && n?.metadata?.archiveUrl);
+	};
+
 	const markRead = async (id: number) => {
 		try {
 			await request.patch(`/notifications/${id}/read`);
 			setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, isRead: true } : n)));
 		} catch (e) {}
+	};
+
+	const markReadAndRemove = async (id: number) => {
+		try {
+			await request.patch(`/notifications/${id}/read`);
+		} catch (e) {
+			// ignore
+		}
+		setNotifications((prev) => prev.filter((n) => n.id !== id));
+	};
+
+	const downloadFromNotification = async (n: any) => {
+		const archiveUrl = n?.metadata?.archiveUrl as string | undefined;
+		if (!archiveUrl) {
+			return markRead(n.id);
+		}
+		const href = `${downloadOrigin}${archiveUrl}`;
+		if (typeof window !== 'undefined') {
+			window.open(href, '_blank', 'noreferrer');
+		}
+		// Requirement: after download, notification disappears
+		return markReadAndRemove(n.id);
+	};
+
+	const downloadLatest = async (platform: 'android' | 'ios') => {
+		const href = platform === 'android' ? androidHref : iosHref;
+		const version = platform === 'android' ? androidRelease?.version : iosRelease?.version;
+		if (!href || !version) return;
+		if (typeof window !== 'undefined') {
+			window.open(href, '_blank', 'noreferrer');
+		}
+
+		// If there is an unread mobile-release notification for this platform/version, mark it read and remove it
+		const matches = notifications.filter(
+			(n) =>
+				!n?.isRead &&
+				isMobileReleaseNotif(n) &&
+				n?.metadata?.platform === platform &&
+				n?.metadata?.version === version,
+		);
+		await Promise.all(matches.map((n) => markReadAndRemove(n.id)));
 	};
 
 	return (
@@ -78,6 +158,43 @@ export const DashboardHeader = () => {
 							variant='ghost'
 							size='sm'
 							className='relative hover:bg-primary/5 transition-all duration-300 h-8 w-8 sm:h-9 sm:w-9 p-0'
+							aria-label='Mobil ilovani yuklab olish'
+						>
+							<Smartphone className='h-4 w-4 sm:h-5 sm:w-5 transition-transform hover:scale-110' />
+						</Button>
+					</DropdownMenuTrigger>
+					<DropdownMenuContent align='end' className='w-64'>
+						{androidHref ? (
+							<DropdownMenuItem onClick={() => void downloadLatest('android')} className='py-2 text-xs sm:text-sm'>
+								Android (v{androidRelease?.version})
+							</DropdownMenuItem>
+						) : (
+							<DropdownMenuItem disabled className='py-2 text-xs sm:text-sm'>
+								Android release topilmadi
+							</DropdownMenuItem>
+						)}
+						{iosHref ? (
+							<DropdownMenuItem onClick={() => void downloadLatest('ios')} className='py-2 text-xs sm:text-sm'>
+								iOS (v{iosRelease?.version})
+							</DropdownMenuItem>
+						) : (
+							<DropdownMenuItem disabled className='py-2 text-xs sm:text-sm'>
+								iOS release topilmadi
+							</DropdownMenuItem>
+						)}
+						<DropdownMenuSeparator />
+						<DropdownMenuItem disabled className='text-[11px] text-muted-foreground'>
+							Arxiv paroli: lms1234
+						</DropdownMenuItem>
+					</DropdownMenuContent>
+				</DropdownMenu>
+
+				<DropdownMenu>
+					<DropdownMenuTrigger asChild>
+						<Button
+							variant='ghost'
+							size='sm'
+							className='relative hover:bg-primary/5 transition-all duration-300 h-8 w-8 sm:h-9 sm:w-9 p-0'
 						>
 							<Bell className='h-4 w-4 sm:h-5 sm:w-5 transition-transform hover:scale-110' />
 							{unreadCount > 0 && (
@@ -96,7 +213,7 @@ export const DashboardHeader = () => {
 							notifications.map((n) => (
 								<DropdownMenuItem
 									key={n.id}
-									onClick={() => markRead(n.id)}
+									onClick={() => (isMobileReleaseNotif(n) ? void downloadFromNotification(n) : void markRead(n.id))}
 									className={`p-2 sm:p-3 ${!n.isRead ? 'bg-muted/50' : ''}`}
 								>
 									<div className='w-full'>
@@ -105,6 +222,9 @@ export const DashboardHeader = () => {
 											<div className='text-[10px] sm:text-xs text-muted-foreground mt-0.5 line-clamp-2'>
 												{n.message}
 											</div>
+										)}
+										{isMobileReleaseNotif(n) && !n.isRead && (
+											<div className='text-[10px] sm:text-xs text-primary mt-1'>Yuklab olish</div>
 										)}
 									</div>
 								</DropdownMenuItem>
