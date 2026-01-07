@@ -6,6 +6,7 @@ import {
   ChatType,
   ChatStatus,
 } from './entities/telegram-chat.entity';
+import { In } from 'typeorm';
 import { User, UserRole } from '../users/entities/user.entity';
 import { Center } from '../centers/entities/center.entity';
 import { TelegramService } from './telegram.service';
@@ -233,7 +234,7 @@ export class TelegramAuthService {
         // 1. Get channels for user's center
         if (user.center) {
           channelConditions.push({
-            type: ChatType.CHANNEL,
+            type: In([ChatType.CHANNEL, ChatType.GROUP]),
             status: ChatStatus.ACTIVE,
             center: { id: user.center.id },
             group: IsNull(), // Center-wide channels only
@@ -245,7 +246,7 @@ export class TelegramAuthService {
         if (user.groups && user.groups.length > 0) {
           for (const group of user.groups) {
             channelConditions.push({
-              type: ChatType.CHANNEL,
+              type: In([ChatType.CHANNEL, ChatType.GROUP]),
               status: ChatStatus.ACTIVE,
               group: { id: group.id },
             });
@@ -256,7 +257,7 @@ export class TelegramAuthService {
         if (user.subjects && user.subjects.length > 0) {
           for (const subject of user.subjects) {
             channelConditions.push({
-              type: ChatType.CHANNEL,
+              type: In([ChatType.CHANNEL, ChatType.GROUP]),
               status: ChatStatus.ACTIVE,
               subject: { id: subject.id },
               group: IsNull(), // Only subject-level channels

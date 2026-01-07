@@ -1,6 +1,6 @@
 import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, IsNull } from 'typeorm';
+import { Repository, IsNull, In } from 'typeorm';
 import {
   TelegramChat,
   ChatType,
@@ -64,7 +64,7 @@ export class TelegramNotificationService {
     return this.telegramChatRepo.findOne({
       where: {
         center: { id: centerId },
-        type: ChatType.CHANNEL,
+        type: In([ChatType.CHANNEL, ChatType.GROUP]),
         status: ChatStatus.ACTIVE,
         group: IsNull(),
         subject: IsNull(),
@@ -269,7 +269,7 @@ export class TelegramNotificationService {
     const groupChat = await this.telegramChatRepo.findOne({
       where: {
         group: { id: payment.groupId },
-        type: ChatType.CHANNEL,
+        type: In([ChatType.CHANNEL, ChatType.GROUP]),
         status: ChatStatus.ACTIVE,
       },
       relations: ['group'],
@@ -588,7 +588,7 @@ export class TelegramNotificationService {
       const groupChat = await this.telegramChatRepo.findOne({
         where: {
           group: { id: groupId },
-          type: ChatType.CHANNEL,
+          type: In([ChatType.CHANNEL, ChatType.GROUP]),
           status: ChatStatus.ACTIVE,
         },
       });
@@ -624,7 +624,7 @@ export class TelegramNotificationService {
         const subjectChat = await this.telegramChatRepo.findOne({
           where: {
             subject: { id: group.subject.id },
-            type: ChatType.CHANNEL,
+            type: In([ChatType.CHANNEL, ChatType.GROUP]),
             status: ChatStatus.ACTIVE,
           },
         });
@@ -727,7 +727,7 @@ export class TelegramNotificationService {
       const groupChat = await this.telegramChatRepo.findOne({
         where: {
           group: { id: groupId },
-          type: ChatType.CHANNEL,
+          type: In([ChatType.CHANNEL, ChatType.GROUP]),
           status: ChatStatus.ACTIVE,
         },
       });
@@ -755,7 +755,7 @@ export class TelegramNotificationService {
         const subjectChat = await this.telegramChatRepo.findOne({
           where: {
             subject: { id: group.subject.id },
-            type: ChatType.CHANNEL,
+            type: In([ChatType.CHANNEL, ChatType.GROUP]),
             status: ChatStatus.ACTIVE,
           },
         });
@@ -850,7 +850,7 @@ export class TelegramNotificationService {
       let targetChat = await this.telegramChatRepo.findOne({
         where: {
           group: { id: groupId },
-          type: ChatType.CHANNEL,
+          type: In([ChatType.CHANNEL, ChatType.GROUP]),
           status: ChatStatus.ACTIVE,
         },
       });
@@ -859,7 +859,7 @@ export class TelegramNotificationService {
         targetChat = await this.telegramChatRepo.findOne({
           where: {
             subject: { id: group.subject.id },
-            type: ChatType.CHANNEL,
+            type: In([ChatType.CHANNEL, ChatType.GROUP]),
             status: ChatStatus.ACTIVE,
           },
         });
