@@ -1,7 +1,14 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { AnalyticsEventType, Log, LogLevel } from './entities/log.entity';
+import { User } from '../users/entities/user.entity';
+
+export type LogAccessSource = 'mobile' | 'web';
+export type EnrichedLog = Log & {
+  userFullName?: string;
+  source?: LogAccessSource;
+};
 
 @Injectable()
 export class LogsService {
@@ -10,7 +17,18 @@ export class LogsService {
   constructor(
     @InjectRepository(Log)
     private logRepository: Repository<Log>,
+    @InjectRepository(User)
+    private userRepository: Repository<User>,
   ) {}
+
+  private getAccessSourceFromUserAgent(userAgent?: string): LogAccessSource {
+    const ua = (userAgent || '').toLowerCase();
+
+    // Explicit marker from our React Native WebView wrapper.
+    if (ua.includes('eduonemobile')) return 'mobile';
+
+    return 'web';
+  }
 
   async log(
     message: string,
@@ -87,7 +105,18 @@ export class LogsService {
     userId?: number,
     userAgent?: string,
     ip?: string,
-    extras?: Partial<Pick<Log, 'eventType' | 'path' | 'method' | 'referrer' | 'deviceType' | 'browser' | 'os'>>,
+    extras?: Partial<
+      Pick<
+        Log,
+        | 'eventType'
+        | 'path'
+        | 'method'
+        | 'referrer'
+        | 'deviceType'
+        | 'browser'
+        | 'os'
+      >
+    >,
   ) {
     try {
       const ua = this.parseUserAgent(userAgent);
@@ -147,24 +176,39 @@ export class LogsService {
     if (!userAgent) return {};
     const ua = userAgent.toLowerCase();
 
-    const isBot = ua.includes('bot') || ua.includes('spider') || ua.includes('crawler');
-    const isMobile = ua.includes('mobile') || ua.includes('android') || ua.includes('iphone');
+    const isBot =
+      ua.includes('bot') || ua.includes('spider') || ua.includes('crawler');
+    const isMobile =
+      ua.includes('mobile') || ua.includes('android') || ua.includes('iphone');
     const isTablet = ua.includes('ipad') || ua.includes('tablet');
 
-    const deviceType = isBot ? 'bot' : isTablet ? 'tablet' : isMobile ? 'mobile' : 'desktop';
+    const deviceType = isBot
+      ? 'bot'
+      : isTablet
+        ? 'tablet'
+        : isMobile
+          ? 'mobile'
+          : 'desktop';
 
     let os = 'unknown';
     if (ua.includes('windows')) os = 'windows';
     else if (ua.includes('mac os') || ua.includes('macintosh')) os = 'macos';
     else if (ua.includes('android')) os = 'android';
-    else if (ua.includes('iphone') || ua.includes('ipad') || ua.includes('ios')) os = 'ios';
+    else if (ua.includes('iphone') || ua.includes('ipad') || ua.includes('ios'))
+      os = 'ios';
     else if (ua.includes('linux')) os = 'linux';
 
     let browser = 'unknown';
     if (ua.includes('edg/')) browser = 'edge';
-    else if (ua.includes('chrome/') && !ua.includes('chromium') && !ua.includes('edg/')) browser = 'chrome';
+    else if (
+      ua.includes('chrome/') &&
+      !ua.includes('chromium') &&
+      !ua.includes('edg/')
+    )
+      browser = 'chrome';
     else if (ua.includes('firefox/')) browser = 'firefox';
-    else if (ua.includes('safari/') && !ua.includes('chrome/')) browser = 'safari';
+    else if (ua.includes('safari/') && !ua.includes('chrome/'))
+      browser = 'safari';
 
     return { deviceType, browser, os };
   }
@@ -177,7 +221,7 @@ export class LogsService {
     startDate?: string,
     endDate?: string,
     context?: string,
-  ): Promise<Log[]> {
+  ): Promise<EnrichedLog[]> {
     const query = this.logRepository
       .createQueryBuilder('log')
       .orderBy('log.createdAt', 'DESC')
@@ -218,7 +262,44 @@ export class LogsService {
       query.where(conditions.join(' AND '), parameters);
     }
 
-    return await query.getMany();
+    const rows = await query.getMany();
+
+    const userIds = Array.from(
+      new Set(
+        rows
+          .map((r) => r.userId)
+          .filter(
+            (id): id is number => typeof id === 'number' && Number.isFinite(id),
+          ),
+      ),
+    );
+
+    const users = userIds.length
+      ? await this.userRepository.find({
+          where: { id: In(userIds) },
+          select: { id: true, firstName: true, lastName: true },
+        })
+      : [];
+
+    const fullNameById = new Map<number, string>();
+    for (const u of users) {
+      const fullName = `${u.firstName} ${u.lastName}`.trim();
+      fullNameById.set(u.id, fullName);
+    }
+
+    return rows.map((log) => {
+      const source = this.getAccessSourceFromUserAgent(log.userAgent);
+      const userFullName =
+        typeof log.userId === 'number'
+          ? fullNameById.get(log.userId)
+          : undefined;
+
+      return {
+        ...(log as any),
+        source,
+        userFullName,
+      } as EnrichedLog;
+    });
   }
 
   async getLogStats() {
@@ -252,16 +333,22 @@ export class LogsService {
       .orderBy('day', 'ASC')
       .getRawMany();
 
-    const dayMap = new Map<string, { date: string; logins: number; pageviews: number }>();
+    const dayMap = new Map<
+      string,
+      { date: string; logins: number; pageviews: number }
+    >();
     for (const r of dailyRows) {
       const d = new Date(r.day).toISOString().slice(0, 10);
       const current = dayMap.get(d) || { date: d, logins: 0, pageviews: 0 };
       const cnt = parseInt(r.count, 10) || 0;
       if (r.eventType === AnalyticsEventType.LOGIN) current.logins += cnt;
-      if (r.eventType === AnalyticsEventType.PAGE_VIEW) current.pageviews += cnt;
+      if (r.eventType === AnalyticsEventType.PAGE_VIEW)
+        current.pageviews += cnt;
       dayMap.set(d, current);
     }
-    const daily = Array.from(dayMap.values()).sort((a, b) => a.date.localeCompare(b.date));
+    const daily = Array.from(dayMap.values()).sort((a, b) =>
+      a.date.localeCompare(b.date),
+    );
 
     // Top routes
     const topRoutes = await this.logRepository
@@ -312,7 +399,15 @@ export class LogsService {
       .limit(10)
       .getRawMany();
 
-    return { since: since.toISOString(), days, daily, topRoutes, devices, browsers, os };
+    return {
+      since: since.toISOString(),
+      days,
+      daily,
+      topRoutes,
+      devices,
+      browsers,
+      os,
+    };
   }
 
   async getRecentAnalytics(limit: number) {

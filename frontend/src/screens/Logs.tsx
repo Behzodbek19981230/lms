@@ -15,6 +15,8 @@ interface Log {
   message: string;
   context?: string;
   userId?: number;
+  userFullName?: string;
+  source?: 'mobile' | 'web';
   userAgent?: string;
   ip?: string;
   createdAt: string;
@@ -149,14 +151,15 @@ const Logs: React.FC = () => {
             variant="outline"
             onClick={() => {
               const csvContent = [
-                ['ID', 'Level', 'Message', 'Context', 'User ID', 'User Agent', 'IP', 'Created At'].join(','),
+                ['ID', 'Level', 'Source', 'Message', 'Context', 'User', 'User Agent', 'IP', 'Created At'].join(','),
                 ...logs.map((log) =>
                   [
                     log.id,
                     log.level,
+                    log.source || '',
                     `"${log.message.replace(/"/g, '""')}"`,
                     log.context || '',
-                    log.userId || '',
+                    `"${(log.userFullName || (log.userId != null ? String(log.userId) : '')).replace(/"/g, '""')}"`,
                     `"${(log.userAgent || '').replace(/"/g, '""')}"`,
                     log.ip || '',
                     log.createdAt,
@@ -389,7 +392,16 @@ const Logs: React.FC = () => {
                       {getLevelIcon(log.level)}
                       <Badge variant={getLevelBadgeVariant(log.level)}>{log.level.toUpperCase()}</Badge>
                       {log.context && <Badge variant="outline" className="text-xs">{log.context}</Badge>}
-                      {log.userId && <Badge variant="secondary" className="text-xs">User: {log.userId}</Badge>}
+                      {log.source && (
+                        <Badge variant="outline" className="text-xs">
+                          {log.source === 'mobile' ? 'Mobil' : 'Web'}
+                        </Badge>
+                      )}
+                      {(log.userFullName || log.userId != null) && (
+                        <Badge variant="secondary" className="text-xs">
+                          User: {log.userFullName || log.userId}
+                        </Badge>
+                      )}
                     </div>
                     <span className="text-sm text-muted-foreground whitespace-nowrap ml-4">
                       {formatDate(log.createdAt)}

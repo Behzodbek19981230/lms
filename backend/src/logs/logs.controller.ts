@@ -7,6 +7,7 @@ import {
 } from '@nestjs/swagger';
 import { LogsService } from './logs.service';
 import { Log, LogLevel } from './entities/log.entity';
+import type { EnrichedLog } from './logs.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -35,7 +36,7 @@ export class LogsController {
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,
     @Query('context') context?: string,
-  ): Promise<Log[]> {
+  ): Promise<EnrichedLog[]> {
     const limitNum = limit ? parseInt(limit, 10) : 100;
     const offsetNum = offset ? parseInt(offset, 10) : 0;
     return this.logsService.findAll(

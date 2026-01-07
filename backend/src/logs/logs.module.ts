@@ -6,9 +6,10 @@ import { CustomLogger } from './custom-logger';
 import { Log } from './entities/log.entity';
 import { AnalyticsController } from './analytics.controller';
 import { AnalyticsAdminController } from './analytics-admin.controller';
+import { User } from '../users/entities/user.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Log])],
+  imports: [TypeOrmModule.forFeature([Log, User])],
   controllers: [LogsController, AnalyticsController, AnalyticsAdminController],
   providers: [LogsService, CustomLogger],
   exports: [LogsService, CustomLogger],
