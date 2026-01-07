@@ -3,7 +3,7 @@ import {
   NotFoundException,
   BadRequestException,
 } from '@nestjs/common';
-import type { Repository } from 'typeorm';
+import { QueryFailedError, type Repository } from 'typeorm';
 import { User, UserRole } from './entities/user.entity';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Center } from 'src/centers/entities/center.entity';
@@ -195,12 +195,34 @@ export class UsersService {
     };
   }
 
-  async remove(id: number): Promise<void> {
+  async remove(id: number): Promise<{ message: string }> {
     const user = await this.findOne(id);
-    if (!user) {
-      throw new NotFoundException('User not found');
-    }
 
-    await this.userRepository.remove(user);
+    try {
+      await this.userRepository.remove(user);
+      return { message: 'User deleted successfully' };
+    } catch (err: unknown) {
+      // If the user is referenced by other records (payments, attendance, tests, etc.),
+      // a hard delete will fail with a FK constraint violation. In that case, fall back
+      // to a safe deactivation instead of returning a 500.
+      const driverCode =
+        err instanceof QueryFailedError
+          ? ((err as any).driverError?.code ?? (err as any).code)
+          : undefined;
+
+      // Postgres foreign key violation is 23503
+      const isForeignKeyViolation = driverCode === '23503';
+
+      if (isForeignKeyViolation) {
+        user.isActive = false;
+        await this.userRepository.save(user);
+        return {
+          message:
+            'User has related records and was deactivated instead of deleted',
+        };
+      }
+
+      throw err;
+    }
   }
 }

@@ -288,8 +288,7 @@ export class UsersController {
       }
     }
 
-    await this.usersService.remove(+id);
-    return { message: 'User deleted successfully' };
+    return this.usersService.remove(+id);
   }
 
   @Get('me')
