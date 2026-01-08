@@ -95,10 +95,14 @@ const studentMenuItems = [
 ];
 
 export function DashboardSidebar() {
-	const { state, toggleSidebar } = useSidebar();
+	const { state, toggleSidebar, isMobile, setOpenMobile } = useSidebar();
 	const pathname = usePathname();
 	const { user } = useAuth();
 	const currentPath = pathname || '/';
+
+	const closeMobileSidebar = () => {
+		if (isMobile) setOpenMobile(false);
+	};
 
 	const isActive = (path: string) => {
 		if (!path) return false;
@@ -198,6 +202,7 @@ export function DashboardSidebar() {
 											) : (
 												<Link
 													href={item.url}
+													onClick={closeMobileSidebar}
 													className={`
                                                         flex items-center gap-3 w-full px-4 py-2.5 rounded-md transition-all duration-200
                                                         ${
@@ -225,6 +230,7 @@ export function DashboardSidebar() {
 														<SidebarMenuSubButton asChild>
 															<Link
 																href={child.url}
+																				onClick={closeMobileSidebar}
 																className={`
                                                                     flex items-center px-4 py-2 rounded-md transition-all duration-200 text-sm
                                                                     ${

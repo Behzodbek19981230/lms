@@ -206,7 +206,7 @@ export default function TasksPage() {
 								<CardTitle className='text-lg'>Statistika</CardTitle>
 							</CardHeader>
 							<CardContent>
-								<div className='grid grid-cols-2 gap-4'>
+								<div className='grid grid-cols-1 sm:grid-cols-2 gap-4'>
 									<div className='text-center'>
 										<div className='flex items-center justify-center mb-1'>
 											<span className='font-semibold text-green-600'>{doneCount}</span>

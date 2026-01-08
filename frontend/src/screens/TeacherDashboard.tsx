@@ -129,12 +129,12 @@ export default function TeacherDashboard() {
 							{subjects.map((res) => res.name).join(', ') || user?.center?.name || ''}
 						</p>
 					</div>
-					<div className='flex items-center space-x-4'>
-						<Button variant='outline' size='sm'>
+					<div className='flex flex-wrap items-center gap-2 w-full sm:w-auto'>
+						<Button variant='outline' size='sm' className='w-full sm:w-auto'>
 							<Bell className='h-4 w-4 mr-2' />
 							Bildirishnomalar
 						</Button>
-						<Button variant='hero'>
+						<Button variant='hero' className='w-full sm:w-auto'>
 							<Plus className='h-4 w-4 mr-2' />
 							Yangi dars
 						</Button>

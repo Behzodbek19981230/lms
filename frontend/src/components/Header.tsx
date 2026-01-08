@@ -10,12 +10,11 @@ import { useAuth } from '@/contexts/AuthContext';
 const Header = () => {
 	const [isMenuOpen, setIsMenuOpen] = useState(false);
 	const router = useRouter();
-	const { user } = useAuth();
+	const { user, logout } = useAuth();
 
 	const handleLogout = () => {
-		localStorage.removeItem('token');
-		localStorage.removeItem('EduOne_user');
-		router.push('/login');
+		logout();
+		setIsMenuOpen(false);
 	};
 
 	return (

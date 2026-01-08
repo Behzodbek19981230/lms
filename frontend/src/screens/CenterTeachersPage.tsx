@@ -380,20 +380,20 @@ export default function CenterTeachersPage() {
 					<CardTitle>O'qituvchilar ro'yxati</CardTitle>
 				</CardHeader>
 				<CardContent>
-					<div className='flex items-center justify-between mb-4'>
-						<div className='flex items-center space-x-2'>
+					<div className='flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4'>
+						<div className='flex flex-col sm:flex-row sm:items-center gap-2 w-full'>
 							<div className='relative'>
 								<Search className='absolute left-2 top-2.5 h-4 w-4 text-muted-foreground' />
 								<Input
 									placeholder="O'qituvchi qidirish..."
 									value={searchTerm}
 									onChange={(e) => setSearchTerm(e.target.value)}
-									className='pl-8 w-[300px]'
+									className='pl-8 w-full sm:w-[300px]'
 								/>
 							</div>
 
 							<Select value={statusFilter} onValueChange={setStatusFilter}>
-								<SelectTrigger className='w-[180px]'>
+								<SelectTrigger className='w-full sm:w-[180px]'>
 									<SelectValue placeholder='Holatni tanlang' />
 								</SelectTrigger>
 								<SelectContent>
@@ -404,14 +404,14 @@ export default function CenterTeachersPage() {
 							</Select>
 						</div>
 
-						<Button variant='outline' onClick={handleExport}>
+						<Button variant='outline' onClick={handleExport} className='w-full sm:w-auto'>
 							<Download className='h-4 w-4 mr-2' />
 							Export
 						</Button>
 					</div>
 
 					{/* Teachers Table */}
-					<div className='rounded-md border'>
+					<div className='w-full overflow-x-auto rounded-md border'>
 						<Table>
 							<TableHeader>
 								<TableRow>
@@ -590,7 +590,7 @@ export default function CenterTeachersPage() {
 					{selectedTeacher && (
 						<div className='space-y-6'>
 							{/* Basic Info */}
-							<div className='grid grid-cols-2 gap-4'>
+							<div className='grid grid-cols-1 sm:grid-cols-2 gap-4'>
 								<div>
 									<label className='text-sm font-medium'>Ism</label>
 									<p className='text-sm text-muted-foreground'>{selectedTeacher.firstName}</p>

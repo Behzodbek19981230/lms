@@ -821,10 +821,10 @@ const TeacherPayments: React.FC = () => {
 							Qarzdorliklarni oy bo‘yicha belgilab, qisman to‘lov kiritish mumkin.
 						</p>
 					</div>
-					<div className='flex items-center gap-2'>
+					<div className='flex flex-col sm:flex-row sm:items-center gap-2 w-full sm:w-auto'>
 						<span className='text-sm text-muted-foreground'>Oy</span>
 						<Select value={billingMonth} onValueChange={(value) => setBillingMonth(value)}>
-							<SelectTrigger className='w-[180px]'>
+							<SelectTrigger className='w-full sm:w-[180px]'>
 								<SelectValue placeholder='Oy tanlang'>
 									{billingMonth
 										? format(parse(billingMonth + '-01', 'yyyy-MM-dd', new Date()), 'MMMM yyyy', {

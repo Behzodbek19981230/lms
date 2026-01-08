@@ -715,7 +715,7 @@ export default function ExamsPage() {
 							/>
 						</div>
 
-						<div className='grid grid-cols-2 gap-4'>
+						<div className='grid grid-cols-1 sm:grid-cols-2 gap-4'>
 							<div>
 								<Label htmlFor='type'>Imtihon turi</Label>
 								<Select
@@ -749,7 +749,7 @@ export default function ExamsPage() {
 							</div>
 						</div>
 
-						<div className='grid grid-cols-2 gap-4'>
+						<div className='grid grid-cols-1 sm:grid-cols-2 gap-4'>
 							<div>
 								<Label htmlFor='examDate'>Imtihon sanasi</Label>
 								<Input
