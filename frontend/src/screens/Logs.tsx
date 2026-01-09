@@ -66,7 +66,7 @@ const Logs: React.FC = () => {
       setLogs(res?.data);
       setLastRefresh(new Date());
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred');
+      setError(err instanceof Error ? err.message : 'Xatolik yuz berdi');
     } finally {
       setLoading(false);
     }
@@ -135,23 +135,23 @@ const Logs: React.FC = () => {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">System Logs</h1>
+          <h1 className="text-3xl font-bold">Tizim loglari</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Last updated: {lastRefresh.toLocaleTimeString('uz-UZ')}
+            Oxirgi yangilanish: {lastRefresh.toLocaleTimeString('uz-UZ')}
             {autoRefresh && (
-              <span className="ml-2 text-green-600">• Auto-refresh enabled (30s)</span>
+              <span className="ml-2 text-green-600">• Avto-yangilash yoqilgan (30s)</span>
             )}
           </p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={() => setAutoRefresh(!autoRefresh)}>
-            {autoRefresh ? 'Disable' : 'Enable'} Auto-refresh
+            {autoRefresh ? "O'chirish" : 'Yoqish'} avto-yangilash
           </Button>
           <Button
             variant="outline"
             onClick={() => {
               const csvContent = [
-                ['ID', 'Level', 'Source', 'Message', 'Context', 'User', 'User Agent', 'IP', 'Created At'].join(','),
+                ['ID', 'Daraja', 'Manba', 'Xabar', 'Kontekst', 'Foydalanuvchi', 'User-Agent', 'IP', 'Yaratilgan sana'].join(','),
                 ...logs.map((log) =>
                   [
                     log.id,
@@ -177,11 +177,11 @@ const Logs: React.FC = () => {
             }}
             disabled={logs.length === 0}
           >
-            Export CSV
+            CSV eksport
           </Button>
           <Button onClick={() => { fetchLogs(); fetchStats(); setLastRefresh(new Date()); }} disabled={loading}>
             <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-            Refresh
+            Yangilash
           </Button>
         </div>
       </div>
@@ -191,7 +191,7 @@ const Logs: React.FC = () => {
         {/* Total Logs */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Logs</CardTitle>
+            <CardTitle className="text-sm font-medium">Jami loglar</CardTitle>
             <Info className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -204,7 +204,7 @@ const Logs: React.FC = () => {
         {/* Errors */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Errors</CardTitle>
+            <CardTitle className="text-sm font-medium">Xatolar</CardTitle>
             <AlertCircle className="h-4 w-4 text-red-500" />
           </CardHeader>
           <CardContent>
@@ -215,7 +215,7 @@ const Logs: React.FC = () => {
         {/* Warnings */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Warnings</CardTitle>
+            <CardTitle className="text-sm font-medium">Ogohlantirishlar</CardTitle>
             <AlertTriangle className="h-4 w-4 text-yellow-500" />
           </CardHeader>
           <CardContent>
@@ -237,7 +237,7 @@ const Logs: React.FC = () => {
         {/* Info */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Info</CardTitle>
+            <CardTitle className="text-sm font-medium">Ma'lumot</CardTitle>
             <Info className="h-4 w-4 text-gray-500" />
           </CardHeader>
           <CardContent>
@@ -251,7 +251,7 @@ const Logs: React.FC = () => {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Filter className="h-5 w-5" />
-            Filters
+            Filtrlar
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -259,28 +259,28 @@ const Logs: React.FC = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <Label htmlFor="search" className="flex items-center gap-2">
-                <Search className="h-4 w-4" /> Search in logs
+                <Search className="h-4 w-4" /> Loglarda qidirish
               </Label>
               <Input
                 id="search"
                 type="text"
-                placeholder="Search messages, context, or user info..."
+                placeholder="Xabar, kontekst yoki foydalanuvchi bo'yicha qidirish..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
             </div>
 
             <div>
-              <Label htmlFor="context">Context/Service</Label>
+              <Label htmlFor="context">Kontekst/Xizmat</Label>
               <Select value={context || undefined} onValueChange={setContext}>
                 <SelectTrigger>
-                  <SelectValue placeholder="All contexts" />
+                  <SelectValue placeholder="Barcha kontekstlar" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="TelegramService">Telegram Service</SelectItem>
-                  <SelectItem value="UsersService">Users Service</SelectItem>
-                  <SelectItem value="AuthService">Auth Service</SelectItem>
-                  <SelectItem value="Application">Application</SelectItem>
+                  <SelectItem value="TelegramService">Telegram xizmati</SelectItem>
+                  <SelectItem value="UsersService">Foydalanuvchilar xizmati</SelectItem>
+                  <SelectItem value="AuthService">Auth xizmati</SelectItem>
+                  <SelectItem value="Application">Ilova</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -290,33 +290,33 @@ const Logs: React.FC = () => {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div>
               <Label htmlFor="startDate" className="flex items-center gap-2">
-                <Calendar className="h-4 w-4" /> Start Date
+                <Calendar className="h-4 w-4" /> Boshlanish sana
               </Label>
               <Input id="startDate" type="datetime-local" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
             </div>
             <div>
               <Label htmlFor="endDate" className="flex items-center gap-2">
-                <Calendar className="h-4 w-4" /> End Date
+                <Calendar className="h-4 w-4" /> Tugash sana
               </Label>
               <Input id="endDate" type="datetime-local" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
             </div>
             <div>
-              <Label htmlFor="level">Log Level</Label>
+              <Label htmlFor="level">Log darajasi</Label>
               <Select value={level || undefined} onValueChange={setLevel}>
                 <SelectTrigger>
-                  <SelectValue placeholder="All levels" />
+                  <SelectValue placeholder="Barcha darajalar" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="error">Error</SelectItem>
-                  <SelectItem value="warn">Warning</SelectItem>
-                  <SelectItem value="log">Info</SelectItem>
+                  <SelectItem value="error">Xato</SelectItem>
+                  <SelectItem value="warn">Ogohlantirish</SelectItem>
+                  <SelectItem value="log">Ma'lumot</SelectItem>
                   <SelectItem value="debug">Debug</SelectItem>
-                  <SelectItem value="verbose">Verbose</SelectItem>
+                  <SelectItem value="verbose">Batafsil</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div>
-              <Label htmlFor="limit">Results per page</Label>
+              <Label htmlFor="limit">Sahifadagi natijalar</Label>
               <Select value={limit.toString()} onValueChange={(value) => setLimit(parseInt(value))}>
                 <SelectTrigger>
                   <SelectValue />
@@ -344,10 +344,10 @@ const Logs: React.FC = () => {
                 setOffset(0);
               }}
             >
-              Clear All Filters
+              Barcha filterlarni tozalash
             </Button>
             <Button onClick={fetchLogs} disabled={loading}>
-              Apply Filters
+              Filterlarni qo'llash
             </Button>
           </div>
         </CardContent>
@@ -365,9 +365,9 @@ const Logs: React.FC = () => {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center justify-between">
-            <span>Recent Logs</span>
+            <span>So'nggi loglar</span>
             <div className="text-sm text-muted-foreground">
-              Showing {logs.length} logs (Page {Math.floor(offset / limit) + 1})
+              Ko'rsatilmoqda {logs.length} log (Sahifa {Math.floor(offset / limit) + 1})
             </div>
           </CardTitle>
         </CardHeader>
@@ -375,13 +375,13 @@ const Logs: React.FC = () => {
           {loading ? (
             <div className="flex items-center justify-center py-8">
               <Loader2 className="h-8 w-8 animate-spin" />
-              <span className="ml-2">Loading logs...</span>
+              <span className="ml-2">Loglar yuklanmoqda...</span>
             </div>
           ) : logs.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
               <Info className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <p className="text-lg font-medium">No logs found</p>
-              <p className="text-sm">Try adjusting your filters or check back later</p>
+              <p className="text-lg font-medium">Loglar topilmadi</p>
+              <p className="text-sm">Filterlarni o'zgartiring yoki keyinroq qayta urinib ko'ring</p>
             </div>
           ) : (
             <div className="space-y-4">
@@ -399,7 +399,7 @@ const Logs: React.FC = () => {
                       )}
                       {(log.userFullName || log.userId != null) && (
                         <Badge variant="secondary" className="text-xs">
-                          User: {log.userFullName || log.userId}
+                          Foydalanuvchi: {log.userFullName || log.userId}
                         </Badge>
                       )}
                     </div>
@@ -414,7 +414,7 @@ const Logs: React.FC = () => {
                   </div>
                   <div className="flex items-center justify-between text-xs text-muted-foreground">
                     <div className="flex items-center space-x-4">
-                      {log.userAgent && <span title={log.userAgent}>Browser: {log.userAgent.substring(0, 50)}...</span>}
+                      {log.userAgent && <span title={log.userAgent}>Brauzer: {log.userAgent.substring(0, 50)}...</span>}
                       {log.ip && <span>IP: {log.ip}</span>}
                     </div>
                     <span>ID: {log.id}</span>
@@ -423,7 +423,7 @@ const Logs: React.FC = () => {
               ))}
               <div className="flex items-center justify-between pt-4 border-t">
                 <div className="text-sm text-muted-foreground">
-                  Page {Math.floor(offset / limit) + 1} of results
+                  Natijalar sahifasi: {Math.floor(offset / limit) + 1}
                 </div>
                 <div className="flex space-x-2">
                   <Button
@@ -432,7 +432,7 @@ const Logs: React.FC = () => {
                     onClick={() => setOffset(Math.max(0, offset - limit))}
                     disabled={offset === 0 || loading}
                   >
-                    Previous
+                    Oldingi
                   </Button>
                   <Button
                     variant="outline"
@@ -440,7 +440,7 @@ const Logs: React.FC = () => {
                     onClick={() => setOffset(offset + limit)}
                     disabled={logs.length < limit || loading}
                   >
-                    Next
+                    Keyingi
                   </Button>
                 </div>
               </div>

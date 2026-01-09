@@ -161,7 +161,7 @@ const TelegramAuthWidget: React.FC<TelegramAuthWidgetProps> = ({
 				<CardHeader>
 					<CardTitle className='flex items-center space-x-2'>
 						<MessageCircle className='h-5 w-5 text-blue-500' />
-						<span>Telegram Integration</span>
+						<span>Telegram integratsiyasi</span>
 					</CardTitle>
 					<CardDescription>
 						Telegram hisobingizni LMS ga bog'lang va xabarlarni avtomatik oling
@@ -188,7 +188,7 @@ const TelegramAuthWidget: React.FC<TelegramAuthWidgetProps> = ({
 										{telegramUser?.first_name} {telegramUser?.last_name || ''}
 									</p>
 									<p className='text-sm text-muted-foreground'>
-										{telegramUser?.username ? `@${telegramUser.username}` : 'Username not set'}
+										{telegramUser?.username ? `@${telegramUser.username}` : 'Username belgilanmagan'}
 									</p>
 								</div>
 							</div>

@@ -44,7 +44,7 @@ const TelegramStats: React.FC<TelegramStatsProps> = ({ testId, autoRefresh = fal
 			setStats(testStats);
 			setLastUpdated(new Date());
 		} catch (err: any) {
-			setError(err?.response?.data?.message || 'Failed to load statistics');
+			setError(err?.response?.data?.message || "Statistikani yuklab bo'lmadi");
 		} finally {
 			setLoading(false);
 		}
@@ -60,7 +60,7 @@ const TelegramStats: React.FC<TelegramStatsProps> = ({ testId, autoRefresh = fal
 				<CardContent className='p-6'>
 					<div className='flex items-center justify-center space-x-2'>
 						<RefreshCw className='h-4 w-4 animate-spin' />
-						<span>Loading statistics...</span>
+						<span>Statistika yuklanmoqda...</span>
 					</div>
 				</CardContent>
 			</Card>
@@ -74,12 +74,12 @@ const TelegramStats: React.FC<TelegramStatsProps> = ({ testId, autoRefresh = fal
 					<div className='text-center space-y-4'>
 						<XCircle className='h-12 w-12 text-red-500 mx-auto' />
 						<div>
-							<p className='font-medium'>Failed to load statistics</p>
+							<p className='font-medium'>Statistikani yuklab bo'lmadi</p>
 							<p className='text-sm text-muted-foreground'>{error}</p>
 						</div>
 						<Button onClick={handleRefresh} variant='outline'>
 							<RefreshCw className='h-4 w-4 mr-2' />
-							Try Again
+							Qayta urinish
 						</Button>
 					</div>
 				</CardContent>
@@ -92,8 +92,8 @@ const TelegramStats: React.FC<TelegramStatsProps> = ({ testId, autoRefresh = fal
 			<Card className='w-full'>
 				<CardContent className='p-8 text-center'>
 					<BarChart3 className='h-12 w-12 text-muted-foreground mx-auto mb-4' />
-					<p className='text-lg font-medium'>No statistics available</p>
-					<p className='text-muted-foreground'>Statistics will appear once students start answering</p>
+					<p className='text-lg font-medium'>Statistika mavjud emas</p>
+					<p className='text-muted-foreground'>O'quvchilar javob berishni boshlaganda statistika ko'rinadi</p>
 				</CardContent>
 			</Card>
 		);
@@ -115,13 +115,13 @@ const TelegramStats: React.FC<TelegramStatsProps> = ({ testId, autoRefresh = fal
 		}));
 
 	const accuracyDistribution = [
-		{ name: 'Correct', value: stats.correctAnswers, color: '#22c55e' },
-		{ name: 'Incorrect', value: stats.totalAnswers - stats.correctAnswers, color: '#ef4444' },
+		{ name: "To'g'ri", value: stats.correctAnswers, color: '#22c55e' },
+		{ name: "Noto'g'ri", value: stats.totalAnswers - stats.correctAnswers, color: '#ef4444' },
 	];
 
 	const completionData = [
-		{ name: 'Completed', value: stats.studentResults.length, color: '#3b82f6' },
-		{ name: 'Pending', value: stats.totalStudents - stats.studentResults.length, color: '#94a3b8' },
+		{ name: 'Yakunlangan', value: stats.studentResults.length, color: '#3b82f6' },
+		{ name: 'Kutilmoqda', value: stats.totalStudents - stats.studentResults.length, color: '#94a3b8' },
 	];
 
 	return (
@@ -133,19 +133,19 @@ const TelegramStats: React.FC<TelegramStatsProps> = ({ testId, autoRefresh = fal
 						<div>
 							<CardTitle className='flex items-center space-x-2'>
 								<BarChart3 className='h-5 w-5' />
-								<span>Test Statistics</span>
+								<span>Test statistikasi</span>
 							</CardTitle>
-							<CardDescription>Real-time analysis of Test #{testId} responses</CardDescription>
+							<CardDescription>Test #{testId} javoblarining real vaqt tahlili</CardDescription>
 						</div>
 						<div className='flex items-center space-x-2'>
 							{lastUpdated && (
 								<span className='text-sm text-muted-foreground'>
-									Updated: {lastUpdated.toLocaleTimeString()}
+									Yangilandi: {lastUpdated.toLocaleTimeString()}
 								</span>
 							)}
 							<Button variant='outline' size='sm' onClick={handleRefresh} disabled={loading}>
 								<RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-								Refresh
+								Yangilash
 							</Button>
 						</div>
 					</div>
@@ -156,25 +156,25 @@ const TelegramStats: React.FC<TelegramStatsProps> = ({ testId, autoRefresh = fal
 			<div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6'>
 				<Card>
 					<CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
-						<CardTitle className='text-sm font-medium'>Completion Rate</CardTitle>
+						<CardTitle className='text-sm font-medium'>Yakunlash foizi</CardTitle>
 						<Users className='h-4 w-4 text-muted-foreground' />
 					</CardHeader>
 					<CardContent>
 						<div className='text-2xl font-bold'>{completionRate}%</div>
-						<p className='text-xs text-muted-foreground'>{formattedStats.completion} students</p>
+						<p className='text-xs text-muted-foreground'>{formattedStats.completion} o'quvchi</p>
 						<Progress value={completionRate} className='mt-2' />
 					</CardContent>
 				</Card>
 
 				<Card>
 					<CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
-						<CardTitle className='text-sm font-medium'>Accuracy Rate</CardTitle>
+						<CardTitle className='text-sm font-medium'>Aniqlik darajasi</CardTitle>
 						<Target className='h-4 w-4 text-muted-foreground' />
 					</CardHeader>
 					<CardContent>
 						<div className='text-2xl font-bold'>{formattedStats.accuracy}</div>
 						<p className='text-xs text-muted-foreground'>
-							{stats.correctAnswers}/{stats.totalAnswers} correct
+							{stats.correctAnswers}/{stats.totalAnswers} to'g'ri
 						</p>
 						<Progress value={stats.accuracy} className='mt-2' />
 					</CardContent>
@@ -182,23 +182,23 @@ const TelegramStats: React.FC<TelegramStatsProps> = ({ testId, autoRefresh = fal
 
 				<Card>
 					<CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
-						<CardTitle className='text-sm font-medium'>Average Score</CardTitle>
+						<CardTitle className='text-sm font-medium'>O'rtacha ball</CardTitle>
 						<TrendingUp className='h-4 w-4 text-muted-foreground' />
 					</CardHeader>
 					<CardContent>
 						<div className='text-2xl font-bold'>{formattedStats.avgScore}</div>
-						<p className='text-xs text-muted-foreground'>points per student</p>
+						<p className='text-xs text-muted-foreground'>ball / o'quvchi</p>
 					</CardContent>
 				</Card>
 
 				<Card>
 					<CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
-						<CardTitle className='text-sm font-medium'>Top Performer</CardTitle>
+						<CardTitle className='text-sm font-medium'>Eng yaxshi natija</CardTitle>
 						<Trophy className='h-4 w-4 text-muted-foreground' />
 					</CardHeader>
 					<CardContent>
-						<div className='text-lg font-bold truncate'>{formattedStats.topPerformer || 'N/A'}</div>
-						<p className='text-xs text-muted-foreground'>highest score</p>
+						<div className='text-lg font-bold truncate'>{formattedStats.topPerformer || 'Mavjud emas'}</div>
+						<p className='text-xs text-muted-foreground'>eng yuqori ball</p>
 					</CardContent>
 				</Card>
 			</div>
@@ -209,9 +209,9 @@ const TelegramStats: React.FC<TelegramStatsProps> = ({ testId, autoRefresh = fal
 				{performanceData.length > 0 && (
 					<Card>
 						<CardHeader>
-							<CardTitle>Student Performance</CardTitle>
+							<CardTitle>O'quvchi natijalari</CardTitle>
 							<CardDescription>
-								Top {Math.min(performanceData.length, 10)} performers by score
+								Ball bo'yicha top {Math.min(performanceData.length, 10)} o'quvchi
 							</CardDescription>
 						</CardHeader>
 						<CardContent>
@@ -221,8 +221,8 @@ const TelegramStats: React.FC<TelegramStatsProps> = ({ testId, autoRefresh = fal
 									<XAxis dataKey='name' angle={-45} textAnchor='end' height={80} fontSize={12} />
 									<YAxis />
 									<Tooltip
-										formatter={(value, name) => [value, name === 'score' ? 'Score' : 'Percentage']}
-										labelFormatter={(label) => `Student: ${label}`}
+										formatter={(value, name) => [value, name === 'score' ? 'Ball' : 'Foiz']}
+										labelFormatter={(label) => `O'quvchi: ${label}`}
 									/>
 									<Bar dataKey='score' fill='#3b82f6' name='score' />
 								</BarChart>
@@ -234,8 +234,8 @@ const TelegramStats: React.FC<TelegramStatsProps> = ({ testId, autoRefresh = fal
 				{/* Accuracy Distribution */}
 				<Card>
 					<CardHeader>
-						<CardTitle>Answer Distribution</CardTitle>
-						<CardDescription>Overall accuracy across all responses</CardDescription>
+						<CardTitle>Javoblar taqsimoti</CardTitle>
+						<CardDescription>Barcha javoblar bo'yicha umumiy aniqlik</CardDescription>
 					</CardHeader>
 					<CardContent>
 						<ResponsiveContainer width='100%' height={300}>
@@ -267,20 +267,20 @@ const TelegramStats: React.FC<TelegramStatsProps> = ({ testId, autoRefresh = fal
 			{stats.studentResults.length > 0 && (
 				<Card>
 					<CardHeader>
-						<CardTitle>Detailed Results</CardTitle>
-						<CardDescription>Individual student performance breakdown</CardDescription>
+						<CardTitle>Batafsil natijalar</CardTitle>
+						<CardDescription>Har bir o'quvchi bo'yicha natijalar tafsiloti</CardDescription>
 					</CardHeader>
 					<CardContent>
 						<div className='overflow-x-auto'>
 							<table className='w-full table-auto'>
 								<thead>
 									<tr className='border-b'>
-										<th className='text-left py-2 px-3'>Student</th>
-										<th className='text-center py-2 px-3'>Questions</th>
-										<th className='text-center py-2 px-3'>Correct</th>
-										<th className='text-center py-2 px-3'>Accuracy</th>
-										<th className='text-center py-2 px-3'>Score</th>
-										<th className='text-center py-2 px-3'>Status</th>
+										<th className='text-left py-2 px-3'>O'quvchi</th>
+										<th className='text-center py-2 px-3'>Savollar</th>
+										<th className='text-center py-2 px-3'>To'g'ri</th>
+										<th className='text-center py-2 px-3'>Aniqlik</th>
+										<th className='text-center py-2 px-3'>Ball</th>
+										<th className='text-center py-2 px-3'>Holat</th>
 									</tr>
 								</thead>
 								<tbody>
@@ -327,23 +327,23 @@ const TelegramStats: React.FC<TelegramStatsProps> = ({ testId, autoRefresh = fal
 			{/* Summary Card */}
 			<Card>
 				<CardHeader>
-					<CardTitle>Summary</CardTitle>
+					<CardTitle>Umumiy</CardTitle>
 				</CardHeader>
 				<CardContent>
 					<div className='grid grid-cols-1 md:grid-cols-3 gap-4 text-center'>
 						<div className='p-4 border rounded-lg'>
 							<div className='text-2xl font-bold text-blue-600'>{stats.totalStudents}</div>
-							<p className='text-sm text-muted-foreground'>Total Students</p>
+							<p className='text-sm text-muted-foreground'>Jami o'quvchilar</p>
 						</div>
 						<div className='p-4 border rounded-lg'>
 							<div className='text-2xl font-bold text-green-600'>{stats.totalAnswers}</div>
-							<p className='text-sm text-muted-foreground'>Total Responses</p>
+							<p className='text-sm text-muted-foreground'>Jami javoblar</p>
 						</div>
 						<div className='p-4 border rounded-lg'>
 							<div className='text-2xl font-bold text-purple-600'>
 								{stats.studentResults.length > 0 ? stats.studentResults.length : 0}
 							</div>
-							<p className='text-sm text-muted-foreground'>Students Completed</p>
+							<p className='text-sm text-muted-foreground'>Yakunlagan o'quvchilar</p>
 						</div>
 					</div>
 				</CardContent>

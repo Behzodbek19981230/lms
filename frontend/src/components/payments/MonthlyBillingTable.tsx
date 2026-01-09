@@ -719,8 +719,140 @@ export default function MonthlyBillingTable({
 				</DialogContent>
 			</Dialog>
 
-			<Card className='p-0 overflow-hidden'>
-				<div className='w-full overflow-x-auto'>
+			<>
+				{/* Mobile list/cards */}
+				<div className='md:hidden  space-y-3'>
+					{ledger.length === 0 ? (
+						<Card className='p-4'>
+							<div className='text-sm text-muted-foreground'>O'quvchilar topilmadi</div>
+						</Card>
+					) : (
+						ledger.map((row) => {
+							const mp = row.monthlyPayment;
+							const due = mp?.amountDue ?? 0;
+							const paid = mp?.amountPaid ?? 0;
+							const remain = Math.max(0, Number(due) - Number(paid));
+							const status = mp?.status || (remain > 0 ? 'pending' : 'paid');
+
+							return (
+								<Card key={`${row.student.id}-${row.group.id}`} className='p-4'>
+									<div className='flex items-start justify-between gap-3'>
+										<div className='min-w-0'>
+											<div className='font-medium truncate'>
+												{row.student.firstName} {row.student.lastName}
+											</div>
+											<div className='text-xs text-muted-foreground truncate'>@{row.student.username}</div>
+										</div>
+										<div className='shrink-0'>{statusBadge(status)}</div>
+									</div>
+
+									<div className='mt-3 space-y-2 text-sm'>
+										<div>
+											<span className='text-muted-foreground'>Guruh:</span>{' '}
+											<span className='font-medium'>{row.group.name}</span>
+											{row.group.subject ? (
+												<span className='text-muted-foreground'> • {row.group.subject.name}</span>
+											) : null}
+										</div>
+										{row.group.teacher ? (
+											<div className='text-xs text-muted-foreground'>
+												O‘qituvchi: {row.group.teacher.firstName} {row.group.teacher.lastName}
+											</div>
+										) : null}
+
+										<div className='grid grid-cols-2 gap-2 pt-1'>
+											<div>
+												<div className='text-xs text-muted-foreground'>Qo‘shilgan</div>
+												<div className='font-medium'>{String(row.profile.joinDate).slice(0, 10)}</div>
+											</div>
+											<div>
+												<div className='text-xs text-muted-foreground'>Oylik</div>
+												<div className='font-medium'>
+													{Number(row.profile.monthlyAmount || 0).toLocaleString('uz-UZ')} UZS
+												</div>
+											</div>
+
+											<div>
+												<div className='text-xs text-muted-foreground'>Muddat</div>
+												<div className='font-medium'>
+													{mp?.dueDate ? format(new Date(mp.dueDate), 'dd MMM yyyy', { locale: uz }) : '-'}
+												</div>
+											</div>
+											<div>
+												<div className='text-xs text-muted-foreground'>Jami summa</div>
+												<div className='font-medium'>{Number(due).toLocaleString('uz-UZ')} UZS</div>
+											</div>
+
+											<div>
+												<div className='text-xs text-muted-foreground'>To‘langan</div>
+												<div className='font-medium'>{Number(paid).toLocaleString('uz-UZ')} UZS</div>
+											</div>
+											<div>
+												<div className='text-xs text-muted-foreground'>Qoldiq</div>
+												<div className={remain > 0 ? 'font-semibold text-red-600' : 'font-medium text-green-700'}>
+													{Number(remain).toLocaleString('uz-UZ')} UZS
+												</div>
+											</div>
+										</div>
+									</div>
+
+									<div className='mt-3 flex items-center justify-end gap-2'>
+										{!isTeacher ? (
+											<DropdownMenu>
+												<DropdownMenuTrigger asChild>
+													<Button variant='outline' size='sm'>
+														<MoreHorizontal className='h-4 w-4' />
+													</Button>
+												</DropdownMenuTrigger>
+												<DropdownMenuContent align='end'>
+													<DropdownMenuItem
+														disabled={(row.profile.monthlyAmount ?? 0) <= 0}
+														onClick={() => openCollect(row)}
+													>
+														To'lov kiritish
+													</DropdownMenuItem>
+													<DropdownMenuItem onClick={() => openProfile(row)}>
+														Sozlash (join/oylik/kuni)
+													</DropdownMenuItem>
+													<DropdownMenuItem
+														disabled={!row.monthlyPayment}
+														onClick={() => openEditMonthly(row)}
+													>
+														Oylikni tahrirlash
+													</DropdownMenuItem>
+													<DropdownMenuItem
+														disabled={!row.monthlyPayment}
+														onClick={() => openHistory(row)}
+													>
+														Tarix
+													</DropdownMenuItem>
+													<DropdownMenuItem
+														className='text-red-600 focus:text-red-600'
+														onClick={() => openSettle(row)}
+													>
+														Ketdi (hisoblash)
+													</DropdownMenuItem>
+												</DropdownMenuContent>
+											</DropdownMenu>
+										) : (
+											<Button
+												variant='outline'
+												size='sm'
+												disabled={!row.monthlyPayment}
+												onClick={() => openHistory(row)}
+											>
+												Tarix
+											</Button>
+										)}
+									</div>
+								</Card>
+							);
+						})
+					)}
+				</div>
+
+				{/* Desktop table */}
+				<div className='hidden md:block w-full overflow-x-auto'>
 					<Table className='min-w-[980px]'>
 						<TableHeader>
 							<TableRow>
@@ -857,7 +989,7 @@ export default function MonthlyBillingTable({
 						</TableBody>
 					</Table>
 				</div>
-			</Card>
+			</>
 		</div>
 	);
 }

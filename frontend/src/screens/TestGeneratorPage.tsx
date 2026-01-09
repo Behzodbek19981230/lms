@@ -10,15 +10,19 @@ export default function TestGeneratorPage() {
 	return (
 		<div className='min-h-screen bg-gradient-subtle'>
 			{/* Header */}
-			<header className='bg-card border-b border-border p-6'>
-				<div className='flex items-center justify-between'>
-					<div className='flex items-center space-x-4'>
-						<Button variant='outline' onClick={() => router.push('/account/exams')}>
+			<header className='bg-card border-b border-border p-3 sm:p-6'>
+				<div className='flex flex-col gap-3'>
+					<div className='flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4'>
+						<Button
+							variant='outline'
+							onClick={() => router.push('/account/exams')}
+							className='w-full sm:w-auto justify-center sm:justify-start'
+						>
 							<ArrowLeft className='h-4 w-4 mr-2' />
 							Imtihonlarga qaytish
 						</Button>
 						<div>
-							<h1 className='text-3xl font-bold text-foreground'>Test Generator</h1>
+							<h1 className='text-xl sm:text-2xl md:text-3xl font-bold text-foreground'>Test Generator</h1>
 							<p className='text-muted-foreground'>Avtomatik test generatsiya qilish va PDF yuklash</p>
 						</div>
 					</div>
@@ -26,7 +30,7 @@ export default function TestGeneratorPage() {
 			</header>
 
 			{/* Test Generator Content */}
-			<div className='p-6'>
+			<div className='p-3 sm:p-6'>
 				<TestGenerator />
 			</div>
 		</div>

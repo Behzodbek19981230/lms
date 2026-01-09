@@ -57,7 +57,7 @@ const TelegramUserManagement: React.FC<TelegramUserManagementProps> = ({ onSucce
 				console.warn('User Telegram status not available');
 			}
 		} catch (error: any) {
-			const errorMessage = error?.response?.data?.message || 'Failed to load user data';
+			const errorMessage = error?.response?.data?.message || "Foydalanuvchi ma'lumotlarini yuklab bo'lmadi";
 			onError(errorMessage);
 		} finally {
 			setLoading(false);
@@ -66,7 +66,7 @@ const TelegramUserManagement: React.FC<TelegramUserManagementProps> = ({ onSucce
 
 	const handleLinkUsers = async () => {
 		if (!selectedTelegramUserId || !selectedUserId) {
-			onError('Please select both Telegram user and LMS user');
+			onError('Iltimos, Telegram foydalanuvchi va LMS foydalanuvchini tanlang');
 			return;
 		}
 
@@ -84,7 +84,7 @@ const TelegramUserManagement: React.FC<TelegramUserManagementProps> = ({ onSucce
 				onError(result.message);
 			}
 		} catch (error: any) {
-			const errorMessage = error?.response?.data?.message || 'Failed to link users';
+			const errorMessage = error?.response?.data?.message || "Foydalanuvchilarni bog'lab bo'lmadi";
 			onError(errorMessage);
 		} finally {
 			setLinkingInProgress(false);
@@ -108,7 +108,7 @@ const TelegramUserManagement: React.FC<TelegramUserManagementProps> = ({ onSucce
 				<CardContent className='p-6'>
 					<div className='flex items-center justify-center space-x-2'>
 						<RefreshCw className='h-4 w-4 animate-spin' />
-						<span>Loading user management data...</span>
+						<span>Foydalanuvchilar ma'lumotlari yuklanmoqda...</span>
 					</div>
 				</CardContent>
 			</Card>
@@ -124,13 +124,13 @@ const TelegramUserManagement: React.FC<TelegramUserManagementProps> = ({ onSucce
 						<div>
 							<CardTitle className='flex items-center space-x-2'>
 								<Users className='h-5 w-5' />
-								<span>User Management</span>
+								<span>Foydalanuvchilar</span>
 							</CardTitle>
-							<CardDescription>Manage Telegram user connections and account linking</CardDescription>
+							<CardDescription>Telegram foydalanuvchilarini bog'lash va hisob ulash</CardDescription>
 						</div>
 						<Button variant='outline' size='sm' onClick={handleRefresh} disabled={loading}>
 							<RefreshCw className='h-4 w-4 mr-2' />
-							Refresh
+							Yangilash
 						</Button>
 					</div>
 				</CardHeader>
@@ -142,7 +142,7 @@ const TelegramUserManagement: React.FC<TelegramUserManagementProps> = ({ onSucce
 					<CardHeader>
 						<CardTitle className='flex items-center space-x-2'>
 							<User className='h-5 w-5' />
-							<span>Your Telegram Status</span>
+							<span>Telegram holatingiz</span>
 						</CardTitle>
 					</CardHeader>
 					<CardContent>
@@ -199,35 +199,35 @@ const TelegramUserManagement: React.FC<TelegramUserManagementProps> = ({ onSucce
 				<CardHeader>
 					<CardTitle className='flex items-center space-x-2'>
 						<Link className='h-5 w-5' />
-						<span>Link Users</span>
+						<span>Foydalanuvchini bog'lash</span>
 					</CardTitle>
-					<CardDescription>Connect Telegram users with LMS accounts</CardDescription>
+					<CardDescription>Telegram foydalanuvchilarini LMS hisoblariga bog'lash</CardDescription>
 				</CardHeader>
 				<CardContent className='space-y-4'>
 					{unlinkedUsers.length === 0 ? (
 						<Alert>
 							<CheckCircle className='h-4 w-4' />
-							<AlertTitle>All users linked!</AlertTitle>
+							<AlertTitle>Barcha foydalanuvchilar bog'langan!</AlertTitle>
 							<AlertDescription>
-								All Telegram users have been successfully linked to LMS accounts.
+								Barcha Telegram foydalanuvchilari LMS hisoblariga muvaffaqiyatli bog'langan.
 							</AlertDescription>
 						</Alert>
 					) : (
 						<>
 							<Alert>
 								<AlertCircle className='h-4 w-4' />
-								<AlertTitle>Unlinked Users Found</AlertTitle>
+								<AlertTitle>Ulanmagan foydalanuvchilar topildi</AlertTitle>
 								<AlertDescription>
-									{unlinkedUsers.length} Telegram users need to be linked to LMS accounts.
+									{unlinkedUsers.length} ta Telegram foydalanuvchisini LMS hisobiga bog'lash kerak.
 								</AlertDescription>
 							</Alert>
 
 							<div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
 								<div className='space-y-2'>
-									<Label htmlFor='telegram-user'>Select Telegram User</Label>
+									<Label htmlFor='telegram-user'>Telegram foydalanuvchini tanlang</Label>
 									<Select value={selectedTelegramUserId} onValueChange={setSelectedTelegramUserId}>
 										<SelectTrigger>
-											<SelectValue placeholder='Choose Telegram user' />
+											<SelectValue placeholder='Telegram foydalanuvchini tanlang' />
 										</SelectTrigger>
 										<SelectContent>
 											{filteredUnlinkedUsers.map((user) => (
@@ -250,7 +250,7 @@ const TelegramUserManagement: React.FC<TelegramUserManagementProps> = ({ onSucce
 									<Input
 										id='lms-user'
 										type='number'
-										placeholder='Enter LMS user ID'
+										placeholder='LMS user ID kiriting'
 										value={selectedUserId}
 										onChange={(e) => setSelectedUserId(e.target.value)}
 									/>
@@ -267,7 +267,7 @@ const TelegramUserManagement: React.FC<TelegramUserManagementProps> = ({ onSucce
 								) : (
 									<Link className='h-4 w-4 mr-2' />
 								)}
-								Link Users
+								Bog'lash
 							</Button>
 						</>
 					)}
@@ -282,14 +282,14 @@ const TelegramUserManagement: React.FC<TelegramUserManagementProps> = ({ onSucce
 							<div>
 								<CardTitle className='flex items-center space-x-2'>
 									<UserPlus className='h-5 w-5' />
-									<span>Unlinked Telegram Users</span>
+									<span>Ulanmagan Telegram foydalanuvchilari</span>
 								</CardTitle>
-								<CardDescription>Telegram users waiting to be linked to LMS accounts</CardDescription>
+								<CardDescription>Telegram foydalanuvchilari LMS ga bog'lanishini kutmoqda</CardDescription>
 							</div>
 							<div className='flex items-center space-x-2'>
 								<Search className='h-4 w-4 text-muted-foreground' />
 								<Input
-									placeholder='Search users...'
+									placeholder="Foydalanuvchini qidirish..."
 									value={searchTerm}
 									onChange={(e) => setSearchTerm(e.target.value)}
 									className='w-48'
@@ -316,7 +316,7 @@ const TelegramUserManagement: React.FC<TelegramUserManagementProps> = ({ onSucce
 										</div>
 									</div>
 									<div className='flex items-center space-x-2'>
-										<Badge variant='secondary'>Unlinked</Badge>
+										<Badge variant='secondary'>Ulanmagan</Badge>
 										<Button
 											variant='outline'
 											size='sm'
@@ -324,7 +324,7 @@ const TelegramUserManagement: React.FC<TelegramUserManagementProps> = ({ onSucce
 												setSelectedTelegramUserId(user.telegramUserId || '');
 											}}
 										>
-											Select
+											Tanlash
 										</Button>
 									</div>
 								</div>
@@ -333,8 +333,8 @@ const TelegramUserManagement: React.FC<TelegramUserManagementProps> = ({ onSucce
 							{filteredUnlinkedUsers.length === 0 && searchTerm && (
 								<div className='text-center py-8'>
 									<Search className='h-12 w-12 text-muted-foreground mx-auto mb-4' />
-									<p className='text-lg font-medium'>No users found</p>
-									<p className='text-muted-foreground'>Try adjusting your search criteria</p>
+										<p className='text-lg font-medium'>Foydalanuvchi topilmadi</p>
+										<p className='text-muted-foreground'>Qidiruv shartlarini o'zgartirib ko'ring</p>
 								</div>
 							)}
 						</div>
@@ -345,7 +345,7 @@ const TelegramUserManagement: React.FC<TelegramUserManagementProps> = ({ onSucce
 			{/* Usage Instructions */}
 			<Card>
 				<CardHeader>
-					<CardTitle>How to Link Users</CardTitle>
+					<CardTitle>Foydalanuvchini qanday bog'lash</CardTitle>
 				</CardHeader>
 				<CardContent>
 					<div className='space-y-3 text-sm text-muted-foreground'>
@@ -353,25 +353,25 @@ const TelegramUserManagement: React.FC<TelegramUserManagementProps> = ({ onSucce
 							<span className='flex-shrink-0 w-6 h-6 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-xs font-bold'>
 								1
 							</span>
-							<p>Users must first start the Telegram bot by sending /start command</p>
+							<p>Avval foydalanuvchi Telegram botga /start buyrug'ini yuborishi kerak</p>
 						</div>
 						<div className='flex items-start space-x-2'>
 							<span className='flex-shrink-0 w-6 h-6 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-xs font-bold'>
 								2
 							</span>
-							<p>Find the unlinked Telegram user in the list above</p>
+							<p>Yuqoridagi ro'yxatdan ulanmagan Telegram foydalanuvchini toping</p>
 						</div>
 						<div className='flex items-start space-x-2'>
 							<span className='flex-shrink-0 w-6 h-6 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-xs font-bold'>
 								3
 							</span>
-							<p>Enter the corresponding LMS user ID and click "Link Users"</p>
+							<p>Mos LMS foydalanuvchi ID sini kiriting va "Bog'lash" tugmasini bosing</p>
 						</div>
 						<div className='flex items-start space-x-2'>
 							<span className='flex-shrink-0 w-6 h-6 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-xs font-bold'>
 								4
 							</span>
-							<p>The user will automatically receive channel invitations</p>
+							<p>Foydalanuvchi kanal takliflarini avtomatik qabul qiladi</p>
 						</div>
 					</div>
 				</CardContent>

@@ -347,7 +347,7 @@ const TelegramManagement: React.FC = () => {
 				fetchData();
 			} else {
 				toast({
-					title: 'Error',
+					title: 'Xato',
 					description: response.data.message,
 					variant: 'destructive',
 				});
@@ -386,7 +386,7 @@ const TelegramManagement: React.FC = () => {
 				fetchData();
 			} else {
 				toast({
-					title: 'Error',
+					title: 'Xato',
 					description: response.data.message,
 					variant: 'destructive',
 				});
@@ -796,9 +796,9 @@ const TelegramManagement: React.FC = () => {
 				<CardHeader>
 					<CardTitle>Ro'yxatga olingan Telegram chatlar</CardTitle>
 					{/* Filter Controls */}
-					<div className='flex gap-4 mt-4'>
+					<div className='flex flex-col sm:flex-row gap-3 sm:gap-4 mt-4'>
 						{centers.length > 1 && !currentUser?.center && (
-							<div className='w-48'>
+							<div className='w-full sm:w-48'>
 								<Label>Markaz bo'yicha filtrlash</Label>
 								<Select value={filterCenter} onValueChange={setFilterCenter}>
 									<SelectTrigger>
@@ -815,7 +815,7 @@ const TelegramManagement: React.FC = () => {
 								</Select>
 							</div>
 						)}
-						<div className='w-48'>
+						<div className='w-full sm:w-48'>
 							<Label>Fan bo'yicha filtrlash</Label>
 							<Select value={filterSubject} onValueChange={setFilterSubject}>
 								<SelectTrigger>
@@ -900,10 +900,11 @@ const TelegramManagement: React.FC = () => {
 									{chat.type === 'channel' && (
 										<div className='pt-2 space-y-2'>
 											<hr />
-											<div className='flex gap-2'>
+												<div className='flex flex-col sm:flex-row gap-2'>
 												<Button
 													size='sm'
 													variant='outline'
+														className='w-full sm:w-auto'
 													onClick={() => handleGenerateInviteLink(chat.chatId)}
 													disabled={loading}
 												>
@@ -913,6 +914,7 @@ const TelegramManagement: React.FC = () => {
 													<Button
 														size='sm'
 														variant='outline'
+															className='w-full sm:w-auto'
 														onClick={() => navigator.clipboard?.writeText(chat.inviteLink!)}
 													>
 														<span className='text-xs md:text-sm'>Havolani nusxalash</span>

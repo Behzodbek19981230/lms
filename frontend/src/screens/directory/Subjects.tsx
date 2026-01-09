@@ -269,7 +269,7 @@ export default function Subjects() {
 		<>
 			<Card className='bg-gradient-card border-0'>
 				<CardHeader>
-					<div className='flex items-center justify-between'>
+					<div className='flex flex-col sm:flex-row sm:items-center justify-between gap-3'>
 						<div>
 							<CardTitle className='flex items-center gap-2'>
 								<BookOpen className='h-5 w-5' />
@@ -287,7 +287,7 @@ export default function Subjects() {
 									setEditingSubject(null);
 									setSubjectModalOpen(true);
 								}}
-								className='bg-gradient-to-r from-primary to-secondary'
+								className='bg-gradient-to-r from-primary to-secondary w-full sm:w-auto'
 							>
 								Yangi fan qo'shish
 							</Button>
@@ -309,9 +309,104 @@ export default function Subjects() {
 							</p>
 						</div>
 					) : (
-						<div className='rounded-lg border bg-card/50 backdrop-blur overflow-x-scroll'>
-							<DataTable columns={columns} data={subjects} />
-						</div>
+						<>
+							{/* Mobile list/cards */}
+							<div className='md:hidden space-y-3'>
+								{subjects.map((subject) => (
+									<Card key={subject.id} className='p-4'>
+										<div className='flex items-start justify-between gap-3'>
+											<div className='min-w-0'>
+												<div className='font-semibold truncate'>{subject.name}</div>
+												<div className='mt-1 flex flex-wrap gap-2'>
+													{renderCategory(subject.category)}
+													{subject.hasFormulas ? (
+														<Badge variant='outline' className='border-green-600 text-green-700'>
+															<FlaskConical className='h-3 w-3 mr-1' /> LaTeX
+														</Badge>
+													) : (
+														<Badge variant='secondary' className='text-muted-foreground'>Yo'q</Badge>
+													)}
+												</div>
+											</div>
+											<div className='shrink-0'>
+												<Button asChild variant='default' size='sm' className='bg-green-600 hover:bg-green-700'>
+													<Link href={`/account/subject/${subject.id}/tests`}>
+														<Eye className='h-4 w-4 mr-1' />
+														Ko'rish
+													</Link>
+												</Button>
+											</div>
+										</div>
+
+										{subject.description ? (
+											<p className='mt-3 text-sm text-muted-foreground'>{subject.description}</p>
+										) : null}
+
+										<div className='mt-3 space-y-2'>
+											<div className='text-xs text-muted-foreground'>
+												Yaratilgan: <span className='font-medium text-foreground'>{moment(subject.createdAt).format('DD.MM.YYYY')}</span>{' '}
+												<span className='text-muted-foreground'>({moment(subject.createdAt).fromNow()})</span>
+											</div>
+
+											<div className='flex items-center justify-between gap-3'>
+												<div className='min-w-0 text-sm'>
+													<span className='text-muted-foreground'>O'qituvchilar:</span>{' '}
+													{subject.teachers && subject.teachers.length > 0 ? (
+														<span className='font-medium'>{subject.teachers.length}</span>
+													) : (
+														<span className='text-muted-foreground'>Biriktirilmagan</span>
+													)}
+												</div>
+												{isAdmin && (
+													<DropdownMenu>
+														<DropdownMenuTrigger asChild>
+															<Button variant='outline' size='sm'>
+																<MoreHorizontal className='h-4 w-4' />
+															</Button>
+														</DropdownMenuTrigger>
+														<DropdownMenuContent align='end' className='w-52'>
+															<DropdownMenuItem onClick={() => openViewTeachersDialog(subject)}>
+																<Users className='mr-2 h-4 w-4' />
+																O'qituvchilarni ko'rish
+															</DropdownMenuItem>
+															<DropdownMenuItem onClick={() => openAssignDialog(subject.id)}>
+																<Users className='mr-2 h-4 w-4' />
+																O'qituvchi biriktirish
+															</DropdownMenuItem>
+															<DropdownMenuSeparator />
+															<DropdownMenuItem
+																onClick={() => {
+																	setEditingSubject(subject);
+																	setSubjectModalOpen(true);
+																}}
+															>
+																<Pencil className='mr-2 h-4 w-4' />
+																Tahrirlash
+															</DropdownMenuItem>
+															<DropdownMenuItem
+																onClick={() => {
+																	setDeletingSubject({ id: subject.id, name: subject.name });
+																	setDeleteDialogOpen(true);
+																}}
+																className='text-destructive focus:text-destructive'
+															>
+																<Trash2 className='mr-2 h-4 w-4' />
+																O'chirish
+															</DropdownMenuItem>
+														</DropdownMenuContent>
+													</DropdownMenu>
+												)}
+											</div>
+										</div>
+									</Card>
+								))}
+							</div>
+
+							{/* Desktop table */}
+							<div className='hidden md:block rounded-lg border bg-card/50 backdrop-blur overflow-x-scroll'>
+								<DataTable columns={columns} data={subjects} />
+							</div>
+						</>
 					)}
 				</CardContent>
 			</Card>

@@ -317,15 +317,52 @@ export default function CenterTeachersPage() {
 		}
 	};
 
+	const renderActionsMenu = (teacher: Teacher) => (
+		<DropdownMenu>
+			<DropdownMenuTrigger asChild>
+				<Button variant='ghost' className='h-8 w-8 p-0'>
+					<MoreHorizontal className='h-4 w-4' />
+				</Button>
+			</DropdownMenuTrigger>
+			<DropdownMenuContent align='end'>
+				<DropdownMenuItem onClick={() => handleViewDetails(teacher)}>
+					<Eye className='mr-2 h-4 w-4' />
+					Ko'rish
+				</DropdownMenuItem>
+				<DropdownMenuItem onClick={() => handleEdit(teacher)}>
+					<Edit className='mr-2 h-4 w-4' />
+					Tahrirlash
+				</DropdownMenuItem>
+				<DropdownMenuItem onClick={() => handleStatusToggle(teacher.id, teacher.isActive)}>
+					{teacher.isActive ? (
+						<>
+							<UserPlus className='mr-2 h-4 w-4' />
+							Faolsizlashtirish
+						</>
+					) : (
+						<>
+							<UserPlus className='mr-2 h-4 w-4' />
+							Faollashtirish
+						</>
+					)}
+				</DropdownMenuItem>
+				<DropdownMenuItem className='text-red-600' onClick={() => handleDelete(teacher.id)}>
+					<Trash2 className='mr-2 h-4 w-4' />
+					O'chirish
+				</DropdownMenuItem>
+			</DropdownMenuContent>
+		</DropdownMenu>
+	);
+
 	return (
 		<div className='space-y-6'>
 			{/* Header */}
-			<div className='flex items-center justify-between'>
-				<div>
+			<div className='flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between'>
+				<div className='min-w-0'>
 					<h1 className='text-3xl font-bold tracking-tight'>O'qituvchilarim</h1>
 					<p className='text-muted-foreground'>Markazimdagi barcha o'qituvchilarni boshqarish</p>
 				</div>
-				<Button onClick={() => setShowCreateDialog(true)}>
+				<Button onClick={() => setShowCreateDialog(true)} className='w-full sm:w-auto'>
 					<UserPlus className='h-4 w-4 mr-2' />
 					Yangi o'qituvchi qo'shish
 				</Button>
@@ -406,12 +443,12 @@ export default function CenterTeachersPage() {
 
 						<Button variant='outline' onClick={handleExport} className='w-full sm:w-auto'>
 							<Download className='h-4 w-4 mr-2' />
-							Export
+							Eksport
 						</Button>
 					</div>
 
-					{/* Teachers Table */}
-					<div className='w-full overflow-x-auto rounded-md border'>
+					{/* Teachers (Desktop Table) */}
+					<div className='hidden md:block w-full overflow-x-auto rounded-md border'>
 						<Table>
 							<TableHeader>
 								<TableRow>
@@ -474,7 +511,7 @@ export default function CenterTeachersPage() {
 															(sum, group) => sum + group.studentsCount,
 															0
 														) || 0}{' '}
-														student)
+														o'quvchi)
 													</span>
 												</div>
 											</TableCell>
@@ -495,49 +532,7 @@ export default function CenterTeachersPage() {
 													? new Date(teacher.lastLoginAt).toLocaleDateString()
 													: 'Hech qachon'}
 											</TableCell>
-											<TableCell>
-												<DropdownMenu>
-													<DropdownMenuTrigger asChild>
-														<Button variant='ghost' className='h-8 w-8 p-0'>
-															<MoreHorizontal className='h-4 w-4' />
-														</Button>
-													</DropdownMenuTrigger>
-													<DropdownMenuContent align='end'>
-														<DropdownMenuItem onClick={() => handleViewDetails(teacher)}>
-															<Eye className='mr-2 h-4 w-4' />
-															Ko'rish
-														</DropdownMenuItem>
-														<DropdownMenuItem onClick={() => handleEdit(teacher)}>
-															<Edit className='mr-2 h-4 w-4' />
-															Tahrirlash
-														</DropdownMenuItem>
-														<DropdownMenuItem
-															onClick={() =>
-																handleStatusToggle(teacher.id, teacher.isActive)
-															}
-														>
-															{teacher.isActive ? (
-																<>
-																	<UserPlus className='mr-2 h-4 w-4' />
-																	Faolsizlashtirish
-																</>
-															) : (
-																<>
-																	<UserPlus className='mr-2 h-4 w-4' />
-																	Faollashtirish
-																</>
-															)}
-														</DropdownMenuItem>
-														<DropdownMenuItem
-															className='text-red-600'
-															onClick={() => handleDelete(teacher.id)}
-														>
-															<Trash2 className='mr-2 h-4 w-4' />
-															O'chirish
-														</DropdownMenuItem>
-													</DropdownMenuContent>
-												</DropdownMenu>
-											</TableCell>
+											<TableCell>{renderActionsMenu(teacher)}</TableCell>
 										</TableRow>
 									))
 								)}
@@ -545,31 +540,117 @@ export default function CenterTeachersPage() {
 						</Table>
 					</div>
 
+					{/* Teachers (Mobile List) */}
+					<div className='md:hidden space-y-3'>
+						{loading ? (
+							<div className='rounded-md border p-4 text-center text-sm text-muted-foreground'>
+								Yuklanmoqda...
+							</div>
+						) : filteredTeachers.length === 0 ? (
+							<div className='rounded-md border p-4 text-center text-sm text-muted-foreground'>
+								O'qituvchilar topilmadi
+							</div>
+						) : (
+							paginatedTeachers.map((teacher) => {
+								const totalTeacherStudents =
+									teacher.groups?.reduce((sum, group) => sum + group.studentsCount, 0) || 0;
+								return (
+									<div key={teacher.id} className='rounded-md border p-3'>
+										<div className='flex items-start justify-between gap-3'>
+											<div className='min-w-0'>
+												<div className='font-medium truncate'>
+													{teacher.firstName} {teacher.lastName}
+												</div>
+												<div className='text-xs text-muted-foreground mt-0.5'>@{teacher.username}</div>
+											</div>
+											<div className='flex items-center gap-2'>
+												<Badge
+													variant={teacher.isActive ? 'default' : 'secondary'}
+													className={
+														teacher.isActive
+															? 'bg-green-100 text-green-800'
+															: 'bg-gray-100 text-gray-800'
+												}
+											>
+												{teacher.isActive ? 'Faol' : 'Nofaol'}
+											</Badge>
+												{renderActionsMenu(teacher)}
+											</div>
+										</div>
+
+									<div className='mt-3 grid grid-cols-1 gap-2 text-sm'>
+										<div className='flex items-center justify-between'>
+											<span className='text-muted-foreground'>Telefon</span>
+											<span className='font-medium'>{teacher.phone || '—'}</span>
+										</div>
+										<div className='flex items-center justify-between'>
+											<span className='text-muted-foreground'>Oxirgi kirish</span>
+											<span className='font-medium'>
+												{teacher.lastLoginAt
+													? new Date(teacher.lastLoginAt).toLocaleDateString()
+													: 'Hech qachon'}
+											</span>
+										</div>
+										<div className='flex items-center justify-between'>
+											<span className='text-muted-foreground'>Guruhlar</span>
+											<span className='font-medium'>
+												{teacher.groups?.length || 0} ta / {totalTeacherStudents} o'quvchi
+											</span>
+										</div>
+									</div>
+
+									<div className='mt-3'>
+										<div className='text-xs text-muted-foreground mb-1'>Fanlar</div>
+										{teacher.subjects && teacher.subjects.length > 0 ? (
+											<div className='flex flex-wrap gap-1'>
+												{teacher.subjects.slice(0, 4).map((subject) => (
+													<Badge key={subject.id} variant='secondary' className='text-xs'>
+														{subject.name}
+													</Badge>
+												))}
+											{teacher.subjects.length > 4 && (
+												<Badge variant='outline' className='text-xs'>
+													+{teacher.subjects.length - 4}
+												</Badge>
+											)}
+										</div>
+										) : (
+											<div className='text-sm text-muted-foreground'>—</div>
+										)}
+									</div>
+								</div>
+							);
+							})
+						)}
+					</div>
+
 					{!loading && filteredTeachers.length > 0 ? (
-						<div className='flex items-center justify-between mt-3'>
+						<div className='mt-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3'>
 							<div className='text-sm text-muted-foreground'>
 								{pageStart + 1}-{pageEnd} / {filteredTeachers.length}
 							</div>
-							<div className='flex items-center gap-2'>
-								<Button
-									variant='outline'
-									size='sm'
-									onClick={() => setPage((p) => Math.max(1, p - 1))}
-									disabled={safePage <= 1}
-								>
-									Oldingi
-								</Button>
-								<div className='text-sm text-muted-foreground'>
+							<div className='flex flex-col sm:flex-row sm:items-center gap-2'>
+								<div className='text-sm text-muted-foreground order-2 sm:order-1'>
 									Sahifa {safePage} / {totalPages}
 								</div>
-								<Button
-									variant='outline'
-									size='sm'
-									onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-									disabled={safePage >= totalPages}
-								>
-									Keyingi
-								</Button>
+								<div className='flex items-center gap-2 order-1 sm:order-2'>
+									<Button
+										variant='outline'
+										size='sm'
+										onClick={() => setPage((p) => Math.max(1, p - 1))}
+										disabled={safePage <= 1}
+									>
+										Oldingi
+									</Button>
+									<Button
+										variant='outline'
+										size='sm'
+										onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+										disabled={safePage >= totalPages}
+									>
+										Keyingi
+									</Button>
+								</div>
 							</div>
 						</div>
 					) : null}

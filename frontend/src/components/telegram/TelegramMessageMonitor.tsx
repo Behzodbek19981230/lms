@@ -195,21 +195,38 @@ const TelegramMessageMonitor: React.FC = () => {
 			{/* Actions and Controls */}
 			<Card>
 				<CardHeader>
-					<div className='flex items-center justify-between'>
+					<div className='flex flex-col lg:flex-row lg:items-center justify-between gap-3'>
 						<div>
 							<CardTitle>Xabarlar Kuzatuvi</CardTitle>
 							<CardDescription>So'nggi 20 ta xabarning holati</CardDescription>
 						</div>
-						<div className='flex gap-2'>
-							<Button variant='outline' size='sm' onClick={() => setAutoRefresh(!autoRefresh)}>
+						<div className='flex flex-col sm:flex-row flex-wrap gap-2 w-full lg:w-auto'>
+							<Button
+								variant='outline'
+								size='sm'
+								className='w-full sm:w-auto'
+								onClick={() => setAutoRefresh(!autoRefresh)}
+							>
 								{autoRefresh ? "Avtomatik yangilashni to'xtatish" : 'Avtomatik yangilash'}
 							</Button>
-							<Button variant='outline' size='sm' onClick={() => loadData()} disabled={loading}>
+							<Button
+								variant='outline'
+								size='sm'
+								className='w-full sm:w-auto'
+								onClick={() => loadData()}
+								disabled={loading}
+							>
 								<RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
 								Yangilash
 							</Button>
 							{failedCount > 0 && (
-								<Button variant='destructive' size='sm' onClick={handleRetryFailed} disabled={loading}>
+								<Button
+									variant='destructive'
+									size='sm'
+									className='w-full sm:w-auto'
+									onClick={handleRetryFailed}
+									disabled={loading}
+								>
 									Xato bo'lganlarni qayta yuborish ({failedCount})
 								</Button>
 							)}
@@ -227,7 +244,7 @@ const TelegramMessageMonitor: React.FC = () => {
 							recentLogs.map((log) => (
 								<div
 									key={log.id}
-									className='flex items-center justify-between p-3 border rounded-lg hover:bg-accent transition-colors'
+									className='flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 border rounded-lg hover:bg-accent transition-colors'
 								>
 									<div className='flex-1'>
 										<div className='flex items-center gap-2 mb-1'>
@@ -252,7 +269,7 @@ const TelegramMessageMonitor: React.FC = () => {
 											<div className='text-xs text-red-500 mt-1'>Xato: {log.error}</div>
 										)}
 									</div>
-									<div className='text-sm text-muted-foreground text-right'>
+									<div className='text-sm text-muted-foreground sm:text-right'>
 										{log.sentAt ? formatDate(log.sentAt) : formatDate(log.createdAt)}
 									</div>
 								</div>

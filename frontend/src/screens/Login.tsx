@@ -26,15 +26,16 @@ const Login = () => {
 			console.log(user);
 			if (user) {
 				toast({
-					title: 'Welcome back!',
-					description: 'You have successfully logged in.',
+					title: 'Xush kelibsiz',
+					description: 'Siz muvaffaqiyatli tizimga kirdingiz.',
+                    variant: 'success',
 				});
 				console.log('Login successful:', user);
 				// Redirect based on user role
 				if (!user) {
 					toast({
-						title: 'Error',
-						description: 'User data not found.',
+						title: 'Xatolik',
+						description: 'Foydalanuvchi ma\'lumotlari topilmadi.',
 						variant: 'destructive',
 					});
 					setIsLoading(false);

@@ -108,7 +108,7 @@ const ExamVariants: React.FC = () => {
 			const fullUrl = `${origin}${url}`;
 			window.open(fullUrl, '_blank');
 		} catch (err) {
-			setError(err instanceof Error ? err.message : 'Failed to download PDF');
+			setError(err instanceof Error ? err.message : 'PDF yuklab olishda xatolik');
 		}
 	};
 
@@ -143,7 +143,7 @@ const ExamVariants: React.FC = () => {
 			const fullUrl = `${origin}${url}`;
 			window.open(fullUrl, '_blank');
 		} catch (err) {
-			setError(err instanceof Error ? err.message : 'Failed to download answer key');
+			setError(err instanceof Error ? err.message : 'Javoblar kalitini yuklab olishda xatolik');
 		}
 	};
 
@@ -160,7 +160,7 @@ const ExamVariants: React.FC = () => {
 			window.URL.revokeObjectURL(url);
 			document.body.removeChild(a);
 		} catch (err) {
-			setError(err instanceof Error ? err.message : 'Failed to download all variants');
+			setError(err instanceof Error ? err.message : 'Barcha variantlarni yuklab olishda xatolik');
 		}
 	};
 
@@ -177,7 +177,7 @@ const ExamVariants: React.FC = () => {
 			window.URL.revokeObjectURL(url);
 			document.body.removeChild(a);
 		} catch (err) {
-			setError(err instanceof Error ? err.message : 'Failed to download all answer keys');
+			setError(err instanceof Error ? err.message : 'Barcha javoblar kalitini yuklab olishda xatolik');
 		}
 	};
 
@@ -199,13 +199,13 @@ const ExamVariants: React.FC = () => {
 	const getStatusText = (status: string) => {
 		switch (status) {
 			case 'pending':
-				return 'Pending';
+				return 'Kutilmoqda';
 			case 'in_progress':
-				return 'In Progress';
+				return 'Jarayonda';
 			case 'completed':
-				return 'Completed';
+				return 'Tugallangan';
 			case 'submitted':
-				return 'Submitted';
+				return 'Yuborilgan';
 			default:
 				return status;
 		}
@@ -253,7 +253,7 @@ const ExamVariants: React.FC = () => {
 	if (loading) {
 		return (
 			<div className='flex items-center justify-center min-h-screen'>
-				<div className='text-lg'>Loading exam variants...</div>
+				<div className='text-lg'>Imtihon variantlari yuklanmoqda...</div>
 			</div>
 		);
 	}
@@ -261,7 +261,7 @@ const ExamVariants: React.FC = () => {
 	if (error) {
 		return (
 			<div className='flex items-center justify-center min-h-screen'>
-				<div className='text-red-500'>Error: {error}</div>
+				<div className='text-red-500'>Xatolik: {error}</div>
 			</div>
 		);
 	}
@@ -269,7 +269,7 @@ const ExamVariants: React.FC = () => {
 	if (!exam) {
 		return (
 			<div className='flex items-center justify-center min-h-screen'>
-				<div className='text-lg'>Exam not found</div>
+				<div className='text-lg'>Imtihon topilmadi</div>
 			</div>
 		);
 	}
@@ -281,21 +281,21 @@ const ExamVariants: React.FC = () => {
 				<div className='flex items-center space-x-4'>
 					<Button variant='outline' size='sm' onClick={() => router.push(`/account/exams/${examId}`)}>
 						<ArrowLeft className='h-4 w-4 mr-2' />
-						Back to Exam
+						Imtihonga qaytish
 					</Button>
 					<div>
-						<h1 className='text-3xl font-bold'>Exam Variants</h1>
+						<h1 className='text-3xl font-bold'>Imtihon variantlari</h1>
 						<p className='text-gray-600'>{exam.title}</p>
 					</div>
 				</div>
 				<div className='flex space-x-2'>
 					<Button variant='outline' onClick={downloadAllVariantsPDF}>
 						<Download className='h-4 w-4 mr-2' />
-						Download All Tests
+						Barcha testlarni yuklab olish
 					</Button>
 					<Button variant='outline' onClick={downloadAllAnswerKeysPDF}>
 						<Download className='h-4 w-4 mr-2' />
-						Download All Answers
+						Barcha javoblarni yuklab olish
 					</Button>
 				</div>
 			</div>
@@ -307,7 +307,7 @@ const ExamVariants: React.FC = () => {
 						<div className='flex items-center space-x-2'>
 							<Users className='h-5 w-5 text-blue-500' />
 							<div>
-								<p className='text-sm text-gray-600'>Total Variants</p>
+								<p className='text-sm text-gray-600'>Jami variantlar</p>
 								<p className='text-2xl font-bold'>{variants.length}</p>
 							</div>
 						</div>
@@ -318,7 +318,7 @@ const ExamVariants: React.FC = () => {
 						<div className='flex items-center space-x-2'>
 							<CheckCircle className='h-5 w-5 text-green-500' />
 							<div>
-								<p className='text-sm text-gray-600'>Completed</p>
+								<p className='text-sm text-gray-600'>Yakunlangan</p>
 								<p className='text-2xl font-bold'>
 									{
 										variants.filter((v) => v.status === 'completed' || v.status === 'submitted')
@@ -334,7 +334,7 @@ const ExamVariants: React.FC = () => {
 						<div className='flex items-center space-x-2'>
 							<Clock className='h-5 w-5 text-yellow-500' />
 							<div>
-								<p className='text-sm text-gray-600'>In Progress</p>
+								<p className='text-sm text-gray-600'>Jarayonda</p>
 								<p className='text-2xl font-bold'>
 									{variants.filter((v) => v.status === 'in_progress').length}
 								</p>
@@ -347,7 +347,7 @@ const ExamVariants: React.FC = () => {
 						<div className='flex items-center space-x-2'>
 							<AlertCircle className='h-5 w-5 text-gray-500' />
 							<div>
-								<p className='text-sm text-gray-600'>Pending</p>
+								<p className='text-sm text-gray-600'>Kutilmoqda</p>
 								<p className='text-2xl font-bold'>
 									{variants.filter((v) => v.status === 'pending').length}
 								</p>
@@ -362,7 +362,7 @@ const ExamVariants: React.FC = () => {
 				<CardHeader>
 					<CardTitle className='flex items-center space-x-2'>
 						<Filter className='h-5 w-5' />
-						<span>Filters</span>
+						<span>Filtrlar</span>
 					</CardTitle>
 				</CardHeader>
 				<CardContent>
@@ -370,7 +370,7 @@ const ExamVariants: React.FC = () => {
 						<div className='relative'>
 							<Search className='absolute left-3 top-3 h-4 w-4 text-gray-400' />
 							<Input
-								placeholder='Search by name, variant number, or group...'
+								placeholder="Ism, variant raqami yoki guruh bo'yicha qidirish..."
 								value={searchTerm}
 								onChange={(e) => setSearchTerm(e.target.value)}
 								className='pl-10'
@@ -378,22 +378,22 @@ const ExamVariants: React.FC = () => {
 						</div>
 						<Select value={statusFilter} onValueChange={setStatusFilter}>
 							<SelectTrigger>
-								<SelectValue placeholder='Filter by status' />
+								<SelectValue placeholder="Holat bo'yicha filter" />
 							</SelectTrigger>
 							<SelectContent>
-								<SelectItem value='all'>All Statuses</SelectItem>
-								<SelectItem value='pending'>Pending</SelectItem>
-								<SelectItem value='in_progress'>In Progress</SelectItem>
-								<SelectItem value='completed'>Completed</SelectItem>
-								<SelectItem value='submitted'>Submitted</SelectItem>
+								<SelectItem value='all'>Barcha holatlar</SelectItem>
+								<SelectItem value='pending'>Kutilmoqda</SelectItem>
+								<SelectItem value='in_progress'>Jarayonda</SelectItem>
+								<SelectItem value='completed'>Tugallangan</SelectItem>
+								<SelectItem value='submitted'>Yuborilgan</SelectItem>
 							</SelectContent>
 						</Select>
 						<Select value={groupFilter} onValueChange={setGroupFilter}>
 							<SelectTrigger>
-								<SelectValue placeholder='Filter by group' />
+								<SelectValue placeholder="Guruh bo'yicha filter" />
 							</SelectTrigger>
 							<SelectContent>
-								<SelectItem value='all'>All Groups</SelectItem>
+								<SelectItem value='all'>Barcha guruhlar</SelectItem>
 								{uniqueGroups.map((group) => (
 									<SelectItem key={group.id} value={group.id.toString()}>
 										{group.name}
@@ -409,14 +409,14 @@ const ExamVariants: React.FC = () => {
 			<Card>
 				<CardHeader>
 					<CardTitle>
-						Variants ({filteredVariants.length} of {variants.length})
+						Variantlar ({filteredVariants.length} / {variants.length})
 					</CardTitle>
 				</CardHeader>
 				<CardContent>
 					<div className='space-y-4'>
 						{filteredVariants.length === 0 ? (
 							<div className='text-center py-8 text-gray-500'>
-								No variants found matching your filters.
+								Filterlarga mos variant topilmadi.
 							</div>
 						) : (
 							filteredVariants.map((variant) => (
@@ -444,7 +444,7 @@ const ExamVariants: React.FC = () => {
 										<div className='flex items-center space-x-2'>
 											{variant.score !== null && (
 												<div className='text-right'>
-													<p className='text-sm text-gray-600'>Score</p>
+													<p className='text-sm text-gray-600'>Ball</p>
 													<p className='font-semibold'>
 														{variant.score}/{variant.totalPoints}
 													</p>
@@ -472,7 +472,7 @@ const ExamVariants: React.FC = () => {
 												onClick={() => downloadAnswerKeyPDF(variant.id)}
 											>
 												<Download className='h-4 w-4 mr-1' />
-												Answers
+												Javoblar
 											</Button>
 										</div>
 									</div>
@@ -480,24 +480,24 @@ const ExamVariants: React.FC = () => {
 									{/* Variant Details */}
 									<div className='grid grid-cols-1 md:grid-cols-3 gap-4 text-sm'>
 										<div>
-											<span className='text-gray-600'>Questions:</span>
+											<span className='text-gray-600'>Savollar:</span>
 											<span className='ml-2 font-medium'>{variant.totalQuestions}</span>
 										</div>
 										<div>
-											<span className='text-gray-600'>Correct Answers:</span>
+											<span className='text-gray-600'>To'g'ri javoblar:</span>
 											<span className='ml-2 font-medium'>{variant.correctAnswers}</span>
 										</div>
 										<div>
-											<span className='text-gray-600'>Started:</span>
+											<span className='text-gray-600'>Boshlangan:</span>
 											<span className='ml-2 font-medium'>
 												{variant.startedAt
 													? moment(variant.startedAt).format('MMM DD, HH:mm')
-													: 'Not started'}
+													: 'Boshlanmagan'}
 											</span>
 										</div>
 										{variant.completedAt && (
 											<div>
-												<span className='text-gray-600'>Completed:</span>
+												<span className='text-gray-600'>Tugallangan:</span>
 												<span className='ml-2 font-medium'>
 													{moment(variant.completedAt).format('MMM DD, HH:mm')}
 												</span>
@@ -505,7 +505,7 @@ const ExamVariants: React.FC = () => {
 										)}
 										{variant.submittedAt && (
 											<div>
-												<span className='text-gray-600'>Submitted:</span>
+												<span className='text-gray-600'>Yuborilgan:</span>
 												<span className='ml-2 font-medium'>
 													{moment(variant.submittedAt).format('MMM DD, HH:mm')}
 												</span>
@@ -516,7 +516,7 @@ const ExamVariants: React.FC = () => {
 									{/* Questions Summary */}
 									{variant.questions && variant.questions.length > 0 && (
 										<div className='mt-4 pt-4 border-t'>
-											<h4 className='font-medium mb-2'>Questions by Subject:</h4>
+											<h4 className='font-medium mb-2'>Fan bo'yicha savollar:</h4>
 											<div className='flex flex-wrap gap-2'>
 												{Object.entries(
 													variant.questions.reduce((acc, q) => {

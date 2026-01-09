@@ -54,7 +54,7 @@ export default function SuperAdminMobileReleasesPage() {
 		} catch (e: any) {
 			toast({
 				title: 'Xatolik',
-				description: e?.response?.data?.message || 'Release ro‘yxatini yuklab bo‘lmadi',
+				description: e?.response?.data?.message || 'Relizlar ro‘yxatini yuklab bo‘lmadi',
 				variant: 'destructive',
 			});
 		} finally {
@@ -69,7 +69,7 @@ export default function SuperAdminMobileReleasesPage() {
 
 	const uploadRelease = async () => {
 		if (!version.trim()) {
-			toast({ title: 'Version kerak', description: 'Masalan: 1 yoki 1.0.0', variant: 'destructive' });
+			toast({ title: 'Versiya kerak', description: 'Masalan: 1 yoki 1.0.0', variant: 'destructive' });
 			return;
 		}
 		if (!file) {
@@ -108,7 +108,7 @@ export default function SuperAdminMobileReleasesPage() {
 		} catch (e: any) {
 			toast({
 				title: 'Xatolik',
-				description: e?.response?.data?.message || 'Upload bo‘lmadi',
+				description: e?.response?.data?.message || 'Yuklash amalga oshmadi',
 				variant: 'destructive',
 			});
 		} finally {
@@ -120,19 +120,19 @@ export default function SuperAdminMobileReleasesPage() {
 		<div className='space-y-4 md:space-y-6'>
 			<div className='flex items-start justify-between gap-3'>
 				<div>
-					<h1 className='text-xl sm:text-2xl font-bold'>Mobile Releases</h1>
+					<h1 className='text-xl sm:text-2xl font-bold'>Mobil ilovalar</h1>
 					<p className='text-sm text-muted-foreground'>APK/IPA build yuklash (arxiv paroli: lms1234)</p>
 				</div>
 			</div>
 
 			<Card>
 				<CardHeader>
-					<CardTitle>Yangi release yuklash</CardTitle>
+					<CardTitle>Yangi reliz yuklash</CardTitle>
 				</CardHeader>
 				<CardContent>
 					<div className='grid grid-cols-1 md:grid-cols-3 gap-3'>
 						<div>
-							<Label>Platform</Label>
+							<Label>Platforma</Label>
 							<Select value={platform} onValueChange={(v) => setPlatform(v as MobilePlatform)}>
 								<SelectTrigger>
 									<SelectValue placeholder='Platform tanlang' />
@@ -144,7 +144,7 @@ export default function SuperAdminMobileReleasesPage() {
 							</Select>
 						</div>
 						<div>
-							<Label>Version</Label>
+							<Label>Versiya</Label>
 							<Input value={version} onChange={(e) => setVersion(e.target.value)} placeholder='1 yoki 1.0.0' />
 						</div>
 						<div>
@@ -158,7 +158,7 @@ export default function SuperAdminMobileReleasesPage() {
 					</div>
 					<div className='mt-3 flex gap-2'>
 						<Button variant='hero' onClick={uploadRelease} disabled={isUploading}>
-							{isUploading ? 'Yuklanmoqda...' : 'Upload'}
+							{isUploading ? 'Yuklanmoqda...' : 'Yuklash'}
 						</Button>
 					</div>
 				</CardContent>
@@ -166,21 +166,21 @@ export default function SuperAdminMobileReleasesPage() {
 
 			<Card>
 				<CardHeader>
-					<CardTitle>Release ro‘yxati</CardTitle>
+					<CardTitle>Relizlar ro‘yxati</CardTitle>
 				</CardHeader>
 				<CardContent>
 					{isLoading ? (
 						<div className='text-sm text-muted-foreground'>Yuklanmoqda...</div>
 					) : rows.length === 0 ? (
-						<div className='text-sm text-muted-foreground'>Hozircha release yo‘q</div>
+						<div className='text-sm text-muted-foreground'>Hozircha reliz yo‘q</div>
 					) : (
 						<Table>
 							<TableHeader>
 								<TableRow>
-									<TableHead>Platform</TableHead>
-									<TableHead>Version</TableHead>
+									<TableHead>Platforma</TableHead>
+									<TableHead>Versiya</TableHead>
 									<TableHead>Fayl</TableHead>
-									<TableHead>Download</TableHead>
+									<TableHead>Yuklab olish</TableHead>
 									<TableHead>Yaratilgan</TableHead>
 								</TableRow>
 							</TableHeader>

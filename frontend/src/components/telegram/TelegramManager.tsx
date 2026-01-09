@@ -75,9 +75,9 @@ const TelegramManager: React.FC<TelegramManagerProps> = ({ testId, onSuccess, on
 				}
 			}
 		} catch (error: any) {
-			const errorMessage = error?.response?.data?.message || 'Failed to load Telegram data';
+			const errorMessage = error?.response?.data?.message || 'Telegram ma’lumotlarini yuklab bo‘lmadi';
 			toast({
-				title: 'Error',
+				title: 'Xatolik',
 				description: errorMessage,
 				variant: 'destructive',
 			});
@@ -93,7 +93,7 @@ const TelegramManager: React.FC<TelegramManagerProps> = ({ testId, onSuccess, on
 
 	const handleSuccess = (message: string) => {
 		toast({
-			title: 'Success',
+			title: 'Muvaffaqiyatli',
 			description: message,
 			variant: 'default',
 		});
@@ -104,7 +104,7 @@ const TelegramManager: React.FC<TelegramManagerProps> = ({ testId, onSuccess, on
 
 	const handleError = (error: string) => {
 		toast({
-			title: 'Error',
+			title: 'Xatolik',
 			description: error,
 			variant: 'destructive',
 		});
@@ -120,7 +120,7 @@ const TelegramManager: React.FC<TelegramManagerProps> = ({ testId, onSuccess, on
 	};
 
 	const getBotStatusText = () => {
-		return botConnected ? 'Connected' : 'Disconnected';
+		return botConnected ? 'Ulangan' : 'Ulanmagan';
 	};
 
 	if (loading) {
@@ -129,7 +129,7 @@ const TelegramManager: React.FC<TelegramManagerProps> = ({ testId, onSuccess, on
 				<CardContent className='p-6'>
 					<div className='flex items-center justify-center space-x-2'>
 						<RefreshCw className='h-4 w-4 animate-spin' />
-						<span>Loading Telegram data...</span>
+						<span>Telegram ma'lumotlari yuklanmoqda...</span>
 					</div>
 				</CardContent>
 			</Card>
@@ -145,22 +145,22 @@ const TelegramManager: React.FC<TelegramManagerProps> = ({ testId, onSuccess, on
 						<div className='flex items-center space-x-3'>
 							<MessageCircle className='h-6 w-6 text-blue-500' />
 							<div>
-								<CardTitle>Telegram Bot Management</CardTitle>
+								<CardTitle>Telegram bot boshqaruvi</CardTitle>
 								<CardDescription>
-									Manage test distribution and monitor results via Telegram
+									Telegram orqali test yuborish va natijalarni kuzatish
 								</CardDescription>
 							</div>
 						</div>
 						<div className='flex items-center space-x-4'>
 							<div className='flex items-center space-x-2'>
 								<Bot className='h-4 w-4' />
-								<span className='text-sm text-muted-foreground'>Bot Status:</span>
+								<span className='text-sm text-muted-foreground'>Bot holati:</span>
 								{getBotStatusIcon()}
 								<Badge variant={botConnected ? 'default' : 'destructive'}>{getBotStatusText()}</Badge>
 							</div>
 							<Button variant='outline' size='sm' onClick={handleRefresh} disabled={loading}>
 								<RefreshCw className='h-4 w-4 mr-2' />
-								Refresh
+								Yangilash
 							</Button>
 						</div>
 					</div>
@@ -174,8 +174,8 @@ const TelegramManager: React.FC<TelegramManagerProps> = ({ testId, onSuccess, on
 						<div className='flex items-center space-x-2'>
 							<AlertCircle className='h-4 w-4 text-yellow-600' />
 							<p className='text-sm text-yellow-800'>
-								Telegram bot is not connected. Some features may not be available. Please check the bot
-								configuration.
+								Telegram bot ulanmagan. Ba'zi funksiyalar ishlamasligi mumkin. Bot sozlamalarini
+								tekshiring.
 							</p>
 						</div>
 					</CardContent>
@@ -187,19 +187,19 @@ const TelegramManager: React.FC<TelegramManagerProps> = ({ testId, onSuccess, on
 				<TabsList className='grid w-full grid-cols-4'>
 					<TabsTrigger value='overview' className='flex items-center space-x-2'>
 						<BarChart3 className='h-4 w-4' />
-						<span>Overview</span>
+						<span>Umumiy</span>
 					</TabsTrigger>
 					<TabsTrigger value='distribution' className='flex items-center space-x-2'>
 						<Send className='h-4 w-4' />
-						<span>Distribution</span>
+						<span>Tarqatish</span>
 					</TabsTrigger>
 					<TabsTrigger value='statistics' className='flex items-center space-x-2'>
 						<FileText className='h-4 w-4' />
-						<span>Statistics</span>
+						<span>Statistika</span>
 					</TabsTrigger>
 					<TabsTrigger value='users' className='flex items-center space-x-2'>
 						<Users className='h-4 w-4' />
-						<span>Users</span>
+						<span>Foydalanuvchilar</span>
 					</TabsTrigger>
 				</TabsList>
 
@@ -208,12 +208,12 @@ const TelegramManager: React.FC<TelegramManagerProps> = ({ testId, onSuccess, on
 						{/* Channels Summary */}
 						<Card>
 							<CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
-								<CardTitle className='text-sm font-medium'>Active Channels</CardTitle>
+								<CardTitle className='text-sm font-medium'>Faol kanallar</CardTitle>
 								<MessageCircle className='h-4 w-4 text-muted-foreground' />
 							</CardHeader>
 							<CardContent>
 								<div className='text-2xl font-bold'>{channels.length}</div>
-								<p className='text-xs text-muted-foreground'>Telegram channels connected</p>
+								<p className='text-xs text-muted-foreground'>Ulangan Telegram kanallari</p>
 							</CardContent>
 						</Card>
 
@@ -222,7 +222,7 @@ const TelegramManager: React.FC<TelegramManagerProps> = ({ testId, onSuccess, on
 							<>
 								<Card>
 									<CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
-										<CardTitle className='text-sm font-medium'>Test Completion</CardTitle>
+										<CardTitle className='text-sm font-medium'>Test yakunlanishi</CardTitle>
 										<FileText className='h-4 w-4 text-muted-foreground' />
 									</CardHeader>
 									<CardContent>
@@ -230,20 +230,20 @@ const TelegramManager: React.FC<TelegramManagerProps> = ({ testId, onSuccess, on
 											{telegramService.calculateCompletionRate(stats)}%
 										</div>
 										<p className='text-xs text-muted-foreground'>
-											{stats.studentResults.length} of {stats.totalStudents} students
+											{stats.studentResults.length} / {stats.totalStudents} o'quvchi
 										</p>
 									</CardContent>
 								</Card>
 
 								<Card>
 									<CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
-										<CardTitle className='text-sm font-medium'>Accuracy Rate</CardTitle>
+										<CardTitle className='text-sm font-medium'>Aniqlik darajasi</CardTitle>
 										<BarChart3 className='h-4 w-4 text-muted-foreground' />
 									</CardHeader>
 									<CardContent>
 										<div className='text-2xl font-bold'>{stats.accuracy}%</div>
 										<p className='text-xs text-muted-foreground'>
-											{stats.correctAnswers} of {stats.totalAnswers} correct
+											{stats.correctAnswers} / {stats.totalAnswers} to'g'ri
 										</p>
 									</CardContent>
 								</Card>
@@ -254,8 +254,8 @@ const TelegramManager: React.FC<TelegramManagerProps> = ({ testId, onSuccess, on
 					{/* Channel List */}
 					<Card>
 						<CardHeader>
-							<CardTitle className='text-lg'>Connected Channels</CardTitle>
-							<CardDescription>Telegram channels available for test distribution</CardDescription>
+							<CardTitle className='text-lg'>Ulangan kanallar</CardTitle>
+							<CardDescription>Test tarqatish uchun mavjud Telegram kanallari</CardDescription>
 						</CardHeader>
 						<CardContent>
 							{channels.length > 0 ? (
@@ -274,7 +274,7 @@ const TelegramManager: React.FC<TelegramManagerProps> = ({ testId, onSuccess, on
 														{telegramService.formatChannelName(channel)}
 													</p>
 													<p className='text-sm text-muted-foreground'>
-														{channel.center?.name || 'No center assigned'}
+														{channel.center?.name || 'Markaz biriktirilmagan'}
 													</p>
 												</div>
 											</div>
@@ -300,10 +300,8 @@ const TelegramManager: React.FC<TelegramManagerProps> = ({ testId, onSuccess, on
 							) : (
 								<div className='text-center py-8'>
 									<MessageCircle className='h-12 w-12 text-muted-foreground mx-auto mb-4' />
-									<p className='text-lg font-medium'>No channels connected</p>
-									<p className='text-muted-foreground'>
-										Connect Telegram channels to start distributing tests
-									</p>
+									<p className='text-lg font-medium'>Kanallar ulanmagan</p>
+									<p className='text-muted-foreground'>Test tarqatish uchun Telegram kanallarini ulang</p>
 								</div>
 							)}
 						</CardContent>
@@ -328,8 +326,8 @@ const TelegramManager: React.FC<TelegramManagerProps> = ({ testId, onSuccess, on
 						<Card>
 							<CardContent className='p-8 text-center'>
 								<FileText className='h-12 w-12 text-muted-foreground mx-auto mb-4' />
-								<p className='text-lg font-medium'>No test selected</p>
-								<p className='text-muted-foreground'>Select a test to view statistics</p>
+								<p className='text-lg font-medium'>Test tanlanmagan</p>
+								<p className='text-muted-foreground'>Statistikani ko'rish uchun test tanlang</p>
 							</CardContent>
 						</Card>
 					)}

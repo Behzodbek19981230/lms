@@ -63,8 +63,59 @@ export default function Results() {
 			</CardHeader>
 
 			<CardContent>
-				<div className='rounded-lg border bg-card/50 backdrop-blur  overflow-x-scroll'>
+				{/* Desktop table */}
+				<div className='hidden md:block rounded-lg border bg-card/50 backdrop-blur overflow-x-auto'>
 					<DataTable columns={columns} data={results} />
+				</div>
+
+				{/* Mobile list */}
+				<div className='md:hidden space-y-3'>
+					{results.length === 0 ? (
+						<div className='rounded-lg border bg-card/50 backdrop-blur p-4 text-center text-sm text-muted-foreground'>
+							Natijalar topilmadi
+						</div>
+					) : (
+						results.map((r) => (
+							<div key={r.id} className='rounded-lg border bg-card/50 backdrop-blur p-3'>
+								<div className='flex items-start justify-between gap-3'>
+									<div className='min-w-0'>
+										<div className='font-medium truncate'>{r.student_name ?? "-"}</div>
+										<div className='text-xs text-muted-foreground mt-0.5 truncate'>
+											Markaz: {r.center_name ?? '-'}
+										</div>
+									</div>
+									<div className='text-xs text-muted-foreground whitespace-nowrap'>ID: {r.id}</div>
+								</div>
+
+								<div className='mt-3 grid grid-cols-1 gap-2 text-sm'>
+									<div className='flex items-center justify-between'>
+										<span className='text-muted-foreground'>Variant raqami</span>
+										<span className='font-medium'>{r.uniqueNumber}</span>
+									</div>
+									<div className='flex items-center justify-between'>
+										<span className='text-muted-foreground'>Savollar</span>
+										<span className='font-medium'>{r.total}</span>
+									</div>
+									<div className='flex items-center justify-between'>
+										<span className='text-muted-foreground'>To'g'ri</span>
+										<span className='font-medium'>{r.correctCount}</span>
+									</div>
+									<div className='flex items-center justify-between'>
+										<span className='text-muted-foreground'>Noto'g'ri</span>
+										<span className='font-medium'>{r.wrongCount}</span>
+									</div>
+									<div className='flex items-center justify-between'>
+										<span className='text-muted-foreground'>Bo'sh</span>
+										<span className='font-medium'>{r.blankCount}</span>
+									</div>
+									<div className='flex items-center justify-between'>
+										<span className='text-muted-foreground'>Yaratilgan</span>
+										<span className='font-medium'>{moment(r.createdAt).format('YYYY-MM-DD HH:mm')}</span>
+									</div>
+								</div>
+							</div>
+						))
+					)}
 				</div>
 			</CardContent>
 		</Card>

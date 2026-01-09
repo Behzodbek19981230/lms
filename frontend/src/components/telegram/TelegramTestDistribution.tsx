@@ -44,7 +44,7 @@ const TelegramTestDistribution: React.FC<TelegramTestDistributionProps> = ({
 
   const handleSendPDFTests = async () => {
     if (!testId || !selectedChannelId) {
-      onError('Please select a test and channel');
+      onError('Iltimos, test va kanalni tanlang');
       return;
     }
 
@@ -55,12 +55,12 @@ const TelegramTestDistribution: React.FC<TelegramTestDistributionProps> = ({
       setDistributionResult(result);
       
       if (result.success) {
-        onSuccess(`PDF tests distributed successfully! Sent: ${result.sentCount}, Failed: ${result.failedCount}`);
+        onSuccess(`PDF testlar muvaffaqiyatli yuborildi! Yuborildi: ${result.sentCount}, Xatolik: ${result.failedCount}`);
       } else {
-        onError(result.message || 'Failed to distribute PDF tests');
+        onError(result.message || 'PDF testlarni tarqatishda xatolik');
       }
     } catch (error: any) {
-      const errorMessage = error?.response?.data?.message || 'Failed to send PDF tests';
+      const errorMessage = error?.response?.data?.message || 'PDF testlarni yuborishda xatolik';
       onError(errorMessage);
     } finally {
       setLoading(false);
@@ -69,7 +69,7 @@ const TelegramTestDistribution: React.FC<TelegramTestDistributionProps> = ({
 
   const handlePublishResults = async () => {
     if (!testId || !selectedChannelId) {
-      onError('Please select a test and channel');
+      onError('Iltimos, test va kanalni tanlang');
       return;
     }
 
@@ -78,12 +78,12 @@ const TelegramTestDistribution: React.FC<TelegramTestDistributionProps> = ({
       const result = await telegramService.publishTestResults(testId, selectedChannelId);
       
       if (result.success) {
-        onSuccess('Test results published to channel successfully!');
+        onSuccess("Test natijalari kanalga muvaffaqiyatli e'lon qilindi!");
       } else {
-        onError(result.message || 'Failed to publish results');
+        onError(result.message || "Natijalarni e'lon qilishda xatolik");
       }
     } catch (error: any) {
-      const errorMessage = error?.response?.data?.message || 'Failed to publish results';
+      const errorMessage = error?.response?.data?.message || "Natijalarni e'lon qilishda xatolik";
       onError(errorMessage);
     } finally {
       setLoading(false);
@@ -97,28 +97,28 @@ const TelegramTestDistribution: React.FC<TelegramTestDistributionProps> = ({
         <CardHeader>
           <CardTitle className="flex items-center space-x-2">
             <Users className="h-5 w-5" />
-            <span>Student Account Linking</span>
+            <span>O'quvchi akkauntini bog'lash</span>
           </CardTitle>
           <CardDescription>
-            Students can link their Telegram accounts to automatically receive personalized tests
+            O'quvchilar Telegram akkauntlarini bog'lab, shaxsiy testlarni avtomatik olishlari mumkin
           </CardDescription>
         </CardHeader>
         <CardContent>
           <TelegramAuthWidget 
             onSuccess={(message) => {
-              onSuccess(message || 'Telegram account linked successfully!');
+              onSuccess(message || 'Telegram akkaunti muvaffaqiyatli bog\'landi!');
             }}
             onError={(error) => {
-              onError(`Telegram authentication failed: ${error}`);
+              onError(`Telegram orqali kirishda xatolik: ${error}`);
             }}
           />
           
           <Alert className="mt-4">
             <AlertCircle className="h-4 w-4" />
-            <AlertTitle>How it works</AlertTitle>
+            <AlertTitle>Qanday ishlaydi</AlertTitle>
             <AlertDescription>
-              Students click the "Login with Telegram" button above to link their accounts. 
-              Once linked, they can receive personalized PDF tests and their answers will be automatically tracked.
+              O'quvchilar yuqoridagi "Telegram bilan kirish" tugmasini bosib akkauntini bog'laydi.
+              Bog'langandan so'ng, shaxsiy PDF testlarni oladi va javoblari avtomatik kuzatiladi.
             </AlertDescription>
           </Alert>
         </CardContent>
@@ -129,19 +129,19 @@ const TelegramTestDistribution: React.FC<TelegramTestDistributionProps> = ({
         <CardHeader>
           <CardTitle className="flex items-center space-x-2">
             <MessageSquare className="h-5 w-5" />
-            <span>Channel Selection</span>
+            <span>Kanal tanlash</span>
           </CardTitle>
           <CardDescription>
-            Choose the Telegram channel for test distribution
+            Testlarni tarqatish uchun Telegram kanalini tanlang
           </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
             <div className="grid w-full items-center gap-1.5">
-              <Label htmlFor="channel-select">Select Channel</Label>
+              <Label htmlFor="channel-select">Kanalni tanlang</Label>
               <Select value={selectedChannelId} onValueChange={onChannelSelect}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Choose a channel" />
+                  <SelectValue placeholder="Kanal tanlang" />
                 </SelectTrigger>
                 <SelectContent>
                   {channels.map((channel) => (
@@ -169,8 +169,8 @@ const TelegramTestDistribution: React.FC<TelegramTestDistributionProps> = ({
                       {telegramService.formatChannelName(selectedChannel)}
                     </p>
                     <p className="text-sm text-muted-foreground">
-                      {selectedChannel.center?.name || 'No center assigned'} • 
-                      Status: {selectedChannel.status}
+                      {selectedChannel.center?.name || 'Markaz biriktirilmagan'} • 
+                      Holat: {selectedChannel.status}
                     </p>
                   </div>
                   <Badge variant={selectedChannel.status === 'active' ? 'default' : 'secondary'}>
@@ -188,18 +188,18 @@ const TelegramTestDistribution: React.FC<TelegramTestDistributionProps> = ({
         <CardHeader>
           <CardTitle className="flex items-center space-x-2">
             <FileText className="h-5 w-5" />
-            <span>PDF Tests</span>
+            <span>PDF testlar</span>
           </CardTitle>
           <CardDescription>
-            Generate and send personalized PDF tests to students
+            O'quvchilar uchun shaxsiy PDF testlar yaratib yuboring
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <Alert>
             <AlertCircle className="h-4 w-4" />
-            <AlertTitle>Individual Variants</AlertTitle>
+            <AlertTitle>Shaxsiy variantlar</AlertTitle>
             <AlertDescription>
-              Each student will receive a unique PDF with shuffled questions
+              Har bir o'quvchi aralashtirilgan savollar bilan alohida PDF oladi
             </AlertDescription>
           </Alert>
 
@@ -213,13 +213,13 @@ const TelegramTestDistribution: React.FC<TelegramTestDistributionProps> = ({
             ) : (
               <FileText className="h-4 w-4 mr-2" />
             )}
-            Generate & Send PDFs
+            PDFlarni yaratish va yuborish
           </Button>
 
           <div className="text-sm text-muted-foreground space-y-1">
-            <p>• Individual PDF variants for each student</p>
-            <p>• Questions are shuffled for unique tests</p>
-            <p>• PDFs sent directly to students' private chats</p>
+            <p>• Har bir o'quvchi uchun alohida PDF variant</p>
+            <p>• Savollar aralashtiriladi (unikal test)</p>
+            <p>• PDFlar o'quvchining shaxsiy chatiga yuboriladi</p>
           </div>
         </CardContent>
       </Card>
@@ -234,7 +234,7 @@ const TelegramTestDistribution: React.FC<TelegramTestDistributionProps> = ({
               ) : (
                 <AlertCircle className="h-5 w-5 text-red-500" />
               )}
-              <span>Distribution Results</span>
+              <span>Tarqatish natijalari</span>
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -243,19 +243,19 @@ const TelegramTestDistribution: React.FC<TelegramTestDistributionProps> = ({
                 <div className="text-2xl font-bold text-green-600">
                   {distributionResult.sentCount}
                 </div>
-                <p className="text-sm text-muted-foreground">Successfully Sent</p>
+                <p className="text-sm text-muted-foreground">Muvaffaqiyatli yuborildi</p>
               </div>
               <div className="text-center p-3 border rounded-lg">
                 <div className="text-2xl font-bold text-red-600">
                   {distributionResult.failedCount}
                 </div>
-                <p className="text-sm text-muted-foreground">Failed</p>
+                <p className="text-sm text-muted-foreground">Xatolik</p>
               </div>
               <div className="text-center p-3 border rounded-lg">
                 <div className="text-2xl font-bold">
                   {distributionResult.sentCount + distributionResult.failedCount}
                 </div>
-                <p className="text-sm text-muted-foreground">Total Students</p>
+                <p className="text-sm text-muted-foreground">Jami o'quvchilar</p>
               </div>
             </div>
 
@@ -268,7 +268,7 @@ const TelegramTestDistribution: React.FC<TelegramTestDistributionProps> = ({
 
             {distributionResult.details && distributionResult.details.length > 0 && (
               <div className="space-y-2">
-                <Label>Detailed Results:</Label>
+                <Label>Batafsil natijalar:</Label>
                 <div className="max-h-40 overflow-y-auto border rounded p-3 text-sm font-mono">
                   {distributionResult.details.map((detail, index) => (
                     <div key={index} className="py-1">
@@ -287,10 +287,10 @@ const TelegramTestDistribution: React.FC<TelegramTestDistributionProps> = ({
         <CardHeader>
           <CardTitle className="flex items-center space-x-2">
             <Users className="h-5 w-5" />
-            <span>Results Management</span>
+            <span>Natijalarni boshqarish</span>
           </CardTitle>
           <CardDescription>
-            Publish test results and statistics to the channel
+            Test natijalari va statistikani kanalga e'lon qilish
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -305,13 +305,13 @@ const TelegramTestDistribution: React.FC<TelegramTestDistributionProps> = ({
             ) : (
               <Download className="h-4 w-4 mr-2" />
             )}
-            Publish Results to Channel
+            Natijalarni kanalga e'lon qilish
           </Button>
 
           <div className="text-sm text-muted-foreground space-y-1">
-            <p>• Publishes aggregated test results</p>
-            <p>• Shows student performance summary</p>
-            <p>• Updates automatically when new answers arrive</p>
+            <p>• Umumiy test natijalarini e'lon qiladi</p>
+            <p>• O'quvchilar natijalari bo'yicha qisqa xulosa</p>
+            <p>• Yangi javoblar kelsa avtomatik yangilanadi</p>
           </div>
         </CardContent>
       </Card>

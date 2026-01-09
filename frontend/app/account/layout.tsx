@@ -3,9 +3,9 @@ import { SidebarProvider } from '@/components/ui/sidebar';
 import { DashboardHeader } from '@/components/dashboard/dashboard-header';
 import { DashboardSidebar } from '@/components/dashboard/dashboard-sidebar';
 import { useAuth } from '@/contexts/AuthContext';
-import PageLoader from '@/components/PageLoader';
+import AccountLoader from '@/components/AccountLoader';
 import { usePathname, useRouter } from 'next/navigation';
-import { useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import AnalyticsTracker from '@/components/analytics/AnalyticsTracker';
 import { hasCenterPermission } from '@/configs/permissions';
 import { useToast } from '@/hooks/use-toast';
@@ -15,6 +15,20 @@ export default function AccountLayout({ children }: { children: React.ReactNode 
 	const router = useRouter();
 	const pathname = usePathname();
 	const { toast } = useToast();
+	const activeLoading = isLoading || !user;
+	const [showLoader, setShowLoader] = useState(true);
+
+	const estimatedMs = useMemo(() => {
+		if (typeof window === 'undefined') return 1200;
+		const raw = window.sessionStorage.getItem('accountLoaderAvgMs');
+		const n = raw ? Number(raw) : NaN;
+		if (!Number.isFinite(n)) return 1200;
+		return Math.max(600, Math.min(4000, Math.round(n)));
+	}, []);
+
+	useEffect(() => {
+		if (activeLoading) setShowLoader(true);
+	}, [activeLoading]);
 	useEffect(() => {
 		if (!isLoading && !user) {
 			router.replace('/login');
@@ -65,7 +79,27 @@ export default function AccountLayout({ children }: { children: React.ReactNode 
 			return;
 		}
 	}, [user, pathname, router, toast]);
-	if (isLoading || !user) return <PageLoader title='Sessiya tekshirilmoqda...' />;
+	if (showLoader) {
+		return (
+			<AccountLoader
+				active={activeLoading}
+				estimatedMs={estimatedMs}
+				onComplete={(durationMs) => {
+					// Update moving average for next time
+					try {
+						const prevRaw = window.sessionStorage.getItem('accountLoaderAvgMs');
+						const prev = prevRaw ? Number(prevRaw) : NaN;
+						const base = Number.isFinite(prev) ? prev : estimatedMs;
+						const next = Math.max(600, Math.min(4000, Math.round(base * 0.7 + durationMs * 0.3)));
+						window.sessionStorage.setItem('accountLoaderAvgMs', String(next));
+					} catch {
+						// ignore storage errors
+					}
+					setShowLoader(false);
+				}}
+			/>
+		);
+	}
 	return (
 		<SidebarProvider>
 			<div className='min-h-screen flex w-full bg-background'>

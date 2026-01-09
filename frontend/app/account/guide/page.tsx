@@ -127,7 +127,7 @@ export default function UserGuidePage() {
 					description: 'Guruhga o\'quvchilarni qo\'shish.',
 					action: 'O\'quvchilar bo\'limi',
 					details: [
-						'Search qutisidan o\'quvchi qidiring',
+						'Qidiruv qutisidan o\'quvchi qidiring',
 						'Kerakli o\'quvchilarni checkbox bilan tanlang',
 						'"Barcha tanlanganlarni tanlash" tugmasidan foydalaning',
 						'Tanlangan o\'quvchilar soni ko\'rsatiladi',
@@ -254,11 +254,11 @@ export default function UserGuidePage() {
 				},
 				{
 					step: 8,
-					title: 'Excel export',
-					description: 'To\'lovlar ma\'lumotlarini Excel faylga export qilish.',
-					action: 'Tugma: "Excel export"',
+					title: 'Excel eksport',
+					description: 'To\'lovlar ma\'lumotlarini Excel faylga eksport qilish.',
+					action: 'Tugma: "Excel eksport"',
 					details: [
-						'Oylik to\'lovlar bo\'limida "Excel export" tugmasini bosing',
+						'Oylik to\'lovlar bo\'limida "Excel eksport" tugmasini bosing',
 						'Excel fayl avtomatik yuklanadi',
 						'Fayl nomi: oylik_tolovlar_YYYY-MM_timestamp.xlsx',
 					],

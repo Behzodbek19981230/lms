@@ -22,32 +22,29 @@ export default function PageLoader({
         className,
       )}
     >
-      <div className='flex flex-col items-center gap-4 p-6'>
-        <div className='relative'>
-          {/* outer ring */}
-          <div className='h-16 w-16 rounded-full border-4 border-border border-t-primary animate-spin' />
-          {/* inner spinner icon */}
-          <Loader2 className='absolute inset-0 m-auto h-6 w-6 text-primary animate-spin-slow' />
-        </div>
+      <div
+        role='status'
+        aria-live='polite'
+        className='w-full max-w-sm rounded-2xl border border-border/60 bg-gradient-card shadow-card backdrop-blur-sm p-6 sm:p-8 animate-scale-in'
+      >
+        <div className='flex flex-col items-center gap-5'>
+          <div className='relative h-16 w-16'>
+            <div className='absolute inset-0 rounded-full bg-primary/10 blur-md animate-pulse-glow' />
+            <div className='absolute inset-0 rounded-full border-4 border-border/70 border-t-primary animate-spin' />
+            <Loader2 className='absolute inset-0 m-auto h-6 w-6 text-primary animate-pulse-glow' />
+          </div>
 
-        <div className='text-center'>
-          <div className='text-sm font-medium text-muted-foreground'>{title}</div>
-          {subtitle && (
-            <div className='text-xs text-muted-foreground/80 mt-1'>{subtitle}</div>
-          )}
-        </div>
+          <div className='text-center'>
+            <div className='text-base font-semibold tracking-tight'>{title}</div>
+            {subtitle && <div className='text-xs text-muted-foreground mt-1'>{subtitle}</div>}
+            <span className='sr-only'>Yuklanmoqda</span>
+          </div>
 
-        {/* subtle progress shimmer */}
-        <div className='mt-2 h-1 w-40 overflow-hidden rounded bg-muted'>
-          <div className='h-full w-1/3 animate-loader bg-primary/70' />
+          <div className='mt-1 h-1.5 w-48 overflow-hidden rounded-full bg-muted relative'>
+            <div className='absolute inset-0 w-[200%] bg-gradient-shimmer animate-shimmer' />
+          </div>
         </div>
       </div>
     </div>
   )
-}
-
-// Tailwind animation helper: add via arbitrary keyframes if not present in global styles
-// Using built-in animate-[custom] via arbitrary values could be noisy; we provide a simple utility class here.
-declare global {
-  interface HTMLElementTagNameMap {}
 }

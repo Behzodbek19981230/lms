@@ -34,7 +34,6 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { PERMISSION_LABELS, type CenterPermissionKey } from '@/configs/permissions';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -453,7 +452,7 @@ const CenterUsersManagement = () => {
 			>
 				<DialogContent>
 					<DialogHeader>
-						<DialogTitle>Excel import</DialogTitle>
+						<DialogTitle>Excel import qilish</DialogTitle>
 					</DialogHeader>
 					<div className='space-y-3'>
 						<p className='text-sm text-muted-foreground'>
@@ -779,7 +778,7 @@ const CenterUsersManagement = () => {
 																setImportOpen(true);
 															}}
 														>
-															Excel import
+															Excel import qilish
 														</DropdownMenuItem>
 													</DropdownMenuContent>
 												</DropdownMenu>
@@ -802,8 +801,8 @@ const CenterUsersManagement = () => {
 										) : (
 											<Tabs defaultValue='users' className='w-full'>
 												<TabsList>
-													<TabsTrigger value='users'>Users</TabsTrigger>
-													<TabsTrigger value='permissions'>Permissions</TabsTrigger>
+														<TabsTrigger value='users'>Foydalanuvchilar</TabsTrigger>
+														<TabsTrigger value='permissions'>Ruxsatlar</TabsTrigger>
 												</TabsList>
 												<TabsContent value='users'>
 													<Table>

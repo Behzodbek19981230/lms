@@ -52,9 +52,9 @@ const StudentPayments: React.FC = () => {
 	}, [payments, searchTerm, statusFilter]);
 
 	return (
-		<div className='container mx-auto py-6 space-y-4'>
+		<div className='container mx-auto py-4 sm:py-6 space-y-4'>
 			<div className='flex items-center justify-between gap-3'>
-				<h1 className='text-3xl font-bold'>Mening to'lovlarim</h1>
+				<h1 className='text-2xl sm:text-3xl font-bold'>Mening to'lovlarim</h1>
 			</div>
 
 			<div className='flex flex-col md:flex-row gap-3'>

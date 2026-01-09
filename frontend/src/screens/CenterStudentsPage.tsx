@@ -312,17 +312,54 @@ export default function CenterStudentsPage() {
 		}
 	};
 
+	const renderActionsMenu = (student: Student) => (
+		<DropdownMenu>
+			<DropdownMenuTrigger asChild>
+				<Button variant='ghost' className='h-8 w-8 p-0'>
+					<MoreHorizontal className='h-4 w-4' />
+				</Button>
+			</DropdownMenuTrigger>
+			<DropdownMenuContent align='end'>
+				<DropdownMenuItem onClick={() => handleViewDetails(student)}>
+					<Eye className='mr-2 h-4 w-4' />
+					Ko'rish
+				</DropdownMenuItem>
+				<DropdownMenuItem onClick={() => openEdit(student)}>
+					<Edit className='mr-2 h-4 w-4' />
+					Tahrirlash
+				</DropdownMenuItem>
+				<DropdownMenuItem onClick={() => handleStatusToggle(student.id, student.isActive)}>
+					{student.isActive ? (
+						<>
+							<UserPlus className='mr-2 h-4 w-4' />
+							Faolsizlashtirish
+						</>
+					) : (
+						<>
+							<UserPlus className='mr-2 h-4 w-4' />
+							Faollashtirish
+						</>
+					)}
+				</DropdownMenuItem>
+				<DropdownMenuItem className='text-red-600' onClick={() => openDelete(student)}>
+					<Trash2 className='mr-2 h-4 w-4' />
+					O'chirish
+				</DropdownMenuItem>
+			</DropdownMenuContent>
+		</DropdownMenu>
+	);
+
 	return (
 		<div className='space-y-6'>
 			{/* Header */}
-			<div className='flex items-center justify-between'>
-				<div>
+			<div className='flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between'>
+				<div className='min-w-0'>
 					<h1 className='text-3xl font-bold tracking-tight'>O‘quvchilarim</h1>
 					<p className='text-muted-foreground'>Markazimdagi barcha o‘quvchilarni boshqarish</p>
 				</div>
 				<Dialog open={createOpen} onOpenChange={setCreateOpen}>
 					<DialogTrigger asChild>
-						<Button>
+						<Button className='w-full sm:w-auto'>
 							<UserPlus className='h-4 w-4 mr-2' />
 							Yangi o‘quvchi qo‘shish
 						</Button>
@@ -464,12 +501,12 @@ export default function CenterStudentsPage() {
 
 						<Button variant='outline' onClick={handleExport} className='w-full sm:w-auto'>
 							<Download className='h-4 w-4 mr-2' />
-							Export
+							Eksport
 						</Button>
 					</div>
 
-					{/* Students Table */}
-					<div className='w-full overflow-x-auto rounded-md border'>
+					{/* Students (Desktop Table) */}
+					<div className='hidden md:block w-full overflow-x-auto rounded-md border'>
 						<Table>
 							<TableHeader>
 								<TableRow>
@@ -526,7 +563,7 @@ export default function CenterStudentsPage() {
 														student.isActive
 															? 'bg-green-100 text-green-800'
 															: 'bg-gray-100 text-gray-800'
-													}
+												}
 												>
 													{student.isActive ? 'Faol' : 'Nofaol'}
 												</Badge>
@@ -536,49 +573,7 @@ export default function CenterStudentsPage() {
 													? new Date(student.lastLoginAt).toLocaleDateString()
 													: 'Hech qachon'}
 											</TableCell>
-											<TableCell>
-												<DropdownMenu>
-													<DropdownMenuTrigger asChild>
-														<Button variant='ghost' className='h-8 w-8 p-0'>
-															<MoreHorizontal className='h-4 w-4' />
-														</Button>
-													</DropdownMenuTrigger>
-													<DropdownMenuContent align='end'>
-														<DropdownMenuItem onClick={() => handleViewDetails(student)}>
-															<Eye className='mr-2 h-4 w-4' />
-															Ko'rish
-														</DropdownMenuItem>
-														<DropdownMenuItem onClick={() => openEdit(student)}>
-															<Edit className='mr-2 h-4 w-4' />
-															Tahrirlash
-														</DropdownMenuItem>
-														<DropdownMenuItem
-															onClick={() =>
-																handleStatusToggle(student.id, student.isActive)
-															}
-														>
-															{student.isActive ? (
-																<>
-																	<UserPlus className='mr-2 h-4 w-4' />
-																	Faolsizlashtirish
-																</>
-															) : (
-																<>
-																	<UserPlus className='mr-2 h-4 w-4' />
-																	Faollashtirish
-																</>
-															)}
-														</DropdownMenuItem>
-														<DropdownMenuItem
-															className='text-red-600'
-															onClick={() => openDelete(student)}
-														>
-															<Trash2 className='mr-2 h-4 w-4' />
-															O'chirish
-														</DropdownMenuItem>
-													</DropdownMenuContent>
-												</DropdownMenu>
-											</TableCell>
+											<TableCell>{renderActionsMenu(student)}</TableCell>
 										</TableRow>
 									))
 								)}
@@ -586,31 +581,107 @@ export default function CenterStudentsPage() {
 						</Table>
 					</div>
 
+					{/* Students (Mobile List) */}
+					<div className='md:hidden space-y-3'>
+						{loading ? (
+							<div className='rounded-md border p-4 text-center text-sm text-muted-foreground'>
+								Yuklanmoqda...
+							</div>
+						) : filteredStudents.length === 0 ? (
+							<div className='rounded-md border p-4 text-center text-sm text-muted-foreground'>
+								O‘quvchilar topilmadi
+							</div>
+						) : (
+							paginatedStudents.map((student) => (
+								<div key={student.id} className='rounded-md border p-3'>
+									<div className='flex items-start justify-between gap-3'>
+										<div className='min-w-0'>
+											<div className='font-medium truncate'>
+												{student.firstName} {student.lastName}
+											</div>
+											<div className='text-xs text-muted-foreground mt-0.5'>@{student.username}</div>
+										</div>
+										<div className='flex items-center gap-2'>
+											<Badge
+												variant={student.isActive ? 'default' : 'secondary'}
+												className={
+													student.isActive
+														? 'bg-green-100 text-green-800'
+														: 'bg-gray-100 text-gray-800'
+												}
+											>
+												{student.isActive ? 'Faol' : 'Nofaol'}
+											</Badge>
+											{renderActionsMenu(student)}
+										</div>
+									</div>
+
+									<div className='mt-3 grid grid-cols-1 gap-2 text-sm'>
+										<div className='flex items-center justify-between'>
+											<span className='text-muted-foreground'>Telefon</span>
+											<span className='font-medium'>{student.phone || '—'}</span>
+										</div>
+										<div className='flex items-center justify-between'>
+											<span className='text-muted-foreground'>Oxirgi kirish</span>
+											<span className='font-medium'>
+												{student.lastLoginAt
+													? new Date(student.lastLoginAt).toLocaleDateString()
+													: 'Hech qachon'}
+											</span>
+										</div>
+									</div>
+
+									<div className='mt-3'>
+										<div className='text-xs text-muted-foreground mb-1'>Guruhlar</div>
+										{student.groups && student.groups.length > 0 ? (
+											<div className='flex flex-wrap gap-1'>
+												{student.groups.slice(0, 4).map((group) => (
+													<Badge key={group.id} variant='secondary' className='text-xs'>
+														{group.name}
+													</Badge>
+												))}
+											{student.groups.length > 4 && (
+												<Badge variant='outline' className='text-xs'>
+													+{student.groups.length - 4}
+												</Badge>
+											)}
+										</div>
+										) : (
+											<div className='text-sm text-muted-foreground'>—</div>
+										)}
+									</div>
+								</div>
+							))
+						)}
+					</div>
+
 					{!loading && filteredStudents.length > 0 ? (
-						<div className='flex items-center justify-between mt-3'>
+						<div className='mt-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3'>
 							<div className='text-sm text-muted-foreground'>
 								{pageStart + 1}-{pageEnd} / {filteredStudents.length}
 							</div>
-							<div className='flex items-center gap-2'>
-								<Button
-									variant='outline'
-									size='sm'
-									onClick={() => setPage((p) => Math.max(1, p - 1))}
-									disabled={safePage <= 1}
-								>
-									Oldingi
-								</Button>
-								<div className='text-sm text-muted-foreground'>
+							<div className='flex flex-col sm:flex-row sm:items-center gap-2'>
+								<div className='text-sm text-muted-foreground order-2 sm:order-1'>
 									Sahifa {safePage} / {totalPages}
 								</div>
-								<Button
-									variant='outline'
-									size='sm'
-									onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-									disabled={safePage >= totalPages}
-								>
-									Keyingi
-								</Button>
+								<div className='flex items-center gap-2 order-1 sm:order-2'>
+									<Button
+										variant='outline'
+										size='sm'
+										onClick={() => setPage((p) => Math.max(1, p - 1))}
+										disabled={safePage <= 1}
+									>
+										Oldingi
+									</Button>
+									<Button
+										variant='outline'
+										size='sm'
+										onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+										disabled={safePage >= totalPages}
+									>
+										Keyingi
+									</Button>
+								</div>
 							</div>
 						</div>
 					) : null}

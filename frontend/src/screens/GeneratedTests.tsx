@@ -182,25 +182,70 @@ export default function GeneratedTestsPage() {
 		<div className='space-y-4'>
 			<Card>
 				<CardHeader>
-					<CardTitle className='flex items-center justify-between'>
+					<CardTitle className='flex flex-col sm:flex-row sm:items-center justify-between gap-3'>
 						<span className='flex items-center gap-2'>
 							<ListChecks className='h-5 w-5 text-primary' /> Yaratilgan testlar
 						</span>
-						<div className='flex gap-2'>
+						<div className='flex flex-col sm:flex-row sm:items-center gap-2 w-full sm:w-auto'>
 							<a href={`/Javoblar_Varogi.pdf`} target='_blank' rel='noreferrer'>
 								<Button
 									variant='outline'
-									className='bg-primary hover:bg-primary/90 text-white disabled:opacity-50 disabled:cursor-not-allowed'
+									className='bg-primary hover:bg-primary/90 text-white disabled:opacity-50 disabled:cursor-not-allowed w-full sm:w-auto'
 								>
 									Javob varag'ini yuklab olish(PDF)
 								</Button>
 							</a>
-							<Badge variant='secondary'>{items.length} ta</Badge>
+							<Badge variant='secondary' className='w-fit'>
+								{items.length} ta
+							</Badge>
 						</div>
 					</CardTitle>
 				</CardHeader>
 				<CardContent>
-					<div className='overflow-x-auto'>
+					{/* Mobile list/cards */}
+					<div className='md:hidden space-y-3'>
+						{loading ? (
+							<Card className='p-4'>Yuklanmoqda...</Card>
+						) : items.length === 0 ? (
+							<Card className='p-4'>Hozircha ma'lumot yo'q</Card>
+						) : (
+							items.map((it) => (
+								<Card key={it.id} className='p-4'>
+									<div className='flex items-start justify-between gap-3'>
+										<div className='min-w-0'>
+											<div className='text-sm text-muted-foreground truncate'>{it.subject?.name || '-'}</div>
+											<div className='font-medium truncate'>{it.title}</div>
+											<div className='text-xs text-muted-foreground mt-1'>
+												{it.questionCount} savol • {it.timeLimit} daqiqa • {it.difficulty}
+											</div>
+										</div>
+										<div className='shrink-0'>
+											<Badge variant='outline'>{it.variantCount}</Badge>
+										</div>
+									</div>
+
+									<div className='mt-3 space-y-2 text-sm'>
+										<div className='text-muted-foreground'>
+											Yaratuvchi: <span className='text-foreground'>{it.teacher?.fullName || '-'}</span>
+										</div>
+										<div className='text-muted-foreground'>
+											Yaratilgan:{' '}
+											<span className='text-foreground'>{new Date(it.createdAt).toLocaleString('uz-UZ')}</span>
+										</div>
+									</div>
+
+									<div className='mt-3'>
+										<Button size='sm' variant='outline' className='w-full' onClick={() => openVariants(it)}>
+											<Eye className='h-4 w-4 mr-1' /> Variantlar
+										</Button>
+									</div>
+								</Card>
+							))
+						)}
+					</div>
+
+					{/* Desktop table */}
+					<div className='hidden md:block overflow-x-auto'>
 						<Table>
 							<TableHeader>
 								<TableRow>
@@ -241,7 +286,7 @@ export default function GeneratedTestsPage() {
 													<Eye className='h-4 w-4 mr-1' /> Variantlar
 												</Button>
 											</TableCell>
-										</TableRow>
+									</TableRow>
 									))
 								)}
 							</TableBody>
@@ -251,7 +296,7 @@ export default function GeneratedTestsPage() {
 			</Card>
 
 			<Dialog open={open} onOpenChange={setOpen}>
-				<DialogContent className='max-w-6xl'>
+				<DialogContent className='max-w-[96vw] sm:max-w-6xl'>
 					<DialogHeader>
 						<DialogTitle>
 							{active ? (
@@ -287,7 +332,7 @@ export default function GeneratedTestsPage() {
 												{new Date(v.generatedAt).toLocaleString('uz-UZ')}
 											</span>
 										</div>
-										<div className='flex items-center gap-2'>
+										<div className='flex flex-col sm:flex-row sm:items-center gap-2'>
 											{v.printableUrl ? (
 												<>
 													<a
@@ -322,9 +367,9 @@ export default function GeneratedTestsPage() {
 						{variants.some((v) => v.answerKey && v.answerKey.answers?.length) && (
 							<Card>
 								<CardHeader>
-									<div className='flex items-center justify-between'>
+									<div className='flex flex-col sm:flex-row sm:items-center justify-between gap-2'>
 										<CardTitle className='text-base'>Javoblar kaliti</CardTitle>
-										<Button size='sm' variant='outline' onClick={printAnswerKeys}>
+										<Button size='sm' variant='outline' onClick={printAnswerKeys} className='w-full sm:w-auto'>
 											<Printer className='h-4 w-4 mr-2' /> Chop etish
 										</Button>
 									</div>

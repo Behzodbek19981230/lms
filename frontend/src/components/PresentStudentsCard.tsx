@@ -59,7 +59,7 @@ export default function PresentStudentsCard() {
       if (result.success && result.data) {
         setPresentStudents(result.data);
       } else {
-        throw new Error(result.error || 'Failed to load present students');
+        throw new Error(result.error || "Kelgan talabalarni yuklab bo'lmadi");
       }
     } catch (error: any) {
       console.error('Error loading present students:', error);
@@ -85,7 +85,7 @@ export default function PresentStudentsCard() {
         setPresentStudents(result.data);
         setSelectedDate(new Date().toISOString().split('T')[0]);
       } else {
-        throw new Error(result.error || 'Failed to load today present students');
+        throw new Error(result.error || "Bugungi kelgan talabalarni yuklab bo'lmadi");
       }
     } catch (error: any) {
       console.error('Error loading today present students:', error);

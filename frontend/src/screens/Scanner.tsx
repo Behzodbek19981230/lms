@@ -85,7 +85,7 @@ export default function ScannerPage() {
 				if (typeof result === 'string') {
 					resolve(result.split(',')[1]);
 				} else {
-					reject('Failed to read file');
+					reject("Faylni o'qib bo'lmadi");
 				}
 			};
 			reader.readAsDataURL(file);

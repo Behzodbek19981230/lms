@@ -44,34 +44,34 @@ import { Button } from '@/components/ui/button';
 import { hasCenterPermission } from '@/configs/permissions';
 
 const adminItems = [
-	{ title: 'User Management', url: '/dashboard/users', icon: Users },
-	{ title: 'Certificates', url: '/dashboard/certificates', icon: Award },
-	{ title: 'Messages', url: '/dashboard/messages', icon: MessageSquare },
-	{ title: 'Settings', url: '/dashboard/settings', icon: Settings },
+	{ title: 'Foydalanuvchilar', url: '/dashboard/users', icon: Users },
+	{ title: 'Sertifikatlar', url: '/dashboard/certificates', icon: Award },
+	{ title: 'Xabarlar', url: '/dashboard/messages', icon: MessageSquare },
+	{ title: 'Sozlamalar', url: '/dashboard/settings', icon: Settings },
 ];
 const superAdminMenuItems = [
-	{ title: 'Dashboard', url: '/account/superadmin', icon: LayoutDashboard },
-	{ title: 'Mobile Releases', url: '/account/superadmin/mobile-releases', icon: Smartphone },
+	{ title: 'Bosh sahifa', url: '/account/superadmin', icon: LayoutDashboard },
+	{ title: 'Mobil ilovalar', url: '/account/superadmin/mobile-releases', icon: Smartphone },
 	{ title: 'Mening fanlarim', url: '/account/subjects', icon: Book },
 	{ title: 'Markazlar va foydalanuvchilar', url: '/account/center-users', icon: Users },
-	{ title: 'Telegram Management', url: '/account/telegram', icon: Send },
-	{ title: 'Analytics', url: '/account/analytics', icon: FolderOpen },
-	{ title: 'Logs', url: '/account/logs', icon: FileText },
+	{ title: 'Telegram boshqaruvi', url: '/account/telegram', icon: Send },
+	{ title: 'Tahlillar', url: '/account/analytics', icon: FolderOpen },
+	{ title: 'Loglar', url: '/account/logs', icon: FileText },
 ];
 const centerAdminMenuItems = [
-	{ title: 'Dashboard', url: '/account/admin', icon: LayoutDashboard },
+	{ title: 'Bosh sahifa', url: '/account/admin', icon: LayoutDashboard },
 	{ title: "O'quvchilarim", url: '/account/students', icon: GraduationCap },
 	{ title: "O'qituvchilarim", url: '/account/teachers', icon: UserCheck },
 	{ title: 'Guruhlar', url: '/account/groups', icon: Users2 },
 	{ title: "To'lovlar", url: '/account/payments', icon: DollarSign },
 	{ title: 'Mening fanlarim', url: '/account/subjects', icon: Book },
-	{ title: 'Telegram Management', url: '/account/telegram', icon: Send },
+	{ title: 'Telegram boshqaruvi', url: '/account/telegram', icon: Send },
 	{ title: "Foydalanish qo'llanmasi", url: '/account/guide', icon: HelpCircle },
 ];
 // Add Results menu item for admin
 centerAdminMenuItems.splice(4, 0, { title: 'Natijalar', url: '/account/results', icon: FileText });
 const teacherMenuItems = [
-	{ title: 'Dashboard', url: '/account/teacher', icon: LayoutDashboard },
+	{ title: 'Bosh sahifa', url: '/account/teacher', icon: LayoutDashboard },
 	{ title: 'Imtihonlar', url: '/account/exams', icon: AlertCircle },
 	{ title: 'Mening guruhlarim', url: '/account/groups', icon: Users2 },
 	{ title: 'Vazifalar', url: '/account/tasks', icon: ClipboardList },
@@ -81,12 +81,12 @@ const teacherMenuItems = [
 	{ title: 'Test generatsiya', url: '/account/test-generator', icon: Wand2 },
 	{ title: 'Yaratilgan testlar', url: '/account/generated-tests', icon: FileText },
 	{ title: 'Skaner', url: '/account/scanner', icon: Scan },
-	{ title: 'Telegram Management', url: '/account/telegram', icon: Send },
+	{ title: 'Telegram boshqaruvi', url: '/account/telegram', icon: Send },
 ];
 // Add Results menu item for teacher
 teacherMenuItems.splice(4, 0, { title: 'Natijalar', url: '/account/results', icon: FileText });
 const studentMenuItems = [
-	{ title: 'Dashboard', url: '/account/student', icon: LayoutDashboard },
+	{ title: 'Bosh sahifa', url: '/account/student', icon: LayoutDashboard },
 	{ title: "Mening to'lovlarim", url: '/account/student-payments', icon: DollarSign },
 	{ title: 'Mening guruhlarim', url: '/account/student-groups', icon: Users2 },
 	{ title: 'Mening davomatim', url: '/account/student-attendance', icon: UserCheck },
@@ -157,7 +157,7 @@ export function DashboardSidebar() {
 			<SidebarContent className='pt-4 pb-2'>
 				<SidebarGroup>
 					<SidebarGroupLabel className='text-xs uppercase tracking-wider text-foreground/50 font-semibold px-4 mb-2'>
-						Main Menu
+						Asosiy menyu
 					</SidebarGroupLabel>
 					<SidebarGroupContent>
 						<SidebarMenu>
