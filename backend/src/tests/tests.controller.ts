@@ -169,7 +169,8 @@ export class TestsController {
   @ApiResponse({ status: 200, description: 'Natijalar qaytariladi' })
   async gradeScanned(
     @Param('uniqueNumber') uniqueNumber: string,
-    @Request() req: any,
+    @Request()
+    req: { user?: { center?: { id?: number | string } } },
     @Body()
     body: {
       // Example: ["A","C","-","B", ...]
@@ -188,7 +189,11 @@ export class TestsController {
       uniqueNumber,
       body.answers,
       body.studentId,
-      req.user?.center?.id,
+      typeof req.user?.center?.id === 'number'
+        ? req.user.center.id
+        : typeof req.user?.center?.id === 'string'
+          ? parseInt(req.user.center.id, 10)
+          : undefined,
     );
   }
 
@@ -295,6 +300,45 @@ export class TestsController {
       generateTestDto,
       userId,
     );
+  }
+
+  @Post(':id/printable-html')
+  @RequireCenterPermissions(CenterPermissionKey.TESTS)
+  @ApiOperation({
+    summary:
+      'Manual test uchun bitta printable HTML variant + javoblar yaratish',
+  })
+  @ApiResponse({ status: 201, description: 'Printable HTML URL returned' })
+  async generatePrintableHtmlForManualTest(
+    @Param('id', ParseIntPipe) id: number,
+    @Body()
+    body: {
+      shuffleQuestions?: boolean;
+      shuffleAnswers?: boolean;
+      ensureExists?: boolean;
+      includeAnswers?: boolean;
+      showTitleSheet?: boolean;
+    },
+    @Request() req: { user: { id: number | string } },
+  ): Promise<{
+    url: string;
+    fileName: string;
+    answerUrl: string;
+    answerFileName: string;
+    title: string;
+  }> {
+    const userId =
+      typeof req.user.id === 'string' ? parseInt(req.user.id, 10) : req.user.id;
+
+    return await this.testGeneratorService.generatePrintableHtmlForManualTest({
+      testId: id,
+      teacherId: userId,
+      shuffleQuestions: body?.shuffleQuestions,
+      shuffleAnswers: body?.shuffleAnswers,
+      ensureExists: body?.ensureExists,
+      includeAnswers: body?.includeAnswers,
+      showTitleSheet: body?.showTitleSheet,
+    });
   }
 
   // PDF generation endpoint removed

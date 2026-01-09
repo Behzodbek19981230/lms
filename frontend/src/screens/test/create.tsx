@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -34,6 +34,7 @@ import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
 import TelegramManager from '@/components/telegram/TelegramManager';
 import { MathRenderer } from '@/components/math-renderer';
+import { buildWeeklyDescription } from '@/screens/weekly-tests/constants';
 
 interface Question {
 	id: string | number;
@@ -154,6 +155,11 @@ export default function CreateTestPage() {
 	const router = useRouter();
 	const searchParams = useSearchParams();
 	const subjectId = searchParams?.get('subject');
+	const titleParam = searchParams?.get('title');
+	const fixedTitle = searchParams?.get('fixedTitle') === '1';
+	const isWeekly = searchParams?.get('weekly') === '1';
+	const weeklyFrom = searchParams?.get('weeklyFrom');
+	const weeklyTo = searchParams?.get('weeklyTo');
 	const { toast } = useToast();
 	const [isLoading, setIsLoading] = useState(false);
 
@@ -178,6 +184,7 @@ export default function CreateTestPage() {
 	const [wordFile, setWordFile] = useState<File | null>(null);
 	const [importedQuestions, setImportedQuestions] = useState<Question[]>([]);
 	const [savedTestId, setSavedTestId] = useState<number | null>(null);
+	const [printableUrl, setPrintableUrl] = useState<string | null>(null);
 
 	useEffect(() => {
 		(async () => {
@@ -206,7 +213,13 @@ export default function CreateTestPage() {
 				setSelectedSubject(subject);
 			}
 		}
-	}, [subjectId]);
+	}, [subjectId, subjects]);
+
+	useEffect(() => {
+		if (!titleParam) return;
+		// Only set initial value once (don't overwrite user's manual edits)
+		setTestTitle((prev) => (prev ? prev : titleParam));
+	}, [titleParam]);
 
 	const addQuestion = () => {
 		if (currentQuestion.question.trim()) {
@@ -253,10 +266,16 @@ export default function CreateTestPage() {
 		setIsLoading(true);
 
 		try {
+			const weeklyTag =
+				isWeekly && weeklyFrom && weeklyTo ? buildWeeklyDescription(String(weeklyFrom), String(weeklyTo)) : '';
+			const finalDescription = weeklyTag
+				? `${weeklyTag}${testDescription ? `\n${testDescription}` : ''}`
+				: (testDescription || undefined);
+
 			// 1) Create test
 			const { data: testRes } = await request.post('/tests', {
 				title: testTitle,
-				description: testDescription || undefined,
+				description: finalDescription,
 				type: testType,
 				duration: timeLimit,
 				shuffleQuestions: true,
@@ -264,6 +283,7 @@ export default function CreateTestPage() {
 				subjectid: Number(selectedSubject.id),
 			});
 			const testId = testRes?.id;
+			setPrintableUrl(null);
 
 			// 2) Create questions
 			for (let idx = 0; idx < questions.length; idx++) {
@@ -289,6 +309,22 @@ export default function CreateTestPage() {
 			}
 
 			setSavedTestId(Number(testId));
+
+			if (isWeekly) {
+				try {
+					const { data } = await request.post(`/tests/${Number(testId)}/printable-html`, {
+						shuffleQuestions: true,
+						shuffleAnswers: true,
+					});
+					if (data?.url) setPrintableUrl(String(data.url));
+				} catch (err: any) {
+					toast({
+						title: 'Ogohlantirish',
+						description: err?.response?.data?.message || 'Printable HTML yaratilmadi',
+						variant: 'destructive',
+					});
+				}
+			}
 			toast({
 				title: 'Test yaratildi',
 				description: 'Test va savollar muvaffaqiyatli saqlandi. Endi Telegram orqali tarqatishingiz mumkin.',
@@ -303,6 +339,14 @@ export default function CreateTestPage() {
 			setIsLoading(false);
 		}
 	};
+
+	const shareUrl = useMemo(() => {
+		if (!printableUrl) return undefined;
+		const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL || '';
+		const inferred = apiBase.replace(/\/?api\/?$/, '');
+		const base = (process.env.NEXT_PUBLIC_FILE_BASE_URL || inferred).replace(/\/$/, '');
+		return `${base}${printableUrl}`;
+	}, [printableUrl]);
 
 	const downloadExcelTemplate = () => {
 		// Faqat multiple_choice savollar uchun soddalashtirilgan shablon
@@ -714,7 +758,10 @@ export default function CreateTestPage() {
 								<Input
 									id='title'
 									value={testTitle}
-									onChange={(e) => setTestTitle(e.target.value)}
+									onChange={(e) => {
+										if (!fixedTitle) setTestTitle(e.target.value);
+									}}
+									readOnly={fixedTitle}
 									placeholder='Masalan: Algebra asoslari'
 									className='h-10'
 								/>
@@ -775,12 +822,7 @@ export default function CreateTestPage() {
 									<TabsTrigger value='excel' className='text-xs md:text-sm'>
 										Excel
 									</TabsTrigger>
-									{savedTestId && (
-										<TabsTrigger value='telegram' className='text-xs md:text-sm'>
-											<MessageCircle className='h-4 w-4 mr-1' />
-											Telegram
-										</TabsTrigger>
-									)}
+							
 								</TabsList>
 
 								<TabsContent value='create' className='space-y-4 mt-4'>
@@ -1250,6 +1292,7 @@ export default function CreateTestPage() {
 										</div>
 										<TelegramManager
 											testId={savedTestId}
+											shareUrl={shareUrl}
 											onSuccess={(message) => {
 												toast({
 													title: 'Muvaffaqiyat',

@@ -22,10 +22,21 @@ import { Results } from './entities/results.entity';
 import { LatexProcessorService } from './latex-processor.service';
 import { LogsService } from 'src/logs/logs.service';
 import { promises as fs } from 'fs';
+import { existsSync } from 'fs';
 import { join } from 'path';
 import * as katex from 'katex';
 import { TelegramService } from 'src/telegram/telegram.service';
 // import { User } from 'src/users/entities/user.entity';
+
+export interface GenerateManualPrintableHtmlOptions {
+  testId: number;
+  teacherId: number;
+  shuffleQuestions?: boolean;
+  shuffleAnswers?: boolean;
+  ensureExists?: boolean;
+  includeAnswers?: boolean;
+  showTitleSheet?: boolean;
+}
 
 export interface GenerateTestDto {
   title: string;
@@ -152,9 +163,10 @@ export class TestGeneratorService {
   }> {
     const title = input.config.title || `${input.subjectName} testi`;
     const timestamp = Date.now();
-    const publicDir = this.getPublicDir();
-    const uploadsDir = join(publicDir, 'uploads');
+    const uploadsDir = this.getUploadsDir();
     await fs.mkdir(uploadsDir, { recursive: true });
+
+    const centerName = await this.getCenterNameByTeacherId(input.teacherId);
 
     const slug = (s: string) =>
       (s || '')
@@ -172,7 +184,11 @@ export class TestGeneratorService {
     const variantInners: string[] = [];
 
     for (const variant of input.variants) {
-      const inner = this.buildVariantHtml(variant, input);
+      const inner = this.buildVariantHtml(variant, {
+        config: input.config,
+        subjectName: input.subjectName,
+        centerName,
+      });
       variantInners.push(inner);
       const pageTitle = `${title} — Variant ${variant.variantNumber} (#${variant.uniqueNumber})`;
       const html = this.wrapHtmlForBrowser(inner, pageTitle);
@@ -238,22 +254,261 @@ export class TestGeneratorService {
     return { files, title, combinedUrl };
   }
 
+  /**
+   * Manual test uchun bitta "aralashgan" variant HTML + javoblar HTML yaratish.
+   * Variant HTML generatsiyasi generatePrintableHtmlFiles orqali qilinadi.
+   */
+  async generatePrintableHtmlForManualTest(
+    opts: GenerateManualPrintableHtmlOptions,
+  ): Promise<{
+    url: string;
+    fileName: string;
+    answerUrl: string;
+    answerFileName: string;
+    title: string;
+  }> {
+    const test = await this.testRepository.findOne({
+      where: { id: opts.testId },
+      relations: ['subject', 'teacher', 'questions', 'questions.answers'],
+    });
+
+    if (!test) throw new NotFoundException('Test topilmadi');
+    if (!test.teacher || Number(test.teacher.id) !== Number(opts.teacherId)) {
+      throw new BadRequestException('Bu test sizga tegishli emas');
+    }
+
+    const title = test.title;
+    const subjectName = test.subject?.name ?? 'Test';
+    const centerName = await this.getCenterNameByTeacherId(opts.teacherId);
+
+    const uploadsDir = this.getUploadsDir();
+    const weeklyDir = join(uploadsDir, 'weekly-tests');
+    await fs.mkdir(weeklyDir, { recursive: true });
+
+    const stableFileName = `weekly-test-${test.id}.html`;
+    const stableAnswerFileName = `weekly-test-${test.id}-answers.html`;
+    const stableAbsolutePath = join(weeklyDir, stableFileName);
+    const stableAnswerAbsolutePath = join(weeklyDir, stableAnswerFileName);
+
+    const url = `/uploads/weekly-tests/${stableFileName}`;
+    const answerUrl = `/uploads/weekly-tests/${stableAnswerFileName}`;
+
+    // IMPORTANT: default to regenerating so HTML/CSS fixes reflect immediately.
+    // Callers that want caching should pass ensureExists=true explicitly.
+    const ensureExists = opts.ensureExists ?? false;
+    if (
+      ensureExists &&
+      existsSync(stableAbsolutePath) &&
+      existsSync(stableAnswerAbsolutePath)
+    ) {
+      return {
+        url,
+        fileName: stableFileName,
+        answerUrl,
+        answerFileName: stableAnswerFileName,
+        title,
+      };
+    }
+
+    // Prepare questions (+ optional shuffles)
+    const sourceQuestions = Array.isArray(test.questions)
+      ? [...test.questions]
+      : [];
+    const orderedQuestions = opts.shuffleQuestions
+      ? [...sourceQuestions].sort(() => 0.5 - Math.random())
+      : [...sourceQuestions].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+
+    const preparedQuestions: Question[] = orderedQuestions.map((q) => {
+      if (
+        opts.shuffleAnswers &&
+        q.type === QuestionType.MULTIPLE_CHOICE &&
+        Array.isArray(q.answers) &&
+        q.answers.length > 1
+      ) {
+        return {
+          ...q,
+          answers: [...q.answers].sort(() => 0.5 - Math.random()),
+        } as Question;
+      }
+      return q;
+    });
+
+    const uniqueNumber = await this.generateUniqueNumber();
+    const variant: TestVariant = {
+      id: `manual-${test.id}-${Date.now()}`,
+      variantNumber: '1',
+      uniqueNumber,
+      questions: preparedQuestions,
+      createdAt: new Date(),
+    };
+
+    // Use existing generator to produce variant HTML (timestamped in root uploads dir)
+    const gen = await this.generatePrintableHtmlFiles({
+      variants: [variant],
+      config: {
+        title,
+        subjectId: test.subject?.id ?? 0,
+        questionCount: preparedQuestions.length,
+        variantCount: 1,
+        timeLimit: test.duration ?? 60,
+        difficulty: 'manual',
+        includeAnswers: !!opts.includeAnswers,
+        showTitleSheet: !!opts.showTitleSheet,
+        testId: test.id,
+      },
+      subjectName,
+      teacherId: opts.teacherId,
+    });
+
+    const first = gen.files?.[0];
+    if (!first?.fileName) {
+      throw new BadRequestException('Printable HTML yaratib bo‘lmadi');
+    }
+
+    // Copy generated variant HTML into stable weekly path
+    const generatedAbsolutePath = join(uploadsDir, first.fileName);
+    const variantHtml = await fs.readFile(generatedAbsolutePath, 'utf8');
+    await fs.writeFile(stableAbsolutePath, variantHtml, 'utf8');
+
+    // Write answers HTML into stable weekly path
+    const answerKey = this.buildAnswerKey(preparedQuestions);
+    const answersHtml = this.buildAnswerKeyHtml({
+      title,
+      subjectName,
+      centerName,
+      answerKey,
+    });
+    await fs.writeFile(stableAnswerAbsolutePath, answersHtml, 'utf8');
+
+    return {
+      url,
+      fileName: stableFileName,
+      answerUrl,
+      answerFileName: stableAnswerFileName,
+      title,
+    };
+  }
+
+  private buildAnswerKeyHtml(input: {
+    title: string;
+    subjectName: string;
+    centerName?: string;
+    answerKey: { total: number; answers: string[] };
+  }): string {
+    const rows = (input.answerKey.answers || [])
+      .map((a, i) => {
+        const n = i + 1;
+        return `<tr><td class="n">${n}</td><td class="a">${escapeHtml(a)}</td></tr>`;
+      })
+      .join('');
+
+    return `<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>${escapeHtml(input.title)} — Javoblar</title>
+  <style>
+    @page { size: A4; margin: 12mm; }
+    body { font-family: Arial, sans-serif; color: #111; font-size: 12px; }
+    .title { font-size: 18px; font-weight: 700; margin: 0 0 4px 0; }
+    .meta { color: #555; font-size: 12px; margin-bottom: 14px; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { border: 1px solid #e5e7eb; padding: 6px 8px; }
+    th { background: #f8fafc; text-align: left; }
+    .n { width: 60px; font-weight: 700; }
+    .a { font-weight: 700; }
+  </style>
+</head>
+<body>
+  <h1 class="title">${escapeHtml(input.title)} — Javoblar</h1>
+  <div class="meta">${input.centerName ? `O‘quv markazi: ${escapeHtml(input.centerName)} • ` : ''}Fan: ${escapeHtml(input.subjectName || '-')} • Savollar: ${input.answerKey.total}</div>
+  <table>
+    <thead><tr><th>Savol</th><th>Javob</th></tr></thead>
+    <tbody>${rows}</tbody>
+  </table>
+</body>
+</html>`;
+  }
+
+  private async getCenterNameByTeacherId(
+    teacherId: number,
+  ): Promise<string | undefined> {
+    try {
+      const teacher = await this.userRepo.findOne({
+        where: { id: Number(teacherId) },
+        relations: ['center'],
+      });
+      return teacher?.center?.name ? String(teacher.center.name) : undefined;
+    } catch {
+      return undefined;
+    }
+  }
+
+  private getUploadsDir(): string {
+    const candidates = [
+      join(process.cwd(), 'public', 'uploads'),
+      join(__dirname, '..', '..', 'public', 'uploads'),
+      join(process.cwd(), 'dist', 'public', 'uploads'),
+      join(__dirname, '..', 'public', 'uploads'),
+    ];
+    const existing = candidates.find((p) => {
+      try {
+        return existsSync(p);
+      } catch {
+        return false;
+      }
+    });
+    return existing || candidates[0];
+  }
+
   private getPublicDir(): string {
     return join(__dirname, '..', '..', 'public');
   }
 
   private buildVariantHtml(
     variant: TestVariant,
-    ctx: { config: GenerateTestDto; subjectName: string },
+    ctx: { config: GenerateTestDto; subjectName: string; centerName?: string },
   ): string {
+    const centerLine = ctx.centerName
+      ? `<div class="subtitle">O‘quv markazi: ${escapeHtml(ctx.centerName)}</div>`
+      : '';
     const header = `
       <div class="header">
         <div class="title">${escapeHtml(
           ctx.config.title || `${ctx.subjectName} testi`,
         )}</div>
+        ${centerLine}
         <div class="subtitle">Variant: ${escapeHtml(variant.variantNumber)} — ID: #${escapeHtml(variant.uniqueNumber)}</div>
         <div class="meta">Sana: ${new Date().toLocaleDateString('uz-UZ')}</div>
       </div>`;
+
+    const coverHtml = ctx.config.showTitleSheet
+      ? `
+        <div class="page cover">
+          <div class="cover-inner">
+            ${ctx.centerName ? `<div class="cover-center">${escapeHtml(ctx.centerName)}</div>` : ''}
+            <div class="cover-title">${escapeHtml(
+              ctx.config.title || `${ctx.subjectName} testi`,
+            )}</div>
+            <div class="cover-subject">Fan: ${escapeHtml(ctx.subjectName)}</div>
+            <div class="cover-meta">
+              Variant: ${escapeHtml(variant.variantNumber)} • ID: #${escapeHtml(
+                variant.uniqueNumber,
+              )} • Savollar: ${Number(ctx.config.questionCount || 0)} • Vaqt: ${Number(
+                ctx.config.timeLimit || 0,
+              )} daqiqa
+            </div>
+
+            <div class="cover-fields">
+              <div class="field-row"><span class="field-label">Guruh:</span> <span class="field-line"></span></div>
+              <div class="field-row"><span class="field-label">Ism:</span> <span class="field-line"></span></div>
+              <div class="field-row"><span class="field-label">Familiya:</span> <span class="field-line"></span></div>
+            </div>
+          </div>
+        </div>
+      `
+      : '';
 
     const questionsHtml = (variant.questions || [])
       .map((q, idx) => {
@@ -308,7 +563,38 @@ export class TestGeneratorService {
       })
       .join('');
 
-    return `<div class="page">${header}<div class="questions-container">${questionsHtml}</div></div>`;
+    const answerSheetHtml = (() => {
+      if (!ctx.config.includeAnswers) return '';
+      const answerKey = this.buildAnswerKey(variant.questions || []);
+      const items = (answerKey.answers || [])
+        .map((a, i) => {
+          const n = i + 1;
+          return `<div class="ak-item"><span class="ak-n">${n}.</span><span class="ak-a">${escapeHtml(
+            a,
+          )}</span></div>`;
+        })
+        .join('');
+
+      return `
+        <div class="page answer-sheet">
+          <div class="header">
+            <div class="title">${escapeHtml(
+              ctx.config.title || `${ctx.subjectName} testi`,
+            )}</div>
+            ${centerLine}
+            <div class="subtitle">Javoblar varagi — Variant: ${escapeHtml(
+              variant.variantNumber,
+            )} — ID: #${escapeHtml(variant.uniqueNumber)}</div>
+            <div class="meta">Sana: ${new Date().toLocaleDateString(
+              'uz-UZ',
+            )} • Savollar: ${answerKey.total}</div>
+          </div>
+          <div class="ak-grid">${items}</div>
+        </div>
+      `;
+    })();
+
+    return `${coverHtml}<div class="page">${header}<div class="questions-container">${questionsHtml}</div></div>${answerSheetHtml}`;
   }
 
   // Build one combined HTML containing all variants and all answer sheets with print controls
@@ -320,9 +606,10 @@ export class TestGeneratorService {
     const title = `${escapeHtml(input.title)} — Barcha variantlar va javoblar varagi`;
     // Ensure question numbers start from 1 for each variant
     // Remove extra page breaks at the top
-    const variantsSection = input.variantInners
-      .map((inner) => `<div class="variant-item">${inner}</div>`)
-      .join('');
+    // NOTE: each variantInner already contains one or more `.page` blocks.
+    // Wrapping them in an extra container with break-inside rules can prevent
+    // proper page breaks in some browsers, so we render them directly.
+    const variantsSection = input.variantInners.join('');
 
     return `<!DOCTYPE html>
     <html lang="uz">
@@ -333,9 +620,43 @@ export class TestGeneratorService {
       <link rel="preconnect" href="https://cdn.jsdelivr.net" />
       <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
       <style>
-        @page { size: A4; margin: 12mm; }
+        /* Bigger top/bottom margins for nicer printing */
+        @page { size: A4; margin: 24mm 16mm; }
         * { box-sizing: border-box; }
-        body { font-family: Times, 'Times New Roman', serif; margin: 0; color: #111; font-size: 12px; }
+        body { font-family: Times, 'Times New Roman', serif; margin: 0; color: #111; font-size: 16px; }
+        .page { page-break-after: always; break-after: page; padding: 0 6mm; }
+        .cover { page-break-after: always; break-after: page; }
+        .answer-sheet { page-break-before: always; break-before: page; }
+        .header { text-align: center; margin-bottom: 12px; }
+        .title { font-size: 20px; font-weight: 700; margin: 0 0 6px 0; }
+        .subtitle { font-size: 12px; margin: 2px 0; color: #333; }
+        .meta { font-size: 10px; color: #666; }
+        .q-row { display: flex; align-items: flex-start; gap: 8px; }
+        .q-no { color: #000; font-weight: 600; min-width: 30px; flex-shrink: 0; text-align: left; }
+        .q-content { flex: 1; padding-top: 0; }
+        .q-text { padding-top: 0; margin-top: 0; margin-bottom: 6px; }
+        .answers { margin-top: 6px; padding-left: 0; }
+        .answer { margin: 2px 0; }
+        .answer-sheet { }
+        .ak-grid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px 10px; padding: 8px 12px; }
+        .ak-item { display: flex; gap: 6px; align-items: baseline; }
+        .ak-n { font-weight: 700; }
+        .ak-a { font-weight: 800; }
+        .image-container { margin: 8px 0; }
+        .answer-image-container { margin: 4px 0 4px 20px; display: inline-block; }
+        .answer-image { max-width: 200px; height: auto; max-height: 150px; border: 1px solid #ddd; border-radius: 4px; margin: 2px 0; break-inside: avoid; display: inline-block; vertical-align: middle; }
+        img.q-image { max-width: 100%; height: auto; max-height: 300px; border: 1px solid #ddd; border-radius: 4px; margin: 6px 0; break-inside: avoid; display: block; }
+        img[style*="width"], img[style*="height"] { max-width: none !important; max-height: none !important; }
+        .cover { display: flex; align-items: center; justify-content: center; }
+        .cover-inner { width: 100%; text-align: center; padding: 18mm 12mm; }
+        .cover-center { font-size: 16px; margin-bottom: 10px; }
+        .cover-title { font-size: 28px; font-weight: 700; margin: 8px 0; }
+        .cover-subject { font-size: 16px; color: #333; margin-top: 4px; }
+        .cover-meta { font-size: 14px; color: #444; margin-top: 14px; }
+        .cover-fields { margin-top: 26px; max-width: 520px; margin-left: auto; margin-right: auto; text-align: left; }
+        .field-row { display: flex; align-items: center; gap: 10px; margin: 14px 0; }
+        .field-label { min-width: 90px; font-size: 14px; color: #111; }
+        .field-line { flex: 1; border-bottom: 1px solid #111; height: 18px; }
         .toolbar { position: sticky; top: 0; background: #fff; border-bottom: 1px solid #eee; padding: 8px 12px; display:flex; gap:8px; align-items:center; z-index: 10; }
         .toolbar button { padding: 6px 10px; font-size: 14px; }
         .section { padding: 8px 12px; }
@@ -347,22 +668,12 @@ export class TestGeneratorService {
           column-gap: 36px;
           padding: 8px 12px;
         }
-        .variant-item {
-          display: block;
-          break-inside: avoid;
-          -webkit-column-break-inside: avoid;
-          -moz-column-break-inside: avoid;
-          margin-bottom: 18px;
-        }
-        .variant-item:first-child {
-          page-break-before: auto;
-        }
         .questions-container {
           column-count: 2;
           column-gap: 36px;
           position: relative;
           padding: 8px 12px;
-          font-size: 12px;
+          font-size: inherit;
         }
         .questions-container:before {
           content: "";
@@ -377,21 +688,25 @@ export class TestGeneratorService {
         }
         @media print {
           .toolbar { display: none; }
-          .question { page-break-inside: avoid; font-size: 12px; }
-          html, body { margin: 0 !important; padding: 0 !important; font-size: 12px !important; overflow: visible !important; }
+          .question { page-break-inside: avoid; font-size: inherit; }
+          html, body { margin: 0 !important; padding: 0 !important; font-size: 14px !important; overflow: visible !important; }
           .section#variants { page-break-before: auto !important; }
           .section-title { page-break-after: avoid !important; margin-bottom: 4px !important; padding-bottom: 4px !important; }
           .variants-container { page-break-before: avoid !important; margin-top: 0 !important; padding-top: 0 !important; }
-          .variant-item { page-break-before: always !important; page-break-after: auto !important; page-break-inside: avoid; }
-          .variant-item:first-child { page-break-before: auto !important; margin-top: 0 !important; }
-          .variant-item:last-child { page-break-after: avoid; }
-          .no-page-break { page-break-after: avoid !important; page-break-before: avoid !important; }
-          .section { page-break-inside: avoid; }
+          /* Allow the browser to break pages inside the variants section */
+          .section { page-break-inside: auto; break-inside: auto; }
+          .page { page-break-after: always !important; break-after: page !important; }
+          .cover { page-break-after: always !important; break-after: page !important; }
+          .answer-sheet { page-break-before: always !important; break-before: page !important; }
         }
         /* Hide center separator on small screens when columns drop to one */
         @media screen and (max-width: 900px) {
           .questions-container { column-count: 1; }
           .questions-container:before { display: none; }
+        }
+
+        @media screen and (max-width: 900px) {
+          .ak-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
         }
       </style>
       <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
@@ -402,8 +717,8 @@ export class TestGeneratorService {
         <button onclick="(function(){ document.body.classList.remove('print-sheets'); document.body.classList.add('print-variants'); setTimeout(function(){ window.print(); setTimeout(function(){ document.body.classList.remove('print-variants'); }, 100); }, 0); })()">Faqat variantlar</button>
         <span style="color:#666; font-size:13px;">Chop etish oynasida "Save as PDF"ni tanlang.</span>
       </div>
-      <div class="section no-page-break" id="variants">
-        <div class="variants-container no-page-break">${variantsSection}</div>
+      <div class="section" id="variants">
+        <div class="variants-container">${variantsSection}</div>
       </div>
       <script>
         window.addEventListener('DOMContentLoaded', function() {
@@ -437,11 +752,14 @@ export class TestGeneratorService {
         <link rel="preconnect" href="https://cdn.jsdelivr.net" />
         <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
         <style>
-          @page { size: A4; margin: 20mm; }
+          /* Match combined print margins (more top/bottom space) */
+          @page { size: A4; margin: 16mm 16mm; }
           body { font-family: Times, 'Times New Roman', serif; margin: 0; padding: 0; color: #111; }
           .toolbar { position: sticky; top: 0; background: #fff; border-bottom: 1px solid #eee; padding: 8px 12px; display:flex; gap:8px; align-items:center; z-index: 10; }
           .toolbar button { padding: 6px 10px; font-size: 14px; }
           .page { page-break-after: always; padding: 0 6mm; }
+          .cover { page-break-after: always; }
+          .answer-sheet { page-break-before: always; }
           .header { text-align: center; margin-bottom: 12px; }
           .title { font-size: 20px; font-weight: 700; margin: 0 0 6px 0; }
           .subtitle { font-size: 12px; margin: 2px 0; color: #333; }
@@ -482,12 +800,27 @@ export class TestGeneratorService {
           .points { color: #666; font-size: 10px; font-weight: 500; align-self: flex-start; flex-shrink: 0; margin-left: 8px; }
           .answers { margin-top: 6px; padding-left: 0; }
           .answer { margin: 2px 0; }
+          .answer-sheet { }
+          .ak-grid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px 10px; padding: 8px 12px; }
+          .ak-item { display: flex; gap: 6px; align-items: baseline; }
+          .ak-n { font-weight: 700; }
+          .ak-a { font-weight: 800; }
           .image-container { margin: 8px 0; }
           .answer-image-container { margin: 4px 0 4px 20px; display: inline-block; }
           .answer-image { max-width: 200px; height: auto; max-height: 150px; border: 1px solid #ddd; border-radius: 4px; margin: 2px 0; break-inside: avoid; display: inline-block; vertical-align: middle; }
           .katex-display { margin: 6px 0; }
           img.q-image { max-width: 100%; height: auto; max-height: 300px; border: 1px solid #ddd; border-radius: 4px; margin: 6px 0; break-inside: avoid; display: block; }
           img[style*="width"], img[style*="height"] { max-width: none !important; max-height: none !important; }
+          .cover { display: flex; align-items: center; justify-content: center; }
+          .cover-inner { width: 100%; text-align: center; padding: 18mm 12mm; }
+          .cover-center { font-size: 16px; margin-bottom: 10px; }
+          .cover-title { font-size: 28px; font-weight: 700; margin: 8px 0; }
+          .cover-subject { font-size: 16px; color: #333; margin-top: 4px; }
+          .cover-meta { font-size: 14px; color: #444; margin-top: 14px; }
+          .cover-fields { margin-top: 26px; max-width: 520px; margin-left: auto; margin-right: auto; text-align: left; }
+          .field-row { display: flex; align-items: center; gap: 10px; margin: 14px 0; }
+          .field-label { min-width: 90px; font-size: 14px; color: #111; }
+          .field-line { flex: 1; border-bottom: 1px solid #111; height: 18px; }
           .key-table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 8px; }
           .key-table th, .key-table td { border: 1px solid #ccc; padding: 6px 8px; text-align: center; }
           .key-table th { background: #f7f7f7; }

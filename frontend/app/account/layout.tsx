@@ -59,6 +59,8 @@ export default function AccountLayout({ children }: { children: React.ReactNode 
 			!hasCenterPermission(perms, 'test_generation')
 		)
 			return deny();
+		if (p.startsWith('/account/weekly-tests') && !hasCenterPermission(perms, 'tests')) return deny();
+		if (p.startsWith('/account/test/') && !hasCenterPermission(perms, 'tests')) return deny();
 		if (p.startsWith('/account/scanner') && !hasCenterPermission(perms, 'checking')) return deny();
 		if (p.startsWith('/account/telegram') && !hasCenterPermission(perms, 'telegram_integration')) return deny();
 		if (p.startsWith('/account/tasks') && !hasCenterPermission(perms, 'tasks')) return deny();

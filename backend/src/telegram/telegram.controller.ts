@@ -30,6 +30,7 @@ import {
   CreateTelegramChatDto,
   SubmitAnswerDto,
   AuthenticateUserDto,
+  SendTestToChannelDto,
 } from './dto/telegram.dto';
 
 @ApiTags('Telegram')
@@ -241,6 +242,20 @@ export class TelegramController {
   @ApiResponse({ status: 200, description: 'Invite link generated' })
   async generateInvite(@Param('channelId') channelId: string) {
     return this.telegramService.generateChannelInviteLink(channelId);
+  }
+
+  @Post('send-test')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.TEACHER, UserRole.ADMIN, UserRole.SUPERADMIN)
+  @RequireCenterPermissions(CenterPermissionKey.TELEGRAM_INTEGRATION)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Send a test message (with optional link) to a channel',
+  })
+  @ApiResponse({ status: 200, description: 'Message sent' })
+  async sendTestToChannel(@Body() dto: SendTestToChannelDto) {
+    await this.telegramService.sendTestToChannel(dto);
+    return { success: true, message: 'Test kanalga yuborildi' };
   }
 
   @Post('answers')

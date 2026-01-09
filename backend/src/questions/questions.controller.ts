@@ -1,5 +1,5 @@
 import {
-    BadRequestException,
+  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -47,7 +47,7 @@ export class QuestionsController {
   }
 
   @Get()
-  @ApiOperation({ summary: "Savollarni olish (test yoki fan bo‘yicha)" })
+  @ApiOperation({ summary: 'Savollarni olish (test yoki fan bo‘yicha)' })
   @ApiResponse({
     status: 200,
     description: "Savollar ro'yxati",
@@ -59,15 +59,15 @@ export class QuestionsController {
     @Request() req,
   ): Promise<QuestionResponseDto[]> {
     const teacherid = req.user.id;
-  
+
     if (testId) {
       return this.questionsService.findAllByTest(testId, teacherid);
     }
-  
+
     if (subjectId) {
       return this.questionsService.findAllBySubject(subjectId, teacherid);
     }
-  
+
     throw new BadRequestException('testId yoki subjectId kerak');
   }
 
@@ -79,7 +79,10 @@ export class QuestionsController {
     type: QuestionResponseDto,
   })
   @ApiResponse({ status: 404, description: 'Savol topilmadi' })
-  async findOne(@Param('id') id: number, @Request() req): Promise<QuestionResponseDto> {
+  async findOne(
+    @Param('id') id: number,
+    @Request() req,
+  ): Promise<QuestionResponseDto> {
     return this.questionsService.findOne(id, req.user.id);
   }
 

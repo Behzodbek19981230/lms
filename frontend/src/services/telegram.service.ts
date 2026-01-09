@@ -76,6 +76,15 @@ class TelegramService {
 
 	// ==================== Test Distribution ====================
 
+	async sendTestToChannel(testId: number, channelId: string, customMessage?: string): Promise<{ success: boolean; message: string }> {
+		const response = await request.post(`${this.baseURL}/send-test`, {
+			testId,
+			channelId,
+			customMessage: customMessage || undefined,
+		});
+		return response.data;
+	}
+
 	async sendTestPDFsToChannel(testId: number, channelId: string): Promise<PDFDistributionResult> {
 		const response = await request.post(`${this.baseURL}/send-test-pdfs/${testId}/${channelId}`);
 		return response.data;

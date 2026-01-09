@@ -29,11 +29,12 @@ import TelegramUserManagement from './TelegramUserManagement';
 
 interface TelegramManagerProps {
 	testId?: number;
+	shareUrl?: string;
 	onSuccess?: (message: string) => void;
 	onError?: (error: string) => void;
 }
 
-const TelegramManager: React.FC<TelegramManagerProps> = ({ testId, onSuccess, onError }) => {
+const TelegramManager: React.FC<TelegramManagerProps> = ({ testId, shareUrl, onSuccess, onError }) => {
 	const { toast } = useToast();
 	const [activeTab, setActiveTab] = useState('overview');
 	const [channels, setChannels] = useState<TelegramChat[]>([]);
@@ -311,6 +312,7 @@ const TelegramManager: React.FC<TelegramManagerProps> = ({ testId, onSuccess, on
 				<TabsContent value='distribution'>
 					<TelegramTestDistribution
 						testId={testId}
+						shareUrl={shareUrl}
 						channels={channels}
 						selectedChannelId={selectedChannelId}
 						onChannelSelect={setSelectedChannelId}

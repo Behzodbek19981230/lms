@@ -78,6 +78,7 @@ const teacherMenuItems = [
 	// { title: 'Vazifalar tarixi', url: '/account/tasks/history', icon: ClipboardList },
 	{ title: "To'lovlar", url: '/account/payments', icon: DollarSign },
 	{ title: 'Mening fanlarim', url: '/account/subjects', icon: Book },
+	{ title: 'Haftalik test yaratish', url: '/account/weekly-tests', icon: ClipboardList },
 	{ title: 'Test generatsiya', url: '/account/test-generator', icon: Wand2 },
 	{ title: 'Yaratilgan testlar', url: '/account/generated-tests', icon: FileText },
 	{ title: 'Skaner', url: '/account/scanner', icon: Scan },
@@ -134,8 +135,14 @@ export function DashboardSidebar() {
 
 		const url = item.url || '';
 		if (url.startsWith('/account/exams')) return hasCenterPermission(centerPerms, 'exams');
-		if (url.startsWith('/account/test-generator') || url.startsWith('/account/generated-tests'))
-			return hasCenterPermission(centerPerms, 'test_generation');
+		if (
+			url.startsWith('/account/test-generator') ||
+			url.startsWith('/account/generated-tests') ||
+			url.startsWith('/account/weekly-tests')
+		)
+			return url.startsWith('/account/weekly-tests')
+				? hasCenterPermission(centerPerms, 'tests')
+				: hasCenterPermission(centerPerms, 'test_generation');
 		if (url.startsWith('/account/scanner')) return hasCenterPermission(centerPerms, 'checking');
 		if (url.startsWith('/account/telegram')) return hasCenterPermission(centerPerms, 'telegram_integration');
 		if (url.startsWith('/account/tasks')) return hasCenterPermission(centerPerms, 'tasks');

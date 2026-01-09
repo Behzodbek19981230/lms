@@ -31,19 +31,31 @@ async function bootstrap() {
   // Fallback to dist-relative path for safety.
   const uploadsDirCandidates = [
     join(process.cwd(), 'public', 'uploads'),
+    join(process.cwd(), 'dist', 'public', 'uploads'),
     join(__dirname, '..', 'public', 'uploads'),
+    join(__dirname, 'public', 'uploads'),
   ];
-  const uploadsDir =
-    uploadsDirCandidates.find((p) => {
-      try {
-        return fs.existsSync(p);
-      } catch {
-        return false;
-      }
-    }) || uploadsDirCandidates[0];
 
-  app.use('/uploads', express.static(uploadsDir));
-  app.use('/print', express.static(uploadsDir));
+  const uploadDirs = Array.from(
+    new Set(
+      uploadsDirCandidates.filter((p) => {
+        try {
+          return fs.existsSync(p);
+        } catch {
+          return false;
+        }
+      }),
+    ),
+  );
+
+  // Fall back to first candidate if none exist yet
+  const dirsToServe = uploadDirs.length
+    ? uploadDirs
+    : [uploadsDirCandidates[0]];
+  for (const dir of dirsToServe) {
+    app.use('/uploads', express.static(dir));
+    app.use('/print', express.static(dir));
+  }
 
   // Swagger documentation
   const config = new DocumentBuilder()

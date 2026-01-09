@@ -62,9 +62,21 @@ interface AssignedTest {
 
 interface TestGeneratorProps {
 	subject?: string;
+	presetSubjectId?: number;
+	lockSubject?: boolean;
+	titleLabel?: string;
+	titlePlaceholder?: string;
+	titlePrefix?: string;
 }
 
-export function TestGenerator({ subject }: TestGeneratorProps) {
+export function TestGenerator({
+	subject,
+	presetSubjectId,
+	lockSubject = false,
+	titleLabel = 'Test nomi',
+	titlePlaceholder = 'Test nomini kiriting',
+	titlePrefix,
+}: TestGeneratorProps) {
 	const { toast } = useToast();
 	const [subjects, setSubjects] = useState<Subject[]>([]);
 	const [selectedSubject, setSelectedSubject] = useState<Subject | null>(null);
@@ -157,7 +169,14 @@ export function TestGenerator({ subject }: TestGeneratorProps) {
 				setSubjects(mapped);
 
 				// Set default subject if provided
-				if (subject) {
+				if (presetSubjectId) {
+					const preset = mapped.find((s) => s.id === presetSubjectId);
+					if (preset) {
+						setSelectedSubject(preset);
+						fetchQuestionsForSubject(preset.id);
+						fetchTestsForSubject(preset.id);
+					}
+				} else if (subject) {
 					const defaultSubject = mapped.find((s) => s.name.toLowerCase() === subject.toLowerCase());
 					if (defaultSubject) {
 						setSelectedSubject(defaultSubject);
@@ -175,7 +194,7 @@ export function TestGenerator({ subject }: TestGeneratorProps) {
 		};
 
 		fetchSubjects();
-	}, [subject]);
+	}, [subject, presetSubjectId]);
 
 	// Fetch questions for selected subject
 	const fetchQuestionsForSubject = async (subjectId: number) => {
@@ -267,9 +286,13 @@ export function TestGenerator({ subject }: TestGeneratorProps) {
 		setIsGenerating(true);
 
 		try {
+			const baseTitle = testConfig.title || `${selectedSubject!.nameUz} testi`;
+			const prefix = titlePrefix || '';
+			const finalTitle = prefix && baseTitle.startsWith(prefix) ? baseTitle : `${prefix}${baseTitle}`;
+
 			// Call backend API to generate test
 			const { data } = await request.post('/tests/generate', {
-				title: testConfig.title || `${selectedSubject!.nameUz} testi`,
+				title: finalTitle,
 				subjectId: selectedSubject!.id,
 				questionCount: testConfig.questionCount,
 				variantCount: testConfig.variantCount,
@@ -376,32 +399,42 @@ export function TestGenerator({ subject }: TestGeneratorProps) {
 								>
 									Fan tanlash
 								</Label>
-								<Select
-									value={selectedSubject?.id?.toString() || ''}
-									onValueChange={(value) => {
-										const subject = subjects.find((s) => s.id === Number(value));
-										setSelectedSubject(subject || null);
-										setSelectedTests([]);
-										if (subject) {
-											fetchQuestionsForSubject(subject.id);
-											fetchTestsForSubject(subject.id);
-										}
-									}}
-								>
-									<SelectTrigger className='focus:ring-2 focus:ring-primary focus:border-primary'>
-										<SelectValue placeholder='Fanni tanlang' />
-									</SelectTrigger>
-									<SelectContent>
-										{subjects.map((subject) => (
-											<SelectItem key={subject.id} value={subject.id.toString()}>
-												<div className='flex items-center gap-2'>
-													<subject.icon className='h-4 w-4' />
-													{subject.nameUz}
-												</div>
-											</SelectItem>
-										))}
-									</SelectContent>
-								</Select>
+								{lockSubject ? (
+									<div className='rounded-lg border bg-muted/20 px-3 py-2 text-sm'>
+										{selectedSubject ? (
+											<span className='font-medium'>{selectedSubject.nameUz}</span>
+										) : (
+											<span className='text-muted-foreground'>Fan yuklanmoqda...</span>
+										)}
+									</div>
+								) : (
+									<Select
+										value={selectedSubject?.id?.toString() || ''}
+										onValueChange={(value) => {
+											const subject = subjects.find((s) => s.id === Number(value));
+											setSelectedSubject(subject || null);
+											setSelectedTests([]);
+											if (subject) {
+												fetchQuestionsForSubject(subject.id);
+												fetchTestsForSubject(subject.id);
+											}
+										}}
+									>
+										<SelectTrigger className='focus:ring-2 focus:ring-primary focus:border-primary'>
+											<SelectValue placeholder='Fanni tanlang' />
+										</SelectTrigger>
+										<SelectContent>
+											{subjects.map((subject) => (
+												<SelectItem key={subject.id} value={subject.id.toString()}>
+													<div className='flex items-center gap-2'>
+														<subject.icon className='h-4 w-4' />
+														{subject.nameUz}
+													</div>
+												</SelectItem>
+											))}
+										</SelectContent>
+									</Select>
+								)}
 								{selectedSubject && (
 									<div className='flex flex-wrap items-center gap-2 mt-2'>
 										<Badge variant='secondary'>
@@ -529,11 +562,11 @@ export function TestGenerator({ subject }: TestGeneratorProps) {
 										htmlFor='title'
 										className='text-sm font-medium text-gray-700 dark:text-gray-300'
 									>
-										Test nomi
+											{titleLabel}
 									</Label>
 									<Input
 										id='title'
-										placeholder='Test nomini kiriting'
+											placeholder={titlePlaceholder}
 										value={testConfig.title}
 										onChange={(e) => setTestConfig((prev) => ({ ...prev, title: e.target.value }))}
 										className='focus:ring-2 focus:ring-primary focus:border-primary'

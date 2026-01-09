@@ -14,7 +14,8 @@ import {
   CheckCircle, 
   AlertCircle,
   Download,
-  Loader2
+  Loader2,
+  Send
 } from 'lucide-react';
 
 import { telegramService } from '@/services/telegram.service';
@@ -23,6 +24,7 @@ import TelegramAuthWidget from './TelegramAuthWidget';
 
 interface TelegramTestDistributionProps {
   testId?: number;
+  shareUrl?: string;
   channels: TelegramChat[];
   selectedChannelId: string;
   onChannelSelect: (channelId: string) => void;
@@ -32,6 +34,7 @@ interface TelegramTestDistributionProps {
 
 const TelegramTestDistribution: React.FC<TelegramTestDistributionProps> = ({
   testId,
+  shareUrl,
   channels,
   selectedChannelId,
   onChannelSelect,
@@ -84,6 +87,32 @@ const TelegramTestDistribution: React.FC<TelegramTestDistributionProps> = ({
       }
     } catch (error: any) {
       const errorMessage = error?.response?.data?.message || "Natijalarni e'lon qilishda xatolik";
+      onError(errorMessage);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSendTestLink = async () => {
+    if (!testId || !selectedChannelId) {
+      onError('Iltimos, test va kanalni tanlang');
+      return;
+    }
+    if (!shareUrl) {
+      onError('Test linki topilmadi');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const result = await telegramService.sendTestToChannel(testId, selectedChannelId, shareUrl);
+      if (result?.success) {
+        onSuccess("Test linki kanalga yuborildi");
+      } else {
+        onError(result?.message || 'Link yuborishda xatolik');
+      }
+    } catch (error: any) {
+      const errorMessage = error?.response?.data?.message || 'Linkni yuborishda xatolik';
       onError(errorMessage);
     } finally {
       setLoading(false);
@@ -223,6 +252,34 @@ const TelegramTestDistribution: React.FC<TelegramTestDistributionProps> = ({
           </div>
         </CardContent>
       </Card>
+
+    {/* Weekly/manual printable link */}
+    {shareUrl ? (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center space-x-2">
+            <FileText className="h-5 w-5" />
+            <span>Test linki</span>
+          </CardTitle>
+          <CardDescription>Haftalik test uchun bitta printable HTML link</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="text-sm break-all rounded border p-3 bg-muted/50">{shareUrl}</div>
+          <Button
+            onClick={handleSendTestLink}
+            disabled={loading || !testId || !selectedChannelId}
+            className="w-full"
+          >
+            {loading ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <Send className="h-4 w-4 mr-2" />
+            )}
+            Linkni kanalga yuborish
+          </Button>
+        </CardContent>
+      </Card>
+    ) : null}
 
       {/* Distribution Results */}
       {distributionResult && (
