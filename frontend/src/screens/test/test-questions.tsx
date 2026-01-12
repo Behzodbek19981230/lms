@@ -15,6 +15,7 @@ import { MathLiveInput } from '@/components/latex/mathlive-input';
 import { LaTeXRenderer } from '@/components/latex/latex-renderer';
 import { HtmlRenderer } from '@/components/HtmlRenderer';
 import { PanelFormulaDialog } from '@/components/modal/PanelFormulaDialog';
+import { extractFirstTableRowsWithEquations } from '@/utils/docx-equation-import';
 import {
 	ArrowLeft,
 	Plus,
@@ -42,6 +43,7 @@ import moment from 'moment';
 import PageLoader from '@/components/PageLoader';
 import { toast } from '@/hooks/use-toast';
 import { MathRenderer } from '@/components/math-renderer';
+import QuestionImportGuideTabs from '@/components/test/QuestionImportGuideTabs';
 
 interface Question {
 	id: number;
@@ -63,6 +65,62 @@ interface Answer {
 }
 
 export default function TestQuestions() {
+	let mathJaxSvgLoadPromise: Promise<void> | null = null;
+	const ensureMathJaxSvg = async () => {
+		if (typeof window === 'undefined') return;
+		if ((window as any).MathJax?.tex2svg) return;
+		if (mathJaxSvgLoadPromise) return mathJaxSvgLoadPromise;
+		mathJaxSvgLoadPromise = new Promise<void>((resolve, reject) => {
+			const script = document.createElement('script');
+			script.src = 'https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js';
+			script.async = true;
+			script.onload = () => resolve();
+			script.onerror = () => reject(new Error('Failed to load MathJax tex-svg'));
+			document.head.appendChild(script);
+		});
+		return mathJaxSvgLoadPromise;
+	};
+
+	const svgToDataUrl = (svgMarkup: string) => {
+		try {
+			const encoded = encodeURIComponent(svgMarkup).replace(/%0A/g, '').replace(/%20/g, ' ');
+			return `data:image/svg+xml;charset=utf-8,${encoded}`;
+		} catch {
+			return '';
+		}
+	};
+
+	const replaceLatexWithSvgImages = async (html: string) => {
+		const input = String(html || '');
+		if (!/(\$\$[\s\S]+?\$\$|\$[^$\n]+?\$)/.test(input)) return input;
+		try {
+			await ensureMathJaxSvg();
+			const MJ = (window as any).MathJax;
+			if (!MJ?.tex2svg) return input;
+
+			return input.replace(/\$\$([\s\S]+?)\$\$|\$([^$\n]+?)\$/g, (match, displayBody, inlineBody) => {
+				const formula = String(displayBody ?? inlineBody ?? '').trim();
+				const display = Boolean(displayBody);
+				if (!formula) return match;
+				try {
+					const node = MJ.tex2svg(formula, { display });
+					const svgEl = node?.querySelector?.('svg');
+					const svgMarkup = svgEl?.outerHTML || node?.outerHTML || '';
+					const dataUrl = svgMarkup ? svgToDataUrl(svgMarkup) : '';
+					if (!dataUrl) return match;
+					const style = display
+						? 'display:block;max-width:100%;height:auto;margin:8px auto;'
+						: 'display:inline-block;max-width:100%;height:1.2em;vertical-align:-0.2em;';
+					return `<img alt="formula" src="${dataUrl}" style="${style}"/>`;
+				} catch {
+					return match;
+				}
+			});
+		} catch {
+			return input;
+		}
+	};
+
 	const params = useParams();
 	const testId = params?.testId as string | undefined;
 	const router = useRouter();
@@ -514,13 +572,20 @@ export default function TestQuestions() {
 	};
 
 	const parseWordFile = async (file: File) => {
-		toast({ title: "Word fayl o'qilmoqda...", description: 'Savollar yuklanmoqda.' });
+		toast({
+			title: "Word fayl o'qilmoqda...",
+			description:
+				"Eslatma: Word'dagi Equation obyektlari import bo‘lmaydi. Formulani $...$ (LaTeX) yozing yoki rasm qilib qo‘ying.",
+		});
 		try {
 			const mammoth = await import('mammoth');
+			const dompurifyModule = await import('dompurify');
+			const DOMPurify = dompurifyModule.default;
 			const reader = new FileReader();
 			reader.onload = async (e) => {
 				try {
 					const arrayBuffer = e.target?.result as ArrayBuffer;
+					const docxRows = await extractFirstTableRowsWithEquations(arrayBuffer);
 					const { value } = await mammoth.convertToHtml({ arrayBuffer });
 					const parser = new DOMParser();
 					const doc = parser.parseFromString(value, 'text/html');
@@ -529,25 +594,97 @@ export default function TestQuestions() {
 						toast({ title: 'Word faylda jadval topilmadi', variant: 'destructive' });
 						return;
 					}
+
+					const sanitizeCellHtml = (html: string) => {
+						const clean = DOMPurify.sanitize(html, {
+							USE_PROFILES: { html: true, mathMl: true },
+							ADD_TAGS: ['img'],
+							ADD_ATTR: ['src', 'alt', 'width', 'height'],
+							ALLOWED_URI_REGEXP: /^(?:(?:https?|data):|[^a-z]|[a-z+.\-]+(?:[^a-z+.\-:]|$))/i,
+						});
+
+						return String(clean)
+							.replace(/<\s*\/?\s*(p|div)[^>]*>/gi, (m) => (m.startsWith('</') ? '<br/>' : ''))
+							.replace(/(<br\s*\/?>\s*){2,}/gi, '<br/>')
+							.trim();
+					};
+
+					const isFilled = (plain: string, html: string) => {
+						if (plain?.trim()) return true;
+						if (/<(img|math)\b/i.test(html)) return true;
+						if (/(^|[^$])\$[^$]+\$/.test(html)) return true;
+						const textOnly = String(html)
+							.replace(/<[^>]+>/g, '')
+							.replace(/\s+/g, '')
+							.trim();
+						return textOnly.length > 0;
+					};
+
+					const stripTags = (html: string) =>
+						String(html || '')
+							.replace(/<[^>]+>/g, ' ')
+							.replace(/\s+/g, ' ')
+							.trim();
 					const rows = Array.from(table.querySelectorAll('tr'));
 					const questions: Question[] = [];
 					const errors: string[] = [];
 					for (let i = 1; i < rows.length; i++) {
-						const cells = Array.from(rows[i].querySelectorAll('td')).map(
-							(td) => td.textContent?.trim() || ''
-						);
-						if (cells.length < 7) {
+						const tds = Array.from(rows[i].querySelectorAll('td'));
+
+						const fallbackRow = docxRows[i] || [];
+						if (tds.length < 7 && fallbackRow.length < 7) {
 							errors.push(`Qator ${i + 1}: Ma'lumot yetarli emas`);
 							continue;
 						}
-						const questionText = cells[0];
-						const optionA = cells[1];
-						const optionB = cells[2];
-						const optionC = cells[3];
-						const optionD = cells[4];
-						const correctAnswer = cells[5];
-						const points = parseInt(cells[6] || '1') || 1;
-						if (!questionText) {
+
+						const qPlain = tds[0]?.textContent?.trim() || stripTags(fallbackRow[0] || '');
+						const aPlain = tds[1]?.textContent?.trim() || stripTags(fallbackRow[1] || '');
+						const bPlain = tds[2]?.textContent?.trim() || stripTags(fallbackRow[2] || '');
+						const cPlain = tds[3]?.textContent?.trim() || stripTags(fallbackRow[3] || '');
+						const dPlain = tds[4]?.textContent?.trim() || stripTags(fallbackRow[4] || '');
+
+						const headerish =
+							/savol/i.test(qPlain) &&
+							/to['’`´]g['’`´]ri|toʻgʻri/i.test(
+								`${tds[5]?.textContent || ''} ${stripTags(fallbackRow[5] || '')}`
+							);
+						if (headerish) continue;
+						const questionHtmlRaw = sanitizeCellHtml(tds[0]?.innerHTML || '');
+						const optionAHtmlRaw = sanitizeCellHtml(tds[1]?.innerHTML || '');
+						const optionBHtmlRaw = sanitizeCellHtml(tds[2]?.innerHTML || '');
+						const optionCHtmlRaw = sanitizeCellHtml(tds[3]?.innerHTML || '');
+						const optionDHtmlRaw = sanitizeCellHtml(tds[4]?.innerHTML || '');
+
+						let questionHtml = isFilled(qPlain, questionHtmlRaw)
+							? questionHtmlRaw
+							: String(fallbackRow[0] || '').trim();
+						let optionAHtml = isFilled(aPlain, optionAHtmlRaw)
+							? optionAHtmlRaw
+							: String(fallbackRow[1] || '').trim();
+						let optionBHtml = isFilled(bPlain, optionBHtmlRaw)
+							? optionBHtmlRaw
+							: String(fallbackRow[2] || '').trim();
+						let optionCHtml = isFilled(cPlain, optionCHtmlRaw)
+							? optionCHtmlRaw
+							: String(fallbackRow[3] || '').trim();
+						let optionDHtml = isFilled(dPlain, optionDHtmlRaw)
+							? optionDHtmlRaw
+							: String(fallbackRow[4] || '').trim();
+
+						questionHtml = await replaceLatexWithSvgImages(questionHtml);
+						optionAHtml = await replaceLatexWithSvgImages(optionAHtml);
+						optionBHtml = await replaceLatexWithSvgImages(optionBHtml);
+						optionCHtml = await replaceLatexWithSvgImages(optionCHtml);
+						optionDHtml = await replaceLatexWithSvgImages(optionDHtml);
+						const correctAnswer = (
+							(tds[5]?.textContent || '').trim() || stripTags(fallbackRow[5] || '')
+						).trim();
+						const points =
+							parseInt(
+								((tds[6]?.textContent || '').trim() || stripTags(fallbackRow[6] || '1')).trim() || '1'
+							) || 1;
+
+						if (!isFilled(qPlain, questionHtml) && !String(questionHtml || '').trim()) {
 							errors.push(`Qator ${i + 1}: Savol matni bo'sh`);
 							continue;
 						}
@@ -555,22 +692,18 @@ export default function TestQuestions() {
 							errors.push(`Qator ${i + 1}: Ball 1-10 oralig'ida bo'lishi kerak`);
 							continue;
 						}
-						const options: string[] = [];
-						let correctAnswerIndex: number | undefined;
-						if (optionA) options.push(optionA);
-						if (optionB) options.push(optionB);
-						if (optionC) options.push(optionC);
-						if (optionD) options.push(optionD);
-						const correctAnswerLetter = correctAnswer.toUpperCase();
-						if (correctAnswerLetter === 'A' && optionA) {
-							correctAnswerIndex = 0;
-						} else if (correctAnswerLetter === 'B' && optionB) {
-							correctAnswerIndex = 1;
-						} else if (correctAnswerLetter === 'C' && optionC) {
-							correctAnswerIndex = 2;
-						} else if (correctAnswerLetter === 'D' && optionD) {
-							correctAnswerIndex = 3;
-						} else {
+
+						const optionEntries = [
+							{ letter: 'A', plain: aPlain, html: optionAHtml },
+							{ letter: 'B', plain: bPlain, html: optionBHtml },
+							{ letter: 'C', plain: cPlain, html: optionCHtml },
+							{ letter: 'D', plain: dPlain, html: optionDHtml },
+						].filter((x) => isFilled(x.plain, x.html));
+
+						const options = optionEntries.map((x) => x.html);
+						const correctAnswerLetter = correctAnswer.trim().toUpperCase();
+						const correctAnswerIndex = optionEntries.findIndex((x) => x.letter === correctAnswerLetter);
+						if (correctAnswerIndex < 0) {
 							errors.push(
 								`Qator ${
 									i + 1
@@ -578,6 +711,7 @@ export default function TestQuestions() {
 							);
 							continue;
 						}
+
 						if (options.length < 2) {
 							errors.push(`Qator ${i + 1}: Kamida 2 ta variant bo'lishi kerak`);
 							continue;
@@ -585,7 +719,7 @@ export default function TestQuestions() {
 						questions.push({
 							id: Date.now() + i,
 							type: 'multiple_choice',
-							text: questionText,
+							text: questionHtml,
 							points,
 							answers: options.map((opt, idx) => ({
 								id: Date.now() + i * 10 + idx,
@@ -615,6 +749,7 @@ export default function TestQuestions() {
 						console.log('Word import errors:', errors);
 					}
 				} catch (err) {
+					console.error('Word import failed (test-questions):', err);
 					toast({ title: "Word faylni o'qishda xatolik", variant: 'destructive' });
 				}
 			};
@@ -1207,64 +1342,103 @@ export default function TestQuestions() {
 							</TabsContent>
 
 							<TabsContent value='excel' className='space-y-4'>
-								<div className='text-center py-12 px-4'>
-									<FileSpreadsheet className='h-16 w-16 text-muted-foreground mx-auto mb-4 opacity-50' />
-									<h3 className='text-lg font-semibold mb-2'>Excel orqali savollar import qilish</h3>
-									<p className='text-sm text-muted-foreground mb-6 max-w-md mx-auto'>
-										Excel shablonini yuklab oling, savollarni to'ldiring va qayta yuklang
-									</p>
-
-									<div className='flex flex-col sm:flex-row gap-3 justify-center mb-6'>
-										<Button onClick={downloadExcelTemplate} variant='outline' size='default'>
-											<Download className='h-4 w-4 mr-2' />
-											Excel shablon
-										</Button>
-
-										<Button onClick={downloadWordTemplate} variant='outline' size='default'>
-											<Download className='h-4 w-4 mr-2' />
-											Word shablon
-										</Button>
-
-										<div className='relative'>
-											<input
-												type='file'
-												accept='.xlsx,.xls'
-												onChange={handleFileUpload}
-												className='absolute inset-0 w-full h-full opacity-0 cursor-pointer'
-												id='excel-upload'
-											/>
-											<Button variant='outline' asChild>
-												<label htmlFor='excel-upload'>
-													<Upload className='h-4 w-4 mr-2' />
-													Excel yuklash
-												</label>
-											</Button>
-										</div>
-
-										<div className='relative'>
-											<input
-												type='file'
-												accept='.docx'
-												onChange={handleWordFileUpload}
-												className='absolute inset-0 w-full h-full opacity-0 cursor-pointer'
-												id='word-upload'
-											/>
-											<Button variant='outline' asChild>
-												<label htmlFor='word-upload'>
-													<Upload className='h-4 w-4 mr-2' />
-													Word yuklash
-												</label>
-											</Button>
-										</div>
+								<div className='space-y-4'>
+									<div className='text-center py-12 px-4'>
+										<FileSpreadsheet className='h-16 w-16 text-muted-foreground mx-auto mb-4 opacity-50' />
+										<h3 className='text-lg font-semibold mb-2'>Savollarni import qilish</h3>
+										<p className='text-sm text-muted-foreground mb-6 max-w-md mx-auto'>
+											Word va Excel bo‘yicha alohida yo‘riqnoma va yuklash.
+										</p>
 									</div>
 
-									{(excelFile || wordFile) && (
+									<QuestionImportGuideTabs />
+
+									<Tabs defaultValue='word' className='w-full'>
+										<TabsList className='grid w-full grid-cols-2'>
+											<TabsTrigger value='word'>Word (.docx)</TabsTrigger>
+											<TabsTrigger value='excel'>Excel (.xlsx)</TabsTrigger>
+										</TabsList>
+
+										<TabsContent value='word' className='mt-4'>
+											<div className='flex flex-col sm:flex-row gap-3 justify-center'>
+												<Button onClick={downloadWordTemplate} variant='outline' size='default'>
+													<Download className='h-4 w-4 mr-2' />
+													Word shablon
+												</Button>
+
+												<div className='relative'>
+													<input
+														type='file'
+														accept='.docx'
+														onChange={handleWordFileUpload}
+														className='absolute inset-0 w-full h-full opacity-0 cursor-pointer'
+														id='word-upload'
+													/>
+													<Button variant='outline' asChild>
+														<label htmlFor='word-upload'>
+															<Upload className='h-4 w-4 mr-2' />
+															Word yuklash
+														</label>
+													</Button>
+												</div>
+											</div>
+										</TabsContent>
+
+										<TabsContent value='excel' className='mt-4'>
+											<div className='flex flex-col sm:flex-row gap-3 justify-center'>
+												<Button
+													onClick={downloadExcelTemplate}
+													variant='outline'
+													size='default'
+												>
+													<Download className='h-4 w-4 mr-2' />
+													Excel shablon
+												</Button>
+
+												<div className='relative'>
+													<input
+														type='file'
+														accept='.xlsx,.xls'
+														onChange={handleFileUpload}
+														className='absolute inset-0 w-full h-full opacity-0 cursor-pointer'
+														id='excel-upload'
+													/>
+													<Button variant='outline' asChild>
+														<label htmlFor='excel-upload'>
+															<Upload className='h-4 w-4 mr-2' />
+															Excel yuklash
+														</label>
+													</Button>
+												</div>
+											</div>
+										</TabsContent>
+									</Tabs>
+
+									{excelFile && (
 										<div className='bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4'>
 											<div className='flex items-center gap-2 mb-2'>
 												<FileSpreadsheet className='h-4 w-4 text-blue-600' />
-												<span className='font-medium text-blue-800'>
-													{excelFile?.name || wordFile?.name}
-												</span>
+												<span className='font-medium text-blue-800'>{excelFile.name}</span>
+											</div>
+											<p className='text-sm text-blue-700 mb-3'>
+												{importedQuestions.length} ta savol topildi
+											</p>
+											<div className='flex gap-2'>
+												<Button onClick={applyImportedQuestions} size='sm'>
+													Savollarni qo'shish
+												</Button>
+												<Button onClick={clearImportedQuestions} variant='outline' size='sm'>
+													Bekor qilish
+												</Button>
+											</div>
+										</div>
+									)}
+
+									{wordFile && (
+										<div className='bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4'>
+											<div className='flex items-center gap-2 mb-2'>
+												<FileSpreadsheet className='h-4 w-4 text-blue-600' />
+												<span className='font-medium text-blue-800'>{wordFile.name}</span>
 											</div>
 											<p className='text-sm text-blue-700 mb-3'>
 												{importedQuestions.length} ta savol topildi

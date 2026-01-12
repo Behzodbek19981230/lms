@@ -33,8 +33,9 @@ import { useToast } from '@/components/ui/use-toast';
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
 import TelegramManager from '@/components/telegram/TelegramManager';
-import { MathRenderer } from '@/components/math-renderer';
 import { buildWeeklyDescription } from '@/screens/weekly-tests/constants';
+import { getToken } from '@/utils/auth';
+import QuestionImportGuideTabs from '@/components/test/QuestionImportGuideTabs';
 
 interface Question {
 	id: string | number;
@@ -57,6 +58,44 @@ interface Subject {
 }
 
 export default function CreateTestPage() {
+	const IMPORT_API_URL = useMemo(() => {
+		// Prefer configured backend baseURL (e.g. http://localhost:3003/api)
+		const apiBase = (process.env.NEXT_PUBLIC_API_BASE_URL || '').replace(/\/$/, '');
+		if (apiBase) return `${apiBase}/import/questions`;
+		// Fallback: same-origin
+		return '/api/import/questions';
+	}, []);
+
+	let mathJaxSvgLoadPromise: Promise<void> | null = null;
+	const ensureMathJaxSvg = async () => {
+		if (typeof window === 'undefined') return;
+		// If already available (maybe loaded elsewhere), we're good.
+		if ((window as any).MathJax?.tex2svg || (window as any).MathJax?.mathml2svg) return;
+		if (mathJaxSvgLoadPromise) return mathJaxSvgLoadPromise;
+
+		mathJaxSvgLoadPromise = new Promise<void>((resolve, reject) => {
+			// If MathJax core is not present, tex-svg will bootstrap it.
+			const script = document.createElement('script');
+			script.src = 'https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-svg.js';
+			script.async = true;
+			script.onload = () => resolve();
+			script.onerror = () => reject(new Error('Failed to load MathJax tex-mml-svg'));
+			document.head.appendChild(script);
+		});
+
+		return mathJaxSvgLoadPromise;
+	};
+
+	const svgToDataUrl = (svgMarkup: string) => {
+		try {
+			// Use URL-encoded SVG to avoid btoa/unescape Unicode issues
+			const encoded = encodeURIComponent(svgMarkup).replace(/%0A/g, '').replace(/%20/g, ' ');
+			return `data:image/svg+xml;charset=utf-8,${encoded}`;
+		} catch {
+			return '';
+		}
+	};
+
 	// Download Word (.docx) template for test import
 	const downloadWordTemplate = async () => {
 		// npm install docx
@@ -132,6 +171,10 @@ export default function CreateTestPage() {
 						table,
 						new Paragraph({
 							text: "1-ustun: Savol matni\n2-5 ustunlar: Javob variantlari (A, B, C, D)\n6-ustun: To'g'ri javob (A, B, C yoki D)\n7-ustun: Ball (1-10)",
+							spacing: { before: 200, after: 200 },
+						}),
+						new Paragraph({
+							text: "Formulalar uchun: Word'dagi Equation (Insert → Equation) obyektlari importda best-effort tarzda SVG ko'rinishiga o'girib olinadi. Agar konvertatsiya qilinmasa, formula rasm (image) bo'lsa ham import qilinadi. Alternativa: formulani $...$ (LaTeX) ko'rinishida yozing (masalan: $\\frac{a}{b}$).",
 							spacing: { before: 200, after: 200 },
 						}),
 						new Paragraph({
@@ -270,7 +313,7 @@ export default function CreateTestPage() {
 				isWeekly && weeklyFrom && weeklyTo ? buildWeeklyDescription(String(weeklyFrom), String(weeklyTo)) : '';
 			const finalDescription = weeklyTag
 				? `${weeklyTag}${testDescription ? `\n${testDescription}` : ''}`
-				: (testDescription || undefined);
+				: testDescription || undefined;
 
 			// 1) Create test
 			const { data: testRes } = await request.post('/tests', {
@@ -398,269 +441,106 @@ export default function CreateTestPage() {
 	const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
 		const file = event.target.files?.[0];
 		if (file) {
-			if (
+			const isExcel =
 				file.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
-				file.type === 'application/vnd.ms-excel'
-			) {
-				setExcelFile(file);
-				parseExcelFile(file);
-			} else if (file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
-				setWordFile(file);
-				parseWordFile(file);
-			} else {
+				file.type === 'application/vnd.ms-excel' ||
+				/\.xlsx$/i.test(file.name);
+			const isWord =
+				file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
+				/\.docx$/i.test(file.name);
+
+			if (!isExcel && !isWord) {
 				toast({
 					title: "Noto'g'ri fayl turi",
 					description: 'Iltimos, Excel (.xlsx/.xls) yoki Word (.docx) faylini yuklang',
 					variant: 'destructive',
 				});
+				return;
 			}
+
+			setImportedQuestions([]);
+			if (isExcel) {
+				setExcelFile(file);
+				setWordFile(null);
+			} else {
+				setWordFile(file);
+				setExcelFile(null);
+			}
+
+			// Use Python backend import so Word equations (OMML) are reliably converted to LaTeX.
+			parseFileViaBackend(file);
 		}
 	};
-	// Word (.docx) parsing logic
-	const parseWordFile = async (file: File) => {
-		toast({ title: 'Word fayl o‘qilmoqda...', description: 'Yangi import funksiyasi test rejimida.' });
+
+	const parseFileViaBackend = async (file: File) => {
+		toast({
+			title: 'Fayl yuklanmoqda...',
+			description: "Formulalar Python server orqali LaTeX ko'rinishiga o‘tkaziladi",
+		});
 		try {
-			// Dynamically import mammoth (npm install mammoth)
-			const mammoth = await import('mammoth');
-			const reader = new FileReader();
-			reader.onload = async (e) => {
+			const fd = new FormData();
+			fd.append('file', file);
+			const token = getToken();
+			const res = await fetch(IMPORT_API_URL, {
+				method: 'POST',
+				body: fd,
+				headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+			});
+			console.log(res);
+
+			if (!res.ok) {
+				let msg = `Import xatolik: ${res.status}`;
 				try {
-					const arrayBuffer = e.target?.result as ArrayBuffer;
-					const { value } = await mammoth.convertToHtml({ arrayBuffer });
-					// Parse HTML to extract table rows
-					const parser = new DOMParser();
-					const doc = parser.parseFromString(value, 'text/html');
-					const table = doc.querySelector('table');
-					if (!table) {
-						toast({ title: 'Word faylda jadval topilmadi', variant: 'destructive' });
-						return;
-					}
-					const rows = Array.from(table.querySelectorAll('tr'));
-					const questions: Question[] = [];
-					const errors: string[] = [];
-					for (let i = 1; i < rows.length; i++) {
-						// skip header
-						const cells = Array.from(rows[i].querySelectorAll('td')).map(
-							(td) => td.textContent?.trim() || ''
-						);
-						if (cells.length < 7) {
-							errors.push(`Qator ${i + 1}: Ma'lumot yetarli emas`);
-							continue;
-						}
-						const questionText = cells[0];
-						const optionA = cells[1];
-						const optionB = cells[2];
-						const optionC = cells[3];
-						const optionD = cells[4];
-						const correctAnswer = cells[5];
-						const points = parseInt(cells[6] || '1') || 1;
-						if (!questionText) {
-							errors.push(`Qator ${i + 1}: Savol matni bo'sh`);
-							continue;
-						}
-						if (points < 1 || points > 10) {
-							errors.push(`Qator ${i + 1}: Ball 1-10 oralig'ida bo'lishi kerak`);
-							continue;
-						}
-						const options: string[] = [];
-						let correctAnswerIndex: number | undefined;
-						if (optionA) options.push(optionA);
-						if (optionB) options.push(optionB);
-						if (optionC) options.push(optionC);
-						if (optionD) options.push(optionD);
-						const correctAnswerLetter = correctAnswer.toUpperCase();
-						if (correctAnswerLetter === 'A' && optionA) {
-							correctAnswerIndex = 0;
-						} else if (correctAnswerLetter === 'B' && optionB) {
-							correctAnswerIndex = 1;
-						} else if (correctAnswerLetter === 'C' && optionC) {
-							correctAnswerIndex = 2;
-						} else if (correctAnswerLetter === 'D' && optionD) {
-							correctAnswerIndex = 3;
-						} else {
-							errors.push(
-								`Qator ${
-									i + 1
-								}: To'g'ri javob A, B, C yoki D bo'lishi kerak va variant mavjud bo'lishi kerak`
-							);
-							continue;
-						}
-						if (options.length < 2) {
-							errors.push(`Qator ${i + 1}: Kamida 2 ta variant bo'lishi kerak`);
-							continue;
-						}
-						questions.push({
-							id: Date.now() + i,
-							type: 'multiple_choice',
-							question: questionText,
-							options,
-							correctAnswer: correctAnswerIndex,
-							points,
-						});
-					}
-					setImportedQuestions(questions);
-					toast({
-						title: 'Word fayl import qilindi',
-						description: `${questions.length} ta savol topildi${
-							errors.length > 0 ? `, ${errors.length} ta xatolik` : ''
-						}`,
-					});
-					if (errors.length > 0) {
-						toast({
-							title: 'Xatoliklar topildi',
-							description: `${errors.length} ta xatolik. Iltimos, Word faylini tekshiring.`,
-							variant: 'destructive',
-						});
-						console.log('Word import errors:', errors);
-					}
-				} catch (err) {
-					toast({ title: 'Word faylni o‘qishda xatolik', variant: 'destructive' });
+					const j = await res.json();
+					msg = j?.message || j?.error || msg;
+				} catch {
+					// ignore
 				}
-			};
-			reader.readAsArrayBuffer(file);
-		} catch (err) {
-			toast({ title: 'Word import xatolik', variant: 'destructive' });
-		}
-	};
-	const renderVariantContent = (text: string) => {
-		const parts = text.split(/(\$\$?[^$]+\$\$?)/g);
+				throw new Error(msg);
+			}
+			const data = await res.json();
+			const parsed: Question[] = (data?.questions || []).map((q: any, i: number) => ({
+				id: Date.now() + i,
+				type: 'multiple_choice',
+				question: String(q?.question || ''),
+				options: Array.isArray(q?.options) ? q.options.map((x: any) => String(x)) : [],
+				correctAnswer: typeof q?.correctAnswer === 'number' ? q.correctAnswer : 0,
+				points: Number(q?.points || 1) || 1,
+			}));
 
-		return (
-			<div className='inline-block w-full'>
-				{parts.map((part, index) => {
-					if (part.includes('$')) {
-						return (
-							<span key={index} className='inline-block'>
-								<MathRenderer latex={part} />
-							</span>
-						);
-					} else {
-						return <span key={index} className='inline' dangerouslySetInnerHTML={{ __html: part }} />;
-					}
-				})}
-			</div>
-		);
-	};
+			setImportedQuestions(parsed);
+			toast({
+				title: 'Import tayyor',
+				description: `${parsed.length} ta savol topildi${
+					Array.isArray(data?.errors) && data.errors.length > 0 ? `, ${data.errors.length} ta xatolik` : ''
+				}`,
+			});
 
-	const parseExcelFile = (file: File) => {
-		const reader = new FileReader();
-		reader.onload = (e) => {
-			try {
-				const data = new Uint8Array(e.target?.result as ArrayBuffer);
-				const workbook = XLSX.read(data, { type: 'array' });
-				const sheetName = workbook.SheetNames[0];
-				const worksheet = workbook.Sheets[sheetName];
-				const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
-
-				// Skip header row and parse data
-				const questions: Question[] = [];
-				const errors: string[] = [];
-
-				for (let i = 1; i < jsonData.length; i++) {
-					const row = jsonData[i] as any[];
-					// Skip empty rows
-					if (!row || row.length === 0) continue;
-
-					// Ensure row has minimum required data (savol matni, 4 variant, to'g'ri javob, ball)
-					if (row.length < 7 || !row[0] || !row[1] || !row[2] || !row[3] || !row[4] || !row[5]) {
-						errors.push(`Qator ${i + 1}: Ma'lumot yetarli emas`);
-						continue;
-					}
-
-					const questionText = String(row[0] || '');
-					const optionA = String(row[1] || '');
-					const optionB = String(row[2] || '');
-					const optionC = String(row[3] || '');
-					const optionD = String(row[4] || '');
-					const correctAnswer = String(row[5] || '');
-					const points = parseInt(String(row[6] || '1')) || 1;
-
-					// Validate question text
-					if (!questionText.trim()) {
-						errors.push(`Qator ${i + 1}: Savol matni bo'sh`);
-						continue;
-					}
-					// Validate points
-					if (points < 1 || points > 10) {
-						errors.push(`Qator ${i + 1}: Ball 1-10 oralig'ida bo'lishi kerak`);
-						continue;
-					}
-
-					const options: string[] = [];
-					let correctAnswerIndex: number | undefined;
-
-					// Barcha variantlarni to'plash
-					if (optionA.trim()) options.push(optionA);
-					if (optionB.trim()) options.push(optionB);
-					if (optionC.trim()) options.push(optionC);
-					if (optionD.trim()) options.push(optionD);
-
-					// To'g'ri javobni indeksga aylantirish
-					const correctAnswerLetter = correctAnswer.toUpperCase();
-					if (correctAnswerLetter === 'A' && optionA.trim()) {
-						correctAnswerIndex = 0;
-					} else if (correctAnswerLetter === 'B' && optionB.trim()) {
-						correctAnswerIndex = 1;
-					} else if (correctAnswerLetter === 'C' && optionC.trim()) {
-						correctAnswerIndex = 2;
-					} else if (correctAnswerLetter === 'D' && optionD.trim()) {
-						correctAnswerIndex = 3;
-					} else {
-						errors.push(
-							`Qator ${
-								i + 1
-							}: To'g'ri javob A, B, C yoki D bo'lishi kerak va variant mavjud bo'lishi kerak`
-						);
-						continue;
-					}
-
-					if (options.length < 2) {
-						errors.push(`Qator ${i + 1}: Kamida 2 ta variant bo'lishi kerak`);
-						continue;
-					}
-
-					questions.push({
-						id: Date.now() + i,
-						type: 'multiple_choice',
-						question: questionText,
-						options,
-						correctAnswer: correctAnswerIndex,
-						points,
-					});
-				}
-
-				if (errors.length > 0) {
-					toast({
-						title: 'Xatoliklar topildi',
-						description: `${errors.length} ta xatolik. Iltimos, Excel faylini tekshiring.`,
-						variant: 'destructive',
-					});
-					console.log('Excel import errors:', errors);
-				}
-
-				setImportedQuestions(questions);
+			if (Array.isArray(data?.errors) && data.errors.length > 0) {
 				toast({
-					title: 'Fayl muvaffaqiyatli yuklandi',
-					description: `${questions.length} ta savol topildi${
-						errors.length > 0 ? `, ${errors.length} ta xatolik` : ''
-					}`,
-				});
-			} catch (error) {
-				toast({
-					title: 'Xatolik',
-					description: "Excel faylini o'qishda xatolik yuz berdi",
+					title: 'Xatoliklar topildi',
+					description: `${data.errors.length} ta xatolik. Iltimos, faylni tekshiring.`,
 					variant: 'destructive',
 				});
-				console.error('Excel parse error:', error);
+				console.log('Import errors:', data.errors);
 			}
-		};
-		reader.readAsArrayBuffer(file);
+		} catch (e: any) {
+			toast({
+				title: 'Import xatolik',
+				description: e?.message || 'Fayl import qilinmadi',
+				variant: 'destructive',
+			});
+			setImportedQuestions([]);
+			setExcelFile(null);
+			setWordFile(null);
+		}
 	};
 
 	const applyImportedQuestions = () => {
 		if (importedQuestions.length > 0) {
 			setQuestions(importedQuestions);
 			setExcelFile(null);
+			setWordFile(null);
 			setImportedQuestions([]);
 			toast({
 				title: "Savollar qo'shildi",
@@ -672,6 +552,7 @@ export default function CreateTestPage() {
 	const clearImportedQuestions = () => {
 		setImportedQuestions([]);
 		setExcelFile(null);
+		setWordFile(null);
 	};
 
 	return (
@@ -684,17 +565,6 @@ export default function CreateTestPage() {
 							<p className='text-sm text-muted-foreground mt-1'>O‘quvchilar uchun test tuzish</p>
 						</div>
 						<div className='flex flex-wrap gap-2'>
-							<Button
-								variant='outline'
-								size='sm'
-								onClick={() => {
-									const excelTab = document.querySelector('[data-value="excel"]') as HTMLElement;
-									if (excelTab) excelTab.click();
-								}}
-							>
-								<FileSpreadsheet className='h-4 w-4 mr-2' />
-								Excel import
-							</Button>
 							<Button onClick={saveTest} className='bg-primary hover:bg-primary/90' disabled={isLoading}>
 								<Save className='h-4 w-4 mr-2' />
 								{isLoading ? 'Yuklanmoqda...' : 'Saqlash'}
@@ -820,9 +690,8 @@ export default function CreateTestPage() {
 										Ro'yxat ({questions.length})
 									</TabsTrigger>
 									<TabsTrigger value='excel' className='text-xs md:text-sm'>
-										Excel
+										Excel/Word orqali import
 									</TabsTrigger>
-							
 								</TabsList>
 
 								<TabsContent value='create' className='space-y-4 mt-4'>
@@ -1110,42 +979,73 @@ export default function CreateTestPage() {
 								</TabsContent>
 
 								<TabsContent value='excel' className='space-y-4 mt-4'>
-									<div className='text-center py-8 px-4'>
-										<FileSpreadsheet className='h-16 w-16 text-muted-foreground mx-auto mb-4 opacity-50' />
-										<h3 className='text-lg font-semibold mb-2'>
-											Excel yoki Word orqali savollar yuklash
-										</h3>
-										<p className='text-sm text-muted-foreground mb-6'>
-											Excel yoki Word faylini yuklab oling, to'ldiring va qayta yuklang. Har bir
-											fan uchun alohida shablon yaratiladi.
-										</p>
-
-										<div className='flex flex-col sm:flex-row gap-3 justify-center mb-6'>
-											<Button onClick={downloadExcelTemplate} variant='outline'>
-												<Download className='h-4 w-4 mr-2' />
-												Excel shablon yuklash
-											</Button>
-											<Button onClick={downloadWordTemplate} variant='outline'>
-												<Download className='h-4 w-4 mr-2' />
-												Word shablon yuklash
-											</Button>
-
-											<div className='relative'>
-												<input
-													type='file'
-													accept='.xlsx,.xls,.docx'
-													onChange={handleFileUpload}
-													className='absolute inset-0 w-full h-full opacity-0 cursor-pointer'
-													id='excel-word-upload'
-												/>
-												<Button variant='outline' asChild>
-													<label htmlFor='excel-word-upload'>
-														<Upload className='h-4 w-4 mr-2' />
-														Excel yoki Word fayl yuklash
-													</label>
-												</Button>
-											</div>
+									<div className='space-y-4'>
+										<div className='text-center py-8 px-4'>
+											<FileSpreadsheet className='h-16 w-16 text-muted-foreground mx-auto mb-4 opacity-50' />
+											<h3 className='text-lg font-semibold mb-2'>Savollarni import qilish</h3>
+											<p className='text-sm text-muted-foreground mb-6'>
+												Word yoki Excel shablonini yuklab oling, to'ldiring va qayta yuklang.
+											</p>
 										</div>
+
+										<QuestionImportGuideTabs />
+
+										<Tabs defaultValue='word' className='w-full'>
+											<TabsList className='grid w-full grid-cols-2'>
+												<TabsTrigger value='word'>Word (.docx)</TabsTrigger>
+												<TabsTrigger value='excel'>Excel (.xlsx)</TabsTrigger>
+											</TabsList>
+
+											<TabsContent value='word' className='mt-4'>
+												<div className='flex flex-col sm:flex-row gap-3 justify-center'>
+													<Button onClick={downloadWordTemplate} variant='outline'>
+														<Download className='h-4 w-4 mr-2' />
+														Word shablon
+													</Button>
+
+													<div className='relative'>
+														<input
+															type='file'
+															accept='.docx'
+															onChange={handleFileUpload}
+															className='absolute inset-0 w-full h-full opacity-0 cursor-pointer'
+															id='word-upload'
+														/>
+														<Button variant='outline' asChild>
+															<label htmlFor='word-upload'>
+																<Upload className='h-4 w-4 mr-2' />
+																Word yuklash
+															</label>
+														</Button>
+													</div>
+												</div>
+											</TabsContent>
+
+											<TabsContent value='excel' className='mt-4'>
+												<div className='flex flex-col sm:flex-row gap-3 justify-center'>
+													<Button onClick={downloadExcelTemplate} variant='outline'>
+														<Download className='h-4 w-4 mr-2' />
+														Excel shablon
+													</Button>
+
+													<div className='relative'>
+														<input
+															type='file'
+															accept='.xlsx,.xls'
+															onChange={handleFileUpload}
+															className='absolute inset-0 w-full h-full opacity-0 cursor-pointer'
+															id='excel-upload'
+														/>
+														<Button variant='outline' asChild>
+															<label htmlFor='excel-upload'>
+																<Upload className='h-4 w-4 mr-2' />
+																Excel yuklash
+															</label>
+														</Button>
+													</div>
+												</div>
+											</TabsContent>
+										</Tabs>
 
 										{excelFile && (
 											<div className='bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4'>
@@ -1215,7 +1115,16 @@ export default function CreateTestPage() {
 																		: 'Ochiq'}
 																</Badge>
 															</div>
-															{renderVariantContent(question.question)}
+															{selectedSubject?.hasFormulas ? (
+																<LaTeXRenderer content={question.question} />
+															) : (
+																<div
+																	className='text-sm'
+																	dangerouslySetInnerHTML={{
+																		__html: question.question,
+																	}}
+																/>
+															)}
 															{question.options && (
 																<div className='space-y-1'>
 																	{question.options.map((option, optIndex) => (
@@ -1226,7 +1135,21 @@ export default function CreateTestPage() {
 																			<span className='font-medium'>
 																				{String.fromCharCode(65 + optIndex)}.
 																			</span>
-																			<span className='ml-2'>{option}</span>
+																			{selectedSubject?.hasFormulas ? (
+																				<span className='ml-2 inline-block align-middle'>
+																					<LaTeXRenderer
+																						content={option}
+																						inline
+																					/>
+																				</span>
+																			) : (
+																				<span
+																					className='ml-2'
+																					dangerouslySetInnerHTML={{
+																						__html: option,
+																					}}
+																				/>
+																			)}
 																			{question.correctAnswer === optIndex && (
 																				<CheckCircle className='h-3 w-3 ml-2 text-green-600 inline' />
 																			)}

@@ -85,23 +85,25 @@ const Login = () => {
 	};
 
 	return (
-		<div className='min-h-screen bg-gradient-subtle flex items-center justify-center p-4'>
-			<div className='w-full max-w-md'>
+		<div className='min-h-screen bg-gradient-subtle flex items-center justify-center p-3 sm:p-4'>
+			<div className='w-full max-w-none md:max-w-md'>
 				{/* Header */}
-				<div className='text-center mb-8'>
+				<div className='text-center mb-6 sm:mb-8'>
 					<div className='flex justify-center mb-4'>
 						<div className='p-3 bg-gradient-primary rounded-xl'>
 							<BookOpen className='h-8 w-8 text-primary-foreground' />
 						</div>
 					</div>
-					<h1 className='text-3xl font-bold text-foreground mb-2'>EduOne</h1>
+					<h1 className='text-2xl sm:text-3xl font-bold text-foreground mb-2'>EduOne</h1>
 					<p className='text-muted-foreground'>Tizimga kirish</p>
 				</div>
 
 				{/* Login Card */}
 				<Card className='shadow-elegant border-border'>
 					<CardHeader className='space-y-1'>
-						<CardTitle className='text-2xl text-center text-card-foreground'>Hisobingizga kiring</CardTitle>
+						<CardTitle className='text-xl sm:text-2xl text-center text-card-foreground'>
+							Hisobingizga kiring
+						</CardTitle>
 					</CardHeader>
 
 					<CardContent>
