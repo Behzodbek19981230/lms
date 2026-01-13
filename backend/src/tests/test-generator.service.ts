@@ -1050,28 +1050,68 @@ export class TestGeneratorService {
   }
 
   /**
-   * Generate unique 10-digit number for test variant
+   * Generate sequential 5-digit code for generated test variants.
+   * Range: 00000..99999 (global across generated_test_variants).
+   * Uses a Postgres advisory lock to keep allocation ordered under concurrency.
    */
   private async generateUniqueNumber(): Promise<string> {
-    for (let i = 0; i < 10; i++) {
-      const timestamp = Date.now().toString();
-      const random = Math.floor(Math.random() * 1000)
-        .toString()
-        .padStart(3, '0');
-      const code = (timestamp.slice(-7) + random).padStart(10, '0');
-      const genExists = await this.generatedTestVariantRepository.findOne({
-        where: { uniqueNumber: code },
-        select: ['id'],
-      });
-      if (genExists) continue;
-      const examExists = await this.examVariantRepository.findOne({
-        where: { variantNumber: code },
-        select: ['id'],
-      });
-      if (examExists) continue;
-      return code;
+    // Keep this constant stable; it defines the global lock used for allocation.
+    const LOCK_KEY = 7310001;
+
+    await this.generatedTestVariantRepository.query(
+      'SELECT pg_advisory_lock($1)',
+      [LOCK_KEY],
+    );
+    try {
+      const rows: Array<{ max: string | number | null }> =
+        await this.generatedTestVariantRepository.query(
+          `SELECT MAX(CAST("uniqueNumber" AS int)) AS max
+           FROM "generated_test_variants"
+           WHERE "uniqueNumber" ~ '^[0-9]{5}$'`,
+        );
+
+      const currentMaxRaw = rows?.[0]?.max;
+      const currentMax =
+        currentMaxRaw === null || currentMaxRaw === undefined
+          ? -1
+          : Number(currentMaxRaw);
+
+      if (!Number.isFinite(currentMax)) {
+        throw new BadRequestException('Failed to compute next uniqueNumber');
+      }
+
+      for (let next = currentMax + 1; next <= 99_999; next++) {
+        const code = String(next).padStart(5, '0');
+
+        const genExists = await this.generatedTestVariantRepository.findOne({
+          where: { uniqueNumber: code },
+          select: ['id'],
+        });
+        if (genExists) continue;
+
+        // Defensive: avoid collisions with exam scanner codes if any legacy 5-digit values exist.
+        const examExists = await this.examVariantRepository.findOne({
+          where: { variantNumber: code },
+          select: ['id'],
+        });
+        if (examExists) continue;
+
+        return code;
+      }
+
+      throw new BadRequestException(
+        'uniqueNumber limit reached (00000..99999). Please contact admin.',
+      );
+    } finally {
+      try {
+        await this.generatedTestVariantRepository.query(
+          'SELECT pg_advisory_unlock($1)',
+          [LOCK_KEY],
+        );
+      } catch {
+        // ignore unlock errors
+      }
     }
-    return Date.now().toString().slice(-10).padStart(10, '0');
   }
 
   /**

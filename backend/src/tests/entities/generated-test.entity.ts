@@ -43,6 +43,8 @@ export class GeneratedTest extends BaseEntity {
 
 @Entity('generated_test_variants')
 export class GeneratedTestVariant extends BaseEntity {
+  // NOTE: We generate 5-digit sequential codes (00000..99999) but keep length=10
+  // for backward compatibility with previously generated 10-digit values.
   @Column({ unique: true, length: 10 })
   uniqueNumber: string;
 
