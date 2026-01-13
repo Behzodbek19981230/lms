@@ -562,11 +562,11 @@ export function TestGenerator({
 										htmlFor='title'
 										className='text-sm font-medium text-gray-700 dark:text-gray-300'
 									>
-											{titleLabel}
+										{titleLabel}
 									</Label>
 									<Input
 										id='title'
-											placeholder={titlePlaceholder}
+										placeholder={titlePlaceholder}
 										value={testConfig.title}
 										onChange={(e) => setTestConfig((prev) => ({ ...prev, title: e.target.value }))}
 										className='focus:ring-2 focus:ring-primary focus:border-primary'
@@ -843,6 +843,9 @@ export function TestGenerator({
 
 											<a href={`/sheet.png`} target='_blank' rel='noreferrer'>
 												<Button variant='outline'>Javob varag'ini yuklab olish(rasm)</Button>
+											</a>
+											<a href={`/sheet.html`} target='_blank' rel='noreferrer'>
+												<Button variant='outline'>Javob varag'i (HTML/Print)</Button>
 											</a>
 											<a href={`/Javoblar_Varogi.pdf`} target='_blank' rel='noreferrer'>
 												<Button variant='outline'>Javob varag'ini yuklab olish(PDF)</Button>

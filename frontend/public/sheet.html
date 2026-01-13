@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="uz">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Javoblar varaqi (OMR)</title>
+    <style>
+        :root {
+            color-scheme: light;
+        }
+
+        body {
+            font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+            margin: 24px;
+        }
+
+        .toolbar {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+        }
+
+        .hint {
+            color: #555;
+            font-size: 14px;
+        }
+
+        button {
+            padding: 10px 14px;
+            border: 1px solid #ccc;
+            background: #fff;
+            border-radius: 10px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #f6f6f6;
+        }
+
+        .sheet {
+            max-width: min(900px, 100%);
+            border: 1px solid #e5e5e5;
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        .sheet img {
+            width: 100%;
+            display: block;
+        }
+
+        @media print {
+            body {
+                margin: 0;
+            }
+
+            .toolbar {
+                display: none;
+            }
+
+            @page {
+                size: A4;
+                margin: 0.5in;
+            }
+
+            .sheet {
+                border: none;
+                border-radius: 0;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="toolbar">
+        <button onclick="window.print()">Chop etish (Print)</button>
+        <span class="hint">Test ID endi 5 xonali: 00000–99999</span>
+        <a class="hint" href="/sheet.png" target="_blank" rel="noreferrer">Rasmni ochish</a>
+    </div>
+
+    <div class="sheet">
+        <img src="/sheet.png" alt="Javoblar varaqi" />
+    </div>
+</body>
+
+</html>
