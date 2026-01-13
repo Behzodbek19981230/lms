@@ -10,8 +10,14 @@ export class ImportProxyService {
 
   async importQuestions(file: Express.Multer.File) {
     const base = String(
-      this.configService.get('https://fast.universal-uz.uz'),
+      this.configService.get<string>('IMPORT_SERVICE_BASE_URL') ||
+        this.configService.get<string>('FAST_API_BASE_URL') ||
+        'https://fast.universal-uz.uz',
     ).replace(/\/$/, '');
+
+    const timeoutMs = Number(
+      this.configService.get<string>('IMPORT_SERVICE_TIMEOUT_MS') || 120_000,
+    );
 
     const url = `${base}/import/questions`;
 
@@ -26,7 +32,8 @@ export class ImportProxyService {
         headers: {
           ...form.getHeaders(),
         },
-        timeout: 60_000,
+        timeout:
+          Number.isFinite(timeoutMs) && timeoutMs > 0 ? timeoutMs : 120_000,
         maxBodyLength: Infinity,
         maxContentLength: Infinity,
         validateStatus: () => true,
