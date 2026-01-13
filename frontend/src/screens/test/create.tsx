@@ -360,6 +360,7 @@ export default function CreateTestPage() {
 						shuffleAnswers: true,
 					});
 					if (data?.url) setPrintableUrl(String(data.url));
+					router.push(`/account/weekly-tests`);
 				} catch (err: any) {
 					toast({
 						title: 'Ogohlantirish',
