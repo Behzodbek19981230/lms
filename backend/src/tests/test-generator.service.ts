@@ -607,9 +607,15 @@ export class TestGeneratorService {
     // Ensure question numbers start from 1 for each variant
     // Remove extra page breaks at the top
     // NOTE: each variantInner already contains one or more `.page` blocks.
-    // Wrapping them in an extra container with break-inside rules can prevent
-    // proper page breaks in some browsers, so we render them directly.
-    const variantsSection = input.variantInners.join('');
+    // However, when printing/saving to PDF from the browser, some engines may
+    // ignore `page-break-after` at certain boundaries and start the next variant
+    // in the remaining space. To guarantee that every new variant starts from a
+    // fresh page, insert an explicit page-break marker between variants.
+    const variantsSection = input.variantInners
+      .map((inner, idx) =>
+        idx === 0 ? inner : `<div class="variant-break"></div>${inner}`,
+      )
+      .join('');
 
     return `<!DOCTYPE html>
     <html lang="uz">
@@ -620,11 +626,12 @@ export class TestGeneratorService {
       <link rel="preconnect" href="https://cdn.jsdelivr.net" />
       <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
       <style>
-        /* Bigger top/bottom margins for nicer printing */
-        @page { size: A4; margin: 24mm 16mm; }
+        /* Print margins (match Chrome custom margin top=0.5") */
+        @page { size: A4; margin: 0.5in; }
         * { box-sizing: border-box; }
         body { font-family: Times, 'Times New Roman', serif; margin: 0; color: #111; font-size: 16px; }
-        .page { page-break-after: always; break-after: page; padding: 0 6mm; }
+        .variant-break { page-break-before: always; break-before: page; height: 0; }
+        .page { page-break-after: always; break-after: page; }
         .cover { page-break-after: always; break-after: page; }
         .answer-sheet { page-break-before: always; break-before: page; }
         .header { text-align: center; margin-bottom: 12px; }
@@ -632,9 +639,9 @@ export class TestGeneratorService {
         .subtitle { font-size: 12px; margin: 2px 0; color: #333; }
         .meta { font-size: 10px; color: #666; }
         .q-row { display: flex; align-items: flex-start; gap: 8px; }
-        .q-no { color: #000; font-weight: 600; min-width: 30px; flex-shrink: 0; text-align: left; }
-        .q-content { flex: 1; padding-top: 0; }
-        .q-text { padding-top: 0; margin-top: 0; margin-bottom: 6px; }
+        .q-no { color: #000; font-weight: 600; min-width: 30px; flex-shrink: 0; text-align: left; font-size: 12px; }
+        .q-content { flex: 1; padding-top: 0; font-size: 12px; }
+        .q-text { padding-top: 0; margin-top: 0; margin-bottom: 6px; font-size: 12px; }
         .answers { margin-top: 6px; padding-left: 0; }
         .answer { margin: 2px 0; }
         .answer-sheet { }
@@ -695,6 +702,7 @@ export class TestGeneratorService {
           .variants-container { page-break-before: avoid !important; margin-top: 0 !important; padding-top: 0 !important; }
           /* Allow the browser to break pages inside the variants section */
           .section { page-break-inside: auto; break-inside: auto; }
+          .variant-break { page-break-before: always !important; break-before: page !important; }
           .page { page-break-after: always !important; break-after: page !important; }
           .cover { page-break-after: always !important; break-after: page !important; }
           .answer-sheet { page-break-before: always !important; break-before: page !important; }
@@ -752,12 +760,12 @@ export class TestGeneratorService {
         <link rel="preconnect" href="https://cdn.jsdelivr.net" />
         <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
         <style>
-          /* Match combined print margins (more top/bottom space) */
-          @page { size: A4; margin: 16mm 16mm; }
+          /* Print margins (match Chrome custom margin top=0.5") */
+          @page { size: A4; margin: 0.5in; }
           body { font-family: Times, 'Times New Roman', serif; margin: 0; padding: 0; color: #111; }
           .toolbar { position: sticky; top: 0; background: #fff; border-bottom: 1px solid #eee; padding: 8px 12px; display:flex; gap:8px; align-items:center; z-index: 10; }
           .toolbar button { padding: 6px 10px; font-size: 14px; }
-          .page { page-break-after: always; padding: 0 6mm; }
+          .page { page-break-after: always; padding: 0; }
           .cover { page-break-after: always; }
           .answer-sheet { page-break-before: always; }
           .header { text-align: center; margin-bottom: 12px; }
@@ -794,9 +802,9 @@ export class TestGeneratorService {
             page-break-inside: avoid;
           }
           .q-row { display: flex; align-items: flex-start; gap: 8px; }
-          .q-no { color: #000; font-weight: 600; min-width: 30px; flex-shrink: 0; text-align: left; }
-          .q-content { flex: 1; padding-top: 0; }
-          .q-text { padding-top: 0; margin-top: 0; margin-bottom: 6px; }
+          .q-no { color: #000; font-weight: 600; min-width: 30px; flex-shrink: 0; text-align: left; font-size: 12px; }
+          .q-content { flex: 1; padding-top: 0; font-size: 12px; }
+          .q-text { padding-top: 0; margin-top: 0; margin-bottom: 6px; font-size: 12px; }
           .points { color: #666; font-size: 10px; font-weight: 500; align-self: flex-start; flex-shrink: 0; margin-left: 8px; }
           .answers { margin-top: 6px; padding-left: 0; }
           .answer { margin: 2px 0; }

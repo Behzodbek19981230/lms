@@ -807,9 +807,9 @@ export class ExamsService {
             font-size: 12px;
           }
           .q-row { display: flex; align-items: flex-start; gap: 8px; }
-          .q-no { color: #000; font-weight: 600; min-width: 20px; flex-shrink: 0; }
-          .q-content { flex: 1; }
-          .q-text { margin-bottom: 6px; }
+          .q-no { color: #000; font-weight: 600; min-width: 20px; flex-shrink: 0; font-size: 12px; }
+          .q-content { flex: 1; font-size: 12px; }
+          .q-text { margin-bottom: 6px; font-size: 13px; line-height: 1.4; }
           .points { color: #666; font-size: 10px; font-weight: 500; align-self: flex-start; flex-shrink: 0; margin-left: 8px; }
           .answers { margin-top: 6px; padding-left: 0; }
           .answer { margin: 2px 0; }
