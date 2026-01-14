@@ -26,6 +26,7 @@ import { CreateTestDto } from './dto/create-test.dto';
 import { UpdateTestDto } from './dto/update-test.dto';
 import { TestResponseDto } from './dto/test-response.dto';
 import { TestStatsDto } from './dto/test-stats.dto';
+import { UpdateResultCountsDto } from './dto/update-result-counts.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RequireCenterPermissions } from '../centers/permissions/center-permission.decorator';
 import { CenterPermissionKey } from '../centers/permissions/center-permissions';
@@ -204,13 +205,31 @@ export class TestsController {
   async resultsList(
     @Request()
     req: { user?: { center?: { id?: number }; role?: string } },
-    @Query('studentId') studentId?: number,
+    @Query('studentId') studentIdRaw?: string,
     @Query('uniqueNumber') uniqueNumber?: string,
-    @Query('centerId') centerId?: number,
+    @Query('centerId') centerIdRaw?: string,
+    @Query('q') q?: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+    @Query('page') pageRaw?: string,
+    @Query('limit') limitRaw?: string,
   ) {
     const requestCenterId =
       typeof req.user?.center?.id === 'number' ? req.user.center.id : undefined;
-    centerId = centerId === undefined ? requestCenterId : centerId;
+
+    const parseOptionalInt = (v?: string) => {
+      if (!v) return undefined;
+      const n = parseInt(v, 10);
+      return Number.isFinite(n) ? n : undefined;
+    };
+
+    const studentId = parseOptionalInt(studentIdRaw);
+    const centerIdQuery = parseOptionalInt(centerIdRaw);
+    const page = parseOptionalInt(pageRaw);
+    const limit = parseOptionalInt(limitRaw);
+
+    const centerId =
+      centerIdQuery === undefined ? requestCenterId : centerIdQuery;
     // Only allow admin and teacher roles
     const role: string | undefined =
       typeof req.user === 'object' && req.user !== null
@@ -226,6 +245,94 @@ export class TestsController {
       studentId,
       uniqueNumber,
       centerId,
+      q,
+      from,
+      to,
+      page,
+      limit,
+    });
+  }
+
+  @Post('results/send-telegram')
+  @RequireCenterPermissions(CenterPermissionKey.REPORTS_TESTS)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Tanlangan natijalarni Telegramga yuborish' })
+  @ApiResponse({
+    status: 200,
+    description: 'Telegramga yuborish navbatga qo‘yildi',
+  })
+  async sendResultsToTelegram(
+    @Request()
+    req: { user?: { center?: { id?: number }; role?: string } },
+    @Body() body: { ids?: number[] },
+  ) {
+    const centerId =
+      typeof req.user?.center?.id === 'number' ? req.user.center.id : undefined;
+
+    const role: string | undefined =
+      typeof req.user === 'object' && req.user !== null
+        ? (req.user as { role?: string }).role
+        : undefined;
+    if (role !== 'admin' && role !== 'teacher') {
+      return {
+        statusCode: 403,
+        message: 'Faqat admin va o‘qituvchi yubora oladi',
+      };
+    }
+
+    if (!centerId) {
+      return {
+        statusCode: 400,
+        message: 'Center aniqlanmadi',
+      };
+    }
+
+    return this.testGeneratorService.queueResultsToTelegram({
+      centerId,
+      ids: Array.isArray(body?.ids) ? body.ids : [],
+    });
+  }
+
+  @Patch('results/:id')
+  @RequireCenterPermissions(CenterPermissionKey.REPORTS_TESTS)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: "Natija (correct/wrong) ni tahrirlash (faqat o'qituvchi)",
+  })
+  @ApiResponse({ status: 200, description: 'Natija yangilandi' })
+  async updateResultCounts(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateResultCountsDto,
+    @Request()
+    req: { user?: { center?: { id?: number }; role?: string } },
+  ) {
+    const centerId =
+      typeof req.user?.center?.id === 'number' ? req.user.center.id : undefined;
+
+    const role: string | undefined =
+      typeof req.user === 'object' && req.user !== null
+        ? (req.user as { role?: string }).role
+        : undefined;
+    if (role !== 'teacher') {
+      return {
+        statusCode: 403,
+        message: "Faqat o'qituvchi tahrirlay oladi",
+      };
+    }
+    if (!centerId) {
+      return {
+        statusCode: 400,
+        message: 'Center aniqlanmadi',
+      };
+    }
+
+    return this.testGeneratorService.updateResultCounts({
+      centerId,
+      id,
+      correctCount:
+        typeof dto?.correctCount === 'number' ? dto.correctCount : undefined,
+      wrongCount:
+        typeof dto?.wrongCount === 'number' ? dto.wrongCount : undefined,
     });
   }
 

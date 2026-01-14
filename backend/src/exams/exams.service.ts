@@ -1887,6 +1887,7 @@ export class ExamsService {
     code: string,
     answers: string[],
     studentId?: number,
+    centerId?: number,
   ): Promise<any> {
     // If matches an exam variant, grade via exam logic
     const examVariant = await this.examVariantRepository.findOne({
@@ -1901,6 +1902,7 @@ export class ExamsService {
       code,
       answers,
       studentId,
+      centerId,
     );
   }
 

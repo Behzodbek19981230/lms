@@ -304,6 +304,7 @@ export class ExamsController {
   })
   @ApiResponse({ status: 200, description: 'Grading result' })
   async gradeByScannerCode(
+    @Request() req: { user?: { center?: { id?: number | string } } },
     @Body()
     body: {
       code: string;
@@ -314,10 +315,20 @@ export class ExamsController {
     if (!body?.code || !Array.isArray(body.answers)) {
       throw new BadRequestException('code va answers talab qilinadi');
     }
+
+    const centerIdRaw = req.user?.center?.id;
+    const centerId =
+      typeof centerIdRaw === 'number'
+        ? centerIdRaw
+        : typeof centerIdRaw === 'string'
+          ? parseInt(centerIdRaw, 10)
+          : undefined;
+
     return this.examsService.gradeByCode(
       body.code,
       body.answers,
       body.studentId,
+      centerId,
     );
   }
 

@@ -3,13 +3,18 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  ConflictException,
 } from '@nestjs/common';
 import { ModuleRef } from '@nestjs/core';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, IsNull, Repository } from 'typeorm';
 import { User } from '../users/entities/user.entity';
 import { Center } from '../centers/entities/center.entity';
-import { TelegramChat } from '../telegram/entities/telegram-chat.entity';
+import {
+  TelegramChat,
+  ChatStatus,
+  ChatType,
+} from '../telegram/entities/telegram-chat.entity';
 import { Test } from './entities/test.entity';
 import { Question, QuestionType } from '../questions/entities/question.entity';
 import { Subject } from '../subjects/entities/subject.entity';
@@ -26,6 +31,11 @@ import { existsSync } from 'fs';
 import { join } from 'path';
 import * as katex from 'katex';
 import { TelegramService } from 'src/telegram/telegram.service';
+import {
+  MessagePriority,
+  MessageType,
+} from 'src/telegram/entities/telegram-message-log.entity';
+import { TelegramQueueService } from 'src/telegram/telegram-queue.service';
 // import { User } from 'src/users/entities/user.entity';
 
 export interface GenerateManualPrintableHtmlOptions {
@@ -94,54 +104,381 @@ export class TestGeneratorService {
     studentId?: number;
     uniqueNumber?: string;
     centerId?: number;
+    q?: string;
+    from?: string;
+    to?: string;
+    page?: number;
+    limit?: number;
   }) {
-    const where: any = {};
+    const mapRow = (
+      r: Results & {
+        center?: { name?: string };
+        user?: { firstName?: string; lastName?: string };
+      },
+    ) => ({
+      id: r.id,
+      student_id: r.student_id,
+      student_name: r.user
+        ? `${r.user.firstName ?? ''} ${r.user.lastName ?? ''}`.trim()
+        : undefined,
+      center_id: r.center_id,
+      center_name: r.center?.name ?? undefined,
+      uniqueNumber: r.uniqueNumber,
+      total: r.total,
+      correctCount: r.correctCount,
+      wrongCount: r.wrongCount,
+      blankCount: r.blankCount,
+      perQuestion: r.perQuestion,
+      createdAt: r.createdAt,
+    });
+
+    const qb = this.resultsRepository
+      .createQueryBuilder('r')
+      .leftJoinAndSelect('r.user', 'u')
+      .leftJoinAndSelect('r.center', 'c');
+
     if (options?.studentId !== undefined) {
-      where.student_id = options.studentId;
+      qb.andWhere('r.student_id = :studentId', {
+        studentId: options.studentId,
+      });
     }
     if (options?.uniqueNumber) {
-      where.uniqueNumber = options.uniqueNumber;
-    }
-    if (options?.centerId !== undefined) {
-      where.center_id = options.centerId;
-    }
-    // If centerId is present, join with Center entity to get center name
-    let results: Results[];
-    // Always join user relation to get student name
-    if (options?.centerId !== undefined) {
-      results = await this.resultsRepository.find({
-        where,
-        relations: ['center', 'user'],
+      qb.andWhere('r.uniqueNumber ILIKE :uniqueNumber', {
+        uniqueNumber: `%${options.uniqueNumber}%`,
       });
+    }
+    if (options?.centerId !== undefined) {
+      qb.andWhere('r.center_id = :centerId', { centerId: options.centerId });
+    }
+    if (options?.q) {
+      qb.andWhere('(u.firstName ILIKE :q OR u.lastName ILIKE :q)', {
+        q: `%${options.q}%`,
+      });
+    }
+    if (options?.from) {
+      qb.andWhere('r.createdAt >= :from', { from: options.from });
+    }
+    if (options?.to) {
+      qb.andWhere('r.createdAt <= :to', { to: options.to });
+    }
+
+    qb.orderBy('r.createdAt', 'DESC').addOrderBy('r.id', 'DESC');
+
+    const page = options?.page;
+    const limit = options?.limit;
+
+    // Backward compatible: if pagination isn't requested, return an array like before.
+    if (!page || !limit) {
+      const rows = await qb.getMany();
+      return rows.map(mapRow);
+    }
+
+    const safeLimit = Math.min(Math.max(limit, 1), 200);
+    const safePage = Math.max(page, 1);
+    const [rows, total] = await qb
+      .take(safeLimit)
+      .skip((safePage - 1) * safeLimit)
+      .getManyAndCount();
+
+    return {
+      data: rows.map(mapRow),
+      meta: {
+        page: safePage,
+        limit: safeLimit,
+        total,
+        totalPages: Math.max(1, Math.ceil(total / safeLimit)),
+      },
+    };
+  }
+
+  async updateResultCounts(params: {
+    centerId: number;
+    id: number;
+    correctCount?: number;
+    wrongCount?: number;
+  }) {
+    const result = await this.resultsRepository.findOne({
+      where: { id: params.id, center_id: params.centerId },
+      relations: ['user', 'center'],
+    });
+
+    if (!result) {
+      throw new NotFoundException('Natija topilmadi');
+    }
+
+    const total = Number(result.total) || 0;
+    const blank = Number(result.blankCount) || 0;
+    const maxNonBlank = Math.max(0, total - blank);
+
+    const toSafeInt = (v: unknown) => {
+      if (typeof v !== 'number' || !Number.isFinite(v)) return undefined;
+      return Math.max(0, Math.trunc(v));
+    };
+
+    const hasCorrect = typeof params.correctCount === 'number';
+    const hasWrong = typeof params.wrongCount === 'number';
+    if (!hasCorrect && !hasWrong) {
+      throw new BadRequestException(
+        'correctCount yoki wrongCount yuborish kerak',
+      );
+    }
+
+    let nextCorrect = toSafeInt(params.correctCount);
+    let nextWrong = toSafeInt(params.wrongCount);
+
+    if (hasCorrect && hasWrong) {
+      if (nextCorrect === undefined || nextWrong === undefined) {
+        throw new BadRequestException('Noto‘g‘ri qiymat');
+      }
+      if (nextCorrect > maxNonBlank || nextWrong > maxNonBlank) {
+        throw new BadRequestException(
+          'Qiymat savollar sonidan katta bo‘lishi mumkin emas',
+        );
+      }
+      if (nextCorrect + nextWrong !== maxNonBlank) {
+        throw new BadRequestException(
+          `To‘g‘ri + noto‘g‘ri = ${maxNonBlank} bo‘lishi kerak (bo‘sh=${blank})`,
+        );
+      }
+    } else if (hasCorrect) {
+      if (nextCorrect === undefined)
+        throw new BadRequestException('Noto‘g‘ri qiymat');
+      if (nextCorrect > maxNonBlank) nextCorrect = maxNonBlank;
+      nextWrong = maxNonBlank - nextCorrect;
     } else {
-      results = await this.resultsRepository.find({
-        where,
-        relations: ['user'],
-      });
+      if (nextWrong === undefined)
+        throw new BadRequestException('Noto‘g‘ri qiymat');
+      if (nextWrong > maxNonBlank) nextWrong = maxNonBlank;
+      nextCorrect = maxNonBlank - nextWrong;
     }
-    return results.map(
-      (
-        r: Results & {
-          center?: { name?: string };
-          user?: { firstName?: string; lastName?: string };
-        },
-      ) => ({
-        id: r.id,
-        student_id: r.student_id,
-        student_name: r.user
-          ? `${r.user.firstName ?? ''} ${r.user.lastName ?? ''}`.trim()
-          : undefined,
-        center_id: r.center_id,
-        center_name: r.center?.name ?? undefined,
-        uniqueNumber: r.uniqueNumber,
-        total: r.total,
-        correctCount: r.correctCount,
-        wrongCount: r.wrongCount,
-        blankCount: r.blankCount,
-        perQuestion: r.perQuestion,
-        createdAt: r.createdAt,
-      }),
+
+    result.correctCount = nextCorrect ?? 0;
+    result.wrongCount = nextWrong ?? 0;
+    await this.resultsRepository.save(result);
+
+    return {
+      id: result.id,
+      student_id: result.student_id,
+      student_name: result.user
+        ? `${result.user.firstName ?? ''} ${result.user.lastName ?? ''}`.trim()
+        : undefined,
+      center_id: result.center_id,
+      center_name: result.center?.name ?? undefined,
+      uniqueNumber: result.uniqueNumber,
+      total: result.total,
+      correctCount: result.correctCount,
+      wrongCount: result.wrongCount,
+      blankCount: result.blankCount,
+      perQuestion: result.perQuestion,
+      createdAt: result.createdAt,
+    };
+  }
+
+  private escapeHtml(input: string): string {
+    return (input ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+  }
+
+  private chunkTelegramMessage(params: {
+    header: string;
+    lines: string[];
+    maxLen?: number;
+  }): string[] {
+    const maxLen = params.maxLen ?? 3500;
+    const chunks: string[] = [];
+    let current = params.header;
+
+    for (const line of params.lines) {
+      const next = current.length + line.length + 1;
+      if (next > maxLen && current.trim().length > 0) {
+        chunks.push(current.trim());
+        current = params.header;
+      }
+      current += `${line}\n`;
+    }
+    if (current.trim().length > 0) chunks.push(current.trim());
+    return chunks;
+  }
+
+  async queueResultsToTelegram(params: {
+    centerId: number;
+    ids: number[];
+  }): Promise<{
+    sent: number;
+    queuedMessages: number;
+    targets: Array<{ chatId: string; subjectId?: number }>;
+  }> {
+    if (!params?.centerId) {
+      throw new BadRequestException('centerId required');
+    }
+
+    const ids = Array.from(
+      new Set((params.ids || []).filter((x) => Number.isFinite(x))),
+    ) as number[];
+    if (ids.length === 0) {
+      throw new BadRequestException('ids massiv bo‘lishi kerak');
+    }
+    if (ids.length > 200) {
+      throw new BadRequestException(
+        'Bir martada maksimum 200 ta natija yuborish mumkin',
+      );
+    }
+
+    const telegramQueueService = this.moduleRef.get(TelegramQueueService, {
+      strict: false,
+    });
+
+    const rows = await this.resultsRepository.find({
+      where: { id: In(ids), center_id: params.centerId },
+      relations: ['user', 'center'],
+      order: { createdAt: 'DESC', id: 'DESC' },
+    });
+
+    if (rows.length === 0) {
+      return { sent: 0, queuedMessages: 0, targets: [] };
+    }
+
+    const uniqueNumbers = Array.from(
+      new Set(rows.map((r) => r.uniqueNumber).filter(Boolean)),
     );
+
+    const variants = uniqueNumbers.length
+      ? await this.generatedTestVariantRepository.find({
+          where: { uniqueNumber: In(uniqueNumbers) },
+          relations: ['generatedTest', 'generatedTest.subject'],
+        })
+      : [];
+
+    const subjectByUnique = new Map<
+      string,
+      { id: number; name?: string } | undefined
+    >();
+    for (const v of variants) {
+      const subject = v.generatedTest?.subject;
+      subjectByUnique.set(
+        v.uniqueNumber,
+        subject?.id ? { id: subject.id, name: subject.name } : undefined,
+      );
+    }
+
+    const groups = new Map<
+      string,
+      { subject?: { id: number; name?: string }; rows: Results[] }
+    >();
+
+    for (const r of rows) {
+      const subject = subjectByUnique.get(r.uniqueNumber);
+      const key = subject?.id ? `subject:${subject.id}` : 'center';
+      const entry = groups.get(key);
+      if (entry) {
+        entry.rows.push(r);
+      } else {
+        groups.set(key, { subject, rows: [r] });
+      }
+    }
+
+    const targets: Array<{ chatId: string; subjectId?: number }> = [];
+    let queuedMessages = 0;
+
+    for (const group of groups.values()) {
+      let targetChat: TelegramChat | null = null;
+
+      if (group.subject?.id) {
+        targetChat = await this.telegramChatRepo.findOne({
+          where: {
+            center: { id: params.centerId },
+            subject: { id: group.subject.id },
+            group: IsNull(),
+            type: In([ChatType.CHANNEL, ChatType.GROUP]),
+            status: ChatStatus.ACTIVE,
+          },
+          relations: ['center', 'subject'],
+          order: { createdAt: 'ASC' },
+        });
+      }
+
+      if (!targetChat) {
+        targetChat = await this.telegramChatRepo.findOne({
+          where: {
+            center: { id: params.centerId },
+            subject: IsNull(),
+            group: IsNull(),
+            type: In([ChatType.CHANNEL, ChatType.GROUP]),
+            status: ChatStatus.ACTIVE,
+          },
+          relations: ['center'],
+          order: { createdAt: 'ASC' },
+        });
+      }
+
+      if (!targetChat?.chatId) {
+        const suffix = group.subject?.name
+          ? ` (Fan: ${group.subject.name})`
+          : '';
+        throw new BadRequestException(
+          `Telegram kanal/guruh biriktirilmagan${suffix}. Telegram bo‘limidan biriktiring.`,
+        );
+      }
+
+      targets.push({
+        chatId: targetChat.chatId,
+        subjectId: group.subject?.id,
+      });
+
+      const centerName =
+        group.rows[0]?.center?.name ?? `centerId=${params.centerId}`;
+      const subjectLine = group.subject?.name
+        ? `Fan: <b>${this.escapeHtml(group.subject.name)}</b>\n`
+        : '';
+
+      const header =
+        `📊 <b>Test natijalari</b>\n` +
+        `Markaz: <b>${this.escapeHtml(centerName)}</b>\n` +
+        subjectLine +
+        `Soni: <b>${group.rows.length}</b>\n\n`;
+
+      const lines = group.rows.map((r, idx) => {
+        const fullName = r.user
+          ? `${r.user.firstName ?? ''} ${r.user.lastName ?? ''}`.trim()
+          : '-';
+        const nameSafe = this.escapeHtml(fullName || '-');
+        const total = Number(r.total) || 0;
+        const correct = Number(r.correctCount) || 0;
+        const pct = total > 0 ? (correct / total) * 100 : 0;
+        return `${idx + 1}) <b>${nameSafe}</b> — <b>${pct.toFixed(
+          1,
+        )}%</b> (${r.correctCount}/${r.total} ✅ | ❌${r.wrongCount} | ⬜${
+          r.blankCount
+        }) | V:<code>${this.escapeHtml(r.uniqueNumber)}</code>`;
+      });
+
+      const chunks = this.chunkTelegramMessage({ header, lines });
+      const logs = await telegramQueueService.queueMessages(
+        chunks.map((message) => ({
+          chatId: targetChat.chatId,
+          message,
+          type: MessageType.RESULTS,
+          priority: MessagePriority.HIGH,
+          parseMode: 'HTML' as const,
+          centerId: params.centerId,
+          metadata: {
+            kind: 'manual_results_send',
+            subjectId: group.subject?.id,
+            resultIds: group.rows.map((x) => x.id),
+          },
+        })),
+      );
+
+      queuedMessages += logs.length;
+    }
+
+    return {
+      sent: rows.length,
+      queuedMessages,
+      targets,
+    };
   }
 
   /**
@@ -1326,6 +1663,27 @@ export class TestGeneratorService {
     });
     if (!variant) throw new NotFoundException('Variant topilmadi');
 
+    // Prevent duplicates for the same student + uniqueNumber (+ center).
+    // If studentId is not provided, we cannot reliably de-duplicate.
+    if (studentId !== undefined) {
+      const where: any = {
+        uniqueNumber,
+        student_id: studentId,
+      };
+      if (centerId !== undefined) {
+        where.center_id = centerId;
+      }
+      const existing = await this.resultsRepository.findOne({
+        where,
+        order: { createdAt: 'DESC', id: 'DESC' },
+      });
+      if (existing) {
+        throw new ConflictException(
+          "Bu o'quvchi uchun ushbu variant avval tekshirilgan",
+        );
+      }
+    }
+
     const key = variant.answerKey as unknown as {
       total: number;
       answers: string[];
@@ -1354,34 +1712,18 @@ export class TestGeneratorService {
     }
     const wrongCount = total - correctCount - blankCount;
 
-    // Save or update result by uniqueNumber
-    let result = await this.resultsRepository.findOne({
-      where: { uniqueNumber },
+    // Create a new result row (duplicates are blocked above for same student+variant).
+    const result = this.resultsRepository.create({
+      student_id: studentId,
+      center_id: centerId,
+      uniqueNumber,
+      total,
+      correctCount,
+      wrongCount,
+      blankCount,
+      perQuestion,
     });
-    if (result) {
-      // Update existing result
-      result.student_id = studentId;
-      result.center_id = centerId;
-      result.total = total;
-      result.correctCount = correctCount;
-      result.wrongCount = wrongCount;
-      result.blankCount = blankCount;
-      result.perQuestion = perQuestion;
-      await this.resultsRepository.save(result);
-    } else {
-      // Create new result
-      result = this.resultsRepository.create({
-        student_id: studentId,
-        center_id: centerId,
-        uniqueNumber,
-        total,
-        correctCount,
-        wrongCount,
-        blankCount,
-        perQuestion,
-      });
-      await this.resultsRepository.save(result);
-    }
+    await this.resultsRepository.save(result);
 
     // --- Yangi kod: Telegram kanalga natija yuborish ---
     try {

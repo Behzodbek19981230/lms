@@ -8,8 +8,28 @@ import { gradeByCode, resolveCode, GradeResult } from '@/services/scanner.servic
 import axios from 'axios';
 import useSWR from 'swr';
 import { request } from '@/configs/request';
-import { User } from '@/types/user';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useAuth } from '@/contexts/AuthContext';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import { ChevronsUpDown, Check } from 'lucide-react';
+import { cn } from '@/lib/utils';
+
+type StudentOption = {
+	id: number;
+	firstName: string;
+	lastName: string;
+	username?: string;
+};
+
+type GroupWithStudents = {
+	id: number;
+	students: Array<{
+		id: number;
+		firstName: string;
+		lastName: string;
+		username?: string;
+	}>;
+};
 
 export default function ScannerPage() {
 	const [file, setFile] = useState<File | null>(null);
@@ -25,12 +45,52 @@ export default function ScannerPage() {
 	const canvasRef = useRef<HTMLCanvasElement>(null);
 	const uploadPercent = useMemo(() => (loading ? 66 : 0), [loading]);
 	const [studentId, setStudentId] = useState<number | undefined>(undefined);
-	const { data } = useSWR('/users?role=student', async (url: string) => {
+	const [studentPopoverOpen, setStudentPopoverOpen] = useState(false);
+	const { user } = useAuth();
+	const isTeacher = user?.role === 'teacher';
+
+	const studentsKey = user ? (isTeacher ? '/groups/me' : '/users?role=student') : null;
+	const { data: studentsData, error: studentsLoadError } = useSWR(studentsKey, async (url: string) => {
 		const res = await request.get(url);
 		return res.data;
 	});
 
-	const students: User[] = data || [];
+	const students: StudentOption[] = useMemo(() => {
+		if (!studentsData) return [];
+		if (isTeacher) {
+			const groups = (studentsData as GroupWithStudents[]) || [];
+			const uniq = new Map<number, StudentOption>();
+			for (const g of groups) {
+				for (const s of g.students || []) {
+					uniq.set(Number(s.id), {
+						id: Number(s.id),
+						firstName: s.firstName,
+						lastName: s.lastName,
+						username: s.username,
+					});
+				}
+			}
+			return Array.from(uniq.values()).sort((a, b) =>
+				`${a.lastName} ${a.firstName}`.localeCompare(`${b.lastName} ${b.firstName}`)
+			);
+		}
+
+		const users = (studentsData as any[]) || [];
+		return users
+			.filter((u) => u?.role === 'student')
+			.map((u) => ({
+				id: Number(u.id),
+				firstName: u.firstName,
+				lastName: u.lastName,
+				username: u.username,
+			}))
+			.sort((a, b) => `${a.lastName} ${a.firstName}`.localeCompare(`${b.lastName} ${b.firstName}`));
+	}, [studentsData, isTeacher]);
+
+	const selectedStudent = useMemo(
+		() => (studentId ? students.find((s) => s.id === studentId) : undefined),
+		[studentId, students]
+	);
 
 	// 🎥 Kamera ishga tushirish
 	const startCamera = async () => {
@@ -126,6 +186,20 @@ export default function ScannerPage() {
 		setError(null);
 		setResult(null);
 
+		const pickAnalyzeCode = (payload: any): string | null => {
+			const code =
+				payload?.uniqueNumber ??
+				payload?.unique_number ??
+				payload?.unique ??
+				payload?.variantNumber ??
+				payload?.variant_number ??
+				payload?.variant_id ??
+				payload?.variantId;
+			if (code === undefined || code === null) return null;
+			const s = String(code).trim();
+			return s.length ? s : null;
+		};
+
 		try {
 			const imageBase64 = await fileToBase64(f);
 			const response = await axios.post(
@@ -136,43 +210,74 @@ export default function ScannerPage() {
 				}
 			);
 
-			if (response.data.variant_id) {
-				const variantId = response.data.variant_id;
-				setVariantId(variantId);
-				const answersArray: string[] = [];
-				const maxKey = Object.keys(response.data.answers).sort((a, b) => parseInt(b) - parseInt(a));
-				for (let i = 1; i <= parseInt(maxKey[0]); i++) {
-					const ans = response.data.answers[i.toString()];
-					answersArray.push(ans || '-');
-				}
+			const code = pickAnalyzeCode(response.data);
+			if (!code) {
+				setError(
+					'Variant kodi aniqlanmadi. Rasm aniqroq bo‘lishiga ishonch hosil qiling va qayta urinib ko‘ring.'
+				);
+				return;
+			}
 
-				// Resolve universal code to determine type and auto-select student for exam variants
-				let detectedStudentId = studentId;
-				try {
-					const resolved = await resolveCode(variantId);
-					if (resolved.source === 'exam') {
-						detectedStudentId = resolved.studentId;
-						setStudentId(detectedStudentId);
-						console.log(`Auto-detected student from exam variant: ${resolved.studentName}`);
-					}
-				} catch (variantError) {
-					console.log('Kod resolve qilinmadi, bevosita baholashga o‘tamiz');
-				}
+			setVariantId(code);
 
-				try {
-					const gradeRes = await gradeByCode(variantId, answersArray, detectedStudentId);
-					setResult(gradeRes);
-				} catch (e) {
-					if (e?.response?.status === 500) {
-						setError(
-							"Bu rasmni skanerlashda ichki server xatosi yuz berdi. Iltimos, boshqa rasmni sinab ko'ring."
-						);
-					} else {
-						setError(e?.response?.data?.message || 'Xatolik yuz berdi');
-					}
+			const rawAnswers = response.data?.answers;
+			let answersArray: string[] = [];
+			const answersForUi: Record<string, string> = {};
+			if (Array.isArray(rawAnswers)) {
+				answersArray = rawAnswers.map((a) => (a ? String(a).toUpperCase() : '-'));
+				rawAnswers.forEach((v, idx) => {
+					answersForUi[String(idx + 1)] = v ? String(v).toUpperCase() : '-';
+				});
+			} else if (rawAnswers && typeof rawAnswers === 'object') {
+				const keys = Object.keys(rawAnswers);
+				const numericKeys = keys
+					.map((k) => Number(k))
+					.filter((n) => Number.isFinite(n))
+					.sort((a, b) => a - b);
+				if (numericKeys.length === 0) {
+					setError('Javoblar aniqlanmadi. Iltimos, boshqa rasm bilan sinab ko‘ring.');
+					return;
+				}
+				const startIndex = numericKeys[0] === 0 ? 0 : 1;
+				const maxIndex = numericKeys[numericKeys.length - 1];
+				for (let i = startIndex; i <= maxIndex; i++) {
+					const v = rawAnswers[String(i)] ?? rawAnswers[i];
+					const normalized = v ? String(v).toUpperCase() : '-';
+					answersArray.push(normalized);
+					answersForUi[String(i + (startIndex === 0 ? 1 : 0))] = normalized;
+				}
+			} else {
+				setError('Javoblar aniqlanmadi. Iltimos, boshqa rasm bilan sinab ko‘ring.');
+				return;
+			}
+
+			setAnswers(answersForUi);
+
+			// Resolve universal code to determine type and auto-select student for exam variants
+			let detectedStudentId = studentId;
+			try {
+				const resolved = await resolveCode(code);
+				if (resolved.source === 'exam') {
+					detectedStudentId = resolved.studentId;
+					setStudentId(detectedStudentId);
+					console.log(`Auto-detected student from exam variant: ${resolved.studentName}`);
+				}
+			} catch {
+				console.log('Kod resolve qilinmadi, bevosita baholashga o‘tamiz');
+			}
+
+			try {
+				const gradeRes = await gradeByCode(code, answersArray, detectedStudentId);
+				setResult(gradeRes);
+			} catch (e) {
+				if (e?.response?.status === 500) {
+					setError(
+						"Bu rasmni skanerlashda ichki server xatosi yuz berdi. Iltimos, boshqa rasmni sinab ko'ring."
+					);
+				} else {
+					setError(e?.response?.data?.message || 'Xatolik yuz berdi');
 				}
 			}
-			if (response.data.answers) setAnswers(response.data.answers);
 		} catch (e: any) {
 			if (e?.response?.status === 500) {
 				setError('Bu rasmni skanerlashda ichki server xatosi yuz berdi. Iltimos, boshqa rasmni sinab ko‘ring.');
@@ -187,10 +292,16 @@ export default function ScannerPage() {
 
 	// 🔄 Live rejimda surat olish va tekshirish
 	const handleLiveCapture = async () => {
-		const captured = captureImage();
-		if (captured) {
-			setImagePreview(URL.createObjectURL(captured));
-			await handleScan(captured);
+		if (loading || scanning) return;
+		setScanning(true);
+		try {
+			const captured = captureImage();
+			if (captured) {
+				setImagePreview(URL.createObjectURL(captured));
+				await handleScan(captured);
+			}
+		} finally {
+			setScanning(false);
 		}
 	};
 
@@ -207,10 +318,10 @@ export default function ScannerPage() {
 					<div className='grid gap-4 md:grid-cols-[1fr_260px]'>
 						<div className='space-y-2'>
 							<label className='text-xs md:text-sm font-medium'>Rasm (javob varaq surati)</label>
-							<Input type='file' accept='image/*' onChange={onFileChange} />
+							<Input type='file' accept='image/*' capture='environment' onChange={onFileChange} />
 							<Button
 								variant={liveMode ? 'destructive' : 'default'}
-								className='mt-2'
+								className='mt-2 w-full md:w-auto'
 								onClick={() => setLiveMode(!liveMode)}
 							>
 								{liveMode ? 'Kamerani o‘chirish' : 'Kamerani yoqish'}
@@ -218,7 +329,7 @@ export default function ScannerPage() {
 							{liveMode && (
 								<Button
 									variant='secondary'
-									className='mt-2'
+									className='mt-2 w-full md:w-auto'
 									onClick={handleLiveCapture}
 									disabled={loading || scanning}
 								>
@@ -248,30 +359,91 @@ export default function ScannerPage() {
 							<canvas ref={canvasRef} className='hidden' />
 						</div>
 
-						<div>
-							<Select
-								value={studentId?.toString() || ''}
-								onValueChange={(value) => setStudentId(Number(value))}
-							>
-								<SelectTrigger>
-									<SelectValue placeholder='O‘quvchini tanlang' />
-								</SelectTrigger>
-								<SelectContent>
-									{students?.map((student) => (
-										<SelectItem key={student.id} value={student.id.toString()}>
-											{student.lastName} {student.firstName} (ID: {student.id})
-										</SelectItem>
-									))}
-								</SelectContent>
-							</Select>
+						<div className='space-y-2'>
+							<label className='text-xs md:text-sm font-medium'>O‘quvchi</label>
+							<Popover open={studentPopoverOpen} onOpenChange={setStudentPopoverOpen}>
+								<PopoverTrigger asChild>
+									<Button
+										variant='outline'
+										role='combobox'
+										aria-expanded={studentPopoverOpen}
+										className='w-full justify-between'
+									>
+										{selectedStudent
+											? `${selectedStudent.lastName} ${selectedStudent.firstName} (ID: ${selectedStudent.id})`
+											: isTeacher
+											? 'O‘zimning o‘quvchimni tanlang'
+											: 'O‘quvchini tanlang'}
+										<ChevronsUpDown className='ml-2 h-4 w-4 shrink-0 opacity-50' />
+									</Button>
+								</PopoverTrigger>
+								<PopoverContent className='w-[var(--radix-popover-trigger-width)] p-0' align='start'>
+									<Command>
+										<CommandInput placeholder='O‘quvchi qidiring...' />
+										<CommandEmpty>Natija topilmadi.</CommandEmpty>
+										<CommandList>
+											<CommandGroup>
+												<CommandItem
+													value='__none__'
+													onSelect={() => {
+														setStudentId(undefined);
+														setStudentPopoverOpen(false);
+													}}
+													className='cursor-pointer'
+												>
+													<Check
+														className={cn(
+															'mr-2 h-4 w-4',
+															!studentId ? 'opacity-100' : 'opacity-0'
+														)}
+													/>
+													Tanlamaslik
+												</CommandItem>
+												{students.map((s) => (
+													<CommandItem
+														key={s.id}
+														value={`${s.lastName} ${s.firstName} ${s.id} ${
+															s.username ?? ''
+														}`}
+														onSelect={() => {
+															setStudentId(s.id);
+															setStudentPopoverOpen(false);
+														}}
+														className='cursor-pointer'
+													>
+														<Check
+															className={cn(
+																'mr-2 h-4 w-4',
+																studentId === s.id ? 'opacity-100' : 'opacity-0'
+															)}
+														/>
+														<span className='truncate'>
+															{s.lastName} {s.firstName} (ID: {s.id})
+														</span>
+													</CommandItem>
+												))}
+											</CommandGroup>
+										</CommandList>
+									</Command>
+								</PopoverContent>
+							</Popover>
+							{!!studentsLoadError && (
+								<div className='text-xs text-red-600'>O‘quvchilar ro‘yxatini yuklab bo‘lmadi</div>
+							)}
+							{isTeacher && (
+								<div className='text-xs text-muted-foreground'>
+									Bu ro‘yxat faqat sizning guruhlaringizdagi o‘quvchilardan tuzilgan.
+								</div>
+							)}
 						</div>
 					</div>
 
-					<div className='flex gap-2'>
+					<div className='flex flex-col md:flex-row gap-2'>
 						<Button
 							onClick={() => handleScan()}
 							disabled={!file || loading || liveMode}
 							variant='secondary'
+							className='w-full md:w-auto'
 						>
 							Skanerlash va tekshirish
 						</Button>
