@@ -39,6 +39,7 @@ export default function GeneratedTestsPage() {
 	const [variants, setVariants] = useState<VariantDto[]>([]);
 	const [variantsLoading, setVariantsLoading] = useState(false);
 	const [answerGenLoading, setAnswerGenLoading] = useState<string | null>(null);
+	const [answerKeysPdfLoading, setAnswerKeysPdfLoading] = useState(false);
 
 	const escapeHtml = (s: string) =>
 		String(s || '')
@@ -109,6 +110,78 @@ export default function GeneratedTestsPage() {
 		printWindow.document.open();
 		printWindow.document.write(htmlParts.join(''));
 		printWindow.document.close();
+	};
+
+	const downloadAnswerKeysPdf = async () => {
+		const withKeys = variants.filter((v) => v.answerKey && v.answerKey.answers?.length);
+		if (withKeys.length === 0) {
+			toast({ title: 'Xatolik', description: 'Javoblar kaliti mavjud emas', variant: 'destructive' });
+			return;
+		}
+
+		setAnswerKeysPdfLoading(true);
+		try {
+			const { jsPDF } = await import('jspdf');
+			const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+
+			const subjectName = active?.subject?.name || '-';
+			const title = active?.title || 'Test';
+			const dateStr = new Date().toLocaleDateString('uz-UZ');
+
+			const pageWidth = doc.internal.pageSize.getWidth();
+			const pageHeight = doc.internal.pageSize.getHeight();
+			const marginX = 12;
+			const marginY = 14;
+			const contentWidth = pageWidth - marginX * 2;
+			let y = marginY;
+
+			doc.setFont('helvetica', 'bold');
+			doc.setFontSize(14);
+			doc.text(`Javoblar kaliti — ${title}`, marginX, y);
+			y += 7;
+			doc.setFont('helvetica', 'normal');
+			doc.setFontSize(10);
+			doc.text(`Fan: ${subjectName}    Sana: ${dateStr}`, marginX, y);
+			y += 8;
+
+			for (const v of withKeys) {
+				const header = `Variant ${v.variantNumber} — #${v.uniqueNumber}`;
+				const answers = v.answerKey?.answers || [];
+				const answersLine = answers.map((ans, idx) => `${idx + 1}.${String(ans || '-')}`).join('   ');
+				const wrappedAnswers = doc.splitTextToSize(answersLine, contentWidth);
+
+				const blockHeight = 6 + wrappedAnswers.length * 5 + 4;
+				if (y + blockHeight > pageHeight - marginY) {
+					doc.addPage();
+					y = marginY;
+				}
+
+				doc.setFont('helvetica', 'bold');
+				doc.setFontSize(11);
+				doc.text(header, marginX, y);
+				y += 6;
+				doc.setFont('helvetica', 'normal');
+				doc.setFontSize(10);
+				doc.text(wrappedAnswers, marginX, y);
+				y += wrappedAnswers.length * 5 + 6;
+			}
+
+			const safeTitle = title
+				.toLowerCase()
+				.replace(/\s+/g, '-')
+				.replace(/[^a-z0-9\-\u0400-\u04FF]+/g, '')
+				.slice(0, 40);
+			const fileName = `javoblar-kaliti-${safeTitle || 'test'}-${new Date().toISOString().slice(0, 10)}.pdf`;
+			doc.save(fileName);
+		} catch (e: any) {
+			toast({
+				title: 'Xatolik',
+				description: e?.message || 'PDF yaratib bo‘lmadi',
+				variant: 'destructive',
+			});
+		} finally {
+			setAnswerKeysPdfLoading(false);
+		}
 	};
 
 	useEffect(() => {
@@ -213,7 +286,9 @@ export default function GeneratedTestsPage() {
 								<Card key={it.id} className='p-4'>
 									<div className='flex items-start justify-between gap-3'>
 										<div className='min-w-0'>
-											<div className='text-sm text-muted-foreground truncate'>{it.subject?.name || '-'}</div>
+											<div className='text-sm text-muted-foreground truncate'>
+												{it.subject?.name || '-'}
+											</div>
 											<div className='font-medium truncate'>{it.title}</div>
 											<div className='text-xs text-muted-foreground mt-1'>
 												{it.questionCount} savol • {it.timeLimit} daqiqa • {it.difficulty}
@@ -226,16 +301,24 @@ export default function GeneratedTestsPage() {
 
 									<div className='mt-3 space-y-2 text-sm'>
 										<div className='text-muted-foreground'>
-											Yaratuvchi: <span className='text-foreground'>{it.teacher?.fullName || '-'}</span>
+											Yaratuvchi:{' '}
+											<span className='text-foreground'>{it.teacher?.fullName || '-'}</span>
 										</div>
 										<div className='text-muted-foreground'>
 											Yaratilgan:{' '}
-											<span className='text-foreground'>{new Date(it.createdAt).toLocaleString('uz-UZ')}</span>
+											<span className='text-foreground'>
+												{new Date(it.createdAt).toLocaleString('uz-UZ')}
+											</span>
 										</div>
 									</div>
 
 									<div className='mt-3'>
-										<Button size='sm' variant='outline' className='w-full' onClick={() => openVariants(it)}>
+										<Button
+											size='sm'
+											variant='outline'
+											className='w-full'
+											onClick={() => openVariants(it)}
+										>
 											<Eye className='h-4 w-4 mr-1' /> Variantlar
 										</Button>
 									</div>
@@ -286,7 +369,7 @@ export default function GeneratedTestsPage() {
 													<Eye className='h-4 w-4 mr-1' /> Variantlar
 												</Button>
 											</TableCell>
-									</TableRow>
+										</TableRow>
 									))
 								)}
 							</TableBody>
@@ -369,9 +452,26 @@ export default function GeneratedTestsPage() {
 								<CardHeader>
 									<div className='flex flex-col sm:flex-row sm:items-center justify-between gap-2'>
 										<CardTitle className='text-base'>Javoblar kaliti</CardTitle>
-										<Button size='sm' variant='outline' onClick={printAnswerKeys} className='w-full sm:w-auto'>
-											<Printer className='h-4 w-4 mr-2' /> Chop etish
-										</Button>
+										<div className='flex flex-col sm:flex-row sm:items-center gap-2 w-full sm:w-auto'>
+											<Button
+												size='sm'
+												variant='outline'
+												onClick={downloadAnswerKeysPdf}
+												disabled={answerKeysPdfLoading}
+												className='w-full sm:w-auto'
+											>
+												<Download className='h-4 w-4 mr-2' />
+												{answerKeysPdfLoading ? 'Yaratilmoqda...' : 'PDF yuklab olish'}
+											</Button>
+											<Button
+												size='sm'
+												variant='outline'
+												onClick={printAnswerKeys}
+												className='w-full sm:w-auto'
+											>
+												<Printer className='h-4 w-4 mr-2' /> Chop etish
+											</Button>
+										</div>
 									</div>
 								</CardHeader>
 								<CardContent>
