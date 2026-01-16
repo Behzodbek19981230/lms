@@ -34,10 +34,12 @@ export default function GeneratedTestsPage() {
 	const { toast } = useToast();
 	const [items, setItems] = useState<GeneratedTestDto[]>([]);
 	const [loading, setLoading] = useState(false);
+	const [quickPrintLoading, setQuickPrintLoading] = useState<number | null>(null);
 	const [open, setOpen] = useState(false);
 	const [active, setActive] = useState<GeneratedTestDto | null>(null);
 	const [variants, setVariants] = useState<VariantDto[]>([]);
 	const [variantsLoading, setVariantsLoading] = useState(false);
+	const [variantPrintLoading, setVariantPrintLoading] = useState<string | null>(null);
 	const [answerGenLoading, setAnswerGenLoading] = useState<string | null>(null);
 	const [answerKeysPdfLoading, setAnswerKeysPdfLoading] = useState(false);
 
@@ -229,6 +231,24 @@ export default function GeneratedTestsPage() {
 		}
 	};
 
+	const reloadVariants = async (testId: number) => {
+		setVariantsLoading(true);
+		try {
+			const { data } = await request.get(`/tests/generated/${testId}/variants`);
+			setVariants(data || []);
+			return data || [];
+		} catch (e: any) {
+			toast({
+				title: 'Xatolik',
+				description: e?.response?.data?.message || 'Variantlar yuklanmadi',
+				variant: 'destructive',
+			});
+			return [];
+		} finally {
+			setVariantsLoading(false);
+		}
+	};
+
 	const openAnswerSheet = async (uniqueNumber: string) => {
 		if (!uniqueNumber) return;
 		try {
@@ -249,6 +269,82 @@ export default function GeneratedTestsPage() {
 			});
 		} finally {
 			setAnswerGenLoading(null);
+		}
+	};
+
+	const quickPrintOneTime = async (test: GeneratedTestDto) => {
+		const idNum = Number(test.id);
+		if (!Number.isFinite(idNum)) {
+			toast({ title: 'Xatolik', description: "Noto'g'ri test ID", variant: 'destructive' });
+			return;
+		}
+
+		try {
+			setQuickPrintLoading(idNum);
+			const { data } = await request.post(`/tests/generated/${idNum}/printable-html`, {
+				ensureExists: true,
+			});
+
+			const combinedUrlRaw = data?.combinedUrl as string | undefined;
+			const files = (data?.files || []) as Array<{ url?: string }>;
+			const firstUrlRaw = files?.[0]?.url;
+
+			const urlRaw = combinedUrlRaw || firstUrlRaw;
+			if (!urlRaw) {
+				toast({
+					title: 'Xatolik',
+					description: 'Chop etish fayli topilmadi',
+					variant: 'destructive',
+				});
+				return;
+			}
+			const fullUrl = `${process.env.NEXT_PUBLIC_FILE_BASE_URL}${urlRaw}`;
+			window.open(fullUrl, '_blank');
+		} catch (e: any) {
+			toast({
+				title: 'Xatolik',
+				description: e?.response?.data?.message || 'Chop etish fayli yaratilmagan',
+				variant: 'destructive',
+			});
+		} finally {
+			setQuickPrintLoading(null);
+		}
+	};
+
+	const generateAndOpenVariantPrintable = async (uniqueNumber: string) => {
+		if (!active) {
+			toast({ title: 'Xatolik', description: 'Test tanlanmagan', variant: 'destructive' });
+			return;
+		}
+		const testId = Number(active.id);
+		if (!Number.isFinite(testId)) {
+			toast({ title: 'Xatolik', description: "Noto'g'ri test ID", variant: 'destructive' });
+			return;
+		}
+		if (!uniqueNumber) return;
+
+		try {
+			setVariantPrintLoading(uniqueNumber);
+			await request.post(`/tests/generated/${testId}/printable-html`, { ensureExists: true });
+			const updated = (await reloadVariants(testId)) as VariantDto[];
+			const found = updated.find((v) => v.uniqueNumber === uniqueNumber);
+			if (!found?.printableUrl) {
+				toast({
+					title: 'Xatolik',
+					description: 'Chop etish fayli hali yaratilmagan',
+					variant: 'destructive',
+				});
+				return;
+			}
+			window.open(`${process.env.NEXT_PUBLIC_FILE_BASE_URL}${found.printableUrl}`, '_blank');
+		} catch (e: any) {
+			toast({
+				title: 'Xatolik',
+				description: e?.response?.data?.message || 'Chop etish fayli yaratilmagan',
+				variant: 'destructive',
+			});
+		} finally {
+			setVariantPrintLoading(null);
 		}
 	};
 
@@ -314,14 +410,30 @@ export default function GeneratedTestsPage() {
 									</div>
 
 									<div className='mt-3'>
-										<Button
-											size='sm'
-											variant='outline'
-											className='w-full'
-											onClick={() => openVariants(it)}
-										>
-											<Eye className='h-4 w-4 mr-1' /> Variantlar
-										</Button>
+										<div className='flex flex-col gap-2'>
+											<Button
+												size='sm'
+												variant='outline'
+												className='w-full'
+												onClick={() => openVariants(it)}
+											>
+												<Eye className='h-4 w-4 mr-1' /> Variantlar
+											</Button>
+											{it.variantCount === 1 && (
+												<Button
+													size='sm'
+													variant='outline'
+													className='w-full'
+													onClick={() => quickPrintOneTime(it)}
+													disabled={quickPrintLoading === Number(it.id)}
+												>
+													<Printer className='h-4 w-4 mr-1' />
+													{quickPrintLoading === Number(it.id)
+														? 'Yaratilmoqda...'
+														: 'Chop qilish'}
+												</Button>
+											)}
+										</div>
 									</div>
 								</Card>
 							))
@@ -366,9 +478,28 @@ export default function GeneratedTestsPage() {
 												<Badge variant='outline'>{it.variantCount}</Badge>
 											</TableCell>
 											<TableCell>
-												<Button size='sm' variant='outline' onClick={() => openVariants(it)}>
-													<Eye className='h-4 w-4 mr-1' /> Variantlar
-												</Button>
+												<div className='flex items-center gap-2'>
+													<Button
+														size='sm'
+														variant='outline'
+														onClick={() => openVariants(it)}
+													>
+														<Eye className='h-4 w-4 mr-1' /> Variantlar
+													</Button>
+													{it.variantCount === 1 && (
+														<Button
+															size='sm'
+															variant='outline'
+															onClick={() => quickPrintOneTime(it)}
+															disabled={quickPrintLoading === Number(it.id)}
+														>
+															<Printer className='h-4 w-4 mr-1' />
+															{quickPrintLoading === Number(it.id)
+																? 'Yaratilmoqda...'
+																: 'Chop qilish'}
+														</Button>
+													)}
+												</div>
 											</TableCell>
 										</TableRow>
 									))
@@ -438,9 +569,22 @@ export default function GeneratedTestsPage() {
 													</a>
 												</>
 											) : (
-												<span className='text-xs text-muted-foreground'>
-													Chop etish fayli hali yaratilmagan
-												</span>
+												<div className='flex flex-col sm:flex-row sm:items-center gap-2'>
+													<span className='text-xs text-muted-foreground'>
+														Chop etish fayli hali yaratilmagan
+													</span>
+													<Button
+														size='sm'
+														variant='outline'
+														onClick={() => generateAndOpenVariantPrintable(v.uniqueNumber)}
+														disabled={variantPrintLoading === v.uniqueNumber}
+													>
+														<Printer className='h-4 w-4 mr-1' />
+														{variantPrintLoading === v.uniqueNumber
+															? 'Yaratilmoqda...'
+															: 'Chop qilish'}
+													</Button>
+												</div>
 											)}
 										</div>
 									</div>

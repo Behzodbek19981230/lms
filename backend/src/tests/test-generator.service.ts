@@ -70,6 +70,12 @@ export interface TestVariant {
   createdAt: Date;
 }
 
+export interface GenerateGeneratedTestPrintableOptions {
+  generatedTestId: number;
+  teacherId: number;
+  ensureExists?: boolean;
+}
+
 @Injectable()
 export class TestGeneratorService {
   constructor(
@@ -2064,6 +2070,142 @@ export class TestGeneratorService {
       generatedAt: v.generatedAt ?? v.createdAt,
       answerKey: v.answerKey,
     }));
+  }
+
+  /**
+   * Generate printable HTML for an existing generated test (load data from DB).
+   * If variants are missing, it will (re)create them using subject question pool.
+   */
+  async generatePrintableHtmlForGeneratedTest(
+    opts: GenerateGeneratedTestPrintableOptions,
+  ): Promise<{
+    files: {
+      variantNumber: string;
+      url: string;
+      fileName: string;
+      answerSheetUrl?: string;
+      uniqueNumber?: string;
+    }[];
+    title?: string;
+    combinedUrl?: string;
+  }> {
+    const test = await this.generatedTestRepository.findOne({
+      where: { id: opts.generatedTestId },
+      relations: ['teacher', 'subject'],
+    });
+    if (!test) throw new NotFoundException('Yaratilgan test topilmadi');
+    if (!test.teacher || Number(test.teacher.id) !== Number(opts.teacherId)) {
+      throw new BadRequestException('Bu test sizga tegishli emas');
+    }
+
+    const ensureExists = opts.ensureExists ?? true;
+
+    let variants = await this.generatedTestVariantRepository.find({
+      where: { generatedTest: { id: test.id } },
+      order: { variantNumber: 'ASC' },
+    });
+
+    // If variants were not created (e.g., generation crashed), recreate them.
+    if (!variants.length) {
+      const availableQuestions = await this.questionRepository.find({
+        where: { test: { subject: { id: test.subject?.id } } },
+        relations: ['answers', 'test'],
+      });
+
+      if (!availableQuestions.length) {
+        throw new BadRequestException('Tanlangan fanda savollar mavjud emas');
+      }
+      if (availableQuestions.length < Number(test.questionCount || 0)) {
+        throw new BadRequestException(
+          `Fanda ${availableQuestions.length} ta savol bor, lekin ${Number(
+            test.questionCount || 0,
+          )} ta so'rayapsiz`,
+        );
+      }
+
+      const toCreate = Math.max(1, Number(test.variantCount || 1));
+      for (let v = 1; v <= toCreate; v++) {
+        const shuffled = [...availableQuestions].sort(
+          () => 0.5 - Math.random(),
+        );
+        const selectedQuestions = shuffled.slice(
+          0,
+          Number(test.questionCount || 0),
+        );
+        const questionsWithShuffledAnswers = selectedQuestions.map((q) => {
+          if (
+            q.type === QuestionType.MULTIPLE_CHOICE &&
+            Array.isArray(q.answers) &&
+            q.answers.length > 1
+          ) {
+            return {
+              ...q,
+              answers: [...q.answers].sort(() => 0.5 - Math.random()),
+            } as Question;
+          }
+          return q;
+        });
+
+        const uniqueNumber = await this.generateUniqueNumber();
+        const variant = this.generatedTestVariantRepository.create({
+          uniqueNumber,
+          variantNumber: v,
+          questionsData: questionsWithShuffledAnswers,
+          generatedAt: new Date(),
+          generatedTest: test,
+          answerKey: this.buildAnswerKey(questionsWithShuffledAnswers),
+        });
+        await this.generatedTestVariantRepository.save(variant);
+      }
+
+      variants = await this.generatedTestVariantRepository.find({
+        where: { generatedTest: { id: test.id } },
+        order: { variantNumber: 'ASC' },
+      });
+    }
+
+    // If caller wants caching and all variants already have printable URLs, return them.
+    if (
+      ensureExists &&
+      variants.length &&
+      variants.every((v) => v.printableUrl && v.printableFileName)
+    ) {
+      return {
+        files: variants.map((v) => ({
+          variantNumber: String(v.variantNumber),
+          url: String(v.printableUrl),
+          fileName: String(v.printableFileName),
+          uniqueNumber: v.uniqueNumber,
+        })),
+        title: test.title,
+      };
+    }
+
+    const mappedVariants: TestVariant[] = variants.map((v) => ({
+      id: `db-${test.id}-${v.uniqueNumber}`,
+      variantNumber: String(v.variantNumber),
+      uniqueNumber: v.uniqueNumber,
+      questions: (Array.isArray(v.questionsData)
+        ? v.questionsData
+        : []) as Question[],
+      createdAt: v.generatedAt ?? v.createdAt,
+    }));
+
+    return await this.generatePrintableHtmlFiles({
+      variants: mappedVariants,
+      config: {
+        title: test.title,
+        subjectId: test.subject?.id ?? 0,
+        questionCount: test.questionCount,
+        variantCount: test.variantCount,
+        timeLimit: test.timeLimit,
+        difficulty: test.difficulty,
+        includeAnswers: test.includeAnswers,
+        showTitleSheet: test.showTitleSheet,
+      },
+      subjectName: test.subject?.name ?? 'Test',
+      teacherId: Number(opts.teacherId),
+    });
   }
 
   /**

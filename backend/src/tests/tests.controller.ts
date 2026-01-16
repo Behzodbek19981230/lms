@@ -166,6 +166,32 @@ export class TestsController {
     return this.testGeneratorService.listGeneratedTestVariants(id, userId);
   }
 
+  @Post('generated/:id/printable-html')
+  @RequireCenterPermissions(CenterPermissionKey.TEST_GENERATION)
+  @ApiOperation({
+    summary:
+      'Generated test uchun printable HTML yaratish (DBdan) (variantlar yo‘q bo‘lsa yaratadi)',
+  })
+  @ApiResponse({ status: 201, description: 'Printable HTML URLs returned' })
+  async generatePrintableHtmlForGeneratedTest(
+    @Param('id', ParseIntPipe) id: number,
+    @Body()
+    body: {
+      ensureExists?: boolean;
+    },
+    @Request() req: { user: { id: number | string } },
+  ) {
+    const userId =
+      typeof req.user.id === 'string' ? parseInt(req.user.id, 10) : req.user.id;
+    return await this.testGeneratorService.generatePrintableHtmlForGeneratedTest(
+      {
+        generatedTestId: id,
+        teacherId: userId,
+        ensureExists: body?.ensureExists,
+      },
+    );
+  }
+
   @Post('generated/variant/:uniqueNumber/grade')
   @RequireCenterPermissions(CenterPermissionKey.CHECKING)
   @ApiOperation({ summary: 'Telefon skanerdan olingan javoblarni tekshirish' })
