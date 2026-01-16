@@ -4,11 +4,12 @@ import {
   NotFoundException,
   BadRequestException,
   ConflictException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { ModuleRef } from '@nestjs/core';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, IsNull, Repository } from 'typeorm';
-import { User } from '../users/entities/user.entity';
+import { User, UserRole } from '../users/entities/user.entity';
 import { Center } from '../centers/entities/center.entity';
 import {
   TelegramChat,
@@ -104,38 +105,91 @@ export class TestGeneratorService {
     studentId?: number;
     uniqueNumber?: string;
     centerId?: number;
+    subjectId?: number;
     q?: string;
     from?: string;
     to?: string;
     page?: number;
     limit?: number;
   }) {
+    const enrich = async (rows: (Results & { user?: User | null })[]) => {
+      const uniqueNumbers = Array.from(
+        new Set(
+          rows
+            .map((r) =>
+              typeof r.uniqueNumber === 'string' ? r.uniqueNumber : '',
+            )
+            .filter(Boolean),
+        ),
+      );
+
+      const subjectByUniqueNumber = new Map<
+        string,
+        { id: number; name: string } | null
+      >();
+      if (uniqueNumbers.length > 0) {
+        const variants = await this.generatedTestVariantRepository.find({
+          where: { uniqueNumber: In(uniqueNumbers) },
+          relations: ['generatedTest', 'generatedTest.subject'],
+        });
+
+        for (const v of variants) {
+          const subject = v?.generatedTest?.subject;
+          subjectByUniqueNumber.set(
+            v.uniqueNumber,
+            subject ? { id: subject.id, name: subject.name } : null,
+          );
+        }
+      }
+
+      return { subjectByUniqueNumber };
+    };
+
     const mapRow = (
       r: Results & {
         center?: { name?: string };
         user?: { firstName?: string; lastName?: string };
       },
-    ) => ({
-      id: r.id,
-      student_id: r.student_id,
-      student_name: r.user
-        ? `${r.user.firstName ?? ''} ${r.user.lastName ?? ''}`.trim()
-        : undefined,
-      center_id: r.center_id,
-      center_name: r.center?.name ?? undefined,
-      uniqueNumber: r.uniqueNumber,
-      total: r.total,
-      correctCount: r.correctCount,
-      wrongCount: r.wrongCount,
-      blankCount: r.blankCount,
-      perQuestion: r.perQuestion,
-      createdAt: r.createdAt,
-    });
+      maps?: {
+        subjectByUniqueNumber: Map<string, { id: number; name: string } | null>;
+      },
+    ) => {
+      const subject = maps?.subjectByUniqueNumber.get(r.uniqueNumber) ?? null;
+
+      return {
+        id: r.id,
+        student_id: r.student_id,
+        student_name: r.user
+          ? `${r.user.firstName ?? ''} ${r.user.lastName ?? ''}`.trim()
+          : undefined,
+        center_id: r.center_id,
+        center_name: r.center?.name ?? undefined,
+        uniqueNumber: r.uniqueNumber,
+        total: r.total,
+        correctCount: r.correctCount,
+        wrongCount: r.wrongCount,
+        blankCount: r.blankCount,
+        perQuestion: r.perQuestion,
+        createdAt: r.createdAt,
+        subject,
+      };
+    };
 
     const qb = this.resultsRepository
       .createQueryBuilder('r')
       .leftJoinAndSelect('r.user', 'u')
       .leftJoinAndSelect('r.center', 'c');
+
+    if (options?.subjectId !== undefined) {
+      qb.leftJoin(
+        GeneratedTestVariant,
+        'gtv',
+        'gtv.uniqueNumber = r.uniqueNumber',
+      )
+        .leftJoin('gtv.generatedTest', 'gt')
+        .leftJoin('gt.subject', 's')
+        .andWhere('s.id = :subjectId', { subjectId: options.subjectId });
+    }
 
     if (options?.studentId !== undefined) {
       qb.andWhere('r.student_id = :studentId', {
@@ -170,7 +224,8 @@ export class TestGeneratorService {
     // Backward compatible: if pagination isn't requested, return an array like before.
     if (!page || !limit) {
       const rows = await qb.getMany();
-      return rows.map(mapRow);
+      const maps = await enrich(rows as any);
+      return rows.map((r) => mapRow(r as any, maps));
     }
 
     const safeLimit = Math.min(Math.max(limit, 1), 200);
@@ -180,8 +235,10 @@ export class TestGeneratorService {
       .skip((safePage - 1) * safeLimit)
       .getManyAndCount();
 
+    const maps = await enrich(rows as any);
+
     return {
-      data: rows.map(mapRow),
+      data: rows.map((r) => mapRow(r as any, maps)),
       meta: {
         page: safePage,
         limit: safeLimit,
@@ -262,6 +319,173 @@ export class TestGeneratorService {
       student_name: result.user
         ? `${result.user.firstName ?? ''} ${result.user.lastName ?? ''}`.trim()
         : undefined,
+      center_id: result.center_id,
+      center_name: result.center?.name ?? undefined,
+      uniqueNumber: result.uniqueNumber,
+      total: result.total,
+      correctCount: result.correctCount,
+      wrongCount: result.wrongCount,
+      blankCount: result.blankCount,
+      perQuestion: result.perQuestion,
+      createdAt: result.createdAt,
+    };
+  }
+
+  async updateResultManual(params: {
+    centerId: number;
+    id: number;
+    studentId: number;
+    total: number;
+    correctCount: number;
+  }) {
+    const result = await this.resultsRepository.findOne({
+      where: { id: params.id, center_id: params.centerId },
+      relations: ['user', 'center'],
+    });
+
+    if (!result) {
+      throw new NotFoundException('Natija topilmadi');
+    }
+
+    const student = await this.userRepo.findOne({
+      where: { id: params.studentId },
+      relations: ['center'],
+    });
+    if (!student) {
+      throw new NotFoundException("O'quvchi topilmadi");
+    }
+    if (student.role !== UserRole.STUDENT) {
+      throw new BadRequestException("Tanlangan foydalanuvchi o'quvchi emas");
+    }
+    if (student.center?.id !== params.centerId) {
+      throw new BadRequestException("O'quvchi boshqa markazga tegishli");
+    }
+
+    const total = Math.max(0, Math.trunc(Number(params.total) || 0));
+    const correctCount = Math.max(
+      0,
+      Math.trunc(Number(params.correctCount) || 0),
+    );
+    if (correctCount > total) {
+      throw new BadRequestException(
+        "To'g'ri javoblar soni jami savoldan katta bo'lmasligi kerak",
+      );
+    }
+
+    result.student_id = student.id;
+    result.total = total;
+    result.correctCount = correctCount;
+    result.blankCount = 0;
+    result.wrongCount = Math.max(0, total - correctCount);
+
+    await this.resultsRepository.save(result);
+
+    // Reuse listResults mapper shape by returning a minimal payload compatible with frontend.
+    return {
+      id: result.id,
+      student_id: result.student_id,
+      student_name:
+        `${student.firstName ?? ''} ${student.lastName ?? ''}`.trim(),
+      center_id: result.center_id,
+      center_name: result.center?.name ?? undefined,
+      uniqueNumber: result.uniqueNumber,
+      total: result.total,
+      correctCount: result.correctCount,
+      wrongCount: result.wrongCount,
+      blankCount: result.blankCount,
+      perQuestion: result.perQuestion,
+      createdAt: result.createdAt,
+    };
+  }
+
+  async createOrUpdateResultManualByVariant(params: {
+    centerId: number;
+    teacherId: number;
+    uniqueNumber: string;
+    studentId: number;
+    total: number;
+    correctCount: number;
+  }) {
+    const uniqueNumber = (params.uniqueNumber || '').trim();
+    if (!uniqueNumber) {
+      throw new BadRequestException('Variant kodi (uniqueNumber) kerak');
+    }
+
+    const variant = await this.generatedTestVariantRepository.findOne({
+      where: { uniqueNumber },
+      relations: ['generatedTest', 'generatedTest.teacher'],
+    });
+    if (!variant) {
+      throw new NotFoundException('Variant topilmadi');
+    }
+    if (variant.generatedTest?.teacher?.id !== params.teacherId) {
+      throw new ForbiddenException('Bu variant sizga tegishli emas');
+    }
+
+    const student = await this.userRepo.findOne({
+      where: { id: params.studentId },
+      relations: ['center'],
+    });
+    if (!student) {
+      throw new NotFoundException("O'quvchi topilmadi");
+    }
+    if (student.role !== UserRole.STUDENT) {
+      throw new BadRequestException("Tanlangan foydalanuvchi o'quvchi emas");
+    }
+    if (student.center?.id !== params.centerId) {
+      throw new BadRequestException("O'quvchi boshqa markazga tegishli");
+    }
+
+    const total = Math.max(0, Math.trunc(Number(params.total) || 0));
+    const correctCount = Math.max(
+      0,
+      Math.trunc(Number(params.correctCount) || 0),
+    );
+    if (correctCount > total) {
+      throw new BadRequestException(
+        "To'g'ri javoblar soni jami savoldan katta bo'lmasligi kerak",
+      );
+    }
+
+    const existing = await this.resultsRepository.findOne({
+      where: {
+        uniqueNumber,
+        student_id: student.id,
+        center_id: params.centerId,
+      },
+      relations: ['center'],
+      order: { createdAt: 'DESC', id: 'DESC' },
+    });
+
+    const result = existing
+      ? existing
+      : this.resultsRepository.create({
+          student_id: student.id,
+          center_id: params.centerId,
+          uniqueNumber,
+          total,
+          correctCount,
+          wrongCount: Math.max(0, total - correctCount),
+          blankCount: 0,
+          perQuestion: [],
+        });
+
+    result.student_id = student.id;
+    result.center_id = params.centerId;
+    result.uniqueNumber = uniqueNumber;
+    result.total = total;
+    result.correctCount = correctCount;
+    result.blankCount = 0;
+    result.wrongCount = Math.max(0, total - correctCount);
+    result.perQuestion = [];
+
+    await this.resultsRepository.save(result);
+
+    return {
+      id: result.id,
+      student_id: result.student_id,
+      student_name:
+        `${student.firstName ?? ''} ${student.lastName ?? ''}`.trim(),
       center_id: result.center_id,
       center_name: result.center?.name ?? undefined,
       uniqueNumber: result.uniqueNumber,

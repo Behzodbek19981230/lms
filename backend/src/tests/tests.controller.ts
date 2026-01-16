@@ -27,6 +27,8 @@ import { UpdateTestDto } from './dto/update-test.dto';
 import { TestResponseDto } from './dto/test-response.dto';
 import { TestStatsDto } from './dto/test-stats.dto';
 import { UpdateResultCountsDto } from './dto/update-result-counts.dto';
+import { UpdateResultManualDto } from './dto/update-result-manual.dto';
+import { CreateResultManualByVariantDto } from './dto/create-result-manual-by-variant.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RequireCenterPermissions } from '../centers/permissions/center-permission.decorator';
 import { CenterPermissionKey } from '../centers/permissions/center-permissions';
@@ -208,6 +210,7 @@ export class TestsController {
     @Query('studentId') studentIdRaw?: string,
     @Query('uniqueNumber') uniqueNumber?: string,
     @Query('centerId') centerIdRaw?: string,
+    @Query('subjectId') subjectIdRaw?: string,
     @Query('q') q?: string,
     @Query('from') from?: string,
     @Query('to') to?: string,
@@ -225,6 +228,7 @@ export class TestsController {
 
     const studentId = parseOptionalInt(studentIdRaw);
     const centerIdQuery = parseOptionalInt(centerIdRaw);
+    const subjectId = parseOptionalInt(subjectIdRaw);
     const page = parseOptionalInt(pageRaw);
     const limit = parseOptionalInt(limitRaw);
 
@@ -245,6 +249,7 @@ export class TestsController {
       studentId,
       uniqueNumber,
       centerId,
+      subjectId,
       q,
       from,
       to,
@@ -333,6 +338,107 @@ export class TestsController {
         typeof dto?.correctCount === 'number' ? dto.correctCount : undefined,
       wrongCount:
         typeof dto?.wrongCount === 'number' ? dto.wrongCount : undefined,
+    });
+  }
+
+  @Patch('results/:id/manual')
+  @RequireCenterPermissions(CenterPermissionKey.REPORTS_TESTS)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary:
+      "Natijani qo'lda kiritish (o'quvchi + jami savol + to'g'ri) (faqat o'qituvchi)",
+  })
+  @ApiResponse({ status: 200, description: 'Natija yangilandi' })
+  async updateResultManual(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateResultManualDto,
+    @Request()
+    req: { user?: { center?: { id?: number }; role?: string } },
+  ) {
+    const centerId =
+      typeof req.user?.center?.id === 'number' ? req.user.center.id : undefined;
+
+    const role: string | undefined =
+      typeof req.user === 'object' && req.user !== null
+        ? (req.user as { role?: string }).role
+        : undefined;
+    if (role !== 'teacher') {
+      return {
+        statusCode: 403,
+        message: "Faqat o'qituvchi kiritishi mumkin",
+      };
+    }
+    if (!centerId) {
+      return {
+        statusCode: 400,
+        message: 'Center aniqlanmadi',
+      };
+    }
+
+    return this.testGeneratorService.updateResultManual({
+      centerId,
+      id,
+      studentId: dto.studentId,
+      total: dto.total,
+      correctCount: dto.correctCount,
+    });
+  }
+
+  @Post('results/manual')
+  @RequireCenterPermissions(CenterPermissionKey.REPORTS_TESTS)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary:
+      "Natijani qo'lda kiritish (generated variant uniqueNumber orqali) (faqat o'qituvchi)",
+  })
+  @ApiResponse({ status: 200, description: 'Natija yaratildi/yangi' })
+  async createOrUpdateResultManualByVariant(
+    @Body() dto: CreateResultManualByVariantDto,
+    @Request()
+    req: {
+      user?: { id?: number | string; center?: { id?: number }; role?: string };
+    },
+  ) {
+    const centerId =
+      typeof req.user?.center?.id === 'number' ? req.user.center.id : undefined;
+
+    const role: string | undefined =
+      typeof req.user === 'object' && req.user !== null
+        ? (req.user as { role?: string }).role
+        : undefined;
+    if (role !== 'teacher') {
+      return {
+        statusCode: 403,
+        message: "Faqat o'qituvchi kiritishi mumkin",
+      };
+    }
+    if (!centerId) {
+      return {
+        statusCode: 400,
+        message: 'Center aniqlanmadi',
+      };
+    }
+
+    const teacherId =
+      typeof req.user?.id === 'string'
+        ? parseInt(req.user.id, 10)
+        : typeof req.user?.id === 'number'
+          ? req.user.id
+          : undefined;
+    if (!teacherId) {
+      return {
+        statusCode: 400,
+        message: 'Teacher aniqlanmadi',
+      };
+    }
+
+    return this.testGeneratorService.createOrUpdateResultManualByVariant({
+      centerId,
+      teacherId,
+      uniqueNumber: dto.uniqueNumber,
+      studentId: dto.studentId,
+      total: dto.total,
+      correctCount: dto.correctCount,
     });
   }
 

@@ -3,7 +3,7 @@ import useSWR from 'swr';
 import { request } from '@/configs/request';
 import PageLoader from '@/components/PageLoader';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { CalendarIcon, ListStartIcon } from 'lucide-react';
+import { CalendarIcon, Check, ChevronsUpDown, ListStartIcon, PlusCircle } from 'lucide-react';
 import moment from 'moment';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -11,8 +11,11 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Progress } from '@/components/ui/progress';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { cn } from '@/lib/utils';
 import { format, parse } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
@@ -21,8 +24,10 @@ import { useAuth } from '@/contexts/AuthContext';
 
 interface ResultType {
 	id: number;
+	student_id?: number;
 	student_name?: string;
 	center_name?: string;
+	subject?: { id: number; name: string } | null;
 	uniqueNumber: string;
 	total: number;
 	correctCount: number;
@@ -30,6 +35,36 @@ interface ResultType {
 	blankCount: number;
 	createdAt: string;
 }
+
+type SubjectOption = { id: number; name: string };
+
+type StudentOption = {
+	id: number;
+	firstName: string;
+	lastName: string;
+	username?: string;
+};
+
+type GroupWithStudents = {
+	id: number;
+	students: StudentOption[];
+};
+
+type GeneratedTestOption = {
+	id: number;
+	title: string;
+	subject: { id: number; name: string } | null;
+	createdAt: string;
+};
+
+type GeneratedVariantOption = {
+	uniqueNumber: string;
+	variantNumber: number;
+	answerKey?: { total: number; answers: string[] } | null;
+	generatedAt?: string;
+};
+
+const ALL_FILTER_VALUE = 'all';
 
 type ResultsMeta = {
 	page: number;
@@ -47,6 +82,11 @@ type ResultsResponse =
 
 const fetcher = async (url: string) => {
 	const response = await request.get<ResultsResponse>(url);
+	return response.data;
+};
+
+const simpleFetcher = async (url: string) => {
+	const response = await request.get(url);
 	return response.data;
 };
 
@@ -75,12 +115,66 @@ export default function Results() {
 	const [variantDraft, setVariantDraft] = useState('');
 	const [fromDraft, setFromDraft] = useState('');
 	const [toDraft, setToDraft] = useState('');
+	const [subjectIdDraft, setSubjectIdDraft] = useState(ALL_FILTER_VALUE);
 
 	// Applied filters
 	const [nameQ, setNameQ] = useState('');
 	const [variantQ, setVariantQ] = useState('');
 	const [fromQ, setFromQ] = useState('');
 	const [toQ, setToQ] = useState('');
+	const [subjectIdQ, setSubjectIdQ] = useState(ALL_FILTER_VALUE);
+
+	// Manual entry (teacher)
+	const [manualOpen, setManualOpen] = useState(false);
+	const [manualTestId, setManualTestId] = useState<number | null>(null);
+	const [manualVariantUniqueNumber, setManualVariantUniqueNumber] = useState<string>('');
+	const [manualStudentId, setManualStudentId] = useState<number | undefined>(undefined);
+	const [manualTotal, setManualTotal] = useState<string>('');
+	const [manualCorrect, setManualCorrect] = useState<string>('');
+	const [manualSaving, setManualSaving] = useState(false);
+	const [testPopoverOpen, setTestPopoverOpen] = useState(false);
+	const [variantPopoverOpen, setVariantPopoverOpen] = useState(false);
+	const [studentPopoverOpen, setStudentPopoverOpen] = useState(false);
+
+	const { data: subjectsData } = useSWR<SubjectOption[]>('/subjects', simpleFetcher);
+	const subjects = Array.isArray(subjectsData) ? subjectsData : [];
+
+	const studentsKey = isTeacher ? '/groups/me' : null;
+	const { data: studentsData } = useSWR<any>(studentsKey, simpleFetcher);
+	const students: StudentOption[] = useMemo(() => {
+		if (!studentsData) return [];
+		const groups = (studentsData as GroupWithStudents[]) || [];
+		const uniq = new Map<number, StudentOption>();
+		for (const g of groups) {
+			for (const s of g.students || []) {
+				uniq.set(Number(s.id), {
+					id: Number(s.id),
+					firstName: s.firstName,
+					lastName: s.lastName,
+					username: s.username,
+				});
+			}
+		}
+		return Array.from(uniq.values()).sort((a, b) =>
+			`${a.lastName} ${a.firstName}`.localeCompare(`${b.lastName} ${b.firstName}`)
+		);
+	}, [studentsData]);
+
+	const { data: generatedTestsData } = useSWR<GeneratedTestOption[]>(
+		isTeacher ? '/tests/generated' : null,
+		simpleFetcher
+	);
+	const generatedTests = Array.isArray(generatedTestsData) ? generatedTestsData : [];
+	const { data: generatedVariantsData } = useSWR<GeneratedVariantOption[]>(
+		manualTestId ? `/tests/generated/${manualTestId}/variants` : null,
+		simpleFetcher
+	);
+	const generatedVariants = Array.isArray(generatedVariantsData) ? generatedVariantsData : [];
+
+	const selectedStudent = useMemo(
+		() => (manualStudentId ? students.find((s) => s.id === manualStudentId) : undefined),
+		[manualStudentId, students]
+	);
 
 	const params = useMemo(() => {
 		const p = new URLSearchParams();
@@ -88,10 +182,11 @@ export default function Results() {
 		p.set('limit', String(limit));
 		if (nameQ.trim()) p.set('q', nameQ.trim());
 		if (variantQ.trim()) p.set('uniqueNumber', variantQ.trim());
+		if (subjectIdQ && subjectIdQ !== ALL_FILTER_VALUE) p.set('subjectId', subjectIdQ);
 		if (fromQ) p.set('from', toStartOfDay(fromQ));
 		if (toQ) p.set('to', toEndOfDay(toQ));
 		return p;
-	}, [page, limit, nameQ, variantQ, fromQ, toQ]);
+	}, [page, limit, nameQ, variantQ, subjectIdQ, fromQ, toQ]);
 
 	const swrKey = useMemo(() => `/tests/results-list?${params.toString()}`, [params]);
 	const { data, isLoading, mutate } = useSWR<ResultsResponse>(swrKey, fetcher);
@@ -120,6 +215,18 @@ export default function Results() {
 			meta: data.meta || ({ page, limit, total: 0, totalPages: 1 } as ResultsMeta),
 		};
 	}, [data, page, limit]);
+
+	const selectedManualTest = useMemo(
+		() => (manualTestId ? generatedTests.find((t) => t.id === manualTestId) : undefined),
+		[manualTestId, generatedTests]
+	);
+	const selectedManualVariant = useMemo(
+		() =>
+			manualVariantUniqueNumber
+				? generatedVariants.find((v) => v.uniqueNumber === manualVariantUniqueNumber)
+				: undefined,
+		[manualVariantUniqueNumber, generatedVariants]
+	);
 
 	const safePage = Math.min(Math.max(1, meta.page || page), Math.max(1, meta.totalPages || 1));
 	useEffect(() => {
@@ -173,6 +280,7 @@ export default function Results() {
 		setPage(1);
 		setNameQ(nameDraft);
 		setVariantQ(variantDraft);
+		setSubjectIdQ(subjectIdDraft);
 		setFromQ(fromDraft);
 		setToQ(toDraft);
 	};
@@ -208,10 +316,12 @@ export default function Results() {
 		setVariantDraft('');
 		setFromDraft('');
 		setToDraft('');
+		setSubjectIdDraft(ALL_FILTER_VALUE);
 		setNameQ('');
 		setVariantQ('');
 		setFromQ('');
 		setToQ('');
+		setSubjectIdQ(ALL_FILTER_VALUE);
 	};
 
 	const startEdit = (r: ResultType) => {
@@ -222,6 +332,31 @@ export default function Results() {
 	const cancelEdit = () => {
 		setEditingId(null);
 		setEditDraft(null);
+	};
+
+	const openManual = () => {
+		cancelEdit();
+		setManualTestId(null);
+		setManualVariantUniqueNumber('');
+		setManualStudentId(undefined);
+		setManualTotal('');
+		setManualCorrect('');
+		setTestPopoverOpen(false);
+		setVariantPopoverOpen(false);
+		setStudentPopoverOpen(false);
+		setManualOpen(true);
+	};
+
+	const closeManual = () => {
+		setManualOpen(false);
+		setManualTestId(null);
+		setManualVariantUniqueNumber('');
+		setManualStudentId(undefined);
+		setManualTotal('');
+		setManualCorrect('');
+		setTestPopoverOpen(false);
+		setVariantPopoverOpen(false);
+		setStudentPopoverOpen(false);
 	};
 
 	const clampNonNegInt = (v: unknown) => {
@@ -269,6 +404,56 @@ export default function Results() {
 			});
 		} finally {
 			setSavingEdit(false);
+		}
+	};
+
+	const manualTotalN = useMemo(() => clampNonNegInt(manualTotal), [manualTotal]);
+	const manualCorrectN = useMemo(() => clampNonNegInt(manualCorrect), [manualCorrect]);
+	const manualWrongN = useMemo(() => Math.max(0, manualTotalN - manualCorrectN), [manualTotalN, manualCorrectN]);
+	const manualPercent = useMemo(() => {
+		if (!manualTotalN) return 0;
+		return (manualCorrectN / manualTotalN) * 100;
+	}, [manualCorrectN, manualTotalN]);
+
+	const saveManual = async () => {
+		const uniqueNumber = (manualVariantUniqueNumber || '').trim();
+		if (!uniqueNumber) {
+			toast({ variant: 'destructive', title: 'Variant tanlanmagan' });
+			return;
+		}
+		if (!manualStudentId) {
+			toast({ variant: 'destructive', title: "O'quvchi tanlanmagan" });
+			return;
+		}
+		const total = clampNonNegInt(manualTotal);
+		const correctCount = clampNonNegInt(manualCorrect);
+		if (correctCount > total) {
+			toast({
+				variant: 'destructive',
+				title: 'Xatolik',
+				description: "To'g'ri javoblar soni jami savoldan katta bo'lmasligi kerak",
+			});
+			return;
+		}
+		setManualSaving(true);
+		try {
+			await request.post(`/tests/results/manual`, {
+				uniqueNumber,
+				studentId: manualStudentId,
+				total,
+				correctCount,
+			});
+			toast({ title: 'Saqlab qo‘yildi' });
+			closeManual();
+			await mutate();
+		} catch (e: any) {
+			toast({
+				variant: 'destructive',
+				title: 'Xatolik',
+				description: e?.response?.data?.message || e?.message || 'Natijani saqlab bo‘lmadi',
+			});
+		} finally {
+			setManualSaving(false);
 		}
 	};
 
@@ -330,10 +515,251 @@ export default function Results() {
 						</CardTitle>
 						<CardDescription>Markazingizga tegishli barcha test natijalari ro‘yxati</CardDescription>
 					</div>
+					{isTeacher ? (
+						<Button className='gap-2' onClick={openManual}>
+							<PlusCircle className='h-4 w-4 text-emerald-300' />
+							Natija kiritish
+						</Button>
+					) : null}
 				</div>
 			</CardHeader>
 
 			<CardContent>
+				<Dialog open={manualOpen} onOpenChange={(open) => (open ? setManualOpen(true) : closeManual())}>
+					<DialogContent className='sm:max-w-[520px]'>
+						<DialogHeader>
+							<DialogTitle>Natija kiritish</DialogTitle>
+						</DialogHeader>
+						<div className='space-y-4'>
+							<div className='grid grid-cols-1 gap-2'>
+								<Label>Yaratilgan test</Label>
+								<Popover open={testPopoverOpen} onOpenChange={setTestPopoverOpen}>
+									<PopoverTrigger asChild>
+										<Button
+											variant='outline'
+											role='combobox'
+											aria-expanded={testPopoverOpen}
+											className='w-full justify-between'
+										>
+											{selectedManualTest
+												? `${selectedManualTest.title}${
+														selectedManualTest.subject?.name
+															? ` — ${selectedManualTest.subject.name}`
+															: ''
+												  }`
+												: 'Testni tanlang'}
+											<ChevronsUpDown className='ml-2 h-4 w-4 shrink-0 opacity-50' />
+										</Button>
+									</PopoverTrigger>
+									<PopoverContent className='w-[--radix-popover-trigger-width] p-0' align='start'>
+										<Command>
+											<CommandInput placeholder='Test qidirish...' />
+											<CommandEmpty>Topilmadi</CommandEmpty>
+											<CommandList>
+												<CommandGroup>
+													{generatedTests.map((t) => {
+														const label = `${t.title}${
+															t.subject?.name ? ` — ${t.subject.name}` : ''
+														}`;
+														return (
+															<CommandItem
+																key={t.id}
+																value={label}
+																onSelect={() => {
+																	setManualTestId(t.id);
+																	setManualVariantUniqueNumber('');
+																	setVariantPopoverOpen(false);
+																	setTestPopoverOpen(false);
+																}}
+															>
+																<Check
+																	className={cn(
+																		'mr-2 h-4 w-4',
+																		manualTestId === t.id
+																			? 'opacity-100'
+																			: 'opacity-0'
+																	)}
+																/>
+																{label}
+															</CommandItem>
+														);
+													})}
+												</CommandGroup>
+											</CommandList>
+										</Command>
+									</PopoverContent>
+								</Popover>
+							</div>
+
+							<div className='grid grid-cols-1 gap-2'>
+								<Label>Variant</Label>
+								<Popover open={variantPopoverOpen} onOpenChange={setVariantPopoverOpen}>
+									<PopoverTrigger asChild>
+										<Button
+											variant='outline'
+											role='combobox'
+											disabled={!manualTestId}
+											aria-expanded={variantPopoverOpen}
+											className='w-full justify-between'
+										>
+											{selectedManualVariant
+												? `#${selectedManualVariant.uniqueNumber} (Variant ${selectedManualVariant.variantNumber})`
+												: manualTestId
+												? 'Variantni tanlang'
+												: 'Avval testni tanlang'}
+											<ChevronsUpDown className='ml-2 h-4 w-4 shrink-0 opacity-50' />
+										</Button>
+									</PopoverTrigger>
+									<PopoverContent className='w-[--radix-popover-trigger-width] p-0' align='start'>
+										<Command>
+											<CommandInput placeholder='Variant qidirish...' />
+											<CommandEmpty>Topilmadi</CommandEmpty>
+											<CommandList>
+												<CommandGroup>
+													{generatedVariants.map((v) => {
+														const label = `#${v.uniqueNumber} (Variant ${v.variantNumber})`;
+														return (
+															<CommandItem
+																key={v.uniqueNumber}
+																value={label}
+																onSelect={() => {
+																	setManualVariantUniqueNumber(v.uniqueNumber);
+																	if (
+																		v.answerKey?.total !== undefined &&
+																		v.answerKey?.total !== null
+																	) {
+																		setManualTotal(String(v.answerKey.total));
+																	}
+																	setVariantPopoverOpen(false);
+																}}
+															>
+																<Check
+																	className={cn(
+																		'mr-2 h-4 w-4',
+																		manualVariantUniqueNumber === v.uniqueNumber
+																			? 'opacity-100'
+																			: 'opacity-0'
+																	)}
+																/>
+																{label}
+															</CommandItem>
+														);
+													})}
+												</CommandGroup>
+											</CommandList>
+										</Command>
+									</PopoverContent>
+								</Popover>
+							</div>
+
+							<div className='grid grid-cols-1 gap-2'>
+								<Label>O'quvchi</Label>
+								<Popover open={studentPopoverOpen} onOpenChange={setStudentPopoverOpen}>
+									<PopoverTrigger asChild>
+										<Button
+											variant='outline'
+											role='combobox'
+											aria-expanded={studentPopoverOpen}
+											className='w-full justify-between'
+										>
+											{selectedStudent
+												? `${selectedStudent.lastName} ${selectedStudent.firstName}${
+														selectedStudent.username
+															? ` (@${selectedStudent.username})`
+															: ''
+												  }`
+												: "O'quvchini tanlang"}
+											<ChevronsUpDown className='ml-2 h-4 w-4 shrink-0 opacity-50' />
+										</Button>
+									</PopoverTrigger>
+									<PopoverContent className='w-[--radix-popover-trigger-width] p-0' align='start'>
+										<Command>
+											<CommandInput placeholder='Qidirish...' />
+											<CommandEmpty>Topilmadi</CommandEmpty>
+											<CommandList>
+												<CommandGroup>
+													{students.map((s) => {
+														const label = `${s.lastName} ${s.firstName}${
+															s.username ? ` (@${s.username})` : ''
+														}`;
+														return (
+															<CommandItem
+																key={s.id}
+																value={label}
+																onSelect={() => {
+																	setManualStudentId(s.id);
+																	setStudentPopoverOpen(false);
+																}}
+															>
+																<Check
+																	className={cn(
+																		'mr-2 h-4 w-4',
+																		manualStudentId === s.id
+																			? 'opacity-100'
+																			: 'opacity-0'
+																	)}
+																/>
+																{label}
+															</CommandItem>
+														);
+													})}
+												</CommandGroup>
+											</CommandList>
+										</Command>
+									</PopoverContent>
+								</Popover>
+							</div>
+
+							<div className='grid grid-cols-2 gap-3'>
+								<div>
+									<Label>Jami savol</Label>
+									<Input
+										type='number'
+										min={0}
+										value={manualTotal}
+										onChange={(e) => setManualTotal(e.target.value)}
+									/>
+								</div>
+								<div>
+									<Label>To'g'ri</Label>
+									<Input
+										type='number'
+										min={0}
+										value={manualCorrect}
+										onChange={(e) => setManualCorrect(e.target.value)}
+									/>
+								</div>
+							</div>
+
+							<div className='rounded-md border bg-muted/30 p-3 text-sm'>
+								<div className='flex items-center justify-between'>
+									<span className='text-muted-foreground'>Noto'g'ri</span>
+									<span className='font-medium'>{manualWrongN}</span>
+								</div>
+								<div className='flex items-center justify-between mt-1'>
+									<span className='text-muted-foreground'>Bo'sh</span>
+									<span className='font-medium'>0</span>
+								</div>
+								<div className='flex items-center justify-between mt-1'>
+									<span className='text-muted-foreground'>Foiz</span>
+									<span className='font-medium'>
+										{Number.isFinite(manualPercent) ? manualPercent.toFixed(1) : '0.0'}%
+									</span>
+								</div>
+							</div>
+
+							<div className='flex justify-end gap-2'>
+								<Button variant='outline' onClick={closeManual} disabled={manualSaving}>
+									Bekor
+								</Button>
+								<Button onClick={saveManual} disabled={manualSaving}>
+									{manualSaving ? 'Saqlanmoqda...' : 'Saqlash'}
+								</Button>
+							</div>
+						</div>
+					</DialogContent>
+				</Dialog>
+
 				{/* Report */}
 				{effectiveResults.length > 0 ? (
 					<div className='mb-4 rounded-lg border bg-card/50 backdrop-blur p-3'>
@@ -383,7 +809,7 @@ export default function Results() {
 
 				{/* Filters */}
 				<div className='mb-4 rounded-lg border bg-card/50 backdrop-blur p-3'>
-					<div className='grid grid-cols-1 md:grid-cols-4 gap-3'>
+					<div className='grid grid-cols-1 md:grid-cols-5 gap-3'>
 						<div>
 							<Label>Ism / familiya</Label>
 							<Input
@@ -399,6 +825,22 @@ export default function Results() {
 								value={variantDraft}
 								onChange={(e) => setVariantDraft(e.target.value)}
 							/>
+						</div>
+						<div>
+							<Label>Fan</Label>
+							<Select value={subjectIdDraft} onValueChange={setSubjectIdDraft}>
+								<SelectTrigger>
+									<SelectValue placeholder='Barchasi' />
+								</SelectTrigger>
+								<SelectContent>
+									<SelectItem value={ALL_FILTER_VALUE}>Barchasi</SelectItem>
+									{subjects.map((s) => (
+										<SelectItem key={s.id} value={String(s.id)}>
+											{s.name}
+										</SelectItem>
+									))}
+								</SelectContent>
+							</Select>
 						</div>
 						<div>
 							<Label>Sanadan</Label>
@@ -497,6 +939,7 @@ export default function Results() {
 								<TableHead className='text-center'>ID</TableHead>
 								<TableHead className='text-center'>O'quvchi</TableHead>
 								<TableHead className='text-center'>Markaz</TableHead>
+								<TableHead className='text-center'>Fan</TableHead>
 								<TableHead className='text-center'>Variant raqami</TableHead>
 								<TableHead className='text-center'>Savollar</TableHead>
 								<TableHead className='text-center'>To'g'ri</TableHead>
@@ -520,6 +963,7 @@ export default function Results() {
 									<TableCell align='center'>{r.id}</TableCell>
 									<TableCell align='center'>{r.student_name ?? '-'}</TableCell>
 									<TableCell align='center'>{r.center_name ?? '-'}</TableCell>
+									<TableCell align='center'>{r.subject?.name ?? '-'}</TableCell>
 									<TableCell align='center'>{r.uniqueNumber}</TableCell>
 									<TableCell align='center'>{r.total}</TableCell>
 									<TableCell align='center'>
@@ -582,9 +1026,11 @@ export default function Results() {
 													</Button>
 												</div>
 											) : (
-												<Button size='sm' variant='outline' onClick={() => startEdit(r)}>
-													Tahrirlash
-												</Button>
+												<div className='flex items-center justify-center gap-2'>
+													<Button size='sm' variant='outline' onClick={() => startEdit(r)}>
+														Tahrirlash
+													</Button>
+												</div>
 											)}
 										</TableCell>
 									) : null}
@@ -593,7 +1039,7 @@ export default function Results() {
 							{effectiveResults.length === 0 ? (
 								<TableRow>
 									<TableCell
-										colSpan={isTeacher ? 12 : 11}
+										colSpan={isTeacher ? 13 : 12}
 										className='text-center py-8 text-muted-foreground'
 									>
 										Natijalar topilmadi
@@ -626,6 +1072,11 @@ export default function Results() {
 										<div className='text-xs text-muted-foreground mt-0.5 truncate'>
 											Markaz: {r.center_name ?? '-'}
 										</div>
+										{r.subject?.name ? (
+											<div className='text-xs text-muted-foreground mt-0.5 truncate'>
+												Fan: {r.subject.name}
+											</div>
+										) : null}
 									</div>
 									<div className='text-xs text-muted-foreground whitespace-nowrap'>ID: {r.id}</div>
 								</div>
@@ -699,13 +1150,15 @@ export default function Results() {
 													</div>
 												</div>
 											) : (
-												<Button
-													variant='outline'
-													className='w-full'
-													onClick={() => startEdit(r)}
-												>
-													Natijani tahrirlash
-												</Button>
+												<div className='grid grid-cols-1 gap-2'>
+													<Button
+														variant='outline'
+														className='w-full'
+														onClick={() => startEdit(r)}
+													>
+														Natijani tahrirlash
+													</Button>
+												</div>
 											)}
 										</div>
 									) : null}
