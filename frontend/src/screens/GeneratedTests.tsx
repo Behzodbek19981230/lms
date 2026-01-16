@@ -121,7 +121,8 @@ export default function GeneratedTestsPage() {
 
 		setAnswerKeysPdfLoading(true);
 		try {
-			const { jsPDF } = await import('jspdf');
+			// `jspdf` exports `jsPDF` as default in our TS module shape.
+			const { default: jsPDF } = await import('jspdf');
 			const doc = new jsPDF({ unit: 'mm', format: 'a4' });
 
 			const subjectName = active?.subject?.name || '-';
