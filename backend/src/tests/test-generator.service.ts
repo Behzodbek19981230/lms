@@ -42,6 +42,7 @@ import { TelegramQueueService } from 'src/telegram/telegram-queue.service';
 export interface GenerateManualPrintableHtmlOptions {
   testId: number;
   teacherId: number;
+  requesterRole?: UserRole;
   shuffleQuestions?: boolean;
   shuffleAnswers?: boolean;
   ensureExists?: boolean;
@@ -841,13 +842,21 @@ export class TestGeneratorService {
     });
 
     if (!test) throw new NotFoundException('Test topilmadi');
-    if (!test.teacher || Number(test.teacher.id) !== Number(opts.teacherId)) {
+    if (
+      opts.requesterRole !== UserRole.SUPERADMIN &&
+      (!test.teacher || Number(test.teacher.id) !== Number(opts.teacherId))
+    ) {
       throw new BadRequestException('Bu test sizga tegishli emas');
     }
 
+    const effectiveTeacherId =
+      opts.requesterRole === UserRole.SUPERADMIN
+        ? Number(test.teacher?.id)
+        : Number(opts.teacherId);
+
     const title = test.title;
     const subjectName = test.subject?.name ?? 'Test';
-    const centerName = await this.getCenterNameByTeacherId(opts.teacherId);
+    const centerName = await this.getCenterNameByTeacherId(effectiveTeacherId);
 
     const uploadsDir = this.getUploadsDir();
     const weeklyDir = join(uploadsDir, 'weekly-tests');
@@ -925,7 +934,7 @@ export class TestGeneratorService {
         testId: test.id,
       },
       subjectName,
-      teacherId: opts.teacherId,
+      teacherId: effectiveTeacherId,
     });
 
     const first = gen.files?.[0];

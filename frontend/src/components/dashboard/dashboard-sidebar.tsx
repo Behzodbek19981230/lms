@@ -53,6 +53,7 @@ const superAdminMenuItems = [
 	{ title: 'Bosh sahifa', url: '/account/superadmin', icon: LayoutDashboard },
 	{ title: 'Mobil ilovalar', url: '/account/superadmin/mobile-releases', icon: Smartphone },
 	{ title: 'Yaratilgan testlar', url: '/account/superadmin/generated-tests', icon: FileText },
+	{ title: 'Haftalik testlar', url: '/account/superadmin/weekly-tests', icon: ClipboardList },
 	{ title: 'Mening fanlarim', url: '/account/subjects', icon: Book },
 	{ title: 'Markazlar va foydalanuvchilar', url: '/account/center-users', icon: Users },
 	{ title: 'Telegram boshqaruvi', url: '/account/telegram', icon: Send },

@@ -43,7 +43,11 @@ export class QuestionsController {
     @Body() createQuestionDto: CreateQuestionDto,
     @Request() req,
   ): Promise<QuestionResponseDto> {
-    return this.questionsService.create(createQuestionDto, req?.user?.id);
+    return this.questionsService.create(
+      createQuestionDto,
+      req.user.id,
+      req.user.role,
+    );
   }
 
   @Get()
@@ -61,7 +65,11 @@ export class QuestionsController {
     const teacherid = req.user.id;
 
     if (testId) {
-      return this.questionsService.findAllByTest(testId, teacherid);
+      return this.questionsService.findAllByTest(
+        testId,
+        teacherid,
+        req.user.role,
+      );
     }
 
     if (subjectId) {
@@ -83,7 +91,7 @@ export class QuestionsController {
     @Param('id') id: number,
     @Request() req,
   ): Promise<QuestionResponseDto> {
-    return this.questionsService.findOne(id, req.user.id);
+    return this.questionsService.findOne(id, req.user.id, req.user.role);
   }
 
   @Patch(':id')
@@ -98,7 +106,12 @@ export class QuestionsController {
     @Body() updateQuestionDto: UpdateQuestionDto,
     @Request() req,
   ): Promise<QuestionResponseDto> {
-    return this.questionsService.update(id, updateQuestionDto, req.user.id);
+    return this.questionsService.update(
+      id,
+      updateQuestionDto,
+      req.user.id,
+      req.user.role,
+    );
   }
 
   @Delete(':id')
@@ -106,7 +119,7 @@ export class QuestionsController {
   @ApiOperation({ summary: "Savolni o'chirish" })
   @ApiResponse({ status: 204, description: "Savol muvaffaqiyatli o'chirildi" })
   async remove(@Param('id') id: number, @Request() req): Promise<void> {
-    return this.questionsService.remove(id, req.user.id);
+    return this.questionsService.remove(id, req.user.id, req.user.role);
   }
 
   @Patch('reorder/:testId')
@@ -125,6 +138,7 @@ export class QuestionsController {
       testid,
       body.questionIds,
       req.user.id,
+      req.user.role,
     );
   }
 }

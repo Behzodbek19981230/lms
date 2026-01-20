@@ -12,6 +12,7 @@ import type { CreateQuestionDto } from './dto/create-question.dto';
 import type { UpdateQuestionDto } from './dto/update-question.dto';
 import type { QuestionResponseDto } from './dto/question-response.dto';
 import { InjectRepository } from '@nestjs/typeorm';
+import { UserRole } from '../users/entities/user.entity';
 
 @Injectable()
 export class QuestionsService {
@@ -27,6 +28,7 @@ export class QuestionsService {
   async create(
     createQuestionDto: CreateQuestionDto,
     teacherid: number,
+    requesterRole?: UserRole,
   ): Promise<QuestionResponseDto> {
     const test = await this.testRepository.findOne({
       where: { id: createQuestionDto.testid },
@@ -37,8 +39,11 @@ export class QuestionsService {
       throw new NotFoundException('Test topilmadi');
     }
 
-    // Check if teacher owns this test
-    if (test.teacher.id !== teacherid) {
+    // Check if teacher owns this test (superadmin bypass)
+    if (
+      requesterRole !== UserRole.SUPERADMIN &&
+      test.teacher.id !== teacherid
+    ) {
       throw new ForbiddenException("Bu testga ruxsatingiz yo'q");
     }
 
@@ -106,6 +111,7 @@ export class QuestionsService {
   async findAllByTest(
     testid: number,
     teacherid: number,
+    requesterRole?: UserRole,
   ): Promise<QuestionResponseDto[]> {
     const test = await this.testRepository.findOne({
       where: { id: testid },
@@ -116,8 +122,11 @@ export class QuestionsService {
       throw new NotFoundException('Test topilmadi');
     }
 
-    // Check if teacher owns this test
-    if (test.teacher.id !== teacherid) {
+    // Check if teacher owns this test (superadmin bypass)
+    if (
+      requesterRole !== UserRole.SUPERADMIN &&
+      test.teacher.id !== teacherid
+    ) {
       throw new ForbiddenException("Bu testga ruxsatingiz yo'q");
     }
 
@@ -146,28 +155,10 @@ export class QuestionsService {
     return answers;
   }
 
-  async findOne(id: number, teacherid: number): Promise<QuestionResponseDto> {
-    const question = await this.questionRepository.findOne({
-      where: { id },
-      relations: ['test', 'test.teacher', 'answers'],
-    });
-
-    if (!question) {
-      throw new NotFoundException('Savol topilmadi');
-    }
-
-    // Check if teacher owns this Question's test
-    if (question.test.teacher.id !== teacherid) {
-      throw new ForbiddenException("Bu savolga ruxsatingiz yo'q");
-    }
-
-    return this.mapToResponseDto(question);
-  }
-
-  async update(
+  async findOne(
     id: number,
-    updateQuestionDto: UpdateQuestionDto,
     teacherid: number,
+    requesterRole?: UserRole,
   ): Promise<QuestionResponseDto> {
     const question = await this.questionRepository.findOne({
       where: { id },
@@ -178,8 +169,37 @@ export class QuestionsService {
       throw new NotFoundException('Savol topilmadi');
     }
 
-    // Check if teacher owns this question's test
-    if (question.test.teacher.id !== teacherid) {
+    // Check if teacher owns this Question's test (superadmin bypass)
+    if (
+      requesterRole !== UserRole.SUPERADMIN &&
+      question.test.teacher.id !== teacherid
+    ) {
+      throw new ForbiddenException("Bu savolga ruxsatingiz yo'q");
+    }
+
+    return this.mapToResponseDto(question);
+  }
+
+  async update(
+    id: number,
+    updateQuestionDto: UpdateQuestionDto,
+    teacherid: number,
+    requesterRole?: UserRole,
+  ): Promise<QuestionResponseDto> {
+    const question = await this.questionRepository.findOne({
+      where: { id },
+      relations: ['test', 'test.teacher', 'answers'],
+    });
+
+    if (!question) {
+      throw new NotFoundException('Savol topilmadi');
+    }
+
+    // Check if teacher owns this question's test (superadmin bypass)
+    if (
+      requesterRole !== UserRole.SUPERADMIN &&
+      question.test.teacher.id !== teacherid
+    ) {
       throw new ForbiddenException("Bu savolga ruxsatingiz yo'q");
     }
 
@@ -223,7 +243,11 @@ export class QuestionsService {
     return this.mapToResponseDto(updatedQuestion);
   }
 
-  async remove(id: number, teacherid: number): Promise<void> {
+  async remove(
+    id: number,
+    teacherid: number,
+    requesterRole?: UserRole,
+  ): Promise<void> {
     const question = await this.questionRepository.findOne({
       where: { id },
       relations: ['test', 'test.teacher'],
@@ -233,8 +257,11 @@ export class QuestionsService {
       throw new NotFoundException('Savol topilmadi');
     }
 
-    // Check if teacher owns this question's test
-    if (question.test.teacher.id !== teacherid) {
+    // Check if teacher owns this question's test (superadmin bypass)
+    if (
+      requesterRole !== UserRole.SUPERADMIN &&
+      question.test.teacher.id !== teacherid
+    ) {
       throw new ForbiddenException("Bu savolga ruxsatingiz yo'q");
     }
 
@@ -249,6 +276,7 @@ export class QuestionsService {
     testid: number,
     questionIds: string[],
     teacherid: number,
+    requesterRole?: UserRole,
   ): Promise<QuestionResponseDto[]> {
     const test = await this.testRepository.findOne({
       where: { id: testid },
@@ -259,8 +287,11 @@ export class QuestionsService {
       throw new NotFoundException('Test topilmadi');
     }
 
-    // Check if teacher owns this test
-    if (test.teacher.id !== teacherid) {
+    // Check if teacher owns this test (superadmin bypass)
+    if (
+      requesterRole !== UserRole.SUPERADMIN &&
+      test.teacher.id !== teacherid
+    ) {
       throw new ForbiddenException("Bu testga ruxsatingiz yo'q");
     }
 
@@ -269,7 +300,7 @@ export class QuestionsService {
       await this.questionRepository.update(questionIds[i], { order: i });
     }
 
-    return this.findAllByTest(testid, teacherid);
+    return this.findAllByTest(testid, teacherid, requesterRole);
   }
 
   private validateQuestionData(questionDto: CreateQuestionDto): void {

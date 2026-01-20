@@ -11,7 +11,7 @@ import type { UpdateTestDto } from './dto/update-test.dto';
 import type { TestResponseDto } from './dto/test-response.dto';
 import type { TestStatsDto } from './dto/test-stats.dto';
 import { InjectRepository } from '@nestjs/typeorm';
-import { User } from '../users/entities/user.entity';
+import { User, UserRole } from '../users/entities/user.entity';
 
 @Injectable()
 export class TestsService {
@@ -143,28 +143,10 @@ export class TestsService {
     });
   }
 
-  async findOne(id: number, teacherid: number): Promise<TestResponseDto> {
-    const test = await this.testRepository.findOne({
-      where: { id },
-      relations: ['subject', 'teacher', 'questions'],
-    });
-
-    if (!test) {
-      throw new NotFoundException('Test topilmadi');
-    }
-
-    // Check if teacher owns this test
-    if (test.teacher.id !== teacherid) {
-      throw new ForbiddenException("Bu testga ruxsatingiz yo'q");
-    }
-
-    return this.mapToResponseDto(test);
-  }
-
-  async update(
+  async findOne(
     id: number,
-    updateTestDto: UpdateTestDto,
-    teacherid: number,
+    requesterId: number,
+    requesterRole?: UserRole,
   ): Promise<TestResponseDto> {
     const test = await this.testRepository.findOne({
       where: { id },
@@ -175,8 +157,36 @@ export class TestsService {
       throw new NotFoundException('Test topilmadi');
     }
 
-    // Check if teacher owns this test
-    if (test.teacher.id !== teacherid) {
+    if (
+      requesterRole !== UserRole.SUPERADMIN &&
+      test.teacher.id !== requesterId
+    ) {
+      throw new ForbiddenException("Bu testga ruxsatingiz yo'q");
+    }
+
+    return this.mapToResponseDto(test);
+  }
+
+  async update(
+    id: number,
+    updateTestDto: UpdateTestDto,
+    requesterId: number,
+    requesterRole?: UserRole,
+  ): Promise<TestResponseDto> {
+    const test = await this.testRepository.findOne({
+      where: { id },
+      relations: ['subject', 'teacher', 'questions'],
+    });
+
+    if (!test) {
+      throw new NotFoundException('Test topilmadi');
+    }
+
+    // Check if teacher owns this test (superadmin bypass)
+    if (
+      requesterRole !== UserRole.SUPERADMIN &&
+      test.teacher.id !== requesterId
+    ) {
       throw new ForbiddenException("Bu testga ruxsatingiz yo'q");
     }
 
@@ -194,8 +204,8 @@ export class TestsService {
         throw new NotFoundException('Yangi fan topilmadi');
       }
 
-      const hasAccess = newSubject.teachers.some((t) => t.id === teacherid);
-      if (!hasAccess) {
+      const hasAccess = newSubject.teachers.some((t) => t.id === requesterId);
+      if (requesterRole !== UserRole.SUPERADMIN && !hasAccess) {
         throw new ForbiddenException("Yangi fanga ruxsatingiz yo'q");
       }
 
@@ -216,7 +226,11 @@ export class TestsService {
     return this.mapToResponseDto(updatedTest);
   }
 
-  async remove(id: number, teacherid: number): Promise<void> {
+  async remove(
+    id: number,
+    requesterId: number,
+    requesterRole?: UserRole,
+  ): Promise<void> {
     const test = await this.testRepository.findOne({
       where: { id },
       relations: ['subject', 'teacher', 'questions'],
@@ -226,8 +240,11 @@ export class TestsService {
       throw new NotFoundException('Test topilmadi');
     }
 
-    // Check if teacher owns this test
-    if (test.teacher.id !== teacherid) {
+    // Check if teacher owns this test (superadmin bypass)
+    if (
+      requesterRole !== UserRole.SUPERADMIN &&
+      test.teacher.id !== requesterId
+    ) {
       throw new ForbiddenException("Bu testga ruxsatingiz yo'q");
     }
 
@@ -236,6 +253,31 @@ export class TestsService {
     await this.subjectRepository.save(test.subject);
 
     await this.testRepository.remove(test);
+  }
+
+  async findWeeklyTests(options?: {
+    teacherId?: number;
+    centerId?: number;
+  }): Promise<TestResponseDto[]> {
+    const WEEKLY_TAG = 'WEEKLY_TEST';
+    const qb = this.testRepository
+      .createQueryBuilder('t')
+      .leftJoinAndSelect('t.subject', 'subject')
+      .leftJoinAndSelect('t.teacher', 'teacher')
+      .leftJoinAndSelect('teacher.center', 'center')
+      .leftJoinAndSelect('t.questions', 'questions')
+      .where('t.description ILIKE :tag', { tag: `%${WEEKLY_TAG}%` })
+      .orderBy('t.updatedAt', 'DESC');
+
+    if (options?.teacherId !== undefined) {
+      qb.andWhere('teacher.id = :teacherId', { teacherId: options.teacherId });
+    }
+    if (options?.centerId !== undefined) {
+      qb.andWhere('center.id = :centerId', { centerId: options.centerId });
+    }
+
+    const tests = await qb.getMany();
+    return tests.map((t) => this.mapToResponseDto(t));
   }
 
   // Add this new method to get all tests

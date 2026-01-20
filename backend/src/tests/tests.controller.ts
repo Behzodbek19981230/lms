@@ -112,6 +112,41 @@ export class TestsController {
     return this.testsService.findAllByTeacher(userId);
   }
 
+  @Get('weekly')
+  @RequireCenterPermissions(CenterPermissionKey.TESTS)
+  @ApiOperation({ summary: "Haftalik testlar ro'yxati (superadmin: hammasi)" })
+  @ApiResponse({
+    status: 200,
+    description: "Haftalik testlar ro'yxati",
+    type: [TestResponseDto],
+  })
+  async listWeeklyTests(
+    @Request() req: { user: { id: number | string; role?: UserRole } },
+    @Query('teacherId') teacherIdRaw?: string,
+    @Query('centerId') centerIdRaw?: string,
+  ): Promise<TestResponseDto[]> {
+    const role = req.user?.role;
+    const parseOptionalInt = (v?: string) => {
+      if (!v) return undefined;
+      const n = parseInt(v, 10);
+      return Number.isFinite(n) ? n : undefined;
+    };
+
+    const teacherIdQuery = parseOptionalInt(teacherIdRaw);
+    const centerIdQuery = parseOptionalInt(centerIdRaw);
+    const userId =
+      typeof req.user.id === 'string' ? parseInt(req.user.id, 10) : req.user.id;
+
+    if (role === UserRole.SUPERADMIN) {
+      return this.testsService.findWeeklyTests({
+        teacherId: teacherIdQuery,
+        centerId: centerIdQuery,
+      });
+    }
+
+    return this.testsService.findWeeklyTests({ teacherId: userId });
+  }
+
   @Get('stats')
   @RequireCenterPermissions(CenterPermissionKey.TESTS)
   @ApiOperation({ summary: 'Testlar statistikasi' })
@@ -503,12 +538,12 @@ export class TestsController {
   @ApiResponse({ status: 404, description: 'Test topilmadi' })
   async findOne(
     @Param('id', ParseIntPipe) id: number,
-    @Request() req: { user: { id: number | string } },
+    @Request() req: { user: { id: number | string; role?: UserRole } },
   ): Promise<TestResponseDto> {
     const userId =
       typeof req.user.id === 'string' ? parseInt(req.user.id, 10) : req.user.id;
 
-    return this.testsService.findOne(id, userId);
+    return this.testsService.findOne(id, userId, req.user?.role);
   }
 
   @Patch(':id')
@@ -522,12 +557,12 @@ export class TestsController {
   async update(
     @Param('id', ParseIntPipe) id: number,
     @Body() updateTestDto: UpdateTestDto,
-    @Request() req: { user: { id: number | string } },
+    @Request() req: { user: { id: number | string; role?: UserRole } },
   ): Promise<TestResponseDto> {
     const userId =
       typeof req.user.id === 'string' ? parseInt(req.user.id, 10) : req.user.id;
 
-    return this.testsService.update(id, updateTestDto, userId);
+    return this.testsService.update(id, updateTestDto, userId, req.user?.role);
   }
 
   @Delete(':id')
@@ -537,12 +572,12 @@ export class TestsController {
   @ApiResponse({ status: 204, description: "Test muvaffaqiyatli o'chirildi" })
   async remove(
     @Param('id', ParseIntPipe) id: number,
-    @Request() req: { user: { id: number | string } },
+    @Request() req: { user: { id: number | string; role?: UserRole } },
   ): Promise<void> {
     const userId =
       typeof req.user.id === 'string' ? parseInt(req.user.id, 10) : req.user.id;
 
-    return this.testsService.remove(id, userId);
+    return this.testsService.remove(id, userId, req.user?.role);
   }
 
   @Post('generate')
@@ -582,7 +617,7 @@ export class TestsController {
       includeAnswers?: boolean;
       showTitleSheet?: boolean;
     },
-    @Request() req: { user: { id: number | string } },
+    @Request() req: { user: { id: number | string; role?: UserRole } },
   ): Promise<{
     url: string;
     fileName: string;
@@ -596,6 +631,7 @@ export class TestsController {
     return await this.testGeneratorService.generatePrintableHtmlForManualTest({
       testId: id,
       teacherId: userId,
+      requesterRole: req.user?.role,
       shuffleQuestions: body?.shuffleQuestions,
       shuffleAnswers: body?.shuffleAnswers,
       ensureExists: body?.ensureExists,

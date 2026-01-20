@@ -10,10 +10,17 @@ import { CalendarDays, Plus, ListChecks } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import type { Test } from '@/types/test.type';
 import { isWeeklyDescription } from './constants';
+import { useAuth } from '@/contexts/AuthContext';
+
+type CenterLite = { id: number; name: string };
+type TeacherWithCenter = Test['teacher'] & { center?: CenterLite | null };
+type WeeklyTestDto = Omit<Test, 'teacher'> & { teacher: TeacherWithCenter };
 
 export default function WeeklyTestsList() {
 	const { toast } = useToast();
-	const [tests, setTests] = useState<Test[]>([]);
+	const { user } = useAuth();
+	const isSuperadmin = user?.role === 'superadmin';
+	const [tests, setTests] = useState<WeeklyTestDto[]>([]);
 	const [loading, setLoading] = useState(false);
 	const warmedRef = useRef<Set<number>>(new Set());
 
@@ -26,7 +33,7 @@ export default function WeeklyTestsList() {
 		const load = async () => {
 			setLoading(true);
 			try {
-				const { data } = await request.get('/tests/my');
+				const { data } = await request.get('/tests/weekly');
 				setTests(Array.isArray(data) ? data : []);
 			} catch (e: any) {
 				toast({
@@ -59,8 +66,8 @@ export default function WeeklyTestsList() {
 					shuffleQuestions: true,
 					shuffleAnswers: true,
 					ensureExists: true,
-				})
-			)
+				}),
+			),
 		);
 	}, [weeklyTests]);
 
@@ -73,11 +80,13 @@ export default function WeeklyTestsList() {
 							<CalendarDays className='h-5 w-5 text-primary' /> Haftalik testlar
 						</span>
 						<div className='flex flex-col sm:flex-row sm:items-center gap-2 w-full sm:w-auto'>
-							<Link href='/account/weekly-tests/create' className='w-full sm:w-auto'>
-								<Button className='w-full sm:w-auto gap-2'>
-									<Plus className='h-4 w-4' /> Yangi haftalik test
-								</Button>
-							</Link>
+							{!isSuperadmin ? (
+								<Link href='/account/weekly-tests/create' className='w-full sm:w-auto'>
+									<Button className='w-full sm:w-auto gap-2'>
+										<Plus className='h-4 w-4' /> Yangi haftalik test
+									</Button>
+								</Link>
+							) : null}
 							<Badge variant='secondary' className='w-fit'>
 								{weeklyTests.length} ta
 							</Badge>
@@ -94,51 +103,61 @@ export default function WeeklyTestsList() {
 						) : (
 							weeklyTests.map((t) => {
 								const testUrl = buildPublicUrl(`/uploads/weekly-tests/weekly-test-${t.id}.html`);
-								const answersUrl = buildPublicUrl(`/uploads/weekly-tests/weekly-test-${t.id}-answers.html`);
+								const answersUrl = buildPublicUrl(
+									`/uploads/weekly-tests/weekly-test-${t.id}-answers.html`,
+								);
 								return (
-								<Card key={t.id} className='p-4'>
-									<div className='flex items-start justify-between gap-3'>
-										<div className='min-w-0'>
-											<div className='text-sm text-muted-foreground truncate'>{t.subject?.name || '-'}</div>
-											<div className='font-medium truncate'>{t.title}</div>
-											<div className='text-xs text-muted-foreground mt-1'>
-												{t.totalQuestions} savol • {t.duration} daqiqa
+									<Card key={t.id} className='p-4'>
+										<div className='flex items-start justify-between gap-3'>
+											<div className='min-w-0'>
+												<div className='text-sm text-muted-foreground truncate'>
+													{t.subject?.name || '-'}
+												</div>
+												<div className='font-medium truncate'>{t.title}</div>
+												{isSuperadmin ? (
+													<div className='text-xs text-muted-foreground mt-1 truncate'>
+														{t.teacher?.fullName || '-'}
+														{t.teacher?.center?.name ? ` • ${t.teacher.center.name}` : ''}
+													</div>
+												) : null}
+												<div className='text-xs text-muted-foreground mt-1'>
+													{t.totalQuestions} savol • {t.duration} daqiqa
+												</div>
 											</div>
-									</div>
-									<div className='shrink-0'>
-										<Badge variant='outline'>{t.totalQuestions}</Badge>
-									</div>
-								</div>
+											<div className='shrink-0'>
+												<Badge variant='outline'>{t.totalQuestions}</Badge>
+											</div>
+										</div>
 
-								<div className='mt-3 flex gap-2'>
-									<Link href={`/account/test/${t.id}/questions`} className='w-full'>
-										<Button size='sm' variant='outline' className='w-full gap-2'>
-											<ListChecks className='h-4 w-4' /> Savollar
-										</Button>
-									</Link>
-								</div>
+										<div className='mt-3 flex gap-2'>
+											<Link href={`/account/test/${t.id}/questions`} className='w-full'>
+												<Button size='sm' variant='outline' className='w-full gap-2'>
+													<ListChecks className='h-4 w-4' /> Savollar
+												</Button>
+											</Link>
+										</div>
 
-									<div className='mt-2 grid grid-cols-1 gap-2 text-sm'>
-										<a
-											href={testUrl}
-											target='_blank'
-											rel='noreferrer'
-											className='text-primary underline'
-										>
-											Test linki
-										</a>
-										<a
-											href={answersUrl}
-											target='_blank'
-											rel='noreferrer'
-											className='text-primary underline'
-										>
-											Javoblar linki
-										</a>
-									</div>
-							</Card>
-							);
-						})
+										<div className='mt-2 grid grid-cols-1 gap-2 text-sm'>
+											<a
+												href={testUrl}
+												target='_blank'
+												rel='noreferrer'
+												className='text-primary underline'
+											>
+												Test linki
+											</a>
+											<a
+												href={answersUrl}
+												target='_blank'
+												rel='noreferrer'
+												className='text-primary underline'
+											>
+												Javoblar linki
+											</a>
+										</div>
+									</Card>
+								);
+							})
 						)}
 					</div>
 
@@ -148,6 +167,8 @@ export default function WeeklyTestsList() {
 							<TableHeader>
 								<TableRow>
 									<TableHead>Fan</TableHead>
+									{isSuperadmin ? <TableHead>O'qituvchi</TableHead> : null}
+									{isSuperadmin ? <TableHead>Markaz</TableHead> : null}
 									<TableHead>Hafta oralig'i</TableHead>
 									<TableHead>Savollar</TableHead>
 									<TableHead>Davomiyligi</TableHead>
@@ -158,38 +179,49 @@ export default function WeeklyTestsList() {
 							<TableBody>
 								{loading ? (
 									<TableRow>
-										<TableCell colSpan={6}>Yuklanmoqda...</TableCell>
+										<TableCell colSpan={isSuperadmin ? 8 : 6}>Yuklanmoqda...</TableCell>
 									</TableRow>
 								) : weeklyTests.length === 0 ? (
 									<TableRow>
-										<TableCell colSpan={6}>Hozircha haftalik testlar yo'q</TableCell>
+										<TableCell colSpan={isSuperadmin ? 8 : 6}>
+											Hozircha haftalik testlar yo'q
+										</TableCell>
 									</TableRow>
 								) : (
 									weeklyTests.map((t) => {
-										const testUrl = buildPublicUrl(`/uploads/weekly-tests/weekly-test-${t.id}.html`);
-										const answersUrl = buildPublicUrl(`/uploads/weekly-tests/weekly-test-${t.id}-answers.html`);
+										const testUrl = buildPublicUrl(
+											`/uploads/weekly-tests/weekly-test-${t.id}.html`,
+										);
+										const answersUrl = buildPublicUrl(
+											`/uploads/weekly-tests/weekly-test-${t.id}-answers.html`,
+										);
 										return (
-										<TableRow key={t.id}>
-											<TableCell>{t.subject?.name || '-'}</TableCell>
-											<TableCell>
-												<div className='font-medium'>{t.title}</div>
-											</TableCell>
-											<TableCell>
-												<Badge variant='outline'>{t.totalQuestions}</Badge>
-											</TableCell>
-											<TableCell>{t.duration} daqiqa</TableCell>
-											<TableCell>{new Date(t.createdAt).toLocaleString('uz-UZ')}</TableCell>
-											<TableCell>
-												<Link href={`/account/test/${t.id}/questions`}>
-													<Button size='sm' variant='outline' className='gap-2'>
-														<ListChecks className='h-4 w-4' /> Savollar
-													</Button>
-												</Link>
-												
-											</TableCell>
-										</TableRow>
-									);
-								})
+											<TableRow key={t.id}>
+												<TableCell>{t.subject?.name || '-'}</TableCell>
+												{isSuperadmin ? (
+													<TableCell>{t.teacher?.fullName || '-'}</TableCell>
+												) : null}
+												{isSuperadmin ? (
+													<TableCell>{t.teacher?.center?.name || '-'}</TableCell>
+												) : null}
+												<TableCell>
+													<div className='font-medium'>{t.title}</div>
+												</TableCell>
+												<TableCell>
+													<Badge variant='outline'>{t.totalQuestions}</Badge>
+												</TableCell>
+												<TableCell>{t.duration} daqiqa</TableCell>
+												<TableCell>{new Date(t.createdAt).toLocaleString('uz-UZ')}</TableCell>
+												<TableCell>
+													<Link href={`/account/test/${t.id}/questions`}>
+														<Button size='sm' variant='outline' className='gap-2'>
+															<ListChecks className='h-4 w-4' /> Savollar
+														</Button>
+													</Link>
+												</TableCell>
+											</TableRow>
+										);
+									})
 								)}
 							</TableBody>
 						</Table>
