@@ -52,6 +52,7 @@ const adminItems = [
 const superAdminMenuItems = [
 	{ title: 'Bosh sahifa', url: '/account/superadmin', icon: LayoutDashboard },
 	{ title: 'Mobil ilovalar', url: '/account/superadmin/mobile-releases', icon: Smartphone },
+	{ title: 'Yaratilgan testlar', url: '/account/superadmin/generated-tests', icon: FileText },
 	{ title: 'Mening fanlarim', url: '/account/subjects', icon: Book },
 	{ title: 'Markazlar va foydalanuvchilar', url: '/account/center-users', icon: Users },
 	{ title: 'Telegram boshqaruvi', url: '/account/telegram', icon: Send },
@@ -120,12 +121,12 @@ export function DashboardSidebar() {
 	const mainItems = isSuperAdmin
 		? superAdminMenuItems
 		: isCenterAdmin
-		? centerAdminMenuItems
-		: isTeacher
-		? teacherMenuItems
-		: isStudent
-		? studentMenuItems
-		: [];
+			? centerAdminMenuItems
+			: isTeacher
+				? teacherMenuItems
+				: isStudent
+					? studentMenuItems
+					: [];
 
 	// Permission-based menu filtering (per center)
 	const centerPerms = user?.center?.permissions || undefined;
@@ -237,7 +238,7 @@ export function DashboardSidebar() {
 														<SidebarMenuSubButton asChild>
 															<Link
 																href={child.url}
-																				onClick={closeMobileSidebar}
+																onClick={closeMobileSidebar}
 																className={`
                                                                     flex items-center px-4 py-2 rounded-md transition-all duration-200 text-sm
                                                                     ${

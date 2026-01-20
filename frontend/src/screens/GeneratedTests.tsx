@@ -8,12 +8,14 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Download, Eye, ListChecks, Printer } from 'lucide-react';
 // Note: HtmlRenderer available if needed later for HTML answers rendering
 import { useToast } from '@/components/ui/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface GeneratedTestDto {
 	id: number;
 	title: string;
 	subject: { id: number; name: string } | null;
 	teacher: { id: number; fullName?: string } | null;
+	center?: { id: number; name: string } | null;
 	createdAt: string;
 	variantCount: number;
 	questionCount: number;
@@ -32,6 +34,8 @@ interface VariantDto {
 
 export default function GeneratedTestsPage() {
 	const { toast } = useToast();
+	const { user } = useAuth();
+	const isSuperadmin = user?.role === 'superadmin';
 	const [items, setItems] = useState<GeneratedTestDto[]>([]);
 	const [loading, setLoading] = useState(false);
 	const [quickPrintLoading, setQuickPrintLoading] = useState<number | null>(null);
@@ -205,6 +209,8 @@ export default function GeneratedTestsPage() {
 		};
 		void load();
 	}, []);
+
+	const showCenterColumn = isSuperadmin;
 
 	const openVariants = async (test: GeneratedTestDto) => {
 		const idNum = Number(test.id);
@@ -387,6 +393,11 @@ export default function GeneratedTestsPage() {
 												{it.subject?.name || '-'}
 											</div>
 											<div className='font-medium truncate'>{it.title}</div>
+											{showCenterColumn && (
+												<div className='text-xs text-muted-foreground mt-1 truncate'>
+													Markaz: {it.center?.name || '-'}
+												</div>
+											)}
 											<div className='text-xs text-muted-foreground mt-1'>
 												{it.questionCount} savol • {it.timeLimit} daqiqa • {it.difficulty}
 											</div>
@@ -397,6 +408,12 @@ export default function GeneratedTestsPage() {
 									</div>
 
 									<div className='mt-3 space-y-2 text-sm'>
+										{showCenterColumn && (
+											<div className='text-muted-foreground'>
+												Markaz:{' '}
+												<span className='text-foreground'>{it.center?.name || '-'}</span>
+											</div>
+										)}
 										<div className='text-muted-foreground'>
 											Yaratuvchi:{' '}
 											<span className='text-foreground'>{it.teacher?.fullName || '-'}</span>
@@ -445,6 +462,7 @@ export default function GeneratedTestsPage() {
 						<Table>
 							<TableHeader>
 								<TableRow>
+									{showCenterColumn && <TableHead>Markaz</TableHead>}
 									<TableHead>Fan</TableHead>
 									<TableHead>Test nomi</TableHead>
 									<TableHead>Yaratuvchi</TableHead>
@@ -456,15 +474,16 @@ export default function GeneratedTestsPage() {
 							<TableBody>
 								{loading ? (
 									<TableRow>
-										<TableCell colSpan={6}>Yuklanmoqda...</TableCell>
+										<TableCell colSpan={showCenterColumn ? 7 : 6}>Yuklanmoqda...</TableCell>
 									</TableRow>
 								) : items.length === 0 ? (
 									<TableRow>
-										<TableCell colSpan={6}>Hozircha ma'lumot yo'q</TableCell>
+										<TableCell colSpan={showCenterColumn ? 7 : 6}>Hozircha ma'lumot yo'q</TableCell>
 									</TableRow>
 								) : (
 									items.map((it) => (
 										<TableRow key={it.id}>
+											{showCenterColumn && <TableCell>{it.center?.name || '-'}</TableCell>}
 											<TableCell>{it.subject?.name || '-'}</TableCell>
 											<TableCell>
 												<div className='font-medium'>{it.title}</div>

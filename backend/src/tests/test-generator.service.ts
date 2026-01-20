@@ -73,6 +73,7 @@ export interface TestVariant {
 export interface GenerateGeneratedTestPrintableOptions {
   generatedTestId: number;
   teacherId: number;
+  requesterRole?: UserRole;
   ensureExists?: boolean;
 }
 
@@ -2001,10 +2002,10 @@ export class TestGeneratorService {
   /**
    * List generated tests for a teacher
    */
-  async listGeneratedTests(teacherId: number) {
+  async listGeneratedTests(teacherId?: number) {
     const tests = await this.generatedTestRepository.find({
-      where: { teacher: { id: teacherId } },
-      relations: ['subject', 'teacher'],
+      where: teacherId ? { teacher: { id: teacherId } } : {},
+      relations: ['subject', 'teacher', 'teacher.center'],
       order: { createdAt: 'DESC' },
     });
 
@@ -2035,8 +2036,14 @@ export class TestGeneratorService {
       },
       teacher: {
         id: t.teacher?.id,
-        fullName: (t as any).teacher?.fullName,
+        fullName: t.teacher?.fullName,
       },
+      center: t.teacher?.center
+        ? {
+            id: (t.teacher.center as any).id,
+            name: (t.teacher.center as any).name,
+          }
+        : null,
       createdAt: t.createdAt,
       variantCount: variantsByTest[t.id] ?? t.variantCount ?? 0,
       questionCount: t.questionCount,
@@ -2048,13 +2055,17 @@ export class TestGeneratorService {
   /**
    * List variants of a generated test, ensuring ownership
    */
-  async listGeneratedTestVariants(testId: number, teacherId: number) {
+  async listGeneratedTestVariants(
+    testId: number,
+    teacherId: number,
+    isSuperadmin = false,
+  ) {
     const test = await this.generatedTestRepository.findOne({
       where: { id: testId },
       relations: ['teacher'],
     });
     if (!test) throw new NotFoundException('Yaratilgan test topilmadi');
-    if (test.teacher?.id !== teacherId)
+    if (!isSuperadmin && test.teacher?.id !== teacherId)
       throw new BadRequestException("Bu testga ruxsatingiz yo'q");
 
     const variants = await this.generatedTestVariantRepository.find({
@@ -2094,7 +2105,10 @@ export class TestGeneratorService {
       relations: ['teacher', 'subject'],
     });
     if (!test) throw new NotFoundException('Yaratilgan test topilmadi');
-    if (!test.teacher || Number(test.teacher.id) !== Number(opts.teacherId)) {
+    if (
+      opts.requesterRole !== UserRole.SUPERADMIN &&
+      (!test.teacher || Number(test.teacher.id) !== Number(opts.teacherId))
+    ) {
       throw new BadRequestException('Bu test sizga tegishli emas');
     }
 

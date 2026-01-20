@@ -32,6 +32,7 @@ import { CreateResultManualByVariantDto } from './dto/create-result-manual-by-va
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RequireCenterPermissions } from '../centers/permissions/center-permission.decorator';
 import { CenterPermissionKey } from '../centers/permissions/center-permissions';
+import { UserRole } from '../users/entities/user.entity';
 import {
   TestGeneratorService,
   type GenerateTestDto,
@@ -147,9 +148,26 @@ export class TestsController {
     summary: "O'qituvchining yaratgan testlari (generator) ro'yxati",
   })
   @ApiResponse({ status: 200, description: 'Generated tests list' })
-  async listGeneratedTests(@Request() req: { user: { id: number | string } }) {
+  async listGeneratedTests(
+    @Request() req: { user: { id: number | string; role?: UserRole } },
+    @Query('teacherId') teacherIdRaw?: string,
+  ) {
     const userId =
       typeof req.user.id === 'string' ? parseInt(req.user.id, 10) : req.user.id;
+
+    const role = req.user?.role;
+    const teacherIdQuery = teacherIdRaw
+      ? parseInt(teacherIdRaw, 10)
+      : undefined;
+
+    // Superadmin: can view all centers/teachers; optional teacherId filter
+    if (role === UserRole.SUPERADMIN) {
+      return this.testGeneratorService.listGeneratedTests(
+        Number.isFinite(teacherIdQuery as number) ? teacherIdQuery : undefined,
+      );
+    }
+
+    // Others: only their own
     return this.testGeneratorService.listGeneratedTests(userId);
   }
 
@@ -159,11 +177,16 @@ export class TestsController {
   @ApiResponse({ status: 200, description: 'Generated test variants list' })
   async listGeneratedTestVariants(
     @Param('id', ParseIntPipe) id: number,
-    @Request() req: { user: { id: number | string } },
+    @Request() req: { user: { id: number | string; role?: UserRole } },
   ) {
     const userId =
       typeof req.user.id === 'string' ? parseInt(req.user.id, 10) : req.user.id;
-    return this.testGeneratorService.listGeneratedTestVariants(id, userId);
+    const isSuperadmin = req.user?.role === UserRole.SUPERADMIN;
+    return this.testGeneratorService.listGeneratedTestVariants(
+      id,
+      userId,
+      isSuperadmin,
+    );
   }
 
   @Post('generated/:id/printable-html')
@@ -179,7 +202,7 @@ export class TestsController {
     body: {
       ensureExists?: boolean;
     },
-    @Request() req: { user: { id: number | string } },
+    @Request() req: { user: { id: number | string; role?: UserRole } },
   ) {
     const userId =
       typeof req.user.id === 'string' ? parseInt(req.user.id, 10) : req.user.id;
@@ -187,6 +210,7 @@ export class TestsController {
       {
         generatedTestId: id,
         teacherId: userId,
+        requesterRole: req.user?.role,
         ensureExists: body?.ensureExists,
       },
     );
