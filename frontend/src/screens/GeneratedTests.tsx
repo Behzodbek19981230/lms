@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Download, Eye, ListChecks, Printer } from 'lucide-react';
+import { Download, Eye, ListChecks, Printer, Trash2 } from 'lucide-react';
 // Note: HtmlRenderer available if needed later for HTML answers rendering
 import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
@@ -209,6 +209,27 @@ export default function GeneratedTestsPage() {
 		};
 		void load();
 	}, []);
+
+	const deleteGeneratedTest = async (id: number) => {
+		const ok = window.confirm("Haqiqatan ham bu generatsiya qilingan testni o'chirmoqchimisiz?");
+		if (!ok) return;
+		try {
+			await request.delete(`/tests/generated/${id}`);
+			setItems((prev) => prev.filter((x) => Number(x.id) !== Number(id)));
+			if (active && Number(active.id) === Number(id)) {
+				setOpen(false);
+				setActive(null);
+				setVariants([]);
+			}
+			toast({ title: "O'chirildi", description: 'Test muvaffaqiyatli o‘chirildi' });
+		} catch (e: any) {
+			toast({
+				title: 'Xatolik',
+				description: e?.response?.data?.message || "Testni o'chirib bo'lmadi",
+				variant: 'destructive',
+			});
+		}
+	};
 
 	const showCenterColumn = isSuperadmin;
 
@@ -436,6 +457,14 @@ export default function GeneratedTestsPage() {
 											>
 												<Eye className='h-4 w-4 mr-1' /> Variantlar
 											</Button>
+											<Button
+												size='sm'
+												variant='destructive'
+												className='w-full gap-2'
+												onClick={() => deleteGeneratedTest(Number(it.id))}
+											>
+												<Trash2 className='h-4 w-4' /> O‘chirish
+											</Button>
 											{it.variantCount === 1 && (
 												<Button
 													size='sm'
@@ -504,6 +533,14 @@ export default function GeneratedTestsPage() {
 														onClick={() => openVariants(it)}
 													>
 														<Eye className='h-4 w-4 mr-1' /> Variantlar
+													</Button>
+													<Button
+														size='sm'
+														variant='destructive'
+														onClick={() => deleteGeneratedTest(Number(it.id))}
+														className='gap-2'
+													>
+														<Trash2 className='h-4 w-4' /> O‘chirish
 													</Button>
 													{it.variantCount === 1 && (
 														<Button

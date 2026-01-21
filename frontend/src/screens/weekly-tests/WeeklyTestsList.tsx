@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { CalendarDays, Plus, ListChecks } from 'lucide-react';
+import { CalendarDays, Plus, ListChecks, Trash2 } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import type { Test } from '@/types/test.type';
 import { isWeeklyDescription } from './constants';
@@ -70,6 +70,22 @@ export default function WeeklyTestsList() {
 			),
 		);
 	}, [weeklyTests]);
+
+	const deleteTest = async (id: number) => {
+		const ok = window.confirm("Haqiqatan ham bu haftalik testni o'chirmoqchimisiz?");
+		if (!ok) return;
+		try {
+			await request.delete(`/tests/${id}`);
+			setTests((prev) => prev.filter((t) => Number(t.id) !== Number(id)));
+			toast({ title: "O'chirildi", description: 'Test muvaffaqiyatli o‘chirildi' });
+		} catch (e: any) {
+			toast({
+				title: 'Xatolik',
+				description: e?.response?.data?.message || "Testni o'chirib bo'lmadi",
+				variant: 'destructive',
+			});
+		}
+	};
 
 	return (
 		<div className='space-y-4'>
@@ -135,6 +151,14 @@ export default function WeeklyTestsList() {
 													<ListChecks className='h-4 w-4' /> Savollar
 												</Button>
 											</Link>
+											<Button
+												size='sm'
+												variant='destructive'
+												className='gap-2'
+												onClick={() => deleteTest(Number(t.id))}
+											>
+												<Trash2 className='h-4 w-4' /> O‘chirish
+											</Button>
 										</div>
 
 										<div className='mt-2 grid grid-cols-1 gap-2 text-sm'>
@@ -213,11 +237,21 @@ export default function WeeklyTestsList() {
 												<TableCell>{t.duration} daqiqa</TableCell>
 												<TableCell>{new Date(t.createdAt).toLocaleString('uz-UZ')}</TableCell>
 												<TableCell>
-													<Link href={`/account/test/${t.id}/questions`}>
-														<Button size='sm' variant='outline' className='gap-2'>
-															<ListChecks className='h-4 w-4' /> Savollar
+													<div className='flex items-center gap-2'>
+														<Link href={`/account/test/${t.id}/questions`}>
+															<Button size='sm' variant='outline' className='gap-2'>
+																<ListChecks className='h-4 w-4' /> Savollar
+															</Button>
+														</Link>
+														<Button
+															size='sm'
+															variant='destructive'
+															className='gap-2'
+															onClick={() => deleteTest(Number(t.id))}
+														>
+															<Trash2 className='h-4 w-4' /> O‘chirish
 														</Button>
-													</Link>
+													</div>
 												</TableCell>
 											</TableRow>
 										);

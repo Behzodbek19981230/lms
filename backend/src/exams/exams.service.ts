@@ -830,8 +830,7 @@ export class ExamsService {
           }
           @media screen and (max-width: 900px) { .questions-container { column-count: 1; background: none; } }
         </style>
-        <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
-        <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+        <!-- Server-side KaTeX is already rendered into HTML; keep CSS only (no client auto-render). -->
       </head>
       <body>
         <div class="toolbar">
@@ -839,25 +838,7 @@ export class ExamsService {
           <span style="color:#666; font-size:13px;">Chop etish oynasida "Save as PDF"ni tanlang.</span>
         </div>
   <main id="pages">${inner}</main>
-        <script>
-          window.addEventListener('DOMContentLoaded', function() {
-            if (window.renderMathInElement) {
-              try {
-                window.renderMathInElement(document.body, {
-                  delimiters: [
-                    {left: '$$', right: '$$', display: true},
-                    {left: '$', right: '$', display: false},
-                    {left: '\\(', right: '\\)', display: false},
-                    {left: '\\[', right: '\\]', display: true}
-                  ],
-                  throwOnError: false
-                });
-              } catch (e) {
-                console.warn('KaTeX render error', e);
-              }
-            }
-          });
-        </script>
+        <!-- No client-side KaTeX auto-render to avoid altering plain text like [Ar] 3s²3p¹ -->
       </body>
       </html>`;
   }
@@ -1017,27 +998,7 @@ export class ExamsService {
           .question { margin: 10px 0 14px 0; break-inside: avoid; break-inside: avoid-column; -webkit-column-break-inside: avoid; -moz-column-break-inside: avoid; }
           @media screen and (max-width: 900px) { .questions-container { column-count: 1; background: none; } }
         </style>
-        <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
-        <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
-        <script>
-          window.addEventListener('DOMContentLoaded', function() {
-            if (window.renderMathInElement) {
-              try {
-                window.renderMathInElement(document.body, {
-                  delimiters: [
-                    {left: '$$', right: '$$', display: true},
-                    {left: '$', right: '$', display: false},
-                    {left: '\\(', right: '\\)', display: false},
-                    {left: '\\[', right: '\\]', display: true}
-                  ],
-                  throwOnError: false
-                });
-              } catch (e) {
-                console.warn('KaTeX render error', e);
-              }
-            }
-          });
-        </script>`;
+        <!-- Server-side KaTeX is already rendered into HTML; keep CSS only (no client auto-render). -->`;
       return layoutHtml
         .replace('{{PAGE_TITLE}}', escapeHtml(pageTitle))
         .replace('{{EXTRA_HEAD}}', `${defaultExtraHead}\n${extraHead || ''}`)
@@ -1262,25 +1223,6 @@ export class ExamsService {
         </div>
       `;
 
-    const questionsCount = variant.questions?.length ?? 0;
-    void this.logsService.log(
-      `Building variant page with ${questionsCount} questions`,
-    );
-
-    if (questionsCount === 0) {
-      const noQuestionsHtml = `
-        <div class="page">
-          ${header}
-          <div class="questions-container">
-            <div style="text-align: center; margin: 50px 0; color: #666;">
-              <p>Bu variantda savollar topilmadi.</p>
-            </div>
-          </div>
-        </div>
-      `;
-      return noQuestionsHtml;
-    }
-
     const questionsHtml = (variant.questions || [])
       .sort((a, b) => (a.order || 0) - (b.order || 0))
       .map((q: ExamVariantQuestion, idx: number) => {
@@ -1325,7 +1267,11 @@ export class ExamsService {
                 const answerProcessResult = this.extractImageFromText(
                   a.text || '',
                 );
-                const cleanAnswerText = answerProcessResult.cleanedText;
+                const cleanAnswerText = String(
+                  answerProcessResult.cleanedText || '',
+                )
+                  .replace(/^(\s|<br\s*\/?\s*>)+/gi, '')
+                  .trimStart();
                 const answerImageDataUri = answerProcessResult.imageDataUri;
                 const answerImageStyles = answerProcessResult.imageStyles || '';
 
@@ -2017,6 +1963,55 @@ function sanitizeHtmlBasic(html: string): string {
   return out;
 }
 
+function rewriteUnicodeSuperSubToHtml(input: string): string {
+  if (!input) return '';
+  const supers: Record<string, string> = {
+    '⁰': '0',
+    '¹': '1',
+    '²': '2',
+    '³': '3',
+    '⁴': '4',
+    '⁵': '5',
+    '⁶': '6',
+    '⁷': '7',
+    '⁸': '8',
+    '⁹': '9',
+    '⁺': '+',
+    '⁻': '-',
+    '⁼': '=',
+    '⁽': '(',
+    '⁾': ')',
+  };
+  const subs: Record<string, string> = {
+    '₀': '0',
+    '₁': '1',
+    '₂': '2',
+    '₃': '3',
+    '₄': '4',
+    '₅': '5',
+    '₆': '6',
+    '₇': '7',
+    '₈': '8',
+    '₉': '9',
+    '₊': '+',
+    '₋': '-',
+    '₌': '=',
+    '₍': '(',
+    '₎': ')',
+  };
+
+  let out = String(input);
+  out = out.replace(
+    /[⁰¹²³⁴⁵⁶⁷⁸⁹⁺⁻⁼⁽⁾]/g,
+    (ch) => `<sup>${supers[ch] ?? ''}</sup>`,
+  );
+  out = out.replace(
+    /[₀₁₂₃₄₅₆₇₈₉₊₋₌₍₎]/g,
+    (ch) => `<sub>${subs[ch] ?? ''}</sub>`,
+  );
+  return out;
+}
+
 function renderWithKatexAllowHtml(text: string): string {
   if (!text) return '';
   const parts: string[] = [];
@@ -2027,9 +2022,28 @@ function renderWithKatexAllowHtml(text: string): string {
   while ((m = regex.exec(text)) !== null) {
     const index = m.index;
     const before = text.slice(lastIndex, index);
-    if (before) parts.push(sanitizeHtmlBasic(before));
-    const formula = (m[1] ?? m[2] ?? m[3] ?? m[4] ?? '').trim();
+    if (before)
+      parts.push(rewriteUnicodeSuperSubToHtml(sanitizeHtmlBasic(before)));
+    const formulaRaw = (m[1] ?? m[2] ?? m[3] ?? m[4] ?? '').trim();
+    const formula = formulaRaw.replace(/\\\[/g, '[').replace(/\\\]/g, ']');
     const display = Boolean(m[1] || m[3]);
+
+    const containsUnicodeSuperSub = /[⁰¹²³⁴⁵⁶⁷⁸⁹⁺⁻⁼⁽⁾₀₁₂₃₄₅₆₇₈₉₊₋₌₍₎]/.test(
+      formula,
+    );
+    const isBracketToken =
+      !formula.includes('\\') && /^\[[^\]]*\]$/.test(formula);
+
+    // Heuristic: keep plain tokens as plain text (same as UI), not KaTeX output.
+    if (
+      /^[A-Za-z]{1,3}$/.test(formula) ||
+      isBracketToken ||
+      containsUnicodeSuperSub
+    ) {
+      parts.push(rewriteUnicodeSuperSubToHtml(escapeHtml(formula)));
+      lastIndex = index + m[0].length;
+      continue;
+    }
     try {
       const html: string = katex.renderToString(formula, {
         displayMode: display,
@@ -2044,6 +2058,6 @@ function renderWithKatexAllowHtml(text: string): string {
     lastIndex = index + m[0].length;
   }
   const rest = text.slice(lastIndex);
-  if (rest) parts.push(sanitizeHtmlBasic(rest));
+  if (rest) parts.push(rewriteUnicodeSuperSubToHtml(sanitizeHtmlBasic(rest)));
   return parts.join('');
 }

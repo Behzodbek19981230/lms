@@ -21,10 +21,22 @@ function toInlineHtmlFromTokens(tokens: Array<{ type: 'text' | 'latex' | 'br'; v
 			continue;
 		}
 		// latex
-		const latex = String(token.value || '')
+		const raw = String(token.value || '')
 			.replace(/\$/g, '')
 			.trim();
-		if (latex) out += `$${latex}$`;
+		if (!raw) continue;
+
+		// Some converters return display math as \[ ... \]. Wrapping that into $...$ breaks parsing.
+		const isDisplayWrapped = /^\\\[[\s\S]*\\\]$/.test(raw);
+		let body = raw;
+		if (isDisplayWrapped) {
+			body = body.replace(/^\\\[/, '').replace(/\\\]$/, '').trim();
+		}
+
+		// If a converter emits escaped square brackets (\[Ar\]) inside a formula, treat them as literal brackets.
+		body = body.replace(/\\\[/g, '[').replace(/\\\]/g, ']');
+
+		out += isDisplayWrapped ? `$$${body}$$` : `$${body}$`;
 	}
 	return out.replace(/(<br\s*\/?>\s*){3,}/gi, '<br/><br/>').trim();
 }

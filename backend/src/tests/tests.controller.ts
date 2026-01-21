@@ -251,6 +251,28 @@ export class TestsController {
     );
   }
 
+  @Delete('generated/:id')
+  @RequireCenterPermissions(CenterPermissionKey.TEST_GENERATION)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: "Yaratilgan testni (generator) o'chirish" })
+  @ApiResponse({
+    status: 204,
+    description: "Yaratilgan test muvaffaqiyatli o'chirildi",
+  })
+  async removeGeneratedTest(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req: { user: { id: number | string; role?: UserRole } },
+  ): Promise<void> {
+    const userId =
+      typeof req.user.id === 'string' ? parseInt(req.user.id, 10) : req.user.id;
+
+    await this.testGeneratorService.removeGeneratedTest({
+      generatedTestId: id,
+      teacherId: userId,
+      requesterRole: req.user?.role,
+    });
+  }
+
   @Post('generated/variant/:uniqueNumber/grade')
   @RequireCenterPermissions(CenterPermissionKey.CHECKING)
   @ApiOperation({ summary: 'Telefon skanerdan olingan javoblarni tekshirish' })

@@ -29,7 +29,7 @@ import { LatexProcessorService } from './latex-processor.service';
 import { LogsService } from 'src/logs/logs.service';
 import { promises as fs } from 'fs';
 import { existsSync } from 'fs';
-import { join } from 'path';
+import { basename, join } from 'path';
 import * as katex from 'katex';
 import { TelegramService } from 'src/telegram/telegram.service';
 import {
@@ -76,6 +76,12 @@ export interface GenerateGeneratedTestPrintableOptions {
   teacherId: number;
   requesterRole?: UserRole;
   ensureExists?: boolean;
+}
+
+export interface RemoveGeneratedTestOptions {
+  generatedTestId: number;
+  teacherId: number;
+  requesterRole?: UserRole;
 }
 
 @Injectable()
@@ -1057,7 +1063,6 @@ export class TestGeneratorService {
         )}</div>
         ${centerLine}
         <div class="subtitle">Variant: ${escapeHtml(variant.variantNumber)} — ID: #${escapeHtml(variant.uniqueNumber)}</div>
-        <div class="meta">Sana: ${new Date().toLocaleDateString('uz-UZ')}</div>
       </div>`;
 
     const coverHtml = ctx.config.showTitleSheet
@@ -1113,7 +1118,10 @@ export class TestGeneratorService {
           answersHtml = `<div class="answers">${q.answers
             .map((a, i) => {
               const aProc = this.extractImageFromText(a.text || '');
-              const aTextHtml = this.renderTextWithLatex(aProc.cleanedText);
+              const cleanedAnswer = String(aProc.cleanedText || '')
+                .replace(/^(\s|<br\s*\/?\s*>)+/gi, '')
+                .trimStart();
+              const aTextHtml = this.renderTextWithLatex(cleanedAnswer);
               const aImgUri = this.normalizeDataUri(aProc.imageDataUri || '');
               const aImg = aImgUri
                 ? `<div class="answer-image-container"><img class="answer-image" src="${aImgUri}" style="${aProc.imageStyles || ''}" alt="Javob rasmi"/></div>`
@@ -1294,8 +1302,7 @@ export class TestGeneratorService {
           .ak-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
         }
       </style>
-      <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
-      <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+      <!-- Server-side KaTeX is already rendered into HTML; keep CSS only (no client auto-render). -->
     </head>
     <body>
       <div class="toolbar">
@@ -1305,24 +1312,7 @@ export class TestGeneratorService {
       <div class="section" id="variants">
         <div class="variants-container">${variantsSection}</div>
       </div>
-      <script>
-        window.addEventListener('DOMContentLoaded', function() {
-          if (window.renderMathInElement) {
-            try {
-              window.renderMathInElement(document.body, {
-                delimiters: [
-                  {left: '$$', right: '$$', display: true},
-                  {left: '$', right: '$', display: false},
-                  {left: '\\(', right: '\\)', display: false},
-                  {left: '\\[', right: '\\]', display: true}
-                ],
-                throwOnError: false
-              });
-            } catch (e) { console.warn('KaTeX render error', e); }
-          }
-          // No extra page breaks at top
-        });
-      </script>
+      <!-- No client-side KaTeX auto-render to avoid altering plain text like [Ar] 3s²3p¹ -->
     </body>
     </html>`;
   }
@@ -1422,8 +1412,7 @@ export class TestGeneratorService {
             .questions-container:before { display: none; }
           }
         </style>
-        <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
-        <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+        <!-- Server-side KaTeX is already rendered into HTML; keep CSS only (no client auto-render). -->
       </head>
       <body>
         <div class="toolbar">
@@ -1431,25 +1420,7 @@ export class TestGeneratorService {
           <span style="color:#666; font-size:13px;">Chop etish oynasida "Save as PDF"ni tanlang.</span>
         </div>
         ${inner}
-        <script>
-          window.addEventListener('DOMContentLoaded', function() {
-            if (window.renderMathInElement) {
-              try {
-                window.renderMathInElement(document.body, {
-                  delimiters: [
-                    {left: '$$', right: '$$', display: true},
-                    {left: '$', right: '$', display: false},
-                    {left: '\\(', right: '\\)', display: false},
-                    {left: '\\[', right: '\\]', display: true}
-                  ],
-                  throwOnError: false
-                });
-              } catch (e) {
-                console.warn('KaTeX render error', e);
-              }
-            }
-          });
-        </script>
+        <!-- No client-side KaTeX auto-render to avoid altering plain text like [Ar] 3s²3p¹ -->
       </body>
       </html>`;
   }
@@ -2232,6 +2203,52 @@ export class TestGeneratorService {
   }
 
   /**
+   * Delete a generated test and cleanup stored printable HTML files.
+   * DB rows are cascaded (GeneratedTest -> Variants), but files must be removed manually.
+   */
+  async removeGeneratedTest(opts: RemoveGeneratedTestOptions): Promise<void> {
+    const test = await this.generatedTestRepository.findOne({
+      where: { id: opts.generatedTestId },
+      relations: ['teacher'],
+    });
+    if (!test) throw new NotFoundException('Yaratilgan test topilmadi');
+
+    if (
+      opts.requesterRole !== UserRole.SUPERADMIN &&
+      (!test.teacher || Number(test.teacher.id) !== Number(opts.teacherId))
+    ) {
+      throw new ForbiddenException("Bu testni o'chirishga ruxsatingiz yo'q");
+    }
+
+    const variants = await this.generatedTestVariantRepository.find({
+      where: { generatedTest: { id: test.id } },
+      select: ['id', 'printableFileName'],
+    });
+
+    const uploadsDir = this.getUploadsDir();
+
+    const safeUnlink = async (absolutePath: string) => {
+      try {
+        await fs.unlink(absolutePath);
+      } catch {
+        // ignore missing/unlink errors
+      }
+    };
+
+    await Promise.all(
+      variants
+        .map((v) =>
+          v.printableFileName ? basename(v.printableFileName) : null,
+        )
+        .filter(Boolean)
+        .map((fileName) => safeUnlink(join(uploadsDir, fileName as string))),
+    );
+
+    // Remove DB rows (variants cascade, but explicit remove keeps intent clear)
+    await this.generatedTestRepository.delete({ id: test.id });
+  }
+
+  /**
    * Generate PDF for test variants with 2-column layout
    */
   generateTestPDF(): Promise<Buffer> {
@@ -2283,6 +2300,55 @@ function sanitizeHtmlBasic(html: string): string {
   return out;
 }
 
+function rewriteUnicodeSuperSubToHtml(input: string): string {
+  if (!input) return '';
+  const supers: Record<string, string> = {
+    '⁰': '0',
+    '¹': '1',
+    '²': '2',
+    '³': '3',
+    '⁴': '4',
+    '⁵': '5',
+    '⁶': '6',
+    '⁷': '7',
+    '⁸': '8',
+    '⁹': '9',
+    '⁺': '+',
+    '⁻': '-',
+    '⁼': '=',
+    '⁽': '(',
+    '⁾': ')',
+  };
+  const subs: Record<string, string> = {
+    '₀': '0',
+    '₁': '1',
+    '₂': '2',
+    '₃': '3',
+    '₄': '4',
+    '₅': '5',
+    '₆': '6',
+    '₇': '7',
+    '₈': '8',
+    '₉': '9',
+    '₊': '+',
+    '₋': '-',
+    '₌': '=',
+    '₍': '(',
+    '₎': ')',
+  };
+
+  let out = String(input);
+  out = out.replace(
+    /[⁰¹²³⁴⁵⁶⁷⁸⁹⁺⁻⁼⁽⁾]/g,
+    (ch) => `<sup>${supers[ch] ?? ''}</sup>`,
+  );
+  out = out.replace(
+    /[₀₁₂₃₄₅₆₇₈₉₊₋₌₍₎]/g,
+    (ch) => `<sub>${subs[ch] ?? ''}</sub>`,
+  );
+  return out;
+}
+
 // Server-side KaTeX renderer that preserves sanitized HTML for non-math segments
 function renderWithKatexAllowHtml(text: string): string {
   if (!text) return '';
@@ -2294,9 +2360,32 @@ function renderWithKatexAllowHtml(text: string): string {
   while ((m = regex.exec(text)) !== null) {
     const index = m.index;
     const before = text.slice(lastIndex, index);
-    if (before) parts.push(sanitizeHtmlBasic(before));
-    const formula = (m[1] ?? m[2] ?? m[3] ?? m[4] ?? '').trim();
+    if (before)
+      parts.push(rewriteUnicodeSuperSubToHtml(sanitizeHtmlBasic(before)));
+    const formulaRaw = (m[1] ?? m[2] ?? m[3] ?? m[4] ?? '').trim();
+    const formula = formulaRaw.replace(/\\\[/g, '[').replace(/\\\]/g, ']');
     const display = Boolean(m[1] || m[3]);
+
+    const containsUnicodeSuperSub = /[⁰¹²³⁴⁵⁶⁷⁸⁹⁺⁻⁼⁽⁾₀₁₂₃₄₅₆₇₈₉₊₋₌₍₎]/.test(
+      formula,
+    );
+    const isBracketToken =
+      !formula.includes('\\') && /^\[[^\]]*\]$/.test(formula);
+
+    // Heuristic: DOCX imports sometimes wrap plain text into math delimiters.
+    // For these cases we want *plain text output* (same as UI), not KaTeX layout/typography.
+    // - short tokens (Ne, Ar, He)
+    // - bracket tokens ([] / [Ar])
+    // - electron configuration with unicode super/sub (3s²3p¹)
+    if (
+      /^[A-Za-z]{1,3}$/.test(formula) ||
+      isBracketToken ||
+      containsUnicodeSuperSub
+    ) {
+      parts.push(rewriteUnicodeSuperSubToHtml(escapeHtml(formula)));
+      lastIndex = index + m[0].length;
+      continue;
+    }
     try {
       const html: string = katex.renderToString(formula, {
         displayMode: display,
@@ -2311,6 +2400,6 @@ function renderWithKatexAllowHtml(text: string): string {
     lastIndex = index + m[0].length;
   }
   const rest = text.slice(lastIndex);
-  if (rest) parts.push(sanitizeHtmlBasic(rest));
+  if (rest) parts.push(rewriteUnicodeSuperSubToHtml(sanitizeHtmlBasic(rest)));
   return parts.join('');
 }
