@@ -2026,7 +2026,21 @@ function renderWithKatexAllowHtml(text: string): string {
       parts.push(rewriteUnicodeSuperSubToHtml(sanitizeHtmlBasic(before)));
     const formulaRaw = (m[1] ?? m[2] ?? m[3] ?? m[4] ?? '').trim();
     const formula = formulaRaw.replace(/\\\[/g, '[').replace(/\\\]/g, ']');
-    const display = Boolean(m[1] || m[3]);
+    // Treat $$...$$ / \[...\] as display math only when it is on its own line.
+    // If embedded in a sentence like "(... $$C_{M}$$ ...)" then display-mode KaTeX
+    // forces line breaks (especially in multi-column print/PDF layout).
+    let display = Boolean(m[1] || m[3]);
+    if (display) {
+      const matchEnd = index + m[0].length;
+      const lineStart = text.lastIndexOf('\n', index - 1) + 1;
+      const nextNewline = text.indexOf('\n', matchEnd);
+      const lineEnd = nextNewline === -1 ? text.length : nextNewline;
+      const beforeOnLine = text.slice(lineStart, index);
+      const afterOnLine = text.slice(matchEnd, lineEnd);
+      const isStandaloneLine =
+        beforeOnLine.trim().length === 0 && afterOnLine.trim().length === 0;
+      if (!isStandaloneLine) display = false;
+    }
 
     const containsUnicodeSuperSub = /[⁰¹²³⁴⁵⁶⁷⁸⁹⁺⁻⁼⁽⁾₀₁₂₃₄₅₆₇₈₉₊₋₌₍₎]/.test(
       formula,

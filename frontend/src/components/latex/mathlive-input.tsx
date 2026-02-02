@@ -18,37 +18,181 @@ interface MathLiveInputProps {
 }
 
 export function MathLiveInput({ value, onChange, placeholder, className }: MathLiveInputProps) {
+	const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 	const fileInputRef = useRef<HTMLInputElement>(null);
 	const [isOpen, setIsOpen] = useState(false);
 	const [showPreview, setShowPreview] = useState(true);
-	const renderVariantContent = (text: string) => {
-		const parts = text.split(/(\$\$?[^$]+\$\$?)/g);
+	const [activeFormulaRange, setActiveFormulaRange] = useState<{
+		start: number;
+		end: number;
+		inner: string;
+		wrapper: '$$' | '$';
+	} | null>(null);
+	const lastSelectionRef = useRef<{ start: number; end: number } | null>(null);
 
+	const findFormulaRangeAtSelection = (
+		text: string,
+		selStart: number,
+		selEnd: number,
+	): { start: number; end: number; inner: string; wrapper: '$$' | '$' } | null => {
+		const regex = /\$\$([\s\S]*?)\$\$|\$([^$]+)\$/g;
+		let m: RegExpExecArray | null;
+		while ((m = regex.exec(text)) !== null) {
+			const full = m[0];
+			const isDouble = full.startsWith('$$') && full.endsWith('$$');
+			const inner = ((isDouble ? m[1] : m[2]) ?? '').trim();
+			const start = m.index;
+			const end = start + full.length;
+			const overlaps = !(selEnd <= start || selStart >= end);
+			const containsCaret = selStart === selEnd && selStart >= start && selStart <= end;
+			if (overlaps || containsCaret) return { start, end, inner, wrapper: isDouble ? '$$' : '$' };
+		}
+		return null;
+	};
+
+	type Segment =
+		| { kind: 'text'; html: string; start: number; end: number }
+		| { kind: 'math'; raw: string; start: number; end: number; isDouble: boolean; inner: string };
+
+	const parseSegments = (text: string): Segment[] => {
+		const segments: Segment[] = [];
+		const regex = /\$\$[\s\S]*?\$\$|\$[^$]+\$/g;
+		let lastIndex = 0;
+		let m: RegExpExecArray | null;
+		while ((m = regex.exec(text)) !== null) {
+			const start = m.index;
+			const end = start + m[0].length;
+			if (start > lastIndex) {
+				segments.push({ kind: 'text', html: text.slice(lastIndex, start), start: lastIndex, end: start });
+			}
+			const raw = m[0];
+			const isDouble = raw.startsWith('$$') && raw.endsWith('$$');
+			const inner = isDouble ? raw.slice(2, -2).trim() : raw.slice(1, -1).trim();
+			segments.push({ kind: 'math', raw, start, end, isDouble, inner });
+			lastIndex = end;
+		}
+		if (lastIndex < text.length) {
+			segments.push({ kind: 'text', html: text.slice(lastIndex), start: lastIndex, end: text.length });
+		}
+		return segments;
+	};
+
+	const renderVariantContent = (text: string) => {
+		const segments = parseSegments(text);
 		return (
 			<div className='inline-block w-full'>
-				{parts.map((part, index) => {
-					if (part.includes('$')) {
+				{segments.map((seg, index) => {
+					if (seg.kind === 'math') {
+						const canEdit = true;
 						return (
-							<span key={index} className='inline-block'>
-								<MathRenderer latex={part} />
-							</span>
+							<button
+								key={`${seg.start}-${seg.end}-${index}`}
+								type='button'
+								className={
+									'align-middle ' +
+									(canEdit
+										? 'group inline-flex items-center gap-1 cursor-pointer underline decoration-dotted underline-offset-4 rounded px-1 py-0.5 border border-primary/25 bg-primary/5 hover:bg-primary/10'
+										: 'inline-block cursor-default')
+								}
+								onClick={() => {
+									if (!canEdit) return;
+									setActiveFormulaRange({
+										start: seg.start,
+										end: seg.end,
+										inner: seg.inner,
+										wrapper: seg.isDouble ? '$$' : '$',
+									});
+									setIsOpen(true);
+								}}
+								title={canEdit ? 'Formulani tahrirlash' : undefined}
+							>
+								<MathRenderer latex={seg.raw} />
+								{canEdit && (
+									<span className='text-[10px] opacity-0 group-hover:opacity-80 underline decoration-dotted underline-offset-2'>
+										tahrirlash
+									</span>
+								)}
+							</button>
 						);
-					} else {
-						return <span key={index} className='inline' dangerouslySetInnerHTML={{ __html: part }} />;
 					}
+					return (
+						<span
+							key={`${seg.start}-${seg.end}-${index}`}
+							className='inline'
+							dangerouslySetInnerHTML={{ __html: seg.html }}
+						/>
+					);
 				})}
 			</div>
 		);
 	};
 
+	const syncSelectionAndActiveFormula = () => {
+		const textarea = textareaRef.current;
+		if (!textarea) return;
+		const selStart = textarea.selectionStart ?? 0;
+		const selEnd = textarea.selectionEnd ?? selStart;
+		lastSelectionRef.current = { start: selStart, end: selEnd };
+		setActiveFormulaRange(findFormulaRangeAtSelection(value, selStart, selEnd));
+	};
+
 	const openMathEditor = () => {
+		const textarea = textareaRef.current;
+		if (textarea) {
+			const selStart = textarea.selectionStart ?? 0;
+			const selEnd = textarea.selectionEnd ?? selStart;
+			lastSelectionRef.current = { start: selStart, end: selEnd };
+			setActiveFormulaRange(findFormulaRangeAtSelection(value, selStart, selEnd));
+		} else {
+			setActiveFormulaRange(null);
+		}
 		setIsOpen(true);
 	};
 
 	const insertFormula = (latex: string) => {
 		if (latex.trim()) {
-			const newValue = value + (value ? ' ' : '') + `$$${latex}$$`;
-			onChange(newValue);
+			const defaultWrapped = `$${latex}$`;
+			const textarea = textareaRef.current;
+
+			// If cursor/selection is inside an existing formula, replace that formula.
+			if (activeFormulaRange) {
+				const wrapped = activeFormulaRange.wrapper === '$$' ? `$$${latex}$$` : `$${latex}$`;
+				const before = value.slice(0, activeFormulaRange.start);
+				const after = value.slice(activeFormulaRange.end);
+				const newValue = before + wrapped + after;
+				onChange(newValue);
+				requestAnimationFrame(() => {
+					if (!textarea) return;
+					textarea.focus();
+					const pos = (before + wrapped).length;
+					textarea.setSelectionRange(pos, pos);
+					lastSelectionRef.current = { start: pos, end: pos };
+				});
+				setActiveFormulaRange(null);
+				return;
+			}
+
+			// Otherwise insert at current selection (or append if no textarea ref)
+			if (textarea) {
+				const wrapped = defaultWrapped;
+				const selStart = lastSelectionRef.current?.start ?? textarea.selectionStart ?? value.length;
+				const selEnd = lastSelectionRef.current?.end ?? textarea.selectionEnd ?? selStart;
+				const before = value.slice(0, selStart);
+				const after = value.slice(selEnd);
+				const spacerLeft = before && !/\s$/.test(before) ? ' ' : '';
+				const spacerRight = after && !/^\s/.test(after) ? ' ' : '';
+				const newValue = before + spacerLeft + wrapped + spacerRight + after;
+				onChange(newValue);
+				requestAnimationFrame(() => {
+					textarea.focus();
+					const pos = (before + spacerLeft + wrapped + spacerRight).length;
+					textarea.setSelectionRange(pos, pos);
+					lastSelectionRef.current = { start: pos, end: pos };
+				});
+			} else {
+				const newValue = value + (value ? ' ' : '') + defaultWrapped;
+				onChange(newValue);
+			}
 		}
 	};
 
@@ -212,7 +356,7 @@ export function MathLiveInput({ value, onChange, placeholder, className }: MathL
 						}
 					},
 					'image/jpeg',
-					0.8
+					0.8,
 				);
 			};
 
@@ -264,8 +408,12 @@ export function MathLiveInput({ value, onChange, placeholder, className }: MathL
 				{/* Main Input Area */}
 				<div className='border rounded-lg p-3 min-h-[100px] bg-background'>
 					<textarea
+						ref={textareaRef}
 						value={value}
 						onChange={(e) => onChange(e.target.value)}
+						onSelect={syncSelectionAndActiveFormula}
+						onClick={syncSelectionAndActiveFormula}
+						onKeyUp={syncSelectionAndActiveFormula}
 						onPaste={handlePaste}
 						placeholder={placeholder || "Matn kiriting. Formula yoki rasm qo'shish uchun tugmalarni bosing"}
 						className='w-full h-20 resize-none border-none outline-none bg-transparent'
@@ -282,7 +430,7 @@ export function MathLiveInput({ value, onChange, placeholder, className }: MathL
 								className='flex items-center gap-2 bg-transparent'
 							>
 								<Calculator className='h-4 w-4' />
-								Formula qo'shish
+								{activeFormulaRange ? 'Formulani tahrirlash' : "Formula qo'shish"}
 							</Button>
 
 							{/* Image Upload Button */}
@@ -368,14 +516,12 @@ export function MathLiveInput({ value, onChange, placeholder, className }: MathL
 				{/* MathLive Editor Modal */}
 				<PanelFormulaDialog
 					open={isOpen}
-					setOpen={setIsOpen}
+					setOpen={(next) => {
+						setIsOpen(next);
+						if (!next) setActiveFormulaRange(null);
+					}}
 					onInsert={insertFormula}
-					initialValue={
-						value
-							.match(/\$\$(.*?)\$\$/g)
-							?.pop()
-							?.replace(/\$\$/g, '') || ''
-					}
+					initialValue={activeFormulaRange?.inner || ''}
 				/>
 			</div>
 		</div>
