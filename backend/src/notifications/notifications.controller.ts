@@ -26,7 +26,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 export class NotificationsController {
   constructor(private readonly notificationsService: NotificationsService) {}
   @UseInterceptors(CacheInterceptor)
-  @CacheTTL(30) // 30 soniya
+  @CacheTTL(30000) // 30 soniya (milliseconds)
   @Get('me')
   @ApiOperation({ summary: 'Get my notifications' })
   @ApiResponse({ status: 200, description: 'List of user notifications' })

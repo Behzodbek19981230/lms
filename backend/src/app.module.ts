@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { CacheModule } from '@nestjs/cache-manager';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthModule } from './auth/auth.module';
 import { TelegramModule } from './telegram/telegram.module';
@@ -29,6 +30,11 @@ import { ImportProxyModule } from './import-proxy/import-proxy.module';
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
+    }),
+    CacheModule.register({
+      isGlobal: true,
+      ttl: 60000, // default TTL: 60 soniya (milliseconds)
+      max: 100, // maksimum cache elementlar soni
     }),
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
