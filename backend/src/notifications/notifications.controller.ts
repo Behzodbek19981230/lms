@@ -7,7 +7,9 @@ import {
   Request,
   Post,
   Delete,
+  UseInterceptors,
 } from '@nestjs/common';
+import { CacheInterceptor, CacheTTL } from '@nestjs/cache-manager';
 import {
   ApiBearerAuth,
   ApiTags,
@@ -23,7 +25,8 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 @ApiBearerAuth()
 export class NotificationsController {
   constructor(private readonly notificationsService: NotificationsService) {}
-
+  @UseInterceptors(CacheInterceptor)
+  @CacheTTL(30) // 30 soniya
   @Get('me')
   @ApiOperation({ summary: 'Get my notifications' })
   @ApiResponse({ status: 200, description: 'List of user notifications' })

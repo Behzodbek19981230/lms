@@ -6,7 +6,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import AccountLoader from '@/components/AccountLoader';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
-import AnalyticsTracker from '@/components/analytics/AnalyticsTracker';
 import { hasCenterPermission } from '@/configs/permissions';
 import { useToast } from '@/hooks/use-toast';
 
@@ -113,7 +112,6 @@ export default function AccountLayout({ children }: { children: React.ReactNode 
 					<DashboardHeader />
 
 					<main className='flex-1 p-3 sm:p-4 md:p-6 bg-gradient-to-br from-muted/20 via-background to-primary/5 overflow-x-auto'>
-						<AnalyticsTracker />
 						{children}
 					</main>
 				</div>
