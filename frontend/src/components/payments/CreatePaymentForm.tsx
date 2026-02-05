@@ -3,7 +3,7 @@ import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../ui/dialog';
-import { CreatePaymentDto } from '../../types/payment';
+import { CreatePaymentDto, PaymentMethod } from '../../types/payment';
 import { groupService } from '../../services/group.service';
 import { Group } from '../../types/group';
 import { User } from '../../types/user';
@@ -24,6 +24,7 @@ const CreatePaymentForm: React.FC<CreatePaymentFormProps> = ({ open, onClose, on
 		amount: 0,
 		studentId: '',
 		groupId: selectedGroup?.id || '',
+		paymentMethod: undefined,
 	});
 	const [groups, setGroups] = useState<Group[]>([]);
 	const [students, setStudents] = useState<Student[]>([]);
@@ -93,12 +94,14 @@ const CreatePaymentForm: React.FC<CreatePaymentFormProps> = ({ open, onClose, on
 				groupId: Number(formData.groupId),
 				studentId: hasStudent ? Number(formData.studentId) : undefined,
 				forAllGroupStudents: !hasStudent,
+				paymentMethod: formData.paymentMethod || undefined,
 			};
 			await onSubmit(paymentData);
 			setFormData({
 				amount: 0,
 				studentId: '',
 				groupId: selectedGroup?.id || '',
+				paymentMethod: undefined,
 			});
 			onClose();
 		} catch (error) {
@@ -120,12 +123,14 @@ const CreatePaymentForm: React.FC<CreatePaymentFormProps> = ({ open, onClose, on
 				amount: formData.amount,
 				groupId: Number(formData.groupId),
 				forAllGroupStudents: true,
+				paymentMethod: formData.paymentMethod || undefined,
 			};
 			await onSubmit(paymentData);
 			setFormData({
 				amount: 0,
 				studentId: '',
 				groupId: selectedGroup?.id || '',
+				paymentMethod: undefined,
 			});
 			onClose();
 		} catch (error) {
@@ -202,6 +207,29 @@ const CreatePaymentForm: React.FC<CreatePaymentFormProps> = ({ open, onClose, on
 								className='h-11'
 								placeholder='100000'
 							/>
+						</div>
+
+						<div>
+							<Label htmlFor='paymentMethod' className='text-sm font-medium'>
+								To'lov usuli (ixtiyoriy)
+							</Label>
+							<select
+								id='paymentMethod'
+								value={formData.paymentMethod || ''}
+								onChange={(e) =>
+									setFormData({ ...formData, paymentMethod: e.target.value as PaymentMethod || undefined })
+								}
+								className='flex h-11 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50'
+							>
+								<option value=''>Usulni tanlang</option>
+								<option value={PaymentMethod.CASH}>Naqd pul</option>
+								<option value={PaymentMethod.BANK_TRANSFER}>Bank o'tkazmasi</option>
+								<option value={PaymentMethod.CLICK}>Click</option>
+								<option value={PaymentMethod.PAYME}>Payme</option>
+								<option value={PaymentMethod.UZUM}>Uzum</option>
+								<option value={PaymentMethod.HUMO}>Humo</option>
+								<option value={PaymentMethod.OTHER}>Boshqa</option>
+							</select>
 						</div>
 					</div>
 

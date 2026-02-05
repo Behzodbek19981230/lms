@@ -4,7 +4,7 @@ import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../ui/dropdown-menu';
 import { MoreHorizontal, Check, X, Send, Pencil } from 'lucide-react';
-import { Payment, PaymentStatus } from '../../types/payment';
+import { Payment, PaymentStatus, PaymentMethod } from '../../types/payment';
 import { format } from 'date-fns';
 import { uz } from 'date-fns/locale';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog';
@@ -31,7 +31,7 @@ const PaymentTable: React.FC<PaymentTableProps> = ({
 	showActions = true,
 	role = 'teacher',
 }) => {
-	const emptyColSpan = 5 + (role !== 'student' ? 2 : 0) + (showActions ? 1 : 0);
+	const emptyColSpan = 6 + (role !== 'student' ? 2 : 0) + (showActions ? 1 : 0);
 	const [editOpen, setEditOpen] = useState(false);
 	const [editPaymentId, setEditPaymentId] = useState<string | null>(null);
 	const [editAmount, setEditAmount] = useState<string>('');
@@ -68,6 +68,28 @@ const PaymentTable: React.FC<PaymentTableProps> = ({
 				);
 			default:
 				return <Badge variant='secondary'>{status}</Badge>;
+		}
+	};
+
+	const getPaymentMethodLabel = (method?: PaymentMethod) => {
+		if (!method) return '-';
+		switch (method) {
+			case PaymentMethod.CASH:
+				return 'Naqd pul';
+			case PaymentMethod.BANK_TRANSFER:
+				return 'Bank o\'tkazmasi';
+			case PaymentMethod.CLICK:
+				return 'Click';
+			case PaymentMethod.PAYME:
+				return 'Payme';
+			case PaymentMethod.UZUM:
+				return 'Uzum';
+			case PaymentMethod.HUMO:
+				return 'Humo';
+			case PaymentMethod.OTHER:
+				return 'Boshqa';
+			default:
+				return method;
 		}
 	};
 
@@ -195,6 +217,12 @@ const PaymentTable: React.FC<PaymentTableProps> = ({
 									<div className='text-xs text-muted-foreground'>Muddat</div>
 									<div>{format(new Date(payment.dueDate), 'dd MMM yyyy', { locale: uz })}</div>
 								</div>
+								{payment.paymentMethod ? (
+									<div className='col-span-2'>
+										<div className='text-xs text-muted-foreground'>To'lov usuli</div>
+										<div className='text-sm'>{getPaymentMethodLabel(payment.paymentMethod)}</div>
+									</div>
+								) : null}
 								{role !== 'student' ? (
 									<div className='col-span-2'>
 										<div className='text-xs text-muted-foreground'>To'langan sana</div>
@@ -225,6 +253,7 @@ const PaymentTable: React.FC<PaymentTableProps> = ({
 							{role !== 'student' && <TableHead>O'quvchi</TableHead>}
 							<TableHead>Guruh</TableHead>
 							<TableHead>Miqdor</TableHead>
+							<TableHead>To'lov usuli</TableHead>
 							<TableHead>Muddat</TableHead>
 							<TableHead>Holat</TableHead>
 							{role !== 'student' && <TableHead>To'langan sana</TableHead>}
@@ -256,6 +285,9 @@ const PaymentTable: React.FC<PaymentTableProps> = ({
 										) : null}
 									</TableCell>
 									<TableCell className='font-semibold'>{formatAmount(payment.amount)}</TableCell>
+									<TableCell className='text-sm text-muted-foreground'>
+										{getPaymentMethodLabel(payment.paymentMethod)}
+									</TableCell>
 									<TableCell>
 										{format(new Date(payment.dueDate), 'dd MMM yyyy', { locale: uz })}
 									</TableCell>

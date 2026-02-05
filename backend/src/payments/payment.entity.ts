@@ -9,6 +9,16 @@ export enum PaymentStatus {
   CANCELLED = 'cancelled'
 }
 
+export enum PaymentMethod {
+  CASH = 'cash',
+  BANK_TRANSFER = 'bank_transfer',
+  CLICK = 'click',
+  PAYME = 'payme',
+  UZUM = 'uzum',
+  HUMO = 'humo',
+  OTHER = 'other'
+}
+
 @Entity('payments')
 export class Payment {
   @PrimaryGeneratedColumn()
@@ -32,6 +42,13 @@ export class Payment {
 
   @Column({ type: 'text', nullable: true })
   description: string;
+
+  @Column({
+    type: 'enum',
+    enum: PaymentMethod,
+    nullable: true
+  })
+  paymentMethod: PaymentMethod;
 
   @Column()
   studentId: number;

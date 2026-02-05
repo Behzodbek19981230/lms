@@ -8,7 +8,7 @@ import {
   IsArray,
   IsBoolean,
 } from 'class-validator';
-import { PaymentStatus } from '../payment.entity';
+import { PaymentStatus, PaymentMethod } from '../payment.entity';
 import { MonthlyPaymentStatus } from '../monthly-payment.entity';
 
 export class CreatePaymentDto {
@@ -23,6 +23,10 @@ export class CreatePaymentDto {
   @IsOptional()
   @IsString()
   description?: string;
+
+  @IsOptional()
+  @IsEnum(PaymentMethod)
+  paymentMethod?: PaymentMethod;
 
   @IsOptional()
   @IsNumber()
@@ -50,6 +54,10 @@ export class UpdatePaymentDto {
   @IsOptional()
   @IsString()
   description?: string;
+
+  @IsOptional()
+  @IsEnum(PaymentMethod)
+  paymentMethod?: PaymentMethod;
 
   @IsOptional()
   @IsEnum(PaymentStatus)
@@ -202,6 +210,10 @@ export class CollectMonthlyPaymentDto {
   @IsOptional()
   @IsString()
   note?: string;
+
+  @IsOptional()
+  @IsEnum(PaymentMethod)
+  paymentMethod?: PaymentMethod;
 
   @IsOptional()
   @IsNumber()

@@ -5,6 +5,7 @@ export interface Payment {
 	dueDate: Date;
 	paidDate?: Date;
 	description: string;
+	paymentMethod?: PaymentMethod;
 	studentId: string;
 	student: {
 		id: string;
@@ -35,6 +36,16 @@ export enum PaymentStatus {
 	CANCELLED = 'cancelled',
 }
 
+export enum PaymentMethod {
+	CASH = 'cash',
+	BANK_TRANSFER = 'bank_transfer',
+	CLICK = 'click',
+	PAYME = 'payme',
+	UZUM = 'uzum',
+	HUMO = 'humo',
+	OTHER = 'other',
+}
+
 export interface PaymentStats {
 	totalPending: number;
 	totalPaid: number;
@@ -61,6 +72,7 @@ export interface CreatePaymentDto {
 	amount: number;
 	dueDate?: string;
 	description?: string;
+	paymentMethod?: PaymentMethod;
 	studentId?: number | string;
 	groupId: number | string;
 	forAllGroupStudents?: boolean;
@@ -70,6 +82,7 @@ export interface UpdatePaymentDto {
 	amount?: number;
 	dueDate?: string;
 	description?: string;
+	paymentMethod?: PaymentMethod;
 	status?: PaymentStatus;
 }
 
@@ -171,6 +184,7 @@ export interface CollectMonthlyPaymentDto {
 	month?: string; // YYYY-MM
 	amount: number;
 	note?: string;
+	paymentMethod?: PaymentMethod;
 	amountDueOverride?: number;
 }
 
@@ -216,6 +230,7 @@ export interface MonthlyPaymentTransaction {
 	id: number;
 	amount: number;
 	note?: string | null;
+	paymentMethod?: PaymentMethod | null;
 	paidAt: string;
 	createdAt: string;
 	createdByUserId?: number | null;

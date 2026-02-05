@@ -1426,6 +1426,7 @@ export class PaymentsService {
         centerId: student.center.id,
         amount,
         note: dto.note || null,
+        paymentMethod: dto.paymentMethod || null,
         paidAt: new Date(),
         createdByUserId: user?.id ?? null,
       }),
@@ -1552,6 +1553,7 @@ export class PaymentsService {
       id: t.id,
       amount: Number(t.amount),
       note: t.note,
+      paymentMethod: t.paymentMethod,
       paidAt: t.paidAt,
       createdAt: t.createdAt,
       createdByUserId: t.createdByUserId,
@@ -2274,6 +2276,7 @@ export class PaymentsService {
         ? new Date(createPaymentDto.dueDate)
         : null;
       const description = createPaymentDto.description || null;
+      const paymentMethod = createPaymentDto.paymentMethod || null;
       const notificationMessage = description
         ? `${description} - ${createPaymentDto.amount} so'm`
         : `Yangi to'lov: ${createPaymentDto.amount} so'm`;
@@ -2286,6 +2289,7 @@ export class PaymentsService {
           teacherId,
           dueDate,
           description,
+          paymentMethod,
         } as Payment),
       );
 
@@ -2342,6 +2346,7 @@ export class PaymentsService {
         ? new Date(createPaymentDto.dueDate)
         : null,
       description: createPaymentDto.description || null,
+      paymentMethod: createPaymentDto.paymentMethod || null,
     } as Payment);
 
     const savedPayment = await this.paymentRepository.save(payment);

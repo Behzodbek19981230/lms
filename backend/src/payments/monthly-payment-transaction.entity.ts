@@ -9,6 +9,7 @@ import {
 import { MonthlyPayment } from './monthly-payment.entity';
 import { User } from '../users/entities/user.entity';
 import { Center } from '../centers/entities/center.entity';
+import { PaymentMethod } from './payment.entity';
 
 @Entity('monthly_payment_transactions')
 export class MonthlyPaymentTransaction {
@@ -41,6 +42,13 @@ export class MonthlyPaymentTransaction {
 
   @Column({ type: 'text', nullable: true })
   note: string | null;
+
+  @Column({
+    type: 'enum',
+    enum: PaymentMethod,
+    nullable: true
+  })
+  paymentMethod: PaymentMethod | null;
 
   @Column({ type: 'timestamp', default: () => 'now()' })
   paidAt: Date;
