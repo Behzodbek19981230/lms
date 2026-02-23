@@ -554,7 +554,7 @@ export class TestGeneratorService {
 
     const ids = Array.from(
       new Set((params.ids || []).filter((x) => Number.isFinite(x))),
-    ) as number[];
+    );
     if (ids.length === 0) {
       throw new BadRequestException('ids massiv bo‘lishi kerak');
     }
@@ -1056,14 +1056,15 @@ export class TestGeneratorService {
     const centerLine = ctx.centerName
       ? `<div class="subtitle">O‘quv markazi: ${escapeHtml(ctx.centerName)}</div>`
       : '';
-    const header = `
-      <div class="header">
-        <div class="title">${escapeHtml(
-          ctx.config.title || `${ctx.subjectName} testi`,
-        )}</div>
-        ${centerLine}
-        <div class="subtitle">Variant: ${escapeHtml(variant.variantNumber)} — ID: #${escapeHtml(variant.uniqueNumber)}</div>
-      </div>`;
+    // const header = `
+    //   <div class="header">
+    //     <div class="title">${escapeHtml(
+    //       ctx.config.title || `${ctx.subjectName} testi`,
+    //     )}</div>
+    //     ${centerLine}
+    //     <div class="subtitle">Variant: ${escapeHtml(variant.variantNumber)} — ID: #${escapeHtml(variant.uniqueNumber)}</div>
+    //   </div>`;
+    const header = '';
 
     const coverHtml = ctx.config.showTitleSheet
       ? `
