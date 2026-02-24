@@ -1,10 +1,10 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import {
-  Injectable,
-  NotFoundException,
-  BadRequestException,
-  ConflictException,
-  ForbiddenException,
+    Injectable,
+    NotFoundException,
+    BadRequestException,
+    ConflictException,
+    ForbiddenException,
 } from '@nestjs/common';
 import { ModuleRef } from '@nestjs/core';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -12,16 +12,16 @@ import { In, IsNull, Repository } from 'typeorm';
 import { User, UserRole } from '../users/entities/user.entity';
 import { Center } from '../centers/entities/center.entity';
 import {
-  TelegramChat,
-  ChatStatus,
-  ChatType,
+    TelegramChat,
+    ChatStatus,
+    ChatType,
 } from '../telegram/entities/telegram-chat.entity';
 import { Test } from './entities/test.entity';
 import { Question, QuestionType } from '../questions/entities/question.entity';
 import { Subject } from '../subjects/entities/subject.entity';
 import {
-  GeneratedTest,
-  GeneratedTestVariant,
+    GeneratedTest,
+    GeneratedTestVariant,
 } from './entities/generated-test.entity';
 import { ExamVariant } from '../exams/entities/exam-variant.entity';
 import { Results } from './entities/results.entity';
@@ -33,959 +33,958 @@ import { basename, join } from 'path';
 import * as katex from 'katex';
 import { TelegramService } from 'src/telegram/telegram.service';
 import {
-  MessagePriority,
-  MessageType,
+    MessagePriority,
+    MessageType,
 } from 'src/telegram/entities/telegram-message-log.entity';
 import { TelegramQueueService } from 'src/telegram/telegram-queue.service';
 // import { User } from 'src/users/entities/user.entity';
 
 export interface GenerateManualPrintableHtmlOptions {
-  testId: number;
-  teacherId: number;
-  requesterRole?: UserRole;
-  shuffleQuestions?: boolean;
-  shuffleAnswers?: boolean;
-  ensureExists?: boolean;
-  includeAnswers?: boolean;
-  showTitleSheet?: boolean;
+    testId: number;
+    teacherId: number;
+    requesterRole?: UserRole;
+    shuffleQuestions?: boolean;
+    shuffleAnswers?: boolean;
+    ensureExists?: boolean;
+    includeAnswers?: boolean;
+    showTitleSheet?: boolean;
 }
 
 export interface GenerateTestDto {
-  title: string;
-  subjectId: number;
-  questionCount: number;
-  variantCount: number;
-  timeLimit: number;
-  difficulty: string;
-  includeAnswers: boolean;
-  showTitleSheet: boolean;
-  testId?: number; // Optional: single test
-  testIds?: number[]; // Optional: multiple tests
+    title: string;
+    subjectId: number;
+    questionCount: number;
+    variantCount: number;
+    timeLimit: number;
+    difficulty: string;
+    includeAnswers: boolean;
+    showTitleSheet: boolean;
+    testId?: number; // Optional: single test
+    testIds?: number[]; // Optional: multiple tests
 }
 
 export interface TestVariant {
-  id: string;
-  variantNumber: string;
-  uniqueNumber: string;
-  questions: Question[];
-  createdAt: Date;
+    id: string;
+    variantNumber: string;
+    uniqueNumber: string;
+    questions: Question[];
+    createdAt: Date;
 }
 
 export interface GenerateGeneratedTestPrintableOptions {
-  generatedTestId: number;
-  teacherId: number;
-  requesterRole?: UserRole;
-  ensureExists?: boolean;
+    generatedTestId: number;
+    teacherId: number;
+    requesterRole?: UserRole;
+    ensureExists?: boolean;
 }
 
 export interface RemoveGeneratedTestOptions {
-  generatedTestId: number;
-  teacherId: number;
-  requesterRole?: UserRole;
+    generatedTestId: number;
+    teacherId: number;
+    requesterRole?: UserRole;
 }
 
 @Injectable()
 export class TestGeneratorService {
-  constructor(
-    private moduleRef: ModuleRef,
-    @InjectRepository(Test)
-    private testRepository: Repository<Test>,
-    @InjectRepository(Question)
-    private questionRepository: Repository<Question>,
-    @InjectRepository(Subject)
-    private subjectRepository: Repository<Subject>,
-    @InjectRepository(GeneratedTest)
-    private generatedTestRepository: Repository<GeneratedTest>,
-    @InjectRepository(GeneratedTestVariant)
-    private generatedTestVariantRepository: Repository<GeneratedTestVariant>,
-    @InjectRepository(ExamVariant)
-    private examVariantRepository: Repository<ExamVariant>,
-    @InjectRepository(Results)
-    private resultsRepository: Repository<Results>,
-    private latexProcessor: LatexProcessorService,
-    private logService: LogsService,
-    @InjectRepository(User)
-    private userRepo: Repository<User>,
-    @InjectRepository(Center)
-    private centerRepo: Repository<Center>,
-    @InjectRepository(TelegramChat)
-    private telegramChatRepo: Repository<TelegramChat>,
-  ) {}
+    constructor(
+        private moduleRef: ModuleRef,
+        @InjectRepository(Test)
+        private testRepository: Repository<Test>,
+        @InjectRepository(Question)
+        private questionRepository: Repository<Question>,
+        @InjectRepository(Subject)
+        private subjectRepository: Repository<Subject>,
+        @InjectRepository(GeneratedTest)
+        private generatedTestRepository: Repository<GeneratedTest>,
+        @InjectRepository(GeneratedTestVariant)
+        private generatedTestVariantRepository: Repository<GeneratedTestVariant>,
+        @InjectRepository(ExamVariant)
+        private examVariantRepository: Repository<ExamVariant>,
+        @InjectRepository(Results)
+        private resultsRepository: Repository<Results>,
+        private latexProcessor: LatexProcessorService,
+        private logService: LogsService,
+        @InjectRepository(User)
+        private userRepo: Repository<User>,
+        @InjectRepository(Center)
+        private centerRepo: Repository<Center>,
+        @InjectRepository(TelegramChat)
+        private telegramChatRepo: Repository<TelegramChat>,
+    ) { }
 
-  /**
-   * List all grading results, optionally filtered by student_id or uniqueNumber
-   */
-  async listResults(options?: {
-    studentId?: number;
-    uniqueNumber?: string;
-    centerId?: number;
-    subjectId?: number;
-    q?: string;
-    from?: string;
-    to?: string;
-    page?: number;
-    limit?: number;
-  }) {
-    const enrich = async (rows: (Results & { user?: User | null })[]) => {
-      const uniqueNumbers = Array.from(
-        new Set(
-          rows
-            .map((r) =>
-              typeof r.uniqueNumber === 'string' ? r.uniqueNumber : '',
+    /**
+     * List all grading results, optionally filtered by student_id or uniqueNumber
+     */
+    async listResults(options?: {
+        studentId?: number;
+        uniqueNumber?: string;
+        centerId?: number;
+        subjectId?: number;
+        q?: string;
+        from?: string;
+        to?: string;
+        page?: number;
+        limit?: number;
+    }) {
+        const enrich = async (rows: (Results & { user?: User | null })[]) => {
+            const uniqueNumbers = Array.from(
+                new Set(
+                    rows
+                        .map((r) =>
+                            typeof r.uniqueNumber === 'string' ? r.uniqueNumber : '',
+                        )
+                        .filter(Boolean),
+                ),
+            );
+
+            const subjectByUniqueNumber = new Map<
+                string,
+                { id: number; name: string } | null
+            >();
+            if (uniqueNumbers.length > 0) {
+                const variants = await this.generatedTestVariantRepository.find({
+                    where: { uniqueNumber: In(uniqueNumbers) },
+                    relations: ['generatedTest', 'generatedTest.subject'],
+                });
+
+                for (const v of variants) {
+                    const subject = v?.generatedTest?.subject;
+                    subjectByUniqueNumber.set(
+                        v.uniqueNumber,
+                        subject ? { id: subject.id, name: subject.name } : null,
+                    );
+                }
+            }
+
+            return { subjectByUniqueNumber };
+        };
+
+        const mapRow = (
+            r: Results & {
+                center?: { name?: string };
+                user?: { firstName?: string; lastName?: string };
+            },
+            maps?: {
+                subjectByUniqueNumber: Map<string, { id: number; name: string } | null>;
+            },
+        ) => {
+            const subject = maps?.subjectByUniqueNumber.get(r.uniqueNumber) ?? null;
+
+            return {
+                id: r.id,
+                student_id: r.student_id,
+                student_name: r.user
+                    ? `${r.user.firstName ?? ''} ${r.user.lastName ?? ''}`.trim()
+                    : undefined,
+                center_id: r.center_id,
+                center_name: r.center?.name ?? undefined,
+                uniqueNumber: r.uniqueNumber,
+                total: r.total,
+                correctCount: r.correctCount,
+                wrongCount: r.wrongCount,
+                blankCount: r.blankCount,
+                perQuestion: r.perQuestion,
+                createdAt: r.createdAt,
+                subject,
+            };
+        };
+
+        const qb = this.resultsRepository
+            .createQueryBuilder('r')
+            .leftJoinAndSelect('r.user', 'u')
+            .leftJoinAndSelect('r.center', 'c');
+
+        if (options?.subjectId !== undefined) {
+            qb.leftJoin(
+                GeneratedTestVariant,
+                'gtv',
+                'gtv.uniqueNumber = r.uniqueNumber',
             )
-            .filter(Boolean),
-        ),
-      );
-
-      const subjectByUniqueNumber = new Map<
-        string,
-        { id: number; name: string } | null
-      >();
-      if (uniqueNumbers.length > 0) {
-        const variants = await this.generatedTestVariantRepository.find({
-          where: { uniqueNumber: In(uniqueNumbers) },
-          relations: ['generatedTest', 'generatedTest.subject'],
-        });
-
-        for (const v of variants) {
-          const subject = v?.generatedTest?.subject;
-          subjectByUniqueNumber.set(
-            v.uniqueNumber,
-            subject ? { id: subject.id, name: subject.name } : null,
-          );
+                .leftJoin('gtv.generatedTest', 'gt')
+                .leftJoin('gt.subject', 's')
+                .andWhere('s.id = :subjectId', { subjectId: options.subjectId });
         }
-      }
 
-      return { subjectByUniqueNumber };
-    };
-
-    const mapRow = (
-      r: Results & {
-        center?: { name?: string };
-        user?: { firstName?: string; lastName?: string };
-      },
-      maps?: {
-        subjectByUniqueNumber: Map<string, { id: number; name: string } | null>;
-      },
-    ) => {
-      const subject = maps?.subjectByUniqueNumber.get(r.uniqueNumber) ?? null;
-
-      return {
-        id: r.id,
-        student_id: r.student_id,
-        student_name: r.user
-          ? `${r.user.firstName ?? ''} ${r.user.lastName ?? ''}`.trim()
-          : undefined,
-        center_id: r.center_id,
-        center_name: r.center?.name ?? undefined,
-        uniqueNumber: r.uniqueNumber,
-        total: r.total,
-        correctCount: r.correctCount,
-        wrongCount: r.wrongCount,
-        blankCount: r.blankCount,
-        perQuestion: r.perQuestion,
-        createdAt: r.createdAt,
-        subject,
-      };
-    };
-
-    const qb = this.resultsRepository
-      .createQueryBuilder('r')
-      .leftJoinAndSelect('r.user', 'u')
-      .leftJoinAndSelect('r.center', 'c');
-
-    if (options?.subjectId !== undefined) {
-      qb.leftJoin(
-        GeneratedTestVariant,
-        'gtv',
-        'gtv.uniqueNumber = r.uniqueNumber',
-      )
-        .leftJoin('gtv.generatedTest', 'gt')
-        .leftJoin('gt.subject', 's')
-        .andWhere('s.id = :subjectId', { subjectId: options.subjectId });
-    }
-
-    if (options?.studentId !== undefined) {
-      qb.andWhere('r.student_id = :studentId', {
-        studentId: options.studentId,
-      });
-    }
-    if (options?.uniqueNumber) {
-      qb.andWhere('r.uniqueNumber ILIKE :uniqueNumber', {
-        uniqueNumber: `%${options.uniqueNumber}%`,
-      });
-    }
-    if (options?.centerId !== undefined) {
-      qb.andWhere('r.center_id = :centerId', { centerId: options.centerId });
-    }
-    if (options?.q) {
-      qb.andWhere('(u.firstName ILIKE :q OR u.lastName ILIKE :q)', {
-        q: `%${options.q}%`,
-      });
-    }
-    if (options?.from) {
-      qb.andWhere('r.createdAt >= :from', { from: options.from });
-    }
-    if (options?.to) {
-      qb.andWhere('r.createdAt <= :to', { to: options.to });
-    }
-
-    qb.orderBy('r.createdAt', 'DESC').addOrderBy('r.id', 'DESC');
-
-    const page = options?.page;
-    const limit = options?.limit;
-
-    // Backward compatible: if pagination isn't requested, return an array like before.
-    if (!page || !limit) {
-      const rows = await qb.getMany();
-      const maps = await enrich(rows as any);
-      return rows.map((r) => mapRow(r as any, maps));
-    }
-
-    const safeLimit = Math.min(Math.max(limit, 1), 200);
-    const safePage = Math.max(page, 1);
-    const [rows, total] = await qb
-      .take(safeLimit)
-      .skip((safePage - 1) * safeLimit)
-      .getManyAndCount();
-
-    const maps = await enrich(rows as any);
-
-    return {
-      data: rows.map((r) => mapRow(r as any, maps)),
-      meta: {
-        page: safePage,
-        limit: safeLimit,
-        total,
-        totalPages: Math.max(1, Math.ceil(total / safeLimit)),
-      },
-    };
-  }
-
-  async updateResultCounts(params: {
-    centerId: number;
-    id: number;
-    correctCount?: number;
-    wrongCount?: number;
-  }) {
-    const result = await this.resultsRepository.findOne({
-      where: { id: params.id, center_id: params.centerId },
-      relations: ['user', 'center'],
-    });
-
-    if (!result) {
-      throw new NotFoundException('Natija topilmadi');
-    }
-
-    const total = Number(result.total) || 0;
-    const blank = Number(result.blankCount) || 0;
-    const maxNonBlank = Math.max(0, total - blank);
-
-    const toSafeInt = (v: unknown) => {
-      if (typeof v !== 'number' || !Number.isFinite(v)) return undefined;
-      return Math.max(0, Math.trunc(v));
-    };
-
-    const hasCorrect = typeof params.correctCount === 'number';
-    const hasWrong = typeof params.wrongCount === 'number';
-    if (!hasCorrect && !hasWrong) {
-      throw new BadRequestException(
-        'correctCount yoki wrongCount yuborish kerak',
-      );
-    }
-
-    let nextCorrect = toSafeInt(params.correctCount);
-    let nextWrong = toSafeInt(params.wrongCount);
-
-    if (hasCorrect && hasWrong) {
-      if (nextCorrect === undefined || nextWrong === undefined) {
-        throw new BadRequestException('Noto‘g‘ri qiymat');
-      }
-      if (nextCorrect > maxNonBlank || nextWrong > maxNonBlank) {
-        throw new BadRequestException(
-          'Qiymat savollar sonidan katta bo‘lishi mumkin emas',
-        );
-      }
-      if (nextCorrect + nextWrong !== maxNonBlank) {
-        throw new BadRequestException(
-          `To‘g‘ri + noto‘g‘ri = ${maxNonBlank} bo‘lishi kerak (bo‘sh=${blank})`,
-        );
-      }
-    } else if (hasCorrect) {
-      if (nextCorrect === undefined)
-        throw new BadRequestException('Noto‘g‘ri qiymat');
-      if (nextCorrect > maxNonBlank) nextCorrect = maxNonBlank;
-      nextWrong = maxNonBlank - nextCorrect;
-    } else {
-      if (nextWrong === undefined)
-        throw new BadRequestException('Noto‘g‘ri qiymat');
-      if (nextWrong > maxNonBlank) nextWrong = maxNonBlank;
-      nextCorrect = maxNonBlank - nextWrong;
-    }
-
-    result.correctCount = nextCorrect ?? 0;
-    result.wrongCount = nextWrong ?? 0;
-    await this.resultsRepository.save(result);
-
-    return {
-      id: result.id,
-      student_id: result.student_id,
-      student_name: result.user
-        ? `${result.user.firstName ?? ''} ${result.user.lastName ?? ''}`.trim()
-        : undefined,
-      center_id: result.center_id,
-      center_name: result.center?.name ?? undefined,
-      uniqueNumber: result.uniqueNumber,
-      total: result.total,
-      correctCount: result.correctCount,
-      wrongCount: result.wrongCount,
-      blankCount: result.blankCount,
-      perQuestion: result.perQuestion,
-      createdAt: result.createdAt,
-    };
-  }
-
-  async updateResultManual(params: {
-    centerId: number;
-    id: number;
-    studentId: number;
-    total: number;
-    correctCount: number;
-  }) {
-    const result = await this.resultsRepository.findOne({
-      where: { id: params.id, center_id: params.centerId },
-      relations: ['user', 'center'],
-    });
-
-    if (!result) {
-      throw new NotFoundException('Natija topilmadi');
-    }
-
-    const student = await this.userRepo.findOne({
-      where: { id: params.studentId },
-      relations: ['center'],
-    });
-    if (!student) {
-      throw new NotFoundException("O'quvchi topilmadi");
-    }
-    if (student.role !== UserRole.STUDENT) {
-      throw new BadRequestException("Tanlangan foydalanuvchi o'quvchi emas");
-    }
-    if (student.center?.id !== params.centerId) {
-      throw new BadRequestException("O'quvchi boshqa markazga tegishli");
-    }
-
-    const total = Math.max(0, Math.trunc(Number(params.total) || 0));
-    const correctCount = Math.max(
-      0,
-      Math.trunc(Number(params.correctCount) || 0),
-    );
-    if (correctCount > total) {
-      throw new BadRequestException(
-        "To'g'ri javoblar soni jami savoldan katta bo'lmasligi kerak",
-      );
-    }
-
-    result.student_id = student.id;
-    result.total = total;
-    result.correctCount = correctCount;
-    result.blankCount = 0;
-    result.wrongCount = Math.max(0, total - correctCount);
-
-    await this.resultsRepository.save(result);
-
-    // Reuse listResults mapper shape by returning a minimal payload compatible with frontend.
-    return {
-      id: result.id,
-      student_id: result.student_id,
-      student_name:
-        `${student.firstName ?? ''} ${student.lastName ?? ''}`.trim(),
-      center_id: result.center_id,
-      center_name: result.center?.name ?? undefined,
-      uniqueNumber: result.uniqueNumber,
-      total: result.total,
-      correctCount: result.correctCount,
-      wrongCount: result.wrongCount,
-      blankCount: result.blankCount,
-      perQuestion: result.perQuestion,
-      createdAt: result.createdAt,
-    };
-  }
-
-  async createOrUpdateResultManualByVariant(params: {
-    centerId: number;
-    teacherId: number;
-    uniqueNumber: string;
-    studentId: number;
-    total: number;
-    correctCount: number;
-  }) {
-    const uniqueNumber = (params.uniqueNumber || '').trim();
-    if (!uniqueNumber) {
-      throw new BadRequestException('Variant kodi (uniqueNumber) kerak');
-    }
-
-    const variant = await this.generatedTestVariantRepository.findOne({
-      where: { uniqueNumber },
-      relations: ['generatedTest', 'generatedTest.teacher'],
-    });
-    if (!variant) {
-      throw new NotFoundException('Variant topilmadi');
-    }
-    if (variant.generatedTest?.teacher?.id !== params.teacherId) {
-      throw new ForbiddenException('Bu variant sizga tegishli emas');
-    }
-
-    const student = await this.userRepo.findOne({
-      where: { id: params.studentId },
-      relations: ['center'],
-    });
-    if (!student) {
-      throw new NotFoundException("O'quvchi topilmadi");
-    }
-    if (student.role !== UserRole.STUDENT) {
-      throw new BadRequestException("Tanlangan foydalanuvchi o'quvchi emas");
-    }
-    if (student.center?.id !== params.centerId) {
-      throw new BadRequestException("O'quvchi boshqa markazga tegishli");
-    }
-
-    const total = Math.max(0, Math.trunc(Number(params.total) || 0));
-    const correctCount = Math.max(
-      0,
-      Math.trunc(Number(params.correctCount) || 0),
-    );
-    if (correctCount > total) {
-      throw new BadRequestException(
-        "To'g'ri javoblar soni jami savoldan katta bo'lmasligi kerak",
-      );
-    }
-
-    const existing = await this.resultsRepository.findOne({
-      where: {
-        uniqueNumber,
-        student_id: student.id,
-        center_id: params.centerId,
-      },
-      relations: ['center'],
-      order: { createdAt: 'DESC', id: 'DESC' },
-    });
-
-    const result = existing
-      ? existing
-      : this.resultsRepository.create({
-          student_id: student.id,
-          center_id: params.centerId,
-          uniqueNumber,
-          total,
-          correctCount,
-          wrongCount: Math.max(0, total - correctCount),
-          blankCount: 0,
-          perQuestion: [],
-        });
-
-    result.student_id = student.id;
-    result.center_id = params.centerId;
-    result.uniqueNumber = uniqueNumber;
-    result.total = total;
-    result.correctCount = correctCount;
-    result.blankCount = 0;
-    result.wrongCount = Math.max(0, total - correctCount);
-    result.perQuestion = [];
-
-    await this.resultsRepository.save(result);
-
-    return {
-      id: result.id,
-      student_id: result.student_id,
-      student_name:
-        `${student.firstName ?? ''} ${student.lastName ?? ''}`.trim(),
-      center_id: result.center_id,
-      center_name: result.center?.name ?? undefined,
-      uniqueNumber: result.uniqueNumber,
-      total: result.total,
-      correctCount: result.correctCount,
-      wrongCount: result.wrongCount,
-      blankCount: result.blankCount,
-      perQuestion: result.perQuestion,
-      createdAt: result.createdAt,
-    };
-  }
-
-  private escapeHtml(input: string): string {
-    return (input ?? '')
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;');
-  }
-
-  private chunkTelegramMessage(params: {
-    header: string;
-    lines: string[];
-    maxLen?: number;
-  }): string[] {
-    const maxLen = params.maxLen ?? 3500;
-    const chunks: string[] = [];
-    let current = params.header;
-
-    for (const line of params.lines) {
-      const next = current.length + line.length + 1;
-      if (next > maxLen && current.trim().length > 0) {
-        chunks.push(current.trim());
-        current = params.header;
-      }
-      current += `${line}\n`;
-    }
-    if (current.trim().length > 0) chunks.push(current.trim());
-    return chunks;
-  }
-
-  async queueResultsToTelegram(params: {
-    centerId: number;
-    ids: number[];
-  }): Promise<{
-    sent: number;
-    queuedMessages: number;
-    targets: Array<{ chatId: string; subjectId?: number }>;
-  }> {
-    if (!params?.centerId) {
-      throw new BadRequestException('centerId required');
-    }
-
-    const ids = Array.from(
-      new Set((params.ids || []).filter((x) => Number.isFinite(x))),
-    );
-    if (ids.length === 0) {
-      throw new BadRequestException('ids massiv bo‘lishi kerak');
-    }
-    if (ids.length > 200) {
-      throw new BadRequestException(
-        'Bir martada maksimum 200 ta natija yuborish mumkin',
-      );
-    }
-
-    const telegramQueueService = this.moduleRef.get(TelegramQueueService, {
-      strict: false,
-    });
-
-    const rows = await this.resultsRepository.find({
-      where: { id: In(ids), center_id: params.centerId },
-      relations: ['user', 'center'],
-      order: { createdAt: 'DESC', id: 'DESC' },
-    });
-
-    if (rows.length === 0) {
-      return { sent: 0, queuedMessages: 0, targets: [] };
-    }
-
-    const uniqueNumbers = Array.from(
-      new Set(rows.map((r) => r.uniqueNumber).filter(Boolean)),
-    );
-
-    const variants = uniqueNumbers.length
-      ? await this.generatedTestVariantRepository.find({
-          where: { uniqueNumber: In(uniqueNumbers) },
-          relations: ['generatedTest', 'generatedTest.subject'],
-        })
-      : [];
-
-    const subjectByUnique = new Map<
-      string,
-      { id: number; name?: string } | undefined
-    >();
-    for (const v of variants) {
-      const subject = v.generatedTest?.subject;
-      subjectByUnique.set(
-        v.uniqueNumber,
-        subject?.id ? { id: subject.id, name: subject.name } : undefined,
-      );
-    }
-
-    const groups = new Map<
-      string,
-      { subject?: { id: number; name?: string }; rows: Results[] }
-    >();
-
-    for (const r of rows) {
-      const subject = subjectByUnique.get(r.uniqueNumber);
-      const key = subject?.id ? `subject:${subject.id}` : 'center';
-      const entry = groups.get(key);
-      if (entry) {
-        entry.rows.push(r);
-      } else {
-        groups.set(key, { subject, rows: [r] });
-      }
-    }
-
-    const targets: Array<{ chatId: string; subjectId?: number }> = [];
-    let queuedMessages = 0;
-
-    for (const group of groups.values()) {
-      let targetChat: TelegramChat | null = null;
-
-      if (group.subject?.id) {
-        targetChat = await this.telegramChatRepo.findOne({
-          where: {
-            center: { id: params.centerId },
-            subject: { id: group.subject.id },
-            group: IsNull(),
-            type: In([ChatType.CHANNEL, ChatType.GROUP]),
-            status: ChatStatus.ACTIVE,
-          },
-          relations: ['center', 'subject'],
-          order: { createdAt: 'ASC' },
-        });
-      }
-
-      if (!targetChat) {
-        targetChat = await this.telegramChatRepo.findOne({
-          where: {
-            center: { id: params.centerId },
-            subject: IsNull(),
-            group: IsNull(),
-            type: In([ChatType.CHANNEL, ChatType.GROUP]),
-            status: ChatStatus.ACTIVE,
-          },
-          relations: ['center'],
-          order: { createdAt: 'ASC' },
-        });
-      }
-
-      if (!targetChat?.chatId) {
-        const suffix = group.subject?.name
-          ? ` (Fan: ${group.subject.name})`
-          : '';
-        throw new BadRequestException(
-          `Telegram kanal/guruh biriktirilmagan${suffix}. Telegram bo‘limidan biriktiring.`,
-        );
-      }
-
-      targets.push({
-        chatId: targetChat.chatId,
-        subjectId: group.subject?.id,
-      });
-
-      const centerName =
-        group.rows[0]?.center?.name ?? `centerId=${params.centerId}`;
-      const subjectLine = group.subject?.name
-        ? `Fan: <b>${this.escapeHtml(group.subject.name)}</b>\n`
-        : '';
-
-      const header =
-        `📊 <b>Test natijalari</b>\n` +
-        `Markaz: <b>${this.escapeHtml(centerName)}</b>\n` +
-        subjectLine +
-        `Soni: <b>${group.rows.length}</b>\n\n`;
-
-      const lines = group.rows.map((r, idx) => {
-        const fullName = r.user
-          ? `${r.user.firstName ?? ''} ${r.user.lastName ?? ''}`.trim()
-          : '-';
-        const nameSafe = this.escapeHtml(fullName || '-');
-        const total = Number(r.total) || 0;
-        const correct = Number(r.correctCount) || 0;
-        const pct = total > 0 ? (correct / total) * 100 : 0;
-        return `${idx + 1}) <b>${nameSafe}</b> — <b>${pct.toFixed(
-          1,
-        )}%</b> (${r.correctCount}/${r.total} ✅ | ❌${r.wrongCount} | ⬜${
-          r.blankCount
-        }) | V:<code>${this.escapeHtml(r.uniqueNumber)}</code>`;
-      });
-
-      const chunks = this.chunkTelegramMessage({ header, lines });
-      const logs = await telegramQueueService.queueMessages(
-        chunks.map((message) => ({
-          chatId: targetChat.chatId,
-          message,
-          type: MessageType.RESULTS,
-          priority: MessagePriority.HIGH,
-          parseMode: 'HTML' as const,
-          centerId: params.centerId,
-          metadata: {
-            kind: 'manual_results_send',
-            subjectId: group.subject?.id,
-            resultIds: group.rows.map((x) => x.id),
-          },
-        })),
-      );
-
-      queuedMessages += logs.length;
-    }
-
-    return {
-      sent: rows.length,
-      queuedMessages,
-      targets,
-    };
-  }
-
-  /**
-   * Generate printable HTML files for provided variants and return public URLs
-   */
-  async generatePrintableHtmlFiles(input: {
-    variants: TestVariant[];
-    config: GenerateTestDto;
-    subjectName: string;
-    teacherId: number;
-  }): Promise<{
-    files: Array<{
-      variantNumber: string;
-      url: string;
-      fileName: string;
-    }>;
-    title: string;
-    combinedUrl?: string;
-  }> {
-    const title = input.config.title || `${input.subjectName} testi`;
-    const timestamp = Date.now();
-    const uploadsDir = this.getUploadsDir();
-    await fs.mkdir(uploadsDir, { recursive: true });
-
-    const centerName = await this.getCenterNameByTeacherId(input.teacherId);
-
-    const slug = (s: string) =>
-      (s || '')
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/(^-|-$)/g, '')
-        .substring(0, 80);
-
-    const files: Array<{
-      variantNumber: string;
-      url: string;
-      fileName: string;
-    }> = [];
-
-    const variantInners: string[] = [];
-
-    for (const variant of input.variants) {
-      const inner = this.buildVariantHtml(variant, {
-        config: input.config,
-        subjectName: input.subjectName,
-        centerName,
-      });
-      variantInners.push(inner);
-      const pageTitle = `${title} — Variant ${variant.variantNumber} (#${variant.uniqueNumber})`;
-      const html = this.wrapHtmlForBrowser(inner, pageTitle);
-
-      const fileName = `${slug(title)}-variant-${slug(variant.variantNumber)}-${timestamp}.html`;
-      const absolutePath = join(uploadsDir, fileName);
-      await fs.writeFile(absolutePath, html, 'utf8');
-      const url = `/uploads/${fileName}`;
-
-      files.push({
-        variantNumber: variant.variantNumber,
-        url,
-        fileName,
-      });
-
-      // Persist printable info and answer key by uniqueNumber
-      try {
-        const variantEntity = await this.generatedTestVariantRepository.findOne(
-          {
-            where: { uniqueNumber: variant.uniqueNumber },
-            relations: ['generatedTest'],
-          },
-        );
-        if (variantEntity) {
-          const answerKey = this.buildAnswerKey(variant.questions);
-          variantEntity.printableUrl = url;
-          variantEntity.printableFileName = fileName;
-          variantEntity.answerKey = answerKey;
-          await this.generatedTestVariantRepository.save(variantEntity);
-        } else {
-          void this.logService.log(
-            `Variant not found for uniqueNumber=${variant.uniqueNumber} to persist printable info`,
-            'TestGenerator',
-          );
+        if (options?.studentId !== undefined) {
+            qb.andWhere('r.student_id = :studentId', {
+                studentId: options.studentId,
+            });
         }
-      } catch (e) {
-        void this.logService.log(
-          `Failed to persist printable info for variant ${variant.uniqueNumber}: ${String(e)}`,
-          'TestGenerator',
-        );
-      }
-    }
+        if (options?.uniqueNumber) {
+            qb.andWhere('r.uniqueNumber ILIKE :uniqueNumber', {
+                uniqueNumber: `%${options.uniqueNumber}%`,
+            });
+        }
+        if (options?.centerId !== undefined) {
+            qb.andWhere('r.center_id = :centerId', { centerId: options.centerId });
+        }
+        if (options?.q) {
+            qb.andWhere('(u.firstName ILIKE :q OR u.lastName ILIKE :q)', {
+                q: `%${options.q}%`,
+            });
+        }
+        if (options?.from) {
+            qb.andWhere('r.createdAt >= :from', { from: options.from });
+        }
+        if (options?.to) {
+            qb.andWhere('r.createdAt <= :to', { to: options.to });
+        }
 
-    // Build a combined HTML containing all variants and all answer sheets
-    let combinedUrl: string | undefined;
-    try {
-      const combinedHtml = this.buildCombinedHtml({
-        title,
-        subjectName: input.subjectName,
-        variantInners,
-      });
-      const combinedFileName = `${slug(title)}-combined-${timestamp}.html`;
-      const combinedAbsolutePath = join(uploadsDir, combinedFileName);
-      await fs.writeFile(combinedAbsolutePath, combinedHtml, 'utf8');
-      combinedUrl = `/uploads/${combinedFileName}`;
-    } catch (e) {
-      void this.logService.log(
-        `Failed to build combined HTML: ${String(e)}`,
-        'TestGenerator',
-      );
-    }
+        qb.orderBy('r.createdAt', 'DESC').addOrderBy('r.id', 'DESC');
 
-    return { files, title, combinedUrl };
-  }
+        const page = options?.page;
+        const limit = options?.limit;
 
-  /**
-   * Manual test uchun bitta "aralashgan" variant HTML + javoblar HTML yaratish.
-   * Variant HTML generatsiyasi generatePrintableHtmlFiles orqali qilinadi.
-   */
-  async generatePrintableHtmlForManualTest(
-    opts: GenerateManualPrintableHtmlOptions,
-  ): Promise<{
-    url: string;
-    fileName: string;
-    answerUrl: string;
-    answerFileName: string;
-    title: string;
-  }> {
-    const test = await this.testRepository.findOne({
-      where: { id: opts.testId },
-      relations: ['subject', 'teacher', 'questions', 'questions.answers'],
-    });
+        // Backward compatible: if pagination isn't requested, return an array like before.
+        if (!page || !limit) {
+            const rows = await qb.getMany();
+            const maps = await enrich(rows as any);
+            return rows.map((r) => mapRow(r as any, maps));
+        }
 
-    if (!test) throw new NotFoundException('Test topilmadi');
-    if (
-      opts.requesterRole !== UserRole.SUPERADMIN &&
-      (!test.teacher || Number(test.teacher.id) !== Number(opts.teacherId))
-    ) {
-      throw new BadRequestException('Bu test sizga tegishli emas');
-    }
+        const safeLimit = Math.min(Math.max(limit, 1), 200);
+        const safePage = Math.max(page, 1);
+        const [rows, total] = await qb
+            .take(safeLimit)
+            .skip((safePage - 1) * safeLimit)
+            .getManyAndCount();
 
-    const effectiveTeacherId =
-      opts.requesterRole === UserRole.SUPERADMIN
-        ? Number(test.teacher?.id)
-        : Number(opts.teacherId);
+        const maps = await enrich(rows as any);
 
-    const title = test.title;
-    const subjectName = test.subject?.name ?? 'Test';
-    const centerName = await this.getCenterNameByTeacherId(effectiveTeacherId);
-
-    const uploadsDir = this.getUploadsDir();
-    const weeklyDir = join(uploadsDir, 'weekly-tests');
-    await fs.mkdir(weeklyDir, { recursive: true });
-
-    const stableFileName = `weekly-test-${test.id}.html`;
-    const stableAnswerFileName = `weekly-test-${test.id}-answers.html`;
-    const stableAbsolutePath = join(weeklyDir, stableFileName);
-    const stableAnswerAbsolutePath = join(weeklyDir, stableAnswerFileName);
-
-    const url = `/uploads/weekly-tests/${stableFileName}`;
-    const answerUrl = `/uploads/weekly-tests/${stableAnswerFileName}`;
-
-    // IMPORTANT: default to regenerating so HTML/CSS fixes reflect immediately.
-    // Callers that want caching should pass ensureExists=true explicitly.
-    const ensureExists = opts.ensureExists ?? false;
-    if (
-      ensureExists &&
-      existsSync(stableAbsolutePath) &&
-      existsSync(stableAnswerAbsolutePath)
-    ) {
-      return {
-        url,
-        fileName: stableFileName,
-        answerUrl,
-        answerFileName: stableAnswerFileName,
-        title,
-      };
-    }
-
-    // Prepare questions (+ optional shuffles)
-    const sourceQuestions = Array.isArray(test.questions)
-      ? [...test.questions]
-      : [];
-    const orderedQuestions = opts.shuffleQuestions
-      ? [...sourceQuestions].sort(() => 0.5 - Math.random())
-      : [...sourceQuestions].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
-
-    const preparedQuestions: Question[] = orderedQuestions.map((q) => {
-      if (
-        opts.shuffleAnswers &&
-        q.type === QuestionType.MULTIPLE_CHOICE &&
-        Array.isArray(q.answers) &&
-        q.answers.length > 1
-      ) {
         return {
-          ...q,
-          answers: [...q.answers].sort(() => 0.5 - Math.random()),
-        } as Question;
-      }
-      return q;
-    });
-
-    const uniqueNumber = await this.generateUniqueNumber();
-    const variant: TestVariant = {
-      id: `manual-${test.id}-${Date.now()}`,
-      variantNumber: '1',
-      uniqueNumber,
-      questions: preparedQuestions,
-      createdAt: new Date(),
-    };
-
-    // Use existing generator to produce variant HTML (timestamped in root uploads dir)
-    const gen = await this.generatePrintableHtmlFiles({
-      variants: [variant],
-      config: {
-        title,
-        subjectId: test.subject?.id ?? 0,
-        questionCount: preparedQuestions.length,
-        variantCount: 1,
-        timeLimit: test.duration ?? 60,
-        difficulty: 'manual',
-        includeAnswers: !!opts.includeAnswers,
-        showTitleSheet: !!opts.showTitleSheet,
-        testId: test.id,
-      },
-      subjectName,
-      teacherId: effectiveTeacherId,
-    });
-
-    const first = gen.files?.[0];
-    if (!first?.fileName) {
-      throw new BadRequestException('Printable HTML yaratib bo‘lmadi');
+            data: rows.map((r) => mapRow(r as any, maps)),
+            meta: {
+                page: safePage,
+                limit: safeLimit,
+                total,
+                totalPages: Math.max(1, Math.ceil(total / safeLimit)),
+            },
+        };
     }
 
-    // Copy generated variant HTML into stable weekly path
-    const generatedAbsolutePath = join(uploadsDir, first.fileName);
-    const variantHtml = await fs.readFile(generatedAbsolutePath, 'utf8');
-    await fs.writeFile(stableAbsolutePath, variantHtml, 'utf8');
+    async updateResultCounts(params: {
+        centerId: number;
+        id: number;
+        correctCount?: number;
+        wrongCount?: number;
+    }) {
+        const result = await this.resultsRepository.findOne({
+            where: { id: params.id, center_id: params.centerId },
+            relations: ['user', 'center'],
+        });
 
-    // Write answers HTML into stable weekly path
-    const answerKey = this.buildAnswerKey(preparedQuestions);
-    const answersHtml = this.buildAnswerKeyHtml({
-      title,
-      subjectName,
-      centerName,
-      answerKey,
-    });
-    await fs.writeFile(stableAnswerAbsolutePath, answersHtml, 'utf8');
+        if (!result) {
+            throw new NotFoundException('Natija topilmadi');
+        }
 
-    return {
-      url,
-      fileName: stableFileName,
-      answerUrl,
-      answerFileName: stableAnswerFileName,
-      title,
-    };
-  }
+        const total = Number(result.total) || 0;
+        const blank = Number(result.blankCount) || 0;
+        const maxNonBlank = Math.max(0, total - blank);
 
-  private buildAnswerKeyHtml(input: {
-    title: string;
-    subjectName: string;
-    centerName?: string;
-    answerKey: { total: number; answers: string[] };
-  }): string {
-    const rows = (input.answerKey.answers || [])
-      .map((a, i) => {
-        const n = i + 1;
-        return `<tr><td class="n">${n}</td><td class="a">${escapeHtml(a)}</td></tr>`;
-      })
-      .join('');
+        const toSafeInt = (v: unknown) => {
+            if (typeof v !== 'number' || !Number.isFinite(v)) return undefined;
+            return Math.max(0, Math.trunc(v));
+        };
 
-    return `<!doctype html>
+        const hasCorrect = typeof params.correctCount === 'number';
+        const hasWrong = typeof params.wrongCount === 'number';
+        if (!hasCorrect && !hasWrong) {
+            throw new BadRequestException(
+                'correctCount yoki wrongCount yuborish kerak',
+            );
+        }
+
+        let nextCorrect = toSafeInt(params.correctCount);
+        let nextWrong = toSafeInt(params.wrongCount);
+
+        if (hasCorrect && hasWrong) {
+            if (nextCorrect === undefined || nextWrong === undefined) {
+                throw new BadRequestException('Noto‘g‘ri qiymat');
+            }
+            if (nextCorrect > maxNonBlank || nextWrong > maxNonBlank) {
+                throw new BadRequestException(
+                    'Qiymat savollar sonidan katta bo‘lishi mumkin emas',
+                );
+            }
+            if (nextCorrect + nextWrong !== maxNonBlank) {
+                throw new BadRequestException(
+                    `To‘g‘ri + noto‘g‘ri = ${maxNonBlank} bo‘lishi kerak (bo‘sh=${blank})`,
+                );
+            }
+        } else if (hasCorrect) {
+            if (nextCorrect === undefined)
+                throw new BadRequestException('Noto‘g‘ri qiymat');
+            if (nextCorrect > maxNonBlank) nextCorrect = maxNonBlank;
+            nextWrong = maxNonBlank - nextCorrect;
+        } else {
+            if (nextWrong === undefined)
+                throw new BadRequestException('Noto‘g‘ri qiymat');
+            if (nextWrong > maxNonBlank) nextWrong = maxNonBlank;
+            nextCorrect = maxNonBlank - nextWrong;
+        }
+
+        result.correctCount = nextCorrect ?? 0;
+        result.wrongCount = nextWrong ?? 0;
+        await this.resultsRepository.save(result);
+
+        return {
+            id: result.id,
+            student_id: result.student_id,
+            student_name: result.user
+                ? `${result.user.firstName ?? ''} ${result.user.lastName ?? ''}`.trim()
+                : undefined,
+            center_id: result.center_id,
+            center_name: result.center?.name ?? undefined,
+            uniqueNumber: result.uniqueNumber,
+            total: result.total,
+            correctCount: result.correctCount,
+            wrongCount: result.wrongCount,
+            blankCount: result.blankCount,
+            perQuestion: result.perQuestion,
+            createdAt: result.createdAt,
+        };
+    }
+
+    async updateResultManual(params: {
+        centerId: number;
+        id: number;
+        studentId: number;
+        total: number;
+        correctCount: number;
+    }) {
+        const result = await this.resultsRepository.findOne({
+            where: { id: params.id, center_id: params.centerId },
+            relations: ['user', 'center'],
+        });
+
+        if (!result) {
+            throw new NotFoundException('Natija topilmadi');
+        }
+
+        const student = await this.userRepo.findOne({
+            where: { id: params.studentId },
+            relations: ['center'],
+        });
+        if (!student) {
+            throw new NotFoundException("O'quvchi topilmadi");
+        }
+        if (student.role !== UserRole.STUDENT) {
+            throw new BadRequestException("Tanlangan foydalanuvchi o'quvchi emas");
+        }
+        if (student.center?.id !== params.centerId) {
+            throw new BadRequestException("O'quvchi boshqa markazga tegishli");
+        }
+
+        const total = Math.max(0, Math.trunc(Number(params.total) || 0));
+        const correctCount = Math.max(
+            0,
+            Math.trunc(Number(params.correctCount) || 0),
+        );
+        if (correctCount > total) {
+            throw new BadRequestException(
+                "To'g'ri javoblar soni jami savoldan katta bo'lmasligi kerak",
+            );
+        }
+
+        result.student_id = student.id;
+        result.total = total;
+        result.correctCount = correctCount;
+        result.blankCount = 0;
+        result.wrongCount = Math.max(0, total - correctCount);
+
+        await this.resultsRepository.save(result);
+
+        // Reuse listResults mapper shape by returning a minimal payload compatible with frontend.
+        return {
+            id: result.id,
+            student_id: result.student_id,
+            student_name:
+                `${student.firstName ?? ''} ${student.lastName ?? ''}`.trim(),
+            center_id: result.center_id,
+            center_name: result.center?.name ?? undefined,
+            uniqueNumber: result.uniqueNumber,
+            total: result.total,
+            correctCount: result.correctCount,
+            wrongCount: result.wrongCount,
+            blankCount: result.blankCount,
+            perQuestion: result.perQuestion,
+            createdAt: result.createdAt,
+        };
+    }
+
+    async createOrUpdateResultManualByVariant(params: {
+        centerId: number;
+        teacherId: number;
+        uniqueNumber: string;
+        studentId: number;
+        total: number;
+        correctCount: number;
+    }) {
+        const uniqueNumber = (params.uniqueNumber || '').trim();
+        if (!uniqueNumber) {
+            throw new BadRequestException('Variant kodi (uniqueNumber) kerak');
+        }
+
+        const variant = await this.generatedTestVariantRepository.findOne({
+            where: { uniqueNumber },
+            relations: ['generatedTest', 'generatedTest.teacher'],
+        });
+        if (!variant) {
+            throw new NotFoundException('Variant topilmadi');
+        }
+        if (variant.generatedTest?.teacher?.id !== params.teacherId) {
+            throw new ForbiddenException('Bu variant sizga tegishli emas');
+        }
+
+        const student = await this.userRepo.findOne({
+            where: { id: params.studentId },
+            relations: ['center'],
+        });
+        if (!student) {
+            throw new NotFoundException("O'quvchi topilmadi");
+        }
+        if (student.role !== UserRole.STUDENT) {
+            throw new BadRequestException("Tanlangan foydalanuvchi o'quvchi emas");
+        }
+        if (student.center?.id !== params.centerId) {
+            throw new BadRequestException("O'quvchi boshqa markazga tegishli");
+        }
+
+        const total = Math.max(0, Math.trunc(Number(params.total) || 0));
+        const correctCount = Math.max(
+            0,
+            Math.trunc(Number(params.correctCount) || 0),
+        );
+        if (correctCount > total) {
+            throw new BadRequestException(
+                "To'g'ri javoblar soni jami savoldan katta bo'lmasligi kerak",
+            );
+        }
+
+        const existing = await this.resultsRepository.findOne({
+            where: {
+                uniqueNumber,
+                student_id: student.id,
+                center_id: params.centerId,
+            },
+            relations: ['center'],
+            order: { createdAt: 'DESC', id: 'DESC' },
+        });
+
+        const result = existing
+            ? existing
+            : this.resultsRepository.create({
+                student_id: student.id,
+                center_id: params.centerId,
+                uniqueNumber,
+                total,
+                correctCount,
+                wrongCount: Math.max(0, total - correctCount),
+                blankCount: 0,
+                perQuestion: [],
+            });
+
+        result.student_id = student.id;
+        result.center_id = params.centerId;
+        result.uniqueNumber = uniqueNumber;
+        result.total = total;
+        result.correctCount = correctCount;
+        result.blankCount = 0;
+        result.wrongCount = Math.max(0, total - correctCount);
+        result.perQuestion = [];
+
+        await this.resultsRepository.save(result);
+
+        return {
+            id: result.id,
+            student_id: result.student_id,
+            student_name:
+                `${student.firstName ?? ''} ${student.lastName ?? ''}`.trim(),
+            center_id: result.center_id,
+            center_name: result.center?.name ?? undefined,
+            uniqueNumber: result.uniqueNumber,
+            total: result.total,
+            correctCount: result.correctCount,
+            wrongCount: result.wrongCount,
+            blankCount: result.blankCount,
+            perQuestion: result.perQuestion,
+            createdAt: result.createdAt,
+        };
+    }
+
+    private escapeHtml(input: string): string {
+        return (input ?? '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;');
+    }
+
+    private chunkTelegramMessage(params: {
+        header: string;
+        lines: string[];
+        maxLen?: number;
+    }): string[] {
+        const maxLen = params.maxLen ?? 3500;
+        const chunks: string[] = [];
+        let current = params.header;
+
+        for (const line of params.lines) {
+            const next = current.length + line.length + 1;
+            if (next > maxLen && current.trim().length > 0) {
+                chunks.push(current.trim());
+                current = params.header;
+            }
+            current += `${line}\n`;
+        }
+        if (current.trim().length > 0) chunks.push(current.trim());
+        return chunks;
+    }
+
+    async queueResultsToTelegram(params: {
+        centerId: number;
+        ids: number[];
+    }): Promise<{
+        sent: number;
+        queuedMessages: number;
+        targets: Array<{ chatId: string; subjectId?: number }>;
+    }> {
+        if (!params?.centerId) {
+            throw new BadRequestException('centerId required');
+        }
+
+        const ids = Array.from(
+            new Set((params.ids || []).filter((x) => Number.isFinite(x))),
+        );
+        if (ids.length === 0) {
+            throw new BadRequestException('ids massiv bo‘lishi kerak');
+        }
+        if (ids.length > 200) {
+            throw new BadRequestException(
+                'Bir martada maksimum 200 ta natija yuborish mumkin',
+            );
+        }
+
+        const telegramQueueService = this.moduleRef.get(TelegramQueueService, {
+            strict: false,
+        });
+
+        const rows = await this.resultsRepository.find({
+            where: { id: In(ids), center_id: params.centerId },
+            relations: ['user', 'center'],
+            order: { createdAt: 'DESC', id: 'DESC' },
+        });
+
+        if (rows.length === 0) {
+            return { sent: 0, queuedMessages: 0, targets: [] };
+        }
+
+        const uniqueNumbers = Array.from(
+            new Set(rows.map((r) => r.uniqueNumber).filter(Boolean)),
+        );
+
+        const variants = uniqueNumbers.length
+            ? await this.generatedTestVariantRepository.find({
+                where: { uniqueNumber: In(uniqueNumbers) },
+                relations: ['generatedTest', 'generatedTest.subject'],
+            })
+            : [];
+
+        const subjectByUnique = new Map<
+            string,
+            { id: number; name?: string } | undefined
+        >();
+        for (const v of variants) {
+            const subject = v.generatedTest?.subject;
+            subjectByUnique.set(
+                v.uniqueNumber,
+                subject?.id ? { id: subject.id, name: subject.name } : undefined,
+            );
+        }
+
+        const groups = new Map<
+            string,
+            { subject?: { id: number; name?: string }; rows: Results[] }
+        >();
+
+        for (const r of rows) {
+            const subject = subjectByUnique.get(r.uniqueNumber);
+            const key = subject?.id ? `subject:${subject.id}` : 'center';
+            const entry = groups.get(key);
+            if (entry) {
+                entry.rows.push(r);
+            } else {
+                groups.set(key, { subject, rows: [r] });
+            }
+        }
+
+        const targets: Array<{ chatId: string; subjectId?: number }> = [];
+        let queuedMessages = 0;
+
+        for (const group of groups.values()) {
+            let targetChat: TelegramChat | null = null;
+
+            if (group.subject?.id) {
+                targetChat = await this.telegramChatRepo.findOne({
+                    where: {
+                        center: { id: params.centerId },
+                        subject: { id: group.subject.id },
+                        group: IsNull(),
+                        type: In([ChatType.CHANNEL, ChatType.GROUP]),
+                        status: ChatStatus.ACTIVE,
+                    },
+                    relations: ['center', 'subject'],
+                    order: { createdAt: 'ASC' },
+                });
+            }
+
+            if (!targetChat) {
+                targetChat = await this.telegramChatRepo.findOne({
+                    where: {
+                        center: { id: params.centerId },
+                        subject: IsNull(),
+                        group: IsNull(),
+                        type: In([ChatType.CHANNEL, ChatType.GROUP]),
+                        status: ChatStatus.ACTIVE,
+                    },
+                    relations: ['center'],
+                    order: { createdAt: 'ASC' },
+                });
+            }
+
+            if (!targetChat?.chatId) {
+                const suffix = group.subject?.name
+                    ? ` (Fan: ${group.subject.name})`
+                    : '';
+                throw new BadRequestException(
+                    `Telegram kanal/guruh biriktirilmagan${suffix}. Telegram bo‘limidan biriktiring.`,
+                );
+            }
+
+            targets.push({
+                chatId: targetChat.chatId,
+                subjectId: group.subject?.id,
+            });
+
+            const centerName =
+                group.rows[0]?.center?.name ?? `centerId=${params.centerId}`;
+            const subjectLine = group.subject?.name
+                ? `Fan: <b>${this.escapeHtml(group.subject.name)}</b>\n`
+                : '';
+
+            const header =
+                `📊 <b>Test natijalari</b>\n` +
+                `Markaz: <b>${this.escapeHtml(centerName)}</b>\n` +
+                subjectLine +
+                `Soni: <b>${group.rows.length}</b>\n\n`;
+
+            const lines = group.rows.map((r, idx) => {
+                const fullName = r.user
+                    ? `${r.user.firstName ?? ''} ${r.user.lastName ?? ''}`.trim()
+                    : '-';
+                const nameSafe = this.escapeHtml(fullName || '-');
+                const total = Number(r.total) || 0;
+                const correct = Number(r.correctCount) || 0;
+                const pct = total > 0 ? (correct / total) * 100 : 0;
+                return `${idx + 1}) <b>${nameSafe}</b> — <b>${pct.toFixed(
+                    1,
+                )}%</b> (${r.correctCount}/${r.total} ✅ | ❌${r.wrongCount} | ⬜${r.blankCount
+                    }) | V:<code>${this.escapeHtml(r.uniqueNumber)}</code>`;
+            });
+
+            const chunks = this.chunkTelegramMessage({ header, lines });
+            const logs = await telegramQueueService.queueMessages(
+                chunks.map((message) => ({
+                    chatId: targetChat.chatId,
+                    message,
+                    type: MessageType.RESULTS,
+                    priority: MessagePriority.HIGH,
+                    parseMode: 'HTML' as const,
+                    centerId: params.centerId,
+                    metadata: {
+                        kind: 'manual_results_send',
+                        subjectId: group.subject?.id,
+                        resultIds: group.rows.map((x) => x.id),
+                    },
+                })),
+            );
+
+            queuedMessages += logs.length;
+        }
+
+        return {
+            sent: rows.length,
+            queuedMessages,
+            targets,
+        };
+    }
+
+    /**
+     * Generate printable HTML files for provided variants and return public URLs
+     */
+    async generatePrintableHtmlFiles(input: {
+        variants: TestVariant[];
+        config: GenerateTestDto;
+        subjectName: string;
+        teacherId: number;
+    }): Promise<{
+        files: Array<{
+            variantNumber: string;
+            url: string;
+            fileName: string;
+        }>;
+        title: string;
+        combinedUrl?: string;
+    }> {
+        const title = input.config.title || `${input.subjectName} testi`;
+        const timestamp = Date.now();
+        const uploadsDir = this.getUploadsDir();
+        await fs.mkdir(uploadsDir, { recursive: true });
+
+        const centerName = await this.getCenterNameByTeacherId(input.teacherId);
+
+        const slug = (s: string) =>
+            (s || '')
+                .toLowerCase()
+                .replace(/[^a-z0-9]+/g, '-')
+                .replace(/(^-|-$)/g, '')
+                .substring(0, 80);
+
+        const files: Array<{
+            variantNumber: string;
+            url: string;
+            fileName: string;
+        }> = [];
+
+        const variantInners: string[] = [];
+
+        for (const variant of input.variants) {
+            const inner = this.buildVariantHtml(variant, {
+                config: input.config,
+                subjectName: input.subjectName,
+                centerName,
+            });
+            variantInners.push(inner);
+            const pageTitle = `${title} — Variant ${variant.variantNumber} (#${variant.uniqueNumber})`;
+            const html = this.wrapHtmlForBrowser(inner, pageTitle);
+
+            const fileName = `${slug(title)}-variant-${slug(variant.variantNumber)}-${timestamp}.html`;
+            const absolutePath = join(uploadsDir, fileName);
+            await fs.writeFile(absolutePath, html, 'utf8');
+            const url = `/uploads/${fileName}`;
+
+            files.push({
+                variantNumber: variant.variantNumber,
+                url,
+                fileName,
+            });
+
+            // Persist printable info and answer key by uniqueNumber
+            try {
+                const variantEntity = await this.generatedTestVariantRepository.findOne(
+                    {
+                        where: { uniqueNumber: variant.uniqueNumber },
+                        relations: ['generatedTest'],
+                    },
+                );
+                if (variantEntity) {
+                    const answerKey = this.buildAnswerKey(variant.questions);
+                    variantEntity.printableUrl = url;
+                    variantEntity.printableFileName = fileName;
+                    variantEntity.answerKey = answerKey;
+                    await this.generatedTestVariantRepository.save(variantEntity);
+                } else {
+                    void this.logService.log(
+                        `Variant not found for uniqueNumber=${variant.uniqueNumber} to persist printable info`,
+                        'TestGenerator',
+                    );
+                }
+            } catch (e) {
+                void this.logService.log(
+                    `Failed to persist printable info for variant ${variant.uniqueNumber}: ${String(e)}`,
+                    'TestGenerator',
+                );
+            }
+        }
+
+        // Build a combined HTML containing all variants and all answer sheets
+        let combinedUrl: string | undefined;
+        try {
+            const combinedHtml = this.buildCombinedHtml({
+                title,
+                subjectName: input.subjectName,
+                variantInners,
+            });
+            const combinedFileName = `${slug(title)}-combined-${timestamp}.html`;
+            const combinedAbsolutePath = join(uploadsDir, combinedFileName);
+            await fs.writeFile(combinedAbsolutePath, combinedHtml, 'utf8');
+            combinedUrl = `/uploads/${combinedFileName}`;
+        } catch (e) {
+            void this.logService.log(
+                `Failed to build combined HTML: ${String(e)}`,
+                'TestGenerator',
+            );
+        }
+
+        return { files, title, combinedUrl };
+    }
+
+    /**
+     * Manual test uchun bitta "aralashgan" variant HTML + javoblar HTML yaratish.
+     * Variant HTML generatsiyasi generatePrintableHtmlFiles orqali qilinadi.
+     */
+    async generatePrintableHtmlForManualTest(
+        opts: GenerateManualPrintableHtmlOptions,
+    ): Promise<{
+        url: string;
+        fileName: string;
+        answerUrl: string;
+        answerFileName: string;
+        title: string;
+    }> {
+        const test = await this.testRepository.findOne({
+            where: { id: opts.testId },
+            relations: ['subject', 'teacher', 'questions', 'questions.answers'],
+        });
+
+        if (!test) throw new NotFoundException('Test topilmadi');
+        if (
+            opts.requesterRole !== UserRole.SUPERADMIN &&
+            (!test.teacher || Number(test.teacher.id) !== Number(opts.teacherId))
+        ) {
+            throw new BadRequestException('Bu test sizga tegishli emas');
+        }
+
+        const effectiveTeacherId =
+            opts.requesterRole === UserRole.SUPERADMIN
+                ? Number(test.teacher?.id)
+                : Number(opts.teacherId);
+
+        const title = test.title;
+        const subjectName = test.subject?.name ?? 'Test';
+        const centerName = await this.getCenterNameByTeacherId(effectiveTeacherId);
+
+        const uploadsDir = this.getUploadsDir();
+        const weeklyDir = join(uploadsDir, 'weekly-tests');
+        await fs.mkdir(weeklyDir, { recursive: true });
+
+        const stableFileName = `weekly-test-${test.id}.html`;
+        const stableAnswerFileName = `weekly-test-${test.id}-answers.html`;
+        const stableAbsolutePath = join(weeklyDir, stableFileName);
+        const stableAnswerAbsolutePath = join(weeklyDir, stableAnswerFileName);
+
+        const url = `/uploads/weekly-tests/${stableFileName}`;
+        const answerUrl = `/uploads/weekly-tests/${stableAnswerFileName}`;
+
+        // IMPORTANT: default to regenerating so HTML/CSS fixes reflect immediately.
+        // Callers that want caching should pass ensureExists=true explicitly.
+        const ensureExists = opts.ensureExists ?? false;
+        if (
+            ensureExists &&
+            existsSync(stableAbsolutePath) &&
+            existsSync(stableAnswerAbsolutePath)
+        ) {
+            return {
+                url,
+                fileName: stableFileName,
+                answerUrl,
+                answerFileName: stableAnswerFileName,
+                title,
+            };
+        }
+
+        // Prepare questions (+ optional shuffles)
+        const sourceQuestions = Array.isArray(test.questions)
+            ? [...test.questions]
+            : [];
+        const orderedQuestions = opts.shuffleQuestions
+            ? [...sourceQuestions].sort(() => 0.5 - Math.random())
+            : [...sourceQuestions].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+
+        const preparedQuestions: Question[] = orderedQuestions.map((q) => {
+            if (
+                opts.shuffleAnswers &&
+                q.type === QuestionType.MULTIPLE_CHOICE &&
+                Array.isArray(q.answers) &&
+                q.answers.length > 1
+            ) {
+                return {
+                    ...q,
+                    answers: [...q.answers].sort(() => 0.5 - Math.random()),
+                } as Question;
+            }
+            return q;
+        });
+
+        const uniqueNumber = await this.generateUniqueNumber();
+        const variant: TestVariant = {
+            id: `manual-${test.id}-${Date.now()}`,
+            variantNumber: '1',
+            uniqueNumber,
+            questions: preparedQuestions,
+            createdAt: new Date(),
+        };
+
+        // Use existing generator to produce variant HTML (timestamped in root uploads dir)
+        const gen = await this.generatePrintableHtmlFiles({
+            variants: [variant],
+            config: {
+                title,
+                subjectId: test.subject?.id ?? 0,
+                questionCount: preparedQuestions.length,
+                variantCount: 1,
+                timeLimit: test.duration ?? 60,
+                difficulty: 'manual',
+                includeAnswers: !!opts.includeAnswers,
+                showTitleSheet: !!opts.showTitleSheet,
+                testId: test.id,
+            },
+            subjectName,
+            teacherId: effectiveTeacherId,
+        });
+
+        const first = gen.files?.[0];
+        if (!first?.fileName) {
+            throw new BadRequestException('Printable HTML yaratib bo‘lmadi');
+        }
+
+        // Copy generated variant HTML into stable weekly path
+        const generatedAbsolutePath = join(uploadsDir, first.fileName);
+        const variantHtml = await fs.readFile(generatedAbsolutePath, 'utf8');
+        await fs.writeFile(stableAbsolutePath, variantHtml, 'utf8');
+
+        // Write answers HTML into stable weekly path
+        const answerKey = this.buildAnswerKey(preparedQuestions);
+        const answersHtml = this.buildAnswerKeyHtml({
+            title,
+            subjectName,
+            centerName,
+            answerKey,
+        });
+        await fs.writeFile(stableAnswerAbsolutePath, answersHtml, 'utf8');
+
+        return {
+            url,
+            fileName: stableFileName,
+            answerUrl,
+            answerFileName: stableAnswerFileName,
+            title,
+        };
+    }
+
+    private buildAnswerKeyHtml(input: {
+        title: string;
+        subjectName: string;
+        centerName?: string;
+        answerKey: { total: number; answers: string[] };
+    }): string {
+        const rows = (input.answerKey.answers || [])
+            .map((a, i) => {
+                const n = i + 1;
+                return `<tr><td class="n">${n}</td><td class="a">${escapeHtml(a)}</td></tr>`;
+            })
+            .join('');
+
+        return `<!doctype html>
 <html lang="uz">
 <head>
   <meta charset="utf-8" />
@@ -1012,75 +1011,74 @@ export class TestGeneratorService {
   </table>
 </body>
 </html>`;
-  }
-
-  private async getCenterNameByTeacherId(
-    teacherId: number,
-  ): Promise<string | undefined> {
-    try {
-      const teacher = await this.userRepo.findOne({
-        where: { id: Number(teacherId) },
-        relations: ['center'],
-      });
-      return teacher?.center?.name ? String(teacher.center.name) : undefined;
-    } catch {
-      return undefined;
     }
-  }
 
-  private getUploadsDir(): string {
-    const candidates = [
-      join(process.cwd(), 'public', 'uploads'),
-      join(__dirname, '..', '..', 'public', 'uploads'),
-      join(process.cwd(), 'dist', 'public', 'uploads'),
-      join(__dirname, '..', 'public', 'uploads'),
-    ];
-    const existing = candidates.find((p) => {
-      try {
-        return existsSync(p);
-      } catch {
-        return false;
-      }
-    });
-    return existing || candidates[0];
-  }
+    private async getCenterNameByTeacherId(
+        teacherId: number,
+    ): Promise<string | undefined> {
+        try {
+            const teacher = await this.userRepo.findOne({
+                where: { id: Number(teacherId) },
+                relations: ['center'],
+            });
+            return teacher?.center?.name ? String(teacher.center.name) : undefined;
+        } catch {
+            return undefined;
+        }
+    }
 
-  private getPublicDir(): string {
-    return join(__dirname, '..', '..', 'public');
-  }
+    private getUploadsDir(): string {
+        const candidates = [
+            join(process.cwd(), 'public', 'uploads'),
+            join(__dirname, '..', '..', 'public', 'uploads'),
+            join(process.cwd(), 'dist', 'public', 'uploads'),
+            join(__dirname, '..', 'public', 'uploads'),
+        ];
+        const existing = candidates.find((p) => {
+            try {
+                return existsSync(p);
+            } catch {
+                return false;
+            }
+        });
+        return existing || candidates[0];
+    }
 
-  private buildVariantHtml(
-    variant: TestVariant,
-    ctx: { config: GenerateTestDto; subjectName: string; centerName?: string },
-  ): string {
-    const centerLine = ctx.centerName
-      ? `<div class="subtitle">O‘quv markazi: ${escapeHtml(ctx.centerName)}</div>`
-      : '';
-    // const header = `
-    //   <div class="header">
-    //     <div class="title">${escapeHtml(
-    //       ctx.config.title || `${ctx.subjectName} testi`,
-    //     )}</div>
-    //     ${centerLine}
-    //     <div class="subtitle">Variant: ${escapeHtml(variant.variantNumber)} — ID: #${escapeHtml(variant.uniqueNumber)}</div>
-    //   </div>`;
-    const header = '';
+    private getPublicDir(): string {
+        return join(__dirname, '..', '..', 'public');
+    }
 
-    const coverHtml = ctx.config.showTitleSheet
-      ? `
+    private buildVariantHtml(
+        variant: TestVariant,
+        ctx: { config: GenerateTestDto; subjectName: string; centerName?: string },
+    ): string {
+        const centerLine = ctx.centerName
+            ? `<div class="subtitle">O‘quv markazi: ${escapeHtml(ctx.centerName)}</div>`
+            : '';
+        const header = `
+      <div class="header">
+        <div class="title">${escapeHtml(
+            ctx.config.title || `${ctx.subjectName} testi`,
+        )}</div>
+        ${centerLine}
+        <div class="subtitle">Variant: ${escapeHtml(variant.variantNumber)} — ID: #${escapeHtml(variant.uniqueNumber)}</div>
+      </div>`;
+
+        const coverHtml = ctx.config.showTitleSheet
+            ? `
         <div class="page cover">
           <div class="cover-inner">
             ${ctx.centerName ? `<div class="cover-center">${escapeHtml(ctx.centerName)}</div>` : ''}
             <div class="cover-title">${escapeHtml(
-              ctx.config.title || `${ctx.subjectName} testi`,
+                ctx.config.title || `${ctx.subjectName} testi`,
             )}</div>
             <div class="cover-subject">Fan: ${escapeHtml(ctx.subjectName)}</div>
             <div class="cover-meta">
               Variant: ${escapeHtml(variant.variantNumber)} • ID: #${escapeHtml(
                 variant.uniqueNumber,
-              )} • Savollar: ${Number(ctx.config.questionCount || 0)} • Vaqt: ${Number(
+            )} • Savollar: ${Number(ctx.config.questionCount || 0)} • Vaqt: ${Number(
                 ctx.config.timeLimit || 0,
-              )} daqiqa
+            )} daqiqa
             </div>
 
             <div class="cover-fields">
@@ -1091,52 +1089,52 @@ export class TestGeneratorService {
           </div>
         </div>
       `
-      : '';
+            : '';
 
-    const questionsHtml = (variant.questions || [])
-      .map((q, idx) => {
-        const textProcessed = this.extractImageFromText(q.text || '');
-        const renderedQuestionText = this.renderTextWithLatex(
-          textProcessed.cleanedText,
-        );
+        const questionsHtml = (variant.questions || [])
+            .map((q, idx) => {
+                const textProcessed = this.extractImageFromText(q.text || '');
+                const renderedQuestionText = this.renderTextWithLatex(
+                    textProcessed.cleanedText,
+                );
 
-        // Prefer image extracted from text; otherwise use imageBase64 on question with normalization
-        const fromTextUri = this.normalizeDataUri(
-          textProcessed.imageDataUri || '',
-        );
-        const fromFieldUri = this.getImageSrc(q.imageBase64);
-        const finalImageSrc = fromTextUri || fromFieldUri;
-        const imgHtml = finalImageSrc
-          ? `<div class="image-container"><img class="q-image" src="${finalImageSrc}" style="${textProcessed.imageStyles || ''}" alt="Savol rasmi" /></div>`
-          : '';
+                // Prefer image extracted from text; otherwise use imageBase64 on question with normalization
+                const fromTextUri = this.normalizeDataUri(
+                    textProcessed.imageDataUri || '',
+                );
+                const fromFieldUri = this.getImageSrc(q.imageBase64);
+                const finalImageSrc = fromTextUri || fromFieldUri;
+                const imgHtml = finalImageSrc
+                    ? `<div class="image-container"><img class="q-image" src="${finalImageSrc}" style="${textProcessed.imageStyles || ''}" alt="Savol rasmi" /></div>`
+                    : '';
 
-        let answersHtml = '';
-        if (
-          q.type === QuestionType.MULTIPLE_CHOICE &&
-          Array.isArray(q.answers) &&
-          q.answers.length
-        ) {
-          answersHtml = `<div class="answers">${q.answers
-            .map((a, i) => {
-              const aProc = this.extractImageFromText(a.text || '');
-              const cleanedAnswer = String(aProc.cleanedText || '')
-                .replace(/^(\s|<br\s*\/?\s*>)+/gi, '')
-                .trimStart();
-              const aTextHtml = this.renderTextWithLatex(cleanedAnswer);
-              const aImgUri = this.normalizeDataUri(aProc.imageDataUri || '');
-              const aImg = aImgUri
-                ? `<div class="answer-image-container"><img class="answer-image" src="${aImgUri}" style="${aProc.imageStyles || ''}" alt="Javob rasmi"/></div>`
-                : '';
-              return `<div class="answer">${String.fromCharCode(65 + i)}) ${aTextHtml}${aImg}</div>`;
-            })
-            .join('')}</div>`;
-        } else if (q.type === QuestionType.TRUE_FALSE) {
-          answersHtml = `<div class="answers"><div class="answer">A) To'g'ri</div><div class="answer">B) Noto'g'ri</div></div>`;
-        } else if (q.type === QuestionType.ESSAY) {
-          answersHtml = `<div class="answers"><div class="answer">Javob: ___________________________</div></div>`;
-        }
+                let answersHtml = '';
+                if (
+                    q.type === QuestionType.MULTIPLE_CHOICE &&
+                    Array.isArray(q.answers) &&
+                    q.answers.length
+                ) {
+                    answersHtml = `<div class="answers">${q.answers
+                        .map((a, i) => {
+                            const aProc = this.extractImageFromText(a.text || '');
+                            const cleanedAnswer = String(aProc.cleanedText || '')
+                                .replace(/^(\s|<br\s*\/?\s*>)+/gi, '')
+                                .trimStart();
+                            const aTextHtml = this.renderTextWithLatex(cleanedAnswer);
+                            const aImgUri = this.normalizeDataUri(aProc.imageDataUri || '');
+                            const aImg = aImgUri
+                                ? `<div class="answer-image-container"><img class="answer-image" src="${aImgUri}" style="${aProc.imageStyles || ''}" alt="Javob rasmi"/></div>`
+                                : '';
+                            return `<div class="answer">${String.fromCharCode(65 + i)}) ${aTextHtml}${aImg}</div>`;
+                        })
+                        .join('')}</div>`;
+                } else if (q.type === QuestionType.TRUE_FALSE) {
+                    answersHtml = `<div class="answers"><div class="answer">A) To'g'ri</div><div class="answer">B) Noto'g'ri</div></div>`;
+                } else if (q.type === QuestionType.ESSAY) {
+                    answersHtml = `<div class="answers"><div class="answer">Javob: ___________________________</div></div>`;
+                }
 
-        return `<div class="question">
+                return `<div class="question">
           <div class="q-row">
             <div class="q-no">${idx + 1}.</div>
             <div class="q-content">
@@ -1146,64 +1144,64 @@ export class TestGeneratorService {
             </div>
           </div>
         </div>`;
-      })
-      .join('');
+            })
+            .join('');
 
-    const answerSheetHtml = (() => {
-      if (!ctx.config.includeAnswers) return '';
-      const answerKey = this.buildAnswerKey(variant.questions || []);
-      const items = (answerKey.answers || [])
-        .map((a, i) => {
-          const n = i + 1;
-          return `<div class="ak-item"><span class="ak-n">${n}.</span><span class="ak-a">${escapeHtml(
-            a,
-          )}</span></div>`;
-        })
-        .join('');
+        const answerSheetHtml = (() => {
+            if (!ctx.config.includeAnswers) return '';
+            const answerKey = this.buildAnswerKey(variant.questions || []);
+            const items = (answerKey.answers || [])
+                .map((a, i) => {
+                    const n = i + 1;
+                    return `<div class="ak-item"><span class="ak-n">${n}.</span><span class="ak-a">${escapeHtml(
+                        a,
+                    )}</span></div>`;
+                })
+                .join('');
 
-      return `
+            return `
         <div class="page answer-sheet">
           <div class="header">
             <div class="title">${escapeHtml(
-              ctx.config.title || `${ctx.subjectName} testi`,
+                ctx.config.title || `${ctx.subjectName} testi`,
             )}</div>
             ${centerLine}
             <div class="subtitle">Javoblar varagi — Variant: ${escapeHtml(
-              variant.variantNumber,
+                variant.variantNumber,
             )} — ID: #${escapeHtml(variant.uniqueNumber)}</div>
             <div class="meta">Sana: ${new Date().toLocaleDateString(
-              'uz-UZ',
+                'uz-UZ',
             )} • Savollar: ${answerKey.total}</div>
           </div>
           <div class="ak-grid">${items}</div>
         </div>
       `;
-    })();
+        })();
 
-    return `${coverHtml}<div class="page">${header}<div class="questions-container">${questionsHtml}</div></div>${answerSheetHtml}`;
-  }
+        return `${coverHtml}<div class="page">${header}<div class="questions-container">${questionsHtml}</div></div>${answerSheetHtml}`;
+    }
 
-  // Build one combined HTML containing all variants and all answer sheets with print controls
-  private buildCombinedHtml(input: {
-    title: string;
-    subjectName: string;
-    variantInners: string[];
-  }): string {
-    const title = `${escapeHtml(input.title)} — Barcha variantlar va javoblar varagi`;
-    // Ensure question numbers start from 1 for each variant
-    // Remove extra page breaks at the top
-    // NOTE: each variantInner already contains one or more `.page` blocks.
-    // However, when printing/saving to PDF from the browser, some engines may
-    // ignore `page-break-after` at certain boundaries and start the next variant
-    // in the remaining space. To guarantee that every new variant starts from a
-    // fresh page, insert an explicit page-break marker between variants.
-    const variantsSection = input.variantInners
-      .map((inner, idx) =>
-        idx === 0 ? inner : `<div class="variant-break"></div>${inner}`,
-      )
-      .join('');
+    // Build one combined HTML containing all variants and all answer sheets with print controls
+    private buildCombinedHtml(input: {
+        title: string;
+        subjectName: string;
+        variantInners: string[];
+    }): string {
+        const title = `${escapeHtml(input.title)} — Barcha variantlar va javoblar varagi`;
+        // Ensure question numbers start from 1 for each variant
+        // Remove extra page breaks at the top
+        // NOTE: each variantInner already contains one or more `.page` blocks.
+        // However, when printing/saving to PDF from the browser, some engines may
+        // ignore `page-break-after` at certain boundaries and start the next variant
+        // in the remaining space. To guarantee that every new variant starts from a
+        // fresh page, insert an explicit page-break marker between variants.
+        const variantsSection = input.variantInners
+            .map((inner, idx) =>
+                idx === 0 ? inner : `<div class="variant-break"></div>${inner}`,
+            )
+            .join('');
 
-    return `<!DOCTYPE html>
+        return `<!DOCTYPE html>
     <html lang="uz">
     <head>
       <meta charset="UTF-8" />
@@ -1316,10 +1314,10 @@ export class TestGeneratorService {
       <!-- No client-side KaTeX auto-render to avoid altering plain text like [Ar] 3s²3p¹ -->
     </body>
     </html>`;
-  }
+    }
 
-  private wrapHtmlForBrowser(inner: string, title: string): string {
-    return `<!DOCTYPE html>
+    private wrapHtmlForBrowser(inner: string, title: string): string {
+        return `<!DOCTYPE html>
       <html lang="uz">
       <head>
         <meta charset="UTF-8" />
@@ -1424,997 +1422,997 @@ export class TestGeneratorService {
         <!-- No client-side KaTeX auto-render to avoid altering plain text like [Ar] 3s²3p¹ -->
       </body>
       </html>`;
-  }
-
-  private extractImageFromText(text: string): {
-    cleanedText: string;
-    imageDataUri: string | null;
-    imageStyles?: string;
-  } {
-    if (!text) {
-      return { cleanedText: '', imageDataUri: null };
     }
 
-    const markdownImageWithSizePattern =
-      /!\[[^\]]*\|([^\]]+)\]\((data:image\/[^\s)]+[^)]*)\)/gs;
-    let cleanedText = text;
-    let imageDataUri: string | null = null;
-    let imageStyles: string | undefined;
-
-    for (const match of text.matchAll(markdownImageWithSizePattern)) {
-      const styles = match[1];
-      let imageSrc = match[2];
-      imageSrc = this.extractDataUriFromText(imageSrc);
-      if (imageSrc && imageSrc.startsWith('data:image/') && !imageDataUri) {
-        imageDataUri = this.normalizeDataUri(imageSrc) ?? null;
-        imageStyles = this.parseImageStyles(styles);
-      }
-      cleanedText = cleanedText.replace(match[0], '');
-    }
-
-    if (!imageDataUri) {
-      const markdownImagePattern =
-        /!\[[^\]]*\]\((data:image\/[^\s)]+[^)]*)\)/gs;
-      for (const match of text.matchAll(markdownImagePattern)) {
-        let imageSrc = match[1];
-        imageSrc = this.extractDataUriFromText(imageSrc);
-        if (imageSrc && imageSrc.startsWith('data:image/') && !imageDataUri) {
-          imageDataUri = this.normalizeDataUri(imageSrc) ?? null;
+    private extractImageFromText(text: string): {
+        cleanedText: string;
+        imageDataUri: string | null;
+        imageStyles?: string;
+    } {
+        if (!text) {
+            return { cleanedText: '', imageDataUri: null };
         }
-        cleanedText = cleanedText.replace(match[0], '');
-      }
-    }
 
-    cleanedText = cleanedText.replace(/!\[[^\]]*\]/g, '').trim();
-    return { cleanedText, imageDataUri, imageStyles };
-  }
+        const markdownImageWithSizePattern =
+            /!\[[^\]]*\|([^\]]+)\]\((data:image\/[^\s)]+[^)]*)\)/gs;
+        let cleanedText = text;
+        let imageDataUri: string | null = null;
+        let imageStyles: string | undefined;
 
-  private extractDataUriFromText(s: string): string {
-    if (!s) return '';
-    const cleaned = s.replace(/\s+/g, '');
-    const m = cleaned.match(/(data:image\/[^;]+;base64,[A-Za-z0-9+/=]+)/i);
-    return m ? m[1] : cleaned;
-  }
-
-  private parseImageStyles(styleString: string): string {
-    if (!styleString) return '';
-    return styleString
-      .split(';')
-      .map((x) => x.trim())
-      .filter((x) => x.length > 0)
-      .join('; ');
-  }
-
-  // Convert LaTeX delimiters in plain text to HTML using KaTeX; non-math text is HTML-escaped
-  private renderTextWithLatex(text: string): string {
-    try {
-      return renderWithKatexAllowHtml(text ?? '');
-    } catch (e) {
-      void this.logService.log(
-        `KaTeX render failed: ${e instanceof Error ? e.message : String(e)}`,
-        'TestGenerator',
-      );
-      return escapeHtml(text ?? '');
-    }
-  }
-
-  private getImageSrc(imageBase64?: string, mime?: string): string | null {
-    if (!imageBase64) return null;
-
-    try {
-      const cleanBase64 = imageBase64.replace(/\s+/g, '');
-
-      if (/^data:image\/[a-zA-Z]+;base64,/.test(cleanBase64)) {
-        return this.normalizeDataUri(cleanBase64);
-      }
-
-      if (this.isValidBase64(cleanBase64)) {
-        const safeMime =
-          mime || this.detectImageMimeType(cleanBase64) || 'image/png';
-        return `data:${safeMime};base64,${cleanBase64}`;
-      }
-
-      return null;
-    } catch (error) {
-      void this.logService.log(
-        `Error processing image data: ${error instanceof Error ? error.message : String(error)}`,
-        'TestGenerator',
-      );
-      return null;
-    }
-  }
-
-  private isValidBase64(str: string): boolean {
-    if (!str || str.length < 4) return false;
-    const base64Regex = /^[A-Za-z0-9+/]*={0,2}$/;
-    if (!base64Regex.test(str)) return false;
-    const paddedLength = str.length + ((4 - (str.length % 4)) % 4);
-    if (paddedLength % 4 !== 0) return false;
-    try {
-      const decoded = Buffer.from(str, 'base64').toString('binary');
-      const reencoded = Buffer.from(decoded, 'binary').toString('base64');
-      return str.replace(/=+$/, '') === reencoded.replace(/=+$/, '');
-    } catch {
-      return false;
-    }
-  }
-
-  private normalizeDataUri(dataUri: string): string | null {
-    if (!dataUri || !dataUri.startsWith('data:image/')) {
-      return null;
-    }
-    try {
-      const [header, base64Data] = dataUri.split(',');
-      if (!header || !base64Data) {
-        void this.logService.log(
-          'Invalid data URI format: missing header or base64 data',
-          'TestGenerator',
-        );
-        return null;
-      }
-      let cleanBase64 = base64Data.replace(/\s+/g, '');
-      cleanBase64 = cleanBase64.replace(/[^A-Za-z0-9+/=]/g, '');
-      const paddingNeeded = (4 - (cleanBase64.length % 4)) % 4;
-      if (paddingNeeded > 0) cleanBase64 += '='.repeat(paddingNeeded);
-      if (!this.isValidBase64(cleanBase64)) {
-        void this.logService.log(
-          'Invalid base64 data detected',
-          'TestGenerator',
-        );
-        return null;
-      }
-      try {
-        const decoded = Buffer.from(cleanBase64, 'base64');
-        if (decoded.length < 50) {
-          void this.logService.log(
-            'Base64 data too small to be a valid image',
-            'TestGenerator',
-          );
-          return null;
+        for (const match of text.matchAll(markdownImageWithSizePattern)) {
+            const styles = match[1];
+            let imageSrc = match[2];
+            imageSrc = this.extractDataUriFromText(imageSrc);
+            if (imageSrc && imageSrc.startsWith('data:image/') && !imageDataUri) {
+                imageDataUri = this.normalizeDataUri(imageSrc) ?? null;
+                imageStyles = this.parseImageStyles(styles);
+            }
+            cleanedText = cleanedText.replace(match[0], '');
         }
-      } catch (err) {
-        void this.logService.log(
-          `Failed to decode base64 data: ${String(err)}`,
-          'TestGenerator',
-        );
-        return null;
-      }
-      return `${header},${cleanBase64}`;
-    } catch (error) {
-      void this.logService.log(
-        `Failed to normalize data URI: ${String(error)}`,
-        'TestGenerator',
-      );
-      return null;
+
+        if (!imageDataUri) {
+            const markdownImagePattern =
+                /!\[[^\]]*\]\((data:image\/[^\s)]+[^)]*)\)/gs;
+            for (const match of text.matchAll(markdownImagePattern)) {
+                let imageSrc = match[1];
+                imageSrc = this.extractDataUriFromText(imageSrc);
+                if (imageSrc && imageSrc.startsWith('data:image/') && !imageDataUri) {
+                    imageDataUri = this.normalizeDataUri(imageSrc) ?? null;
+                }
+                cleanedText = cleanedText.replace(match[0], '');
+            }
+        }
+
+        cleanedText = cleanedText.replace(/!\[[^\]]*\]/g, '').trim();
+        return { cleanedText, imageDataUri, imageStyles };
     }
-  }
 
-  private detectImageMimeType(base64: string): string | null {
-    if (base64.startsWith('/9j/')) return 'image/jpeg';
-    if (base64.startsWith('iVBORw0KGgo')) return 'image/png';
-    if (base64.startsWith('R0lGODlh') || base64.startsWith('R0lGODdh'))
-      return 'image/gif';
-    if (base64.startsWith('UklGR')) return 'image/webp';
-    return null;
-  }
+    private extractDataUriFromText(s: string): string {
+        if (!s) return '';
+        const cleaned = s.replace(/\s+/g, '');
+        const m = cleaned.match(/(data:image\/[^;]+;base64,[A-Za-z0-9+/=]+)/i);
+        return m ? m[1] : cleaned;
+    }
 
-  /**
-   * Generate sequential 5-digit code for generated test variants.
-   * Range: 00000..99999 (global across generated_test_variants).
-   * Uses a Postgres advisory lock to keep allocation ordered under concurrency.
-   */
-  private async generateUniqueNumber(): Promise<string> {
-    // Keep this constant stable; it defines the global lock used for allocation.
-    const LOCK_KEY = 7310001;
+    private parseImageStyles(styleString: string): string {
+        if (!styleString) return '';
+        return styleString
+            .split(';')
+            .map((x) => x.trim())
+            .filter((x) => x.length > 0)
+            .join('; ');
+    }
 
-    await this.generatedTestVariantRepository.query(
-      'SELECT pg_advisory_lock($1)',
-      [LOCK_KEY],
-    );
-    try {
-      const rows: Array<{ max: string | number | null }> =
+    // Convert LaTeX delimiters in plain text to HTML using KaTeX; non-math text is HTML-escaped
+    private renderTextWithLatex(text: string): string {
+        try {
+            return renderWithKatexAllowHtml(text ?? '');
+        } catch (e) {
+            void this.logService.log(
+                `KaTeX render failed: ${e instanceof Error ? e.message : String(e)}`,
+                'TestGenerator',
+            );
+            return escapeHtml(text ?? '');
+        }
+    }
+
+    private getImageSrc(imageBase64?: string, mime?: string): string | null {
+        if (!imageBase64) return null;
+
+        try {
+            const cleanBase64 = imageBase64.replace(/\s+/g, '');
+
+            if (/^data:image\/[a-zA-Z]+;base64,/.test(cleanBase64)) {
+                return this.normalizeDataUri(cleanBase64);
+            }
+
+            if (this.isValidBase64(cleanBase64)) {
+                const safeMime =
+                    mime || this.detectImageMimeType(cleanBase64) || 'image/png';
+                return `data:${safeMime};base64,${cleanBase64}`;
+            }
+
+            return null;
+        } catch (error) {
+            void this.logService.log(
+                `Error processing image data: ${error instanceof Error ? error.message : String(error)}`,
+                'TestGenerator',
+            );
+            return null;
+        }
+    }
+
+    private isValidBase64(str: string): boolean {
+        if (!str || str.length < 4) return false;
+        const base64Regex = /^[A-Za-z0-9+/]*={0,2}$/;
+        if (!base64Regex.test(str)) return false;
+        const paddedLength = str.length + ((4 - (str.length % 4)) % 4);
+        if (paddedLength % 4 !== 0) return false;
+        try {
+            const decoded = Buffer.from(str, 'base64').toString('binary');
+            const reencoded = Buffer.from(decoded, 'binary').toString('base64');
+            return str.replace(/=+$/, '') === reencoded.replace(/=+$/, '');
+        } catch {
+            return false;
+        }
+    }
+
+    private normalizeDataUri(dataUri: string): string | null {
+        if (!dataUri || !dataUri.startsWith('data:image/')) {
+            return null;
+        }
+        try {
+            const [header, base64Data] = dataUri.split(',');
+            if (!header || !base64Data) {
+                void this.logService.log(
+                    'Invalid data URI format: missing header or base64 data',
+                    'TestGenerator',
+                );
+                return null;
+            }
+            let cleanBase64 = base64Data.replace(/\s+/g, '');
+            cleanBase64 = cleanBase64.replace(/[^A-Za-z0-9+/=]/g, '');
+            const paddingNeeded = (4 - (cleanBase64.length % 4)) % 4;
+            if (paddingNeeded > 0) cleanBase64 += '='.repeat(paddingNeeded);
+            if (!this.isValidBase64(cleanBase64)) {
+                void this.logService.log(
+                    'Invalid base64 data detected',
+                    'TestGenerator',
+                );
+                return null;
+            }
+            try {
+                const decoded = Buffer.from(cleanBase64, 'base64');
+                if (decoded.length < 50) {
+                    void this.logService.log(
+                        'Base64 data too small to be a valid image',
+                        'TestGenerator',
+                    );
+                    return null;
+                }
+            } catch (err) {
+                void this.logService.log(
+                    `Failed to decode base64 data: ${String(err)}`,
+                    'TestGenerator',
+                );
+                return null;
+            }
+            return `${header},${cleanBase64}`;
+        } catch (error) {
+            void this.logService.log(
+                `Failed to normalize data URI: ${String(error)}`,
+                'TestGenerator',
+            );
+            return null;
+        }
+    }
+
+    private detectImageMimeType(base64: string): string | null {
+        if (base64.startsWith('/9j/')) return 'image/jpeg';
+        if (base64.startsWith('iVBORw0KGgo')) return 'image/png';
+        if (base64.startsWith('R0lGODlh') || base64.startsWith('R0lGODdh'))
+            return 'image/gif';
+        if (base64.startsWith('UklGR')) return 'image/webp';
+        return null;
+    }
+
+    /**
+     * Generate sequential 5-digit code for generated test variants.
+     * Range: 00000..99999 (global across generated_test_variants).
+     * Uses a Postgres advisory lock to keep allocation ordered under concurrency.
+     */
+    private async generateUniqueNumber(): Promise<string> {
+        // Keep this constant stable; it defines the global lock used for allocation.
+        const LOCK_KEY = 7310001;
+
         await this.generatedTestVariantRepository.query(
-          `SELECT MAX(CAST("uniqueNumber" AS int)) AS max
+            'SELECT pg_advisory_lock($1)',
+            [LOCK_KEY],
+        );
+        try {
+            const rows: Array<{ max: string | number | null }> =
+                await this.generatedTestVariantRepository.query(
+                    `SELECT MAX(CAST("uniqueNumber" AS int)) AS max
            FROM "generated_test_variants"
            WHERE "uniqueNumber" ~ '^[0-9]{5}$'`,
+                );
+
+            const currentMaxRaw = rows?.[0]?.max;
+            const currentMax =
+                currentMaxRaw === null || currentMaxRaw === undefined
+                    ? -1
+                    : Number(currentMaxRaw);
+
+            if (!Number.isFinite(currentMax)) {
+                throw new BadRequestException('Failed to compute next uniqueNumber');
+            }
+
+            for (let next = currentMax + 1; next <= 99_999; next++) {
+                const code = String(next).padStart(5, '0');
+
+                const genExists = await this.generatedTestVariantRepository.findOne({
+                    where: { uniqueNumber: code },
+                    select: ['id'],
+                });
+                if (genExists) continue;
+
+                // Defensive: avoid collisions with exam scanner codes if any legacy 5-digit values exist.
+                const examExists = await this.examVariantRepository.findOne({
+                    where: { variantNumber: code },
+                    select: ['id'],
+                });
+                if (examExists) continue;
+
+                return code;
+            }
+
+            throw new BadRequestException(
+                'uniqueNumber limit reached (00000..99999). Please contact admin.',
+            );
+        } finally {
+            try {
+                await this.generatedTestVariantRepository.query(
+                    'SELECT pg_advisory_unlock($1)',
+                    [LOCK_KEY],
+                );
+            } catch {
+                // ignore unlock errors
+            }
+        }
+    }
+
+    /**
+     * Generate random test variants
+     */
+    async generateRandomTest(dto: GenerateTestDto, teacherId: number) {
+        // Validate subject
+        const subject = await this.subjectRepository.findOne({
+            where: { id: dto.subjectId },
+        });
+
+        if (!subject) {
+            throw new NotFoundException('Fan topilmadi');
+        }
+
+        // Get available questions
+        void this.logService.log(
+            `Available questions for subject ${subject.name}: test id ${dto.testId}, test ids: ${(dto.testIds || []).join(',')}`,
+            'TestGenerator',
         );
 
-      const currentMaxRaw = rows?.[0]?.max;
-      const currentMax =
-        currentMaxRaw === null || currentMaxRaw === undefined
-          ? -1
-          : Number(currentMaxRaw);
+        let availableQuestions: Question[] = [];
+        if (dto.testIds && dto.testIds.length > 0) {
+            // Fetch questions from multiple tests
+            availableQuestions = await this.questionRepository.find({
+                where: dto.testIds.map((id) => ({ test: { id } })),
+                relations: ['answers', 'test'],
+            });
+        } else {
+            availableQuestions = await this.questionRepository.find({
+                where: {
+                    test: dto.testId
+                        ? { id: dto.testId }
+                        : { subject: { id: dto.subjectId } },
+                },
+                relations: ['answers', 'test'],
+            });
+        }
 
-      if (!Number.isFinite(currentMax)) {
-        throw new BadRequestException('Failed to compute next uniqueNumber');
-      }
+        if (availableQuestions.length === 0) {
+            throw new BadRequestException('Tanlangan fanda savollar mavjud emas');
+        }
 
-      for (let next = currentMax + 1; next <= 99_999; next++) {
-        const code = String(next).padStart(5, '0');
+        if (availableQuestions.length < dto.questionCount) {
+            throw new BadRequestException(
+                `Fanda ${availableQuestions.length} ta savol bor, lekin ${dto.questionCount} ta so'rayapsiz`,
+            );
+        }
 
-        const genExists = await this.generatedTestVariantRepository.findOne({
-          where: { uniqueNumber: code },
-          select: ['id'],
+        // Create generated test record
+        const generatedTest = this.generatedTestRepository.create({
+            title: dto.title || `${subject.name} testi`,
+            description: '',
+            variantCount: dto.variantCount,
+            questionCount: dto.questionCount,
+            timeLimit: dto.timeLimit,
+            difficulty: dto.difficulty,
+            includeAnswers: dto.includeAnswers,
+            showTitleSheet: dto.showTitleSheet,
+            teacher: { id: teacherId },
+            subject: { id: dto.subjectId },
         });
-        if (genExists) continue;
 
-        // Defensive: avoid collisions with exam scanner codes if any legacy 5-digit values exist.
-        const examExists = await this.examVariantRepository.findOne({
-          where: { variantNumber: code },
-          select: ['id'],
+        const savedGeneratedTest =
+            await this.generatedTestRepository.save(generatedTest);
+
+        // Generate variants
+        const variants: TestVariant[] = [];
+        for (let v = 1; v <= dto.variantCount; v++) {
+            // Randomly select questions for this variant
+            const shuffled = [...availableQuestions].sort(() => 0.5 - Math.random());
+            const selectedQuestions = shuffled.slice(0, dto.questionCount);
+
+            // Shuffle answer options for multiple choice questions
+            const questionsWithShuffledAnswers = selectedQuestions.map((q) => {
+                if (
+                    q.type === QuestionType.MULTIPLE_CHOICE &&
+                    q.answers &&
+                    q.answers.length > 1
+                ) {
+                    const shuffledAnswers = [...q.answers].sort(
+                        () => 0.5 - Math.random(),
+                    );
+                    return { ...q, answers: shuffledAnswers };
+                }
+                return q;
+            });
+
+            const uniqueNumber = await this.generateUniqueNumber();
+
+            // Save variant to database
+            const variant = this.generatedTestVariantRepository.create({
+                uniqueNumber,
+                variantNumber: v,
+                questionsData: questionsWithShuffledAnswers,
+                generatedAt: new Date(),
+                generatedTest: savedGeneratedTest,
+                answerKey: this.buildAnswerKey(questionsWithShuffledAnswers),
+            });
+
+            await this.generatedTestVariantRepository.save(variant);
+
+            variants.push({
+                id: `${Date.now()}-${v}`,
+                variantNumber: v.toString(),
+                uniqueNumber,
+                questions: questionsWithShuffledAnswers,
+                createdAt: new Date(),
+            });
+        }
+
+        return {
+            id: savedGeneratedTest.id,
+            title: dto.title || `${subject.name} testi`,
+            subject: subject.name,
+            variants,
+            config: dto,
+            totalQuestions: dto.questionCount,
+            totalVariants: dto.variantCount,
+        };
+    }
+
+    /**
+     * Build answer key JSON from questions list
+     */
+    private buildAnswerKey(questions: Question[]): {
+        total: number;
+        answers: string[]; // e.g., ['C', 'A', '-', ...]
+    } {
+        const letters = ['A', 'B', 'C', 'D', 'E', 'F'];
+        const answers = (questions || []).map((q) => {
+            if (
+                q.type === QuestionType.MULTIPLE_CHOICE &&
+                q.answers &&
+                q.answers.length > 0
+            ) {
+                const idx = q.answers.findIndex((a) => a.isCorrect);
+                return idx >= 0 ? letters[idx] || 'X' : 'X';
+            }
+            if (q.type === QuestionType.TRUE_FALSE) {
+                // If answers array provided, index 0 => A (True), 1 => B (False)
+                if (q.answers && q.answers.length > 0) {
+                    const idx = q.answers.findIndex((a) => a.isCorrect);
+                    if (idx === 0) return 'A';
+                    if (idx === 1) return 'B';
+                }
+                // Fallback heuristic: default to 'A'
+                return 'A';
+            }
+            // Essay / other types do not have a single correct option
+            return '-';
         });
-        if (examExists) continue;
-
-        return code;
-      }
-
-      throw new BadRequestException(
-        'uniqueNumber limit reached (00000..99999). Please contact admin.',
-      );
-    } finally {
-      try {
-        await this.generatedTestVariantRepository.query(
-          'SELECT pg_advisory_unlock($1)',
-          [LOCK_KEY],
-        );
-      } catch {
-        // ignore unlock errors
-      }
-    }
-  }
-
-  /**
-   * Generate random test variants
-   */
-  async generateRandomTest(dto: GenerateTestDto, teacherId: number) {
-    // Validate subject
-    const subject = await this.subjectRepository.findOne({
-      where: { id: dto.subjectId },
-    });
-
-    if (!subject) {
-      throw new NotFoundException('Fan topilmadi');
+        return { total: answers.length, answers };
     }
 
-    // Get available questions
-    void this.logService.log(
-      `Available questions for subject ${subject.name}: test id ${dto.testId}, test ids: ${(dto.testIds || []).join(',')}`,
-      'TestGenerator',
-    );
-
-    let availableQuestions: Question[] = [];
-    if (dto.testIds && dto.testIds.length > 0) {
-      // Fetch questions from multiple tests
-      availableQuestions = await this.questionRepository.find({
-        where: dto.testIds.map((id) => ({ test: { id } })),
-        relations: ['answers', 'test'],
-      });
-    } else {
-      availableQuestions = await this.questionRepository.find({
-        where: {
-          test: dto.testId
-            ? { id: dto.testId }
-            : { subject: { id: dto.subjectId } },
-        },
-        relations: ['answers', 'test'],
-      });
+    /**
+     * Retrieve stored variant info by unique number
+     */
+    async getVariantByUniqueNumber(uniqueNumber: string) {
+        const variant = await this.generatedTestVariantRepository.findOne({
+            where: { uniqueNumber },
+            relations: [
+                'generatedTest',
+                'generatedTest.subject',
+                'generatedTest.teacher',
+            ],
+        });
+        if (!variant) {
+            throw new NotFoundException('Variant topilmadi');
+        }
+        return {
+            uniqueNumber: variant.uniqueNumber,
+            variantNumber: variant.variantNumber,
+            printableUrl: variant.printableUrl,
+            printableFileName: variant.printableFileName,
+            answerKey: variant.answerKey,
+            generatedTest: {
+                id: variant.generatedTest.id,
+                title: variant.generatedTest.title,
+                subject: variant.generatedTest.subject?.id,
+                teacher: variant.generatedTest.teacher?.id,
+            },
+            createdAt: variant.createdAt,
+            updatedAt: variant.updatedAt,
+        };
     }
 
-    if (availableQuestions.length === 0) {
-      throw new BadRequestException('Tanlangan fanda savollar mavjud emas');
+    /**
+     * Grade scanned answers for a variant using its uniqueNumber
+     */
+    async gradeScannedAnswers(
+        uniqueNumber: string,
+        scannedAnswers: string[],
+        studentId?: number,
+        centerId?: number,
+    ): Promise<{
+        uniqueNumber: string;
+        total: number;
+        correctCount: number;
+        wrongCount: number;
+        blankCount: number;
+        perQuestion: Array<{
+            index: number; // 0-based
+            scanned: string; // 'A'..'F' or '-' or 'X'
+            correct: string; // 'A'..'F' or '-' or 'X'
+            isCorrect: boolean;
+        }>;
+        resultId: number;
+    }> {
+        const variant = await this.generatedTestVariantRepository.findOne({
+            where: { uniqueNumber },
+        });
+        if (!variant) throw new NotFoundException('Variant topilmadi');
+
+        // Prevent duplicates for the same student + uniqueNumber (+ center).
+        // If studentId is not provided, we cannot reliably de-duplicate.
+        if (studentId !== undefined) {
+            const where: any = {
+                uniqueNumber,
+                student_id: studentId,
+            };
+            if (centerId !== undefined) {
+                where.center_id = centerId;
+            }
+            const existing = await this.resultsRepository.findOne({
+                where,
+                order: { createdAt: 'DESC', id: 'DESC' },
+            });
+            if (existing) {
+                throw new ConflictException(
+                    "Bu o'quvchi uchun ushbu variant avval tekshirilgan",
+                );
+            }
+        }
+
+        const key = variant.answerKey as unknown as {
+            total: number;
+            answers: string[];
+        } | null;
+        if (!key || !Array.isArray(key.answers)) {
+            throw new BadRequestException('Javoblar kaliti topilmadi');
+        }
+
+        const total = Math.min(key.answers.length, scannedAnswers.length);
+        const perQuestion: Array<{
+            index: number;
+            scanned: string;
+            correct: string;
+            isCorrect: boolean;
+        }> = [];
+        let correctCount = 0;
+        let blankCount = 0;
+        for (let i = 0; i < total; i++) {
+            const scanned = (scannedAnswers[i] || '-').toUpperCase();
+            const correct = (key.answers[i] || '-').toUpperCase();
+            const isBlank = scanned === '-' || scanned === '';
+            if (isBlank) blankCount++;
+            const isCorrect = !isBlank && scanned === correct;
+            if (isCorrect) correctCount++;
+            perQuestion.push({ index: i, scanned, correct, isCorrect });
+        }
+        const wrongCount = total - correctCount - blankCount;
+
+        // Create a new result row (duplicates are blocked above for same student+variant).
+        const result = this.resultsRepository.create({
+            student_id: studentId,
+            center_id: centerId,
+            uniqueNumber,
+            total,
+            correctCount,
+            wrongCount,
+            blankCount,
+            perQuestion,
+        });
+        await this.resultsRepository.save(result);
+
+        // --- Yangi kod: Telegram kanalga natija yuborish ---
+        try {
+            const student = result.student_id
+                ? await this.userRepo.findOne({ where: { id: result.student_id } })
+                : undefined;
+            const center = result.center_id
+                ? await this.centerRepo.findOne({ where: { id: result.center_id } })
+                : undefined;
+            const variantEntity = await this.generatedTestVariantRepository.findOne({
+                where: { uniqueNumber },
+                relations: ['generatedTest', 'generatedTest.subject'],
+            });
+            const subject = variantEntity?.generatedTest?.subject;
+
+            // Kanalga xabar yuborish uchun TelegramService dan foydalanamiz
+            const telegramService = this.moduleRef.get(TelegramService, {
+                strict: false,
+            });
+            await telegramService.sendTestResultToChannel({
+                student: student ?? undefined,
+                center: center ?? undefined,
+                subject,
+                correctCount,
+                total,
+            });
+        } catch (err) {
+            void this.logService.log(
+                `Telegram kanalga natija yuborishda xatolik: ${err.message}`,
+                'TestGenerator',
+            );
+        }
+
+        return {
+            uniqueNumber,
+            total,
+            correctCount,
+            wrongCount,
+            blankCount,
+            perQuestion,
+            resultId: result.id,
+        };
     }
 
-    if (availableQuestions.length < dto.questionCount) {
-      throw new BadRequestException(
-        `Fanda ${availableQuestions.length} ta savol bor, lekin ${dto.questionCount} ta so'rayapsiz`,
-      );
+    /**
+     * List generated tests for a teacher
+     */
+    async listGeneratedTests(teacherId?: number) {
+        const tests = await this.generatedTestRepository.find({
+            where: teacherId ? { teacher: { id: teacherId } } : {},
+            relations: ['subject', 'teacher', 'teacher.center'],
+            order: { createdAt: 'DESC' },
+        });
+
+        // Count variants per test without loading all questions
+        const ids = tests.map((t) => t.id);
+        const variantsByTest: Record<number, number> = {};
+        if (ids.length > 0) {
+            const qb = this.generatedTestVariantRepository
+                .createQueryBuilder('v')
+                .select('v.generatedTestId', 'generatedTestId')
+                .addSelect('COUNT(*)', 'cnt')
+                .where('v.generatedTestId IN (:...ids)', { ids })
+                .groupBy('v.generatedTestId');
+            const rows = await qb.getRawMany<{
+                generatedTestId: string;
+                cnt: string;
+            }>();
+            for (const r of rows)
+                variantsByTest[Number(r.generatedTestId)] = Number(r.cnt);
+        }
+
+        return tests.map((t) => ({
+            id: t.id,
+            title: t.title,
+            subject: {
+                id: t.subject?.id,
+                name: t.subject?.name,
+            },
+            teacher: {
+                id: t.teacher?.id,
+                fullName: t.teacher?.fullName,
+            },
+            center: t.teacher?.center
+                ? {
+                    id: (t.teacher.center as any).id,
+                    name: (t.teacher.center as any).name,
+                }
+                : null,
+            createdAt: t.createdAt,
+            variantCount: variantsByTest[t.id] ?? t.variantCount ?? 0,
+            questionCount: t.questionCount,
+            timeLimit: t.timeLimit,
+            difficulty: t.difficulty,
+        }));
     }
 
-    // Create generated test record
-    const generatedTest = this.generatedTestRepository.create({
-      title: dto.title || `${subject.name} testi`,
-      description: '',
-      variantCount: dto.variantCount,
-      questionCount: dto.questionCount,
-      timeLimit: dto.timeLimit,
-      difficulty: dto.difficulty,
-      includeAnswers: dto.includeAnswers,
-      showTitleSheet: dto.showTitleSheet,
-      teacher: { id: teacherId },
-      subject: { id: dto.subjectId },
-    });
+    /**
+     * List variants of a generated test, ensuring ownership
+     */
+    async listGeneratedTestVariants(
+        testId: number,
+        teacherId: number,
+        isSuperadmin = false,
+    ) {
+        const test = await this.generatedTestRepository.findOne({
+            where: { id: testId },
+            relations: ['teacher'],
+        });
+        if (!test) throw new NotFoundException('Yaratilgan test topilmadi');
+        if (!isSuperadmin && test.teacher?.id !== teacherId)
+            throw new BadRequestException("Bu testga ruxsatingiz yo'q");
 
-    const savedGeneratedTest =
-      await this.generatedTestRepository.save(generatedTest);
+        const variants = await this.generatedTestVariantRepository.find({
+            where: { generatedTest: { id: testId } },
+            order: { variantNumber: 'ASC' },
+        });
 
-    // Generate variants
-    const variants: TestVariant[] = [];
-    for (let v = 1; v <= dto.variantCount; v++) {
-      // Randomly select questions for this variant
-      const shuffled = [...availableQuestions].sort(() => 0.5 - Math.random());
-      const selectedQuestions = shuffled.slice(0, dto.questionCount);
+        return variants.map((v) => ({
+            uniqueNumber: v.uniqueNumber,
+            variantNumber: v.variantNumber,
+            printableUrl: v.printableUrl,
+            printableFileName: v.printableFileName,
+            generatedAt: v.generatedAt ?? v.createdAt,
+            answerKey: v.answerKey,
+        }));
+    }
 
-      // Shuffle answer options for multiple choice questions
-      const questionsWithShuffledAnswers = selectedQuestions.map((q) => {
+    /**
+     * Generate printable HTML for an existing generated test (load data from DB).
+     * If variants are missing, it will (re)create them using subject question pool.
+     */
+    async generatePrintableHtmlForGeneratedTest(
+        opts: GenerateGeneratedTestPrintableOptions,
+    ): Promise<{
+        files: {
+            variantNumber: string;
+            url: string;
+            fileName: string;
+            answerSheetUrl?: string;
+            uniqueNumber?: string;
+        }[];
+        title?: string;
+        combinedUrl?: string;
+    }> {
+        const test = await this.generatedTestRepository.findOne({
+            where: { id: opts.generatedTestId },
+            relations: ['teacher', 'subject'],
+        });
+        if (!test) throw new NotFoundException('Yaratilgan test topilmadi');
         if (
-          q.type === QuestionType.MULTIPLE_CHOICE &&
-          q.answers &&
-          q.answers.length > 1
+            opts.requesterRole !== UserRole.SUPERADMIN &&
+            (!test.teacher || Number(test.teacher.id) !== Number(opts.teacherId))
         ) {
-          const shuffledAnswers = [...q.answers].sort(
-            () => 0.5 - Math.random(),
-          );
-          return { ...q, answers: shuffledAnswers };
+            throw new BadRequestException('Bu test sizga tegishli emas');
         }
-        return q;
-      });
 
-      const uniqueNumber = await this.generateUniqueNumber();
+        const ensureExists = opts.ensureExists ?? true;
 
-      // Save variant to database
-      const variant = this.generatedTestVariantRepository.create({
-        uniqueNumber,
-        variantNumber: v,
-        questionsData: questionsWithShuffledAnswers,
-        generatedAt: new Date(),
-        generatedTest: savedGeneratedTest,
-        answerKey: this.buildAnswerKey(questionsWithShuffledAnswers),
-      });
+        let variants = await this.generatedTestVariantRepository.find({
+            where: { generatedTest: { id: test.id } },
+            order: { variantNumber: 'ASC' },
+        });
 
-      await this.generatedTestVariantRepository.save(variant);
+        // If variants were not created (e.g., generation crashed), recreate them.
+        if (!variants.length) {
+            const availableQuestions = await this.questionRepository.find({
+                where: { test: { subject: { id: test.subject?.id } } },
+                relations: ['answers', 'test'],
+            });
 
-      variants.push({
-        id: `${Date.now()}-${v}`,
-        variantNumber: v.toString(),
-        uniqueNumber,
-        questions: questionsWithShuffledAnswers,
-        createdAt: new Date(),
-      });
-    }
+            if (!availableQuestions.length) {
+                throw new BadRequestException('Tanlangan fanda savollar mavjud emas');
+            }
+            if (availableQuestions.length < Number(test.questionCount || 0)) {
+                throw new BadRequestException(
+                    `Fanda ${availableQuestions.length} ta savol bor, lekin ${Number(
+                        test.questionCount || 0,
+                    )} ta so'rayapsiz`,
+                );
+            }
 
-    return {
-      id: savedGeneratedTest.id,
-      title: dto.title || `${subject.name} testi`,
-      subject: subject.name,
-      variants,
-      config: dto,
-      totalQuestions: dto.questionCount,
-      totalVariants: dto.variantCount,
-    };
-  }
+            const toCreate = Math.max(1, Number(test.variantCount || 1));
+            for (let v = 1; v <= toCreate; v++) {
+                const shuffled = [...availableQuestions].sort(
+                    () => 0.5 - Math.random(),
+                );
+                const selectedQuestions = shuffled.slice(
+                    0,
+                    Number(test.questionCount || 0),
+                );
+                const questionsWithShuffledAnswers = selectedQuestions.map((q) => {
+                    if (
+                        q.type === QuestionType.MULTIPLE_CHOICE &&
+                        Array.isArray(q.answers) &&
+                        q.answers.length > 1
+                    ) {
+                        return {
+                            ...q,
+                            answers: [...q.answers].sort(() => 0.5 - Math.random()),
+                        } as Question;
+                    }
+                    return q;
+                });
 
-  /**
-   * Build answer key JSON from questions list
-   */
-  private buildAnswerKey(questions: Question[]): {
-    total: number;
-    answers: string[]; // e.g., ['C', 'A', '-', ...]
-  } {
-    const letters = ['A', 'B', 'C', 'D', 'E', 'F'];
-    const answers = (questions || []).map((q) => {
-      if (
-        q.type === QuestionType.MULTIPLE_CHOICE &&
-        q.answers &&
-        q.answers.length > 0
-      ) {
-        const idx = q.answers.findIndex((a) => a.isCorrect);
-        return idx >= 0 ? letters[idx] || 'X' : 'X';
-      }
-      if (q.type === QuestionType.TRUE_FALSE) {
-        // If answers array provided, index 0 => A (True), 1 => B (False)
-        if (q.answers && q.answers.length > 0) {
-          const idx = q.answers.findIndex((a) => a.isCorrect);
-          if (idx === 0) return 'A';
-          if (idx === 1) return 'B';
+                const uniqueNumber = await this.generateUniqueNumber();
+                const variant = this.generatedTestVariantRepository.create({
+                    uniqueNumber,
+                    variantNumber: v,
+                    questionsData: questionsWithShuffledAnswers,
+                    generatedAt: new Date(),
+                    generatedTest: test,
+                    answerKey: this.buildAnswerKey(questionsWithShuffledAnswers),
+                });
+                await this.generatedTestVariantRepository.save(variant);
+            }
+
+            variants = await this.generatedTestVariantRepository.find({
+                where: { generatedTest: { id: test.id } },
+                order: { variantNumber: 'ASC' },
+            });
         }
-        // Fallback heuristic: default to 'A'
-        return 'A';
-      }
-      // Essay / other types do not have a single correct option
-      return '-';
-    });
-    return { total: answers.length, answers };
-  }
 
-  /**
-   * Retrieve stored variant info by unique number
-   */
-  async getVariantByUniqueNumber(uniqueNumber: string) {
-    const variant = await this.generatedTestVariantRepository.findOne({
-      where: { uniqueNumber },
-      relations: [
-        'generatedTest',
-        'generatedTest.subject',
-        'generatedTest.teacher',
-      ],
-    });
-    if (!variant) {
-      throw new NotFoundException('Variant topilmadi');
-    }
-    return {
-      uniqueNumber: variant.uniqueNumber,
-      variantNumber: variant.variantNumber,
-      printableUrl: variant.printableUrl,
-      printableFileName: variant.printableFileName,
-      answerKey: variant.answerKey,
-      generatedTest: {
-        id: variant.generatedTest.id,
-        title: variant.generatedTest.title,
-        subject: variant.generatedTest.subject?.id,
-        teacher: variant.generatedTest.teacher?.id,
-      },
-      createdAt: variant.createdAt,
-      updatedAt: variant.updatedAt,
-    };
-  }
-
-  /**
-   * Grade scanned answers for a variant using its uniqueNumber
-   */
-  async gradeScannedAnswers(
-    uniqueNumber: string,
-    scannedAnswers: string[],
-    studentId?: number,
-    centerId?: number,
-  ): Promise<{
-    uniqueNumber: string;
-    total: number;
-    correctCount: number;
-    wrongCount: number;
-    blankCount: number;
-    perQuestion: Array<{
-      index: number; // 0-based
-      scanned: string; // 'A'..'F' or '-' or 'X'
-      correct: string; // 'A'..'F' or '-' or 'X'
-      isCorrect: boolean;
-    }>;
-    resultId: number;
-  }> {
-    const variant = await this.generatedTestVariantRepository.findOne({
-      where: { uniqueNumber },
-    });
-    if (!variant) throw new NotFoundException('Variant topilmadi');
-
-    // Prevent duplicates for the same student + uniqueNumber (+ center).
-    // If studentId is not provided, we cannot reliably de-duplicate.
-    if (studentId !== undefined) {
-      const where: any = {
-        uniqueNumber,
-        student_id: studentId,
-      };
-      if (centerId !== undefined) {
-        where.center_id = centerId;
-      }
-      const existing = await this.resultsRepository.findOne({
-        where,
-        order: { createdAt: 'DESC', id: 'DESC' },
-      });
-      if (existing) {
-        throw new ConflictException(
-          "Bu o'quvchi uchun ushbu variant avval tekshirilgan",
-        );
-      }
-    }
-
-    const key = variant.answerKey as unknown as {
-      total: number;
-      answers: string[];
-    } | null;
-    if (!key || !Array.isArray(key.answers)) {
-      throw new BadRequestException('Javoblar kaliti topilmadi');
-    }
-
-    const total = Math.min(key.answers.length, scannedAnswers.length);
-    const perQuestion: Array<{
-      index: number;
-      scanned: string;
-      correct: string;
-      isCorrect: boolean;
-    }> = [];
-    let correctCount = 0;
-    let blankCount = 0;
-    for (let i = 0; i < total; i++) {
-      const scanned = (scannedAnswers[i] || '-').toUpperCase();
-      const correct = (key.answers[i] || '-').toUpperCase();
-      const isBlank = scanned === '-' || scanned === '';
-      if (isBlank) blankCount++;
-      const isCorrect = !isBlank && scanned === correct;
-      if (isCorrect) correctCount++;
-      perQuestion.push({ index: i, scanned, correct, isCorrect });
-    }
-    const wrongCount = total - correctCount - blankCount;
-
-    // Create a new result row (duplicates are blocked above for same student+variant).
-    const result = this.resultsRepository.create({
-      student_id: studentId,
-      center_id: centerId,
-      uniqueNumber,
-      total,
-      correctCount,
-      wrongCount,
-      blankCount,
-      perQuestion,
-    });
-    await this.resultsRepository.save(result);
-
-    // --- Yangi kod: Telegram kanalga natija yuborish ---
-    try {
-      const student = result.student_id
-        ? await this.userRepo.findOne({ where: { id: result.student_id } })
-        : undefined;
-      const center = result.center_id
-        ? await this.centerRepo.findOne({ where: { id: result.center_id } })
-        : undefined;
-      const variantEntity = await this.generatedTestVariantRepository.findOne({
-        where: { uniqueNumber },
-        relations: ['generatedTest', 'generatedTest.subject'],
-      });
-      const subject = variantEntity?.generatedTest?.subject;
-
-      // Kanalga xabar yuborish uchun TelegramService dan foydalanamiz
-      const telegramService = this.moduleRef.get(TelegramService, {
-        strict: false,
-      });
-      await telegramService.sendTestResultToChannel({
-        student: student ?? undefined,
-        center: center ?? undefined,
-        subject,
-        correctCount,
-        total,
-      });
-    } catch (err) {
-      void this.logService.log(
-        `Telegram kanalga natija yuborishda xatolik: ${err.message}`,
-        'TestGenerator',
-      );
-    }
-
-    return {
-      uniqueNumber,
-      total,
-      correctCount,
-      wrongCount,
-      blankCount,
-      perQuestion,
-      resultId: result.id,
-    };
-  }
-
-  /**
-   * List generated tests for a teacher
-   */
-  async listGeneratedTests(teacherId?: number) {
-    const tests = await this.generatedTestRepository.find({
-      where: teacherId ? { teacher: { id: teacherId } } : {},
-      relations: ['subject', 'teacher', 'teacher.center'],
-      order: { createdAt: 'DESC' },
-    });
-
-    // Count variants per test without loading all questions
-    const ids = tests.map((t) => t.id);
-    const variantsByTest: Record<number, number> = {};
-    if (ids.length > 0) {
-      const qb = this.generatedTestVariantRepository
-        .createQueryBuilder('v')
-        .select('v.generatedTestId', 'generatedTestId')
-        .addSelect('COUNT(*)', 'cnt')
-        .where('v.generatedTestId IN (:...ids)', { ids })
-        .groupBy('v.generatedTestId');
-      const rows = await qb.getRawMany<{
-        generatedTestId: string;
-        cnt: string;
-      }>();
-      for (const r of rows)
-        variantsByTest[Number(r.generatedTestId)] = Number(r.cnt);
-    }
-
-    return tests.map((t) => ({
-      id: t.id,
-      title: t.title,
-      subject: {
-        id: t.subject?.id,
-        name: t.subject?.name,
-      },
-      teacher: {
-        id: t.teacher?.id,
-        fullName: t.teacher?.fullName,
-      },
-      center: t.teacher?.center
-        ? {
-            id: (t.teacher.center as any).id,
-            name: (t.teacher.center as any).name,
-          }
-        : null,
-      createdAt: t.createdAt,
-      variantCount: variantsByTest[t.id] ?? t.variantCount ?? 0,
-      questionCount: t.questionCount,
-      timeLimit: t.timeLimit,
-      difficulty: t.difficulty,
-    }));
-  }
-
-  /**
-   * List variants of a generated test, ensuring ownership
-   */
-  async listGeneratedTestVariants(
-    testId: number,
-    teacherId: number,
-    isSuperadmin = false,
-  ) {
-    const test = await this.generatedTestRepository.findOne({
-      where: { id: testId },
-      relations: ['teacher'],
-    });
-    if (!test) throw new NotFoundException('Yaratilgan test topilmadi');
-    if (!isSuperadmin && test.teacher?.id !== teacherId)
-      throw new BadRequestException("Bu testga ruxsatingiz yo'q");
-
-    const variants = await this.generatedTestVariantRepository.find({
-      where: { generatedTest: { id: testId } },
-      order: { variantNumber: 'ASC' },
-    });
-
-    return variants.map((v) => ({
-      uniqueNumber: v.uniqueNumber,
-      variantNumber: v.variantNumber,
-      printableUrl: v.printableUrl,
-      printableFileName: v.printableFileName,
-      generatedAt: v.generatedAt ?? v.createdAt,
-      answerKey: v.answerKey,
-    }));
-  }
-
-  /**
-   * Generate printable HTML for an existing generated test (load data from DB).
-   * If variants are missing, it will (re)create them using subject question pool.
-   */
-  async generatePrintableHtmlForGeneratedTest(
-    opts: GenerateGeneratedTestPrintableOptions,
-  ): Promise<{
-    files: {
-      variantNumber: string;
-      url: string;
-      fileName: string;
-      answerSheetUrl?: string;
-      uniqueNumber?: string;
-    }[];
-    title?: string;
-    combinedUrl?: string;
-  }> {
-    const test = await this.generatedTestRepository.findOne({
-      where: { id: opts.generatedTestId },
-      relations: ['teacher', 'subject'],
-    });
-    if (!test) throw new NotFoundException('Yaratilgan test topilmadi');
-    if (
-      opts.requesterRole !== UserRole.SUPERADMIN &&
-      (!test.teacher || Number(test.teacher.id) !== Number(opts.teacherId))
-    ) {
-      throw new BadRequestException('Bu test sizga tegishli emas');
-    }
-
-    const ensureExists = opts.ensureExists ?? true;
-
-    let variants = await this.generatedTestVariantRepository.find({
-      where: { generatedTest: { id: test.id } },
-      order: { variantNumber: 'ASC' },
-    });
-
-    // If variants were not created (e.g., generation crashed), recreate them.
-    if (!variants.length) {
-      const availableQuestions = await this.questionRepository.find({
-        where: { test: { subject: { id: test.subject?.id } } },
-        relations: ['answers', 'test'],
-      });
-
-      if (!availableQuestions.length) {
-        throw new BadRequestException('Tanlangan fanda savollar mavjud emas');
-      }
-      if (availableQuestions.length < Number(test.questionCount || 0)) {
-        throw new BadRequestException(
-          `Fanda ${availableQuestions.length} ta savol bor, lekin ${Number(
-            test.questionCount || 0,
-          )} ta so'rayapsiz`,
-        );
-      }
-
-      const toCreate = Math.max(1, Number(test.variantCount || 1));
-      for (let v = 1; v <= toCreate; v++) {
-        const shuffled = [...availableQuestions].sort(
-          () => 0.5 - Math.random(),
-        );
-        const selectedQuestions = shuffled.slice(
-          0,
-          Number(test.questionCount || 0),
-        );
-        const questionsWithShuffledAnswers = selectedQuestions.map((q) => {
-          if (
-            q.type === QuestionType.MULTIPLE_CHOICE &&
-            Array.isArray(q.answers) &&
-            q.answers.length > 1
-          ) {
+        // If caller wants caching and all variants already have printable URLs, return them.
+        if (
+            ensureExists &&
+            variants.length &&
+            variants.every((v) => v.printableUrl && v.printableFileName)
+        ) {
             return {
-              ...q,
-              answers: [...q.answers].sort(() => 0.5 - Math.random()),
-            } as Question;
-          }
-          return q;
+                files: variants.map((v) => ({
+                    variantNumber: String(v.variantNumber),
+                    url: String(v.printableUrl),
+                    fileName: String(v.printableFileName),
+                    uniqueNumber: v.uniqueNumber,
+                })),
+                title: test.title,
+            };
+        }
+
+        const mappedVariants: TestVariant[] = variants.map((v) => ({
+            id: `db-${test.id}-${v.uniqueNumber}`,
+            variantNumber: String(v.variantNumber),
+            uniqueNumber: v.uniqueNumber,
+            questions: (Array.isArray(v.questionsData)
+                ? v.questionsData
+                : []) as Question[],
+            createdAt: v.generatedAt ?? v.createdAt,
+        }));
+
+        return await this.generatePrintableHtmlFiles({
+            variants: mappedVariants,
+            config: {
+                title: test.title,
+                subjectId: test.subject?.id ?? 0,
+                questionCount: test.questionCount,
+                variantCount: test.variantCount,
+                timeLimit: test.timeLimit,
+                difficulty: test.difficulty,
+                includeAnswers: test.includeAnswers,
+                showTitleSheet: test.showTitleSheet,
+            },
+            subjectName: test.subject?.name ?? 'Test',
+            teacherId: Number(opts.teacherId),
+        });
+    }
+
+    /**
+     * Delete a generated test and cleanup stored printable HTML files.
+     * DB rows are cascaded (GeneratedTest -> Variants), but files must be removed manually.
+     */
+    async removeGeneratedTest(opts: RemoveGeneratedTestOptions): Promise<void> {
+        const test = await this.generatedTestRepository.findOne({
+            where: { id: opts.generatedTestId },
+            relations: ['teacher'],
+        });
+        if (!test) throw new NotFoundException('Yaratilgan test topilmadi');
+
+        if (
+            opts.requesterRole !== UserRole.SUPERADMIN &&
+            (!test.teacher || Number(test.teacher.id) !== Number(opts.teacherId))
+        ) {
+            throw new ForbiddenException("Bu testni o'chirishga ruxsatingiz yo'q");
+        }
+
+        const variants = await this.generatedTestVariantRepository.find({
+            where: { generatedTest: { id: test.id } },
+            select: ['id', 'printableFileName'],
         });
 
-        const uniqueNumber = await this.generateUniqueNumber();
-        const variant = this.generatedTestVariantRepository.create({
-          uniqueNumber,
-          variantNumber: v,
-          questionsData: questionsWithShuffledAnswers,
-          generatedAt: new Date(),
-          generatedTest: test,
-          answerKey: this.buildAnswerKey(questionsWithShuffledAnswers),
+        const uploadsDir = this.getUploadsDir();
+
+        const safeUnlink = async (absolutePath: string) => {
+            try {
+                await fs.unlink(absolutePath);
+            } catch {
+                // ignore missing/unlink errors
+            }
+        };
+
+        await Promise.all(
+            variants
+                .map((v) =>
+                    v.printableFileName ? basename(v.printableFileName) : null,
+                )
+                .filter(Boolean)
+                .map((fileName) => safeUnlink(join(uploadsDir, fileName as string))),
+        );
+
+        // Remove DB rows (variants cascade, but explicit remove keeps intent clear)
+        await this.generatedTestRepository.delete({ id: test.id });
+    }
+
+    /**
+     * Generate PDF for test variants with 2-column layout
+     */
+    generateTestPDF(): Promise<Buffer> {
+        // PDF generation is deprecated; use HTML printable flow instead
+        return Promise.reject(
+            new BadRequestException('PDF generation is disabled. Use HTML output.'),
+        );
+    }
+
+    saveGeneratedTest(generatedTest: any, teacherId: number): Promise<any> {
+        // For now, we'll just return the generated test without saving
+        // In the future, you can implement saving to a separate table
+        return Promise.resolve({
+            ...generatedTest,
+            savedAt: new Date(),
+            teacherId,
         });
-        await this.generatedTestVariantRepository.save(variant);
-      }
-
-      variants = await this.generatedTestVariantRepository.find({
-        where: { generatedTest: { id: test.id } },
-        order: { variantNumber: 'ASC' },
-      });
     }
-
-    // If caller wants caching and all variants already have printable URLs, return them.
-    if (
-      ensureExists &&
-      variants.length &&
-      variants.every((v) => v.printableUrl && v.printableFileName)
-    ) {
-      return {
-        files: variants.map((v) => ({
-          variantNumber: String(v.variantNumber),
-          url: String(v.printableUrl),
-          fileName: String(v.printableFileName),
-          uniqueNumber: v.uniqueNumber,
-        })),
-        title: test.title,
-      };
-    }
-
-    const mappedVariants: TestVariant[] = variants.map((v) => ({
-      id: `db-${test.id}-${v.uniqueNumber}`,
-      variantNumber: String(v.variantNumber),
-      uniqueNumber: v.uniqueNumber,
-      questions: (Array.isArray(v.questionsData)
-        ? v.questionsData
-        : []) as Question[],
-      createdAt: v.generatedAt ?? v.createdAt,
-    }));
-
-    return await this.generatePrintableHtmlFiles({
-      variants: mappedVariants,
-      config: {
-        title: test.title,
-        subjectId: test.subject?.id ?? 0,
-        questionCount: test.questionCount,
-        variantCount: test.variantCount,
-        timeLimit: test.timeLimit,
-        difficulty: test.difficulty,
-        includeAnswers: test.includeAnswers,
-        showTitleSheet: test.showTitleSheet,
-      },
-      subjectName: test.subject?.name ?? 'Test',
-      teacherId: Number(opts.teacherId),
-    });
-  }
-
-  /**
-   * Delete a generated test and cleanup stored printable HTML files.
-   * DB rows are cascaded (GeneratedTest -> Variants), but files must be removed manually.
-   */
-  async removeGeneratedTest(opts: RemoveGeneratedTestOptions): Promise<void> {
-    const test = await this.generatedTestRepository.findOne({
-      where: { id: opts.generatedTestId },
-      relations: ['teacher'],
-    });
-    if (!test) throw new NotFoundException('Yaratilgan test topilmadi');
-
-    if (
-      opts.requesterRole !== UserRole.SUPERADMIN &&
-      (!test.teacher || Number(test.teacher.id) !== Number(opts.teacherId))
-    ) {
-      throw new ForbiddenException("Bu testni o'chirishga ruxsatingiz yo'q");
-    }
-
-    const variants = await this.generatedTestVariantRepository.find({
-      where: { generatedTest: { id: test.id } },
-      select: ['id', 'printableFileName'],
-    });
-
-    const uploadsDir = this.getUploadsDir();
-
-    const safeUnlink = async (absolutePath: string) => {
-      try {
-        await fs.unlink(absolutePath);
-      } catch {
-        // ignore missing/unlink errors
-      }
-    };
-
-    await Promise.all(
-      variants
-        .map((v) =>
-          v.printableFileName ? basename(v.printableFileName) : null,
-        )
-        .filter(Boolean)
-        .map((fileName) => safeUnlink(join(uploadsDir, fileName as string))),
-    );
-
-    // Remove DB rows (variants cascade, but explicit remove keeps intent clear)
-    await this.generatedTestRepository.delete({ id: test.id });
-  }
-
-  /**
-   * Generate PDF for test variants with 2-column layout
-   */
-  generateTestPDF(): Promise<Buffer> {
-    // PDF generation is deprecated; use HTML printable flow instead
-    return Promise.reject(
-      new BadRequestException('PDF generation is disabled. Use HTML output.'),
-    );
-  }
-
-  saveGeneratedTest(generatedTest: any, teacherId: number): Promise<any> {
-    // For now, we'll just return the generated test without saving
-    // In the future, you can implement saving to a separate table
-    return Promise.resolve({
-      ...generatedTest,
-      savedAt: new Date(),
-      teacherId,
-    });
-  }
 }
 
 // Small utility copied to keep this service self-contained
 function escapeHtml(str: string) {
-  if (!str) return '';
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
+    if (!str) return '';
+    return str
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
 }
 
 // Basic HTML sanitizer: removes scripts/styles, event handlers, and javascript: URLs; keeps common tags like div/span/b/i/br/ul/ol/li etc.
 function sanitizeHtmlBasic(html: string): string {
-  if (!html) return '';
-  let out = String(html);
-  // remove script/style blocks
-  out = out.replace(/<\s*(script|style)[^>]*>[\s\S]*?<\s*\/\s*\1\s*>/gi, '');
-  // remove event handler attributes like onclick="..."
-  out = out.replace(/\s+on[a-z]+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, '');
-  // neutralize javascript: in href/src
-  out = out.replace(
-    /\s(href|src)\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi,
-    (_m, attr, val) => {
-      const v = String(val).replace(/^['"]|['"]$/g, '');
-      if (/^\s*javascript:/i.test(v)) return '';
-      return ` ${attr}="${v}"`;
-    },
-  );
-  return out;
+    if (!html) return '';
+    let out = String(html);
+    // remove script/style blocks
+    out = out.replace(/<\s*(script|style)[^>]*>[\s\S]*?<\s*\/\s*\1\s*>/gi, '');
+    // remove event handler attributes like onclick="..."
+    out = out.replace(/\s+on[a-z]+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, '');
+    // neutralize javascript: in href/src
+    out = out.replace(
+        /\s(href|src)\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi,
+        (_m, attr, val) => {
+            const v = String(val).replace(/^['"]|['"]$/g, '');
+            if (/^\s*javascript:/i.test(v)) return '';
+            return ` ${attr}="${v}"`;
+        },
+    );
+    return out;
 }
 
 function rewriteUnicodeSuperSubToHtml(input: string): string {
-  if (!input) return '';
-  const supers: Record<string, string> = {
-    '⁰': '0',
-    '¹': '1',
-    '²': '2',
-    '³': '3',
-    '⁴': '4',
-    '⁵': '5',
-    '⁶': '6',
-    '⁷': '7',
-    '⁸': '8',
-    '⁹': '9',
-    '⁺': '+',
-    '⁻': '-',
-    '⁼': '=',
-    '⁽': '(',
-    '⁾': ')',
-  };
-  const subs: Record<string, string> = {
-    '₀': '0',
-    '₁': '1',
-    '₂': '2',
-    '₃': '3',
-    '₄': '4',
-    '₅': '5',
-    '₆': '6',
-    '₇': '7',
-    '₈': '8',
-    '₉': '9',
-    '₊': '+',
-    '₋': '-',
-    '₌': '=',
-    '₍': '(',
-    '₎': ')',
-  };
+    if (!input) return '';
+    const supers: Record<string, string> = {
+        '⁰': '0',
+        '¹': '1',
+        '²': '2',
+        '³': '3',
+        '⁴': '4',
+        '⁵': '5',
+        '⁶': '6',
+        '⁷': '7',
+        '⁸': '8',
+        '⁹': '9',
+        '⁺': '+',
+        '⁻': '-',
+        '⁼': '=',
+        '⁽': '(',
+        '⁾': ')',
+    };
+    const subs: Record<string, string> = {
+        '₀': '0',
+        '₁': '1',
+        '₂': '2',
+        '₃': '3',
+        '₄': '4',
+        '₅': '5',
+        '₆': '6',
+        '₇': '7',
+        '₈': '8',
+        '₉': '9',
+        '₊': '+',
+        '₋': '-',
+        '₌': '=',
+        '₍': '(',
+        '₎': ')',
+    };
 
-  let out = String(input);
-  out = out.replace(
-    /[⁰¹²³⁴⁵⁶⁷⁸⁹⁺⁻⁼⁽⁾]/g,
-    (ch) => `<sup>${supers[ch] ?? ''}</sup>`,
-  );
-  out = out.replace(
-    /[₀₁₂₃₄₅₆₇₈₉₊₋₌₍₎]/g,
-    (ch) => `<sub>${subs[ch] ?? ''}</sub>`,
-  );
-  return out;
+    let out = String(input);
+    out = out.replace(
+        /[⁰¹²³⁴⁵⁶⁷⁸⁹⁺⁻⁼⁽⁾]/g,
+        (ch) => `<sup>${supers[ch] ?? ''}</sup>`,
+    );
+    out = out.replace(
+        /[₀₁₂₃₄₅₆₇₈₉₊₋₌₍₎]/g,
+        (ch) => `<sub>${subs[ch] ?? ''}</sub>`,
+    );
+    return out;
 }
 
 // Server-side KaTeX renderer that preserves sanitized HTML for non-math segments
 function renderWithKatexAllowHtml(text: string): string {
-  if (!text) return '';
-  const parts: string[] = [];
-  const regex =
-    /\$\$([\s\S]*?)\$\$|\$([^$\n]+?)\$|\\\[((?:.|\n)*?)\\\]|\\\(((?:.|\n)*?)\\\)/g;
-  let lastIndex = 0;
-  let m: RegExpExecArray | null;
-  while ((m = regex.exec(text)) !== null) {
-    const index = m.index;
-    const before = text.slice(lastIndex, index);
-    if (before)
-      parts.push(rewriteUnicodeSuperSubToHtml(sanitizeHtmlBasic(before)));
-    const formulaRaw = (m[1] ?? m[2] ?? m[3] ?? m[4] ?? '').trim();
-    const formula = formulaRaw.replace(/\\\[/g, '[').replace(/\\\]/g, ']');
-    // Treat $$...$$ / \[...\] as display math only when it is on its own line.
-    // If embedded in a sentence like "(... $$C_{M}$$ ...)" then display-mode KaTeX
-    // forces line breaks (especially in multi-column print/PDF layout).
-    let display = Boolean(m[1] || m[3]);
-    if (display) {
-      const matchEnd = index + m[0].length;
-      const lineStart = text.lastIndexOf('\n', index - 1) + 1;
-      const nextNewline = text.indexOf('\n', matchEnd);
-      const lineEnd = nextNewline === -1 ? text.length : nextNewline;
-      const beforeOnLine = text.slice(lineStart, index);
-      const afterOnLine = text.slice(matchEnd, lineEnd);
-      const isStandaloneLine =
-        beforeOnLine.trim().length === 0 && afterOnLine.trim().length === 0;
-      if (!isStandaloneLine) display = false;
-    }
+    if (!text) return '';
+    const parts: string[] = [];
+    const regex =
+        /\$\$([\s\S]*?)\$\$|\$([^$\n]+?)\$|\\\[((?:.|\n)*?)\\\]|\\\(((?:.|\n)*?)\\\)/g;
+    let lastIndex = 0;
+    let m: RegExpExecArray | null;
+    while ((m = regex.exec(text)) !== null) {
+        const index = m.index;
+        const before = text.slice(lastIndex, index);
+        if (before)
+            parts.push(rewriteUnicodeSuperSubToHtml(sanitizeHtmlBasic(before)));
+        const formulaRaw = (m[1] ?? m[2] ?? m[3] ?? m[4] ?? '').trim();
+        const formula = formulaRaw.replace(/\\\[/g, '[').replace(/\\\]/g, ']');
+        // Treat $$...$$ / \[...\] as display math only when it is on its own line.
+        // If embedded in a sentence like "(... $$C_{M}$$ ...)" then display-mode KaTeX
+        // forces line breaks (especially in multi-column print/PDF layout).
+        let display = Boolean(m[1] || m[3]);
+        if (display) {
+            const matchEnd = index + m[0].length;
+            const lineStart = text.lastIndexOf('\n', index - 1) + 1;
+            const nextNewline = text.indexOf('\n', matchEnd);
+            const lineEnd = nextNewline === -1 ? text.length : nextNewline;
+            const beforeOnLine = text.slice(lineStart, index);
+            const afterOnLine = text.slice(matchEnd, lineEnd);
+            const isStandaloneLine =
+                beforeOnLine.trim().length === 0 && afterOnLine.trim().length === 0;
+            if (!isStandaloneLine) display = false;
+        }
 
-    const containsUnicodeSuperSub = /[⁰¹²³⁴⁵⁶⁷⁸⁹⁺⁻⁼⁽⁾₀₁₂₃₄₅₆₇₈₉₊₋₌₍₎]/.test(
-      formula,
-    );
-    const isBracketToken =
-      !formula.includes('\\') && /^\[[^\]]*\]$/.test(formula);
+        const containsUnicodeSuperSub = /[⁰¹²³⁴⁵⁶⁷⁸⁹⁺⁻⁼⁽⁾₀₁₂₃₄₅₆₇₈₉₊₋₌₍₎]/.test(
+            formula,
+        );
+        const isBracketToken =
+            !formula.includes('\\') && /^\[[^\]]*\]$/.test(formula);
 
-    // Heuristic: DOCX imports sometimes wrap plain text into math delimiters.
-    // For these cases we want *plain text output* (same as UI), not KaTeX layout/typography.
-    // - short tokens (Ne, Ar, He)
-    // - bracket tokens ([] / [Ar])
-    // - electron configuration with unicode super/sub (3s²3p¹)
-    if (
-      /^[A-Za-z]{1,3}$/.test(formula) ||
-      isBracketToken ||
-      containsUnicodeSuperSub
-    ) {
-      parts.push(rewriteUnicodeSuperSubToHtml(escapeHtml(formula)));
-      lastIndex = index + m[0].length;
-      continue;
+        // Heuristic: DOCX imports sometimes wrap plain text into math delimiters.
+        // For these cases we want *plain text output* (same as UI), not KaTeX layout/typography.
+        // - short tokens (Ne, Ar, He)
+        // - bracket tokens ([] / [Ar])
+        // - electron configuration with unicode super/sub (3s²3p¹)
+        if (
+            /^[A-Za-z]{1,3}$/.test(formula) ||
+            isBracketToken ||
+            containsUnicodeSuperSub
+        ) {
+            parts.push(rewriteUnicodeSuperSubToHtml(escapeHtml(formula)));
+            lastIndex = index + m[0].length;
+            continue;
+        }
+        try {
+            const html: string = katex.renderToString(formula, {
+                displayMode: display,
+                throwOnError: false,
+                strict: 'ignore',
+                trust: false,
+            });
+            parts.push(html);
+        } catch {
+            parts.push(`<span class="katex-error">${escapeHtml(formula)}</span>`);
+        }
+        lastIndex = index + m[0].length;
     }
-    try {
-      const html: string = katex.renderToString(formula, {
-        displayMode: display,
-        throwOnError: false,
-        strict: 'ignore',
-        trust: false,
-      });
-      parts.push(html);
-    } catch {
-      parts.push(`<span class="katex-error">${escapeHtml(formula)}</span>`);
-    }
-    lastIndex = index + m[0].length;
-  }
-  const rest = text.slice(lastIndex);
-  if (rest) parts.push(rewriteUnicodeSuperSubToHtml(sanitizeHtmlBasic(rest)));
-  return parts.join('');
+    const rest = text.slice(lastIndex);
+    if (rest) parts.push(rewriteUnicodeSuperSubToHtml(sanitizeHtmlBasic(rest)));
+    return parts.join('');
 }
