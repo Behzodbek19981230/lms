@@ -4,6 +4,7 @@ import {
 	CreatePaymentDto,
 	UpdatePaymentDto,
 	PaymentStats,
+	AvailablePaymentStudent,
 	BillingLedgerItem,
 	BillingLedgerQuery,
 	BillingLedgerPage,
@@ -65,7 +66,18 @@ class PaymentService {
 			const response = await request.post('/payments', paymentData);
 			return this.handleResponse<Payment>(response);
 		} catch (error) {
-			throw new Error("To'lov yaratib bo'lmadi");
+			const msg = getApiErrorMessage(error) || "To'lov yaratib bo'lmadi";
+			throw new Error(msg);
+		}
+	}
+
+	async getAvailableStudentsForGroup(groupId: number | string): Promise<APIResponse<AvailablePaymentStudent[]>> {
+		try {
+			const response = await request.get(`/payments/group/${groupId}/available-students`);
+			return this.handleResponse<AvailablePaymentStudent[]>(response);
+		} catch (error) {
+			const msg = getApiErrorMessage(error) || "O'quvchilar ro'yxatini yuklab bo'lmadi";
+			throw new Error(msg);
 		}
 	}
 
@@ -165,7 +177,7 @@ class PaymentService {
 	async updateStudentBillingProfile(
 		studentId: number | string,
 		groupId: number | string,
-		data: UpdateStudentBillingProfileDto
+		data: UpdateStudentBillingProfileDto,
 	): Promise<APIResponse<void>> {
 		try {
 			const response = await request.patch(`/payments/billing/students/${studentId}/groups/${groupId}`, data);
@@ -187,7 +199,7 @@ class PaymentService {
 
 	async updateMonthlyPayment(
 		monthlyPaymentId: number | string,
-		data: UpdateMonthlyPaymentDto
+		data: UpdateMonthlyPaymentDto,
 	): Promise<APIResponse<MonthlyPayment>> {
 		try {
 			const response = await request.patch(`/payments/billing/monthly/${monthlyPaymentId}`, data);
@@ -218,7 +230,7 @@ class PaymentService {
 	}
 
 	async getMonthlyPaymentHistory(
-		monthlyPaymentId: number | string
+		monthlyPaymentId: number | string,
 	): Promise<APIResponse<MonthlyPaymentTransaction[]>> {
 		try {
 			const response = await request.get(`/payments/billing/monthly/${monthlyPaymentId}/history`);

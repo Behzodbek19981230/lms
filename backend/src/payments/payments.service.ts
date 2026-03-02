@@ -2176,12 +2176,7 @@ export class PaymentsService {
     }
   }
 
-  // Create a new payment
-  async create(
-    createPaymentDto: CreatePaymentDto,
-    userId: number,
-  ): Promise<Payment> {
-    // Get current user first
+  private async getUserForPaymentAction(userId: number): Promise<User> {
     const user = await this.userRepository.findOne({
       where: { id: userId },
       relations: ['center'],
@@ -2189,20 +2184,23 @@ export class PaymentsService {
     if (!user) {
       throw new NotFoundException(`Foydalanuvchi topilmadi (ID: ${userId})`);
     }
+    return user;
+  }
 
-    // Verify group exists with proper relations
+  private async getGroupForPaymentAction(groupId: number): Promise<Group> {
     const group = await this.groupRepository.findOne({
-      where: { id: createPaymentDto.groupId },
+      where: { id: groupId },
       relations: ['students', 'teacher', 'center'],
     });
 
     if (!group) {
-      throw new NotFoundException(
-        `Guruh topilmadi (ID: ${createPaymentDto.groupId})`,
-      );
+      throw new NotFoundException(`Guruh topilmadi (ID: ${groupId})`);
     }
 
-    // Check permissions with detailed error messages
+    return group;
+  }
+
+  private ensureGroupPaymentAccess(user: User, group: Group, userId: number): void {
     if (user.role === UserRole.TEACHER) {
       if (!group.teacher) {
         throw new NotFoundException(
@@ -2214,8 +2212,10 @@ export class PaymentsService {
           `Sizda bu guruhga ruxsat yo'q. Guruh boshqa o'qituvchiga (ID: ${group.teacher.id}) biriktirilgan, sizning ID: ${userId}`,
         );
       }
-    } else if (user.role === UserRole.ADMIN) {
-      // Admin must have a center
+      return;
+    }
+
+    if (user.role === UserRole.ADMIN) {
       if (!user.center) {
         throw new ForbiddenException(
           `Sizning markazingiz biriktirilmagan. Iltimos, superadmin bilan bog'laning (Foydalanuvchi ID: ${userId})`,
@@ -2227,7 +2227,6 @@ export class PaymentsService {
         );
       }
 
-      // Group must have a center (should always exist, but check for safety)
       if (!group.center) {
         throw new NotFoundException(
           `Guruh markazga biriktirilmagan (Guruh ID: ${group.id}, Guruh nomi: ${group.name})`,
@@ -2239,7 +2238,6 @@ export class PaymentsService {
         );
       }
 
-      // Admin's center must match group's center
       const userCenterId = Number(user.center.id);
       const groupCenterId = Number(group.center.id);
 
@@ -2251,22 +2249,102 @@ export class PaymentsService {
             `Faqat o'z markazingizdagi guruhlar uchun to'lov yarata olasiz.`,
         );
       }
-    } else if (user.role !== UserRole.SUPERADMIN) {
-      throw new ForbiddenException(
-        `Ruxsat yo'q. Sizning rolingiz: ${user.role}`,
-      );
+      return;
     }
+
+    if (user.role !== UserRole.SUPERADMIN) {
+      throw new ForbiddenException(`Ruxsat yo'q. Sizning rolingiz: ${user.role}`);
+    }
+  }
+
+  private async getStudentIdsWithExistingPaymentsInGroup(
+    groupId: number,
+    studentIds: number[],
+  ): Promise<Set<number>> {
+    if (!studentIds.length) return new Set<number>();
+
+    const rows = await this.paymentRepository
+      .createQueryBuilder('p')
+      .select('DISTINCT p.studentId', 'studentId')
+      .where('p.groupId = :groupId', { groupId })
+      .andWhere('p.studentId IN (:...studentIds)', { studentIds })
+      .getRawMany();
+
+    return new Set(
+      rows
+        .map((r: any) => Number(r.studentId))
+        .filter((id) => Number.isFinite(id) && id > 0),
+    );
+  }
+
+  async getAvailableStudentsForGroupPayment(groupId: number, userId: number) {
+    const user = await this.getUserForPaymentAction(userId);
+    const group = await this.getGroupForPaymentAction(groupId);
+    this.ensureGroupPaymentAccess(user, group, userId);
+
+    const groupStudents = Array.isArray((group as any).students)
+      ? ((group as any).students as any[])
+      : [];
+
+    if (!groupStudents.length) return [];
+
+    const studentIds = groupStudents
+      .map((s) => Number((s as any).id))
+      .filter((id) => Number.isFinite(id) && id > 0);
+
+    if (!studentIds.length) return [];
+
+    const existingStudentIds = await this.getStudentIdsWithExistingPaymentsInGroup(
+      group.id,
+      studentIds,
+    );
+
+    return groupStudents
+      .filter((s) => !existingStudentIds.has(Number((s as any).id)))
+      .map((student) => ({
+        id: student.id,
+        firstName: student.firstName,
+        lastName: student.lastName,
+        username: student.username,
+      }));
+  }
+
+  async create(
+    createPaymentDto: CreatePaymentDto,
+    userId: number,
+  ): Promise<Payment> {
+    const user = await this.getUserForPaymentAction(userId);
+    const group = await this.getGroupForPaymentAction(createPaymentDto.groupId);
+    this.ensureGroupPaymentAccess(user, group, userId);
+
+    const groupStudents = Array.isArray((group as any).students)
+      ? ((group as any).students as any[])
+      : [];
+    if (groupStudents.length === 0) {
+      throw new BadRequestException("Guruhda o'quvchilar topilmadi");
+    }
+
+    const groupStudentIds = groupStudents
+      .map((s) => Number((s as any).id))
+      .filter((id) => Number.isFinite(id) && id > 0);
+
+    const existingStudentIds = await this.getStudentIdsWithExistingPaymentsInGroup(
+      group.id,
+      groupStudentIds,
+    );
 
     const forAllGroupStudents =
       (createPaymentDto as any).forAllGroupStudents === true;
 
-    // Bulk create (single request): one payment per student in group
     if (forAllGroupStudents) {
-      const groupStudents = Array.isArray((group as any).students)
-        ? ((group as any).students as any[])
-        : [];
-      if (groupStudents.length === 0) {
-        throw new BadRequestException("Guruhda o'quvchilar topilmadi");
+      const availableStudents = groupStudents.filter(
+        (s) => !existingStudentIds.has(Number((s as any).id)),
+      );
+
+      if (availableStudents.length === 0) {
+        throw new BadRequestException(
+          "Tanlangan guruhdagi barcha o'quvchilar uchun to'lov allaqachon mavjud",
+        );
       }
 
       const teacherId = group.teacher?.id || userId;
@@ -2278,7 +2356,7 @@ export class PaymentsService {
         ? `${description} - ${createPaymentDto.amount} so'm`
         : `Yangi to'lov: ${createPaymentDto.amount} so'm`;
 
-      const paymentsToSave = groupStudents.map((s) =>
+      const paymentsToSave = availableStudents.map((s) =>
         this.paymentRepository.create({
           amount: createPaymentDto.amount,
           studentId: Number((s as any).id),
@@ -2310,27 +2388,28 @@ export class PaymentsService {
       } as any;
     }
 
-    // Verify student exists and is a student
-    const student = await this.userRepository.findOne({
-      where: { id: createPaymentDto.studentId, role: UserRole.STUDENT },
-    });
-    if (!student) {
-      throw new NotFoundException("O'quvchi topilmadi");
+    const studentIdRaw = Number(createPaymentDto.studentId);
+    if (!Number.isFinite(studentIdRaw) || studentIdRaw <= 0) {
+      throw new BadRequestException("O'quvchini tanlang");
     }
 
-    const studentId = Number(student.id);
-
-    // Ensure student belongs to the selected group
-    const inGroup = Array.isArray(group.students)
-      ? group.students.some((s) => Number((s as any).id) === Number(student.id))
-      : false;
-    if (!inGroup) {
+    const student = groupStudents.find(
+      (s) => Number((s as any).id) === studentIdRaw,
+    );
+    if (!student) {
       throw new BadRequestException(
         "O'quvchi tanlangan guruhga biriktirilmagan",
       );
     }
 
-    // Get teacherId from group
+    const studentId = Number((student as any).id);
+
+    if (existingStudentIds.has(studentId)) {
+      throw new BadRequestException(
+        "Bu o'quvchi uchun ushbu guruhda to'lov allaqachon mavjud",
+      );
+    }
+
     const teacherId = group.teacher?.id || userId;
 
     const payment = this.paymentRepository.create({

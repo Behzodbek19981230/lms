@@ -57,6 +57,13 @@ export interface TeacherPaymentsResponse {
 	studentsWithoutGroup: NoGroupStudent[];
 }
 
+export interface AvailablePaymentStudent {
+	id: number;
+	firstName: string;
+	lastName: string;
+	username: string;
+}
+
 export interface CreatePaymentDto {
 	amount: number;
 	dueDate?: string;

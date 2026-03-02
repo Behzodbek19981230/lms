@@ -5,6 +5,7 @@ import { Label } from '../ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../ui/dialog';
 import { CreatePaymentDto } from '../../types/payment';
 import { groupService } from '../../services/group.service';
+import { paymentService } from '../../services/payment.service';
 import { Group } from '../../types/group';
 import { User } from '../../types/user';
 
@@ -62,7 +63,7 @@ const CreatePaymentForm: React.FC<CreatePaymentFormProps> = ({ open, onClose, on
 	const fetchGroupStudents = async (groupId: string) => {
 		setLoadingStudents(true);
 		try {
-			const response = await groupService.getGroupStudents(groupId);
+			const response = await paymentService.getAvailableStudentsForGroup(groupId);
 			if (response.success && response.data) {
 				setStudents(response.data as any);
 			} else {
@@ -169,7 +170,7 @@ const CreatePaymentForm: React.FC<CreatePaymentFormProps> = ({ open, onClose, on
 								O'quvchi (ixtiyoriy)
 							</Label>
 							<p className='text-xs text-muted-foreground mb-2'>
-								Barcha o'quvchilar uchun yaratish uchun bo'sh qoldiring (1 ta bulk so'rov)
+								Faqat shu guruhda to'lovi yo'q o'quvchilar ko'rsatiladi
 							</p>
 							<select
 								id='student'
@@ -185,6 +186,11 @@ const CreatePaymentForm: React.FC<CreatePaymentFormProps> = ({ open, onClose, on
 									</option>
 								))}
 							</select>
+							{formData.groupId && !loadingStudents && students.length === 0 && (
+								<p className='text-xs text-muted-foreground mt-2'>
+									Bu guruhdagi barcha o'quvchilar uchun to'lov allaqachon mavjud.
+								</p>
+							)}
 						</div>
 
 						<div>

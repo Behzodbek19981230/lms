@@ -172,7 +172,7 @@ const TeacherPayments: React.FC = () => {
 					groupId: ledgerGroupId,
 					sortBy: ledgerSortKey || undefined,
 					sortDir: ledgerSortKey ? ledgerSortDir : undefined,
-			  })
+				})
 			: null;
 
 		const ledgerRes = await paymentService.getBillingLedger({
@@ -344,7 +344,7 @@ const TeacherPayments: React.FC = () => {
 				(payment) =>
 					payment.student.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||
 					payment.student.lastName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-					payment.description.toLowerCase().includes(searchTerm.toLowerCase())
+					payment.description.toLowerCase().includes(searchTerm.toLowerCase()),
 			);
 		}
 
@@ -505,7 +505,7 @@ const TeacherPayments: React.FC = () => {
 			}
 		} catch (error) {
 			console.error('Error creating payment:', error);
-			toast.error("To'lov yaratishda xatolik yuz berdi");
+			toast.error(error instanceof Error ? error.message : "To'lov yaratishda xatolik yuz berdi");
 		}
 	};
 
@@ -639,53 +639,54 @@ const TeacherPayments: React.FC = () => {
 						{debtsError ? <div className='text-sm text-red-600 mt-2'>{debtsError}</div> : null}
 					</Card>
 
-										{/* Mobile list/cards */}
-										<div className='md:hidden space-y-3'>
-											{debtsLoading ? (
-												<Card className='p-4'>
-													<div className='text-sm text-muted-foreground'>Yuklanmoqda...</div>
-												</Card>
-											) : debtsItems.length === 0 ? (
-												<Card className='p-4'>
-													<div className='text-sm text-muted-foreground'>Qarzdor o‘quvchilar topilmadi</div>
-												</Card>
-											) : (
-												debtsItems.map((it: any) => {
-													const monthsText = (it.months || [])
-														.slice(0, 6)
-														.map(
-															(m: any) =>
-																`${m.month} (${Number(m.remaining || 0).toLocaleString('uz-UZ')})`
-														)
-														.join(', ');
+					{/* Mobile list/cards */}
+					<div className='md:hidden space-y-3'>
+						{debtsLoading ? (
+							<Card className='p-4'>
+								<div className='text-sm text-muted-foreground'>Yuklanmoqda...</div>
+							</Card>
+						) : debtsItems.length === 0 ? (
+							<Card className='p-4'>
+								<div className='text-sm text-muted-foreground'>Qarzdor o‘quvchilar topilmadi</div>
+							</Card>
+						) : (
+							debtsItems.map((it: any) => {
+								const monthsText = (it.months || [])
+									.slice(0, 6)
+									.map((m: any) => `${m.month} (${Number(m.remaining || 0).toLocaleString('uz-UZ')})`)
+									.join(', ');
 
-													return (
-														<Card key={it.student?.id} className='p-4'>
-															<div className='flex items-start justify-between gap-3'>
-																<div className='min-w-0'>
-																	<div className='font-medium truncate'>
-																		{it.student?.firstName} {it.student?.lastName}
-																	</div>
-																	<div className='text-xs text-muted-foreground truncate'>@{it.student?.username}</div>
-																</div>
-																<div className='shrink-0 font-semibold text-red-600'>
-																	{Number(it.totalRemaining || 0).toLocaleString('uz-UZ')} UZS
-																</div>
-															</div>
-
-														<div className='mt-2 text-sm text-muted-foreground'>
-															{monthsText || '—'}
-															{(it.months || []).length > 6 ? ` ... (+${(it.months || []).length - 6})` : ''}
-														</div>
-													</Card>
-													);
-												})
-											)}
+								return (
+									<Card key={it.student?.id} className='p-4'>
+										<div className='flex items-start justify-between gap-3'>
+											<div className='min-w-0'>
+												<div className='font-medium truncate'>
+													{it.student?.firstName} {it.student?.lastName}
+												</div>
+												<div className='text-xs text-muted-foreground truncate'>
+													@{it.student?.username}
+												</div>
+											</div>
+											<div className='shrink-0 font-semibold text-red-600'>
+												{Number(it.totalRemaining || 0).toLocaleString('uz-UZ')} UZS
+											</div>
 										</div>
 
-										{/* Desktop table */}
-										<div className='hidden md:block w-full overflow-x-auto border rounded-md'>
-											<Table className='min-w-[980px]'>
+										<div className='mt-2 text-sm text-muted-foreground'>
+											{monthsText || '—'}
+											{(it.months || []).length > 6
+												? ` ... (+${(it.months || []).length - 6})`
+												: ''}
+										</div>
+									</Card>
+								);
+							})
+						)}
+					</div>
+
+					{/* Desktop table */}
+					<div className='hidden md:block w-full overflow-x-auto border rounded-md'>
+						<Table className='min-w-[980px]'>
 							<TableHeader>
 								<TableRow>
 									<TableHead>O‘quvchi</TableHead>
@@ -724,8 +725,8 @@ const TeacherPayments: React.FC = () => {
 													.map(
 														(m: any) =>
 															`${m.month} (${Number(m.remaining || 0).toLocaleString(
-																'uz-UZ'
-															)})`
+																'uz-UZ',
+															)})`,
 													)
 													.join(', ')}
 												{(it.months || []).length > 10
@@ -736,8 +737,8 @@ const TeacherPayments: React.FC = () => {
 									))
 								)}
 							</TableBody>
-											</Table>
-										</div>
+						</Table>
+					</div>
 
 					<DialogFooter className='flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2'>
 						<div className='text-sm text-muted-foreground'>
@@ -874,7 +875,7 @@ const TeacherPayments: React.FC = () => {
 									{billingMonth
 										? format(parse(billingMonth + '-01', 'yyyy-MM-dd', new Date()), 'MMMM yyyy', {
 												locale: uz,
-										  })
+											})
 										: 'Oy tanlang'}
 								</SelectValue>
 							</SelectTrigger>
@@ -889,7 +890,7 @@ const TeacherPayments: React.FC = () => {
 											const monthName = format(
 												parse(monthStr + '-01', 'yyyy-MM-dd', new Date()),
 												'MMMM',
-												{ locale: uz }
+												{ locale: uz },
 											);
 											return (
 												<SelectItem key={monthStr} value={monthStr}>
@@ -1071,8 +1072,8 @@ const TeacherPayments: React.FC = () => {
 									const totalRemaining = res.data?.summary?.totalRemaining ?? 0;
 									toast.success(
 										`Hisoblandi. Qolgan qarzdorlik: ${Number(totalRemaining).toLocaleString(
-											'uz-UZ'
-										)} UZS`
+											'uz-UZ',
+										)} UZS`,
 									);
 									await refreshLedger();
 									return res.data as any;

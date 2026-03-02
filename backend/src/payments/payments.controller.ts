@@ -178,6 +178,19 @@ export class PaymentsController {
     return this.paymentsService.getMonthlyPaymentHistory(Number(id), req.user);
   }
 
+  @Get('group/:groupId/available-students')
+  @Roles(UserRole.TEACHER, UserRole.ADMIN, UserRole.SUPERADMIN)
+  @RequireCenterPermissions(CenterPermissionKey.PAYMENTS)
+  async getAvailableStudentsForGroup(
+    @Param('groupId') groupId: string,
+    @Request() req,
+  ) {
+    return this.paymentsService.getAvailableStudentsForGroupPayment(
+      Number(groupId),
+      req.user.id,
+    );
+  }
+
   // Create a new payment (admin/superadmin only)
   @Post()
   @Roles(UserRole.ADMIN, UserRole.SUPERADMIN)
