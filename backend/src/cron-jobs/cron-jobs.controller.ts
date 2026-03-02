@@ -31,16 +31,16 @@ export class CronJobsController {
     };
   }
 
-  @Post('send-attendance-summary')
-  @ApiOperation({ summary: 'Manually trigger weekly attendance summary' })
-  @ApiResponse({ status: 200, description: 'Attendance summary triggered' })
-  async triggerAttendanceSummary() {
-    await this.cronJobsService.sendWeeklyAttendanceSummary();
-    return {
-      success: true,
-      message: 'Weekly attendance summary triggered',
-    };
-  }
+  //   @Post('send-attendance-summary')
+  //   @ApiOperation({ summary: 'Manually trigger weekly attendance summary' })
+  //   @ApiResponse({ status: 200, description: 'Attendance summary triggered' })
+  //   async triggerAttendanceSummary() {
+  //     await this.cronJobsService.sendWeeklyAttendanceSummary();
+  //     return {
+  //       success: true,
+  //       message: 'Weekly attendance summary triggered',
+  //     };
+  //   }
 
   @Post('health-check')
   @ApiOperation({ summary: 'Manually trigger health check' })
@@ -84,7 +84,8 @@ export class CronJobsController {
         {
           name: 'dailyDuePayments21',
           schedule: '0 21 * * *',
-          description: 'Send due-today payment reminders to center channel at 21:00',
+          description:
+            'Send due-today payment reminders to center channel at 21:00',
           timeZone: 'Asia/Tashkent',
           enabled: true,
         },
