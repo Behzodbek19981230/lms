@@ -4,7 +4,21 @@ import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Badge } from '../../components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
-import { Plus, Search, DollarSign, Users, Clock, AlertTriangle, Download } from 'lucide-react';
+import {
+	Plus,
+	Search,
+	DollarSign,
+	Users,
+	Clock,
+	AlertTriangle,
+	FileSpreadsheet,
+	Filter,
+	RefreshCw,
+	BellRing,
+	BadgeDollarSign,
+	Receipt,
+	Eraser,
+} from 'lucide-react';
 import { format, parse } from 'date-fns';
 import { uz } from 'date-fns/locale';
 import * as XLSX from 'xlsx';
@@ -501,7 +515,7 @@ const TeacherPayments: React.FC = () => {
 				} else {
 					toast.success("To'lov muvaffaqiyatli yaratildi");
 				}
-				fetchData();
+				await fetchData();
 			}
 		} catch (error) {
 			console.error('Error creating payment:', error);
@@ -614,7 +628,7 @@ const TeacherPayments: React.FC = () => {
 							</Select>
 						</div>
 						<Button size='sm' variant='outline' onClick={exportDebtsToExcel}>
-							<Download className='w-4 h-4 mr-2' />
+							<FileSpreadsheet className='w-4 h-4 mr-2' />
 							Excel export
 						</Button>
 						<Button
@@ -860,15 +874,8 @@ const TeacherPayments: React.FC = () => {
 			{/* Oylik billing jadvali */}
 			<Card className='p-4 sm:p-5'>
 				<div className='flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3'>
-					<div>
-						<CardTitle className='text-lg'>Oylik to‘lovlar</CardTitle>
-						<p className='text-sm text-muted-foreground mt-1'>
-							O‘quvchi qo‘shilganda avtomatik ko‘rinadi (joinDate default: user yaratilgan sana).
-							Qarzdorliklarni oy bo‘yicha belgilab, qisman to‘lov kiritish mumkin.
-						</p>
-					</div>
-					<div className='flex flex-col sm:flex-row sm:items-center gap-2 w-full sm:w-auto'>
-						<span className='text-sm text-muted-foreground'>Oy</span>
+					<div className='w-full sm:w-[180px]'>
+						<p className='mb-1 text-xs font-medium text-muted-foreground'>Hisobot oyi</p>
 						<Select value={billingMonth} onValueChange={(value) => setBillingMonth(value)}>
 							<SelectTrigger className='w-full sm:w-[180px]'>
 								<SelectValue placeholder='Oy tanlang'>
@@ -902,29 +909,44 @@ const TeacherPayments: React.FC = () => {
 								))}
 							</SelectContent>
 						</Select>
+					</div>
+					<div className='flex flex-col sm:flex-row sm:items-end gap-2 w-full sm:w-auto'>
 						<Button
 							size='sm'
-							variant='outline'
+							variant='destructive'
+							className='bg-amber-500 text-white hover:bg-amber-600'
 							onClick={async () => {
 								setDebtsOpen(true);
 								setDebtsPage(1);
 								await loadDebts({ page: 1 });
 							}}
 						>
+							<BadgeDollarSign className='w-4 h-4 mr-2' />
 							Qarzdorliklar
 						</Button>
 						{user?.role === 'admin' && (
-							<Button size='sm' variant='outline' onClick={() => setReminderDialogOpen(true)}>
+							<Button
+								size='sm'
+								variant='secondary'
+								className='bg-violet-100 text-violet-700 hover:bg-violet-200'
+								onClick={() => setReminderDialogOpen(true)}
+							>
+								<BellRing className='w-4 h-4 mr-2' />
 								Eslatma yuborish
 							</Button>
 						)}
-						<Button size='sm' variant='outline' onClick={exportMonthlyBillingToExcel}>
-							<Download className='w-4 h-4 mr-2' />
+						<Button
+							size='sm'
+							variant='secondary'
+							className='bg-emerald-100 text-emerald-700 hover:bg-emerald-200'
+							onClick={exportMonthlyBillingToExcel}
+						>
+							<FileSpreadsheet className='w-4 h-4 mr-2' />
 							Excel export
 						</Button>
 						<Button
 							size='sm'
-							variant='outline'
+							variant='default'
 							onClick={async () => {
 								try {
 									setLedgerPage(1);
@@ -935,106 +957,125 @@ const TeacherPayments: React.FC = () => {
 								}
 							}}
 						>
+							<RefreshCw className='w-4 h-4 mr-2' />
 							Yangilash
 						</Button>
 					</div>
 				</div>
 
-				<div className='mt-4 flex flex-col lg:flex-row gap-3 lg:items-end'>
-					<div className='flex-1 min-w-[220px]'>
-						<div className='relative'>
-							<Search className='absolute left-2 top-2.5 h-4 w-4 text-muted-foreground' />
-							<Input
-								placeholder='O‘quvchi bo‘yicha qidirish (ism/familiya/username)...'
-								value={ledgerSearch}
-								onChange={(e) => setLedgerSearch(e.target.value)}
-								className='pl-8'
-							/>
+				<div className='mt-4 rounded-lg border bg-muted/20 p-4'>
+					<div className='mb-3 flex items-center gap-2 text-sm font-medium text-foreground'>
+						<Filter className='h-4 w-4 text-blue-600' />
+						Jadval filtrlari
+					</div>
+					<div className='flex flex-col lg:flex-row gap-3 lg:items-end'>
+						<div className='flex-1 min-w-[220px]'>
+							<p className='mb-1 text-xs font-medium text-muted-foreground'>Qidiruv</p>
+							<div className='relative'>
+								<Search className='absolute left-2 top-2.5 h-4 w-4 text-muted-foreground' />
+								<Input
+									placeholder='O‘quvchi ismi, familiyasi yoki username'
+									value={ledgerSearch}
+									onChange={(e) => setLedgerSearch(e.target.value)}
+									className='pl-8'
+								/>
+							</div>
 						</div>
-					</div>
 
-					<div className='w-full sm:w-[200px]'>
-						<Select value={ledgerStatus} onValueChange={setLedgerStatus}>
-							<SelectTrigger>
-								<SelectValue placeholder='Holat' />
-							</SelectTrigger>
-							<SelectContent>
-								<SelectItem value='all'>Barchasi</SelectItem>
-								<SelectItem value='pending'>Kutilmoqda</SelectItem>
-								<SelectItem value='overdue'>Muddati o‘tgan</SelectItem>
-								<SelectItem value='paid'>To‘langan</SelectItem>
-							</SelectContent>
-						</Select>
-					</div>
+						<div className='w-full sm:w-[200px]'>
+							<p className='mb-1 text-xs font-medium text-muted-foreground'>To‘lov holati</p>
+							<Select value={ledgerStatus} onValueChange={setLedgerStatus}>
+								<SelectTrigger>
+									<SelectValue placeholder='Holat' />
+								</SelectTrigger>
+								<SelectContent>
+									<SelectItem value='all'>Barchasi</SelectItem>
+									<SelectItem value='pending'>Kutilmoqda</SelectItem>
+									<SelectItem value='overdue'>Muddati o‘tgan</SelectItem>
+									<SelectItem value='paid'>To‘langan</SelectItem>
+								</SelectContent>
+							</Select>
+						</div>
 
-					<div className='w-full sm:w-[200px]'>
-						<Select value={ledgerDebt} onValueChange={setLedgerDebt}>
-							<SelectTrigger>
-								<SelectValue placeholder='Qarz' />
-							</SelectTrigger>
-							<SelectContent>
-								<SelectItem value='all'>Barchasi</SelectItem>
-								<SelectItem value='withDebt'>Qarzdor</SelectItem>
-								<SelectItem value='noDebt'>Qarzsiz</SelectItem>
-							</SelectContent>
-						</Select>
-					</div>
+						<div className='w-full sm:w-[200px]'>
+							<p className='mb-1 text-xs font-medium text-muted-foreground'>Qarzdorlik holati</p>
+							<Select value={ledgerDebt} onValueChange={setLedgerDebt}>
+								<SelectTrigger>
+									<SelectValue placeholder='Qarz' />
+								</SelectTrigger>
+								<SelectContent>
+									<SelectItem value='all'>Barchasi</SelectItem>
+									<SelectItem value='withDebt'>Qarzdor</SelectItem>
+									<SelectItem value='noDebt'>Qarzsiz</SelectItem>
+								</SelectContent>
+							</Select>
+						</div>
 
-					<div className='w-full sm:w-[200px]'>
-						<Select
-							value={ledgerGroupId ? String(ledgerGroupId) : 'all'}
-							onValueChange={(v) => {
-								setLedgerGroupId(v === 'all' ? undefined : Number(v));
+						<div className='w-full sm:w-[200px]'>
+							<p className='mb-1 text-xs font-medium text-muted-foreground'>Guruh bo‘yicha</p>
+							<Select
+								value={ledgerGroupId ? String(ledgerGroupId) : 'all'}
+								onValueChange={(v) => {
+									setLedgerGroupId(v === 'all' ? undefined : Number(v));
+								}}
+							>
+								<SelectTrigger>
+									<SelectValue placeholder='Guruh' />
+								</SelectTrigger>
+								<SelectContent>
+									<SelectItem value='all'>Barcha guruhlar</SelectItem>
+									{groups.map((group) => (
+										<SelectItem key={group.id} value={String(group.id)}>
+											{group.name}
+										</SelectItem>
+									))}
+								</SelectContent>
+							</Select>
+						</div>
+
+						<div className='w-full sm:w-[160px]'>
+							<p className='mb-1 text-xs font-medium text-muted-foreground'>Sahifadagi qator</p>
+							<Select
+								value={String(ledgerPageSize)}
+								onValueChange={(v) => {
+									const n = Number(v);
+									setLedgerPageSize(n);
+								}}
+							>
+								<SelectTrigger>
+									<SelectValue placeholder='Sahifadagi son' />
+								</SelectTrigger>
+								<SelectContent>
+									<SelectItem value='10'>10</SelectItem>
+									<SelectItem value='20'>20</SelectItem>
+									<SelectItem value='50'>50</SelectItem>
+									<SelectItem value='100'>100</SelectItem>
+								</SelectContent>
+							</Select>
+						</div>
+
+						<Button
+							variant='secondary'
+							className='bg-slate-100 text-slate-700 hover:bg-slate-200'
+							onClick={async () => {
+								try {
+									setLedgerSearch('');
+									setLedgerStatus('all');
+									setLedgerDebt('all');
+									setLedgerGroupId(undefined);
+									setLedgerPageSize(20);
+									setLedgerPage(1);
+									await refreshLedger({ page: 1, updateStats: true });
+									toast.success('Filtrlar tozalandi');
+								} catch {
+									toast.error('Filtrlarni tozalashda xatolik');
+								}
 							}}
 						>
-							<SelectTrigger>
-								<SelectValue placeholder='Guruh' />
-							</SelectTrigger>
-							<SelectContent>
-								<SelectItem value='all'>Barcha guruhlar</SelectItem>
-								{groups.map((group) => (
-									<SelectItem key={group.id} value={String(group.id)}>
-										{group.name}
-									</SelectItem>
-								))}
-							</SelectContent>
-						</Select>
+							<Eraser className='w-4 h-4 mr-2' />
+							Tozalash
+						</Button>
 					</div>
-
-					<div className='w-full sm:w-[160px]'>
-						<Select
-							value={String(ledgerPageSize)}
-							onValueChange={(v) => {
-								const n = Number(v);
-								setLedgerPageSize(n);
-							}}
-						>
-							<SelectTrigger>
-								<SelectValue placeholder='Sahifadagi son' />
-							</SelectTrigger>
-							<SelectContent>
-								<SelectItem value='10'>10</SelectItem>
-								<SelectItem value='20'>20</SelectItem>
-								<SelectItem value='50'>50</SelectItem>
-								<SelectItem value='100'>100</SelectItem>
-							</SelectContent>
-						</Select>
-					</div>
-
-					<Button
-						variant='outline'
-						onClick={async () => {
-							try {
-								setLedgerPage(1);
-								await refreshLedger({ page: 1 });
-								toast.success('Filter qo‘llandi');
-							} catch {
-								toast.error('Xatolik');
-							}
-						}}
-					>
-						Qo‘llash
-					</Button>
 				</div>
 
 				<div className='mt-4'>

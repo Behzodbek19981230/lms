@@ -22,7 +22,7 @@ import { MoreHorizontal, CalendarIcon, ArrowUpDown, ArrowUp, ArrowDown } from 'l
 import { cn } from '@/lib/utils';
 
 type Props = {
-	month: string; // YYYY-MM
+	month: string; // YYYY-MM-DD (month start)
 	ledger: BillingLedgerItem[];
 	sortKey: SortKey | null;
 	sortDir: 'asc' | 'desc';
@@ -30,7 +30,7 @@ type Props = {
 	onSaveProfile: (
 		studentId: number,
 		groupId: number,
-		data: { joinDate?: string; monthlyAmount?: number; dueDay?: number }
+		data: { joinDate?: string; monthlyAmount?: number; dueDay?: number },
 	) => Promise<void>;
 	onCollect: (data: {
 		studentId: number;
@@ -42,7 +42,7 @@ type Props = {
 	}) => Promise<void>;
 	onUpdateMonthly: (
 		monthlyPaymentId: number,
-		data: { amountDue?: number; dueDate?: string; note?: string }
+		data: { amountDue?: number; dueDate?: string; note?: string },
 	) => Promise<void>;
 	onSettleStudent: (data: {
 		studentId: number;
@@ -90,6 +90,8 @@ export default function MonthlyBillingTable({
 	onGetHistory,
 	isTeacher = false,
 }: Props) {
+	const toMonthDate = (value: string) => (value.length === 7 ? `${value}-01` : value);
+
 	const [profileOpen, setProfileOpen] = useState(false);
 	const [collectOpen, setCollectOpen] = useState(false);
 	const [editMonthlyOpen, setEditMonthlyOpen] = useState(false);
@@ -215,13 +217,6 @@ export default function MonthlyBillingTable({
 
 	return (
 		<div className='space-y-3'>
-			<Card className='p-3'>
-				<div className='text-sm text-muted-foreground'>
-					Oy: <span className='font-medium text-foreground'>{month}</span>. Bu jadval o‘quvchilar bo‘yicha
-					oylik to‘lov holatini ko‘rsatadi (joinDate default: student yaratilgan sana).
-				</div>
-			</Card>
-
 			<Dialog open={profileOpen} onOpenChange={setProfileOpen}>
 				<DialogContent>
 					<DialogHeader>
@@ -236,7 +231,7 @@ export default function MonthlyBillingTable({
 										variant='outline'
 										className={cn(
 											'w-full justify-start text-left font-normal',
-											!joinDate && 'text-muted-foreground'
+											!joinDate && 'text-muted-foreground',
 										)}
 									>
 										<CalendarIcon className='mr-2 h-4 w-4' />
@@ -316,18 +311,18 @@ export default function MonthlyBillingTable({
 							</Card>
 						)}
 						<div>
-							<Label>Oy (YYYY-MM)</Label>
+							<Label>Oy</Label>
 							<Select value={collectMonth} onValueChange={(value) => setCollectMonth(value)}>
 								<SelectTrigger className='w-full'>
 									<SelectValue placeholder='Oy tanlang'>
 										{collectMonth
 											? format(
-													parse(collectMonth + '-01', 'yyyy-MM-dd', new Date()),
+													parse(toMonthDate(collectMonth), 'yyyy-MM-dd', new Date()),
 													'MMMM yyyy',
 													{
 														locale: uz,
-													}
-											  )
+													},
+												)
 											: 'Oy tanlang'}
 									</SelectValue>
 								</SelectTrigger>
@@ -339,13 +334,14 @@ export default function MonthlyBillingTable({
 											</div>
 											{[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((month) => {
 												const monthStr = `${year}-${String(month).padStart(2, '0')}`;
+												const monthDate = `${monthStr}-01`;
 												const monthName = format(
-													parse(monthStr + '-01', 'yyyy-MM-dd', new Date()),
+													parse(monthDate, 'yyyy-MM-dd', new Date()),
 													'MMMM',
-													{ locale: uz }
+													{ locale: uz },
 												);
 												return (
-													<SelectItem key={monthStr} value={monthStr}>
+													<SelectItem key={monthDate} value={monthDate}>
 														{monthName} {year}
 													</SelectItem>
 												);
@@ -396,7 +392,7 @@ export default function MonthlyBillingTable({
 								await onCollect({
 									studentId: activeRow.student.id,
 									groupId: activeRow.group.id,
-									month: collectMonth || month,
+									month: toMonthDate(collectMonth || month),
 									amount: Number(collectAmount),
 									note: collectNote || undefined,
 									amountDueOverride: amountDueOverride ? Number(amountDueOverride) : undefined,
@@ -424,7 +420,7 @@ export default function MonthlyBillingTable({
 										variant='outline'
 										className={cn(
 											'w-full justify-start text-left font-normal',
-											!editDueDate && 'text-muted-foreground'
+											!editDueDate && 'text-muted-foreground',
 										)}
 									>
 										<CalendarIcon className='mr-2 h-4 w-4' />
@@ -505,7 +501,7 @@ export default function MonthlyBillingTable({
 										variant='outline'
 										className={cn(
 											'w-full justify-start text-left font-normal',
-											!leaveDate && 'text-muted-foreground'
+											!leaveDate && 'text-muted-foreground',
 										)}
 									>
 										<CalendarIcon className='mr-2 h-4 w-4' />
@@ -741,7 +737,9 @@ export default function MonthlyBillingTable({
 											<div className='font-medium truncate'>
 												{row.student.firstName} {row.student.lastName}
 											</div>
-											<div className='text-xs text-muted-foreground truncate'>@{row.student.username}</div>
+											<div className='text-xs text-muted-foreground truncate'>
+												@{row.student.username}
+											</div>
 										</div>
 										<div className='shrink-0'>{statusBadge(status)}</div>
 									</div>
@@ -751,7 +749,10 @@ export default function MonthlyBillingTable({
 											<span className='text-muted-foreground'>Guruh:</span>{' '}
 											<span className='font-medium'>{row.group.name}</span>
 											{row.group.subject ? (
-												<span className='text-muted-foreground'> • {row.group.subject.name}</span>
+												<span className='text-muted-foreground'>
+													{' '}
+													• {row.group.subject.name}
+												</span>
 											) : null}
 										</div>
 										{row.group.teacher ? (
@@ -763,7 +764,9 @@ export default function MonthlyBillingTable({
 										<div className='grid grid-cols-2 gap-2 pt-1'>
 											<div>
 												<div className='text-xs text-muted-foreground'>Qo‘shilgan</div>
-												<div className='font-medium'>{String(row.profile.joinDate).slice(0, 10)}</div>
+												<div className='font-medium'>
+													{String(row.profile.joinDate).slice(0, 10)}
+												</div>
 											</div>
 											<div>
 												<div className='text-xs text-muted-foreground'>Oylik</div>
@@ -775,21 +778,33 @@ export default function MonthlyBillingTable({
 											<div>
 												<div className='text-xs text-muted-foreground'>Muddat</div>
 												<div className='font-medium'>
-													{mp?.dueDate ? format(new Date(mp.dueDate), 'dd MMM yyyy', { locale: uz }) : '-'}
+													{mp?.dueDate
+														? format(new Date(mp.dueDate), 'dd MMM yyyy', { locale: uz })
+														: '-'}
 												</div>
 											</div>
 											<div>
 												<div className='text-xs text-muted-foreground'>Jami summa</div>
-												<div className='font-medium'>{Number(due).toLocaleString('uz-UZ')} UZS</div>
+												<div className='font-medium'>
+													{Number(due).toLocaleString('uz-UZ')} UZS
+												</div>
 											</div>
 
 											<div>
 												<div className='text-xs text-muted-foreground'>To‘langan</div>
-												<div className='font-medium'>{Number(paid).toLocaleString('uz-UZ')} UZS</div>
+												<div className='font-medium'>
+													{Number(paid).toLocaleString('uz-UZ')} UZS
+												</div>
 											</div>
 											<div>
 												<div className='text-xs text-muted-foreground'>Qoldiq</div>
-												<div className={remain > 0 ? 'font-semibold text-red-600' : 'font-medium text-green-700'}>
+												<div
+													className={
+														remain > 0
+															? 'font-semibold text-red-600'
+															: 'font-medium text-green-700'
+													}
+												>
 													{Number(remain).toLocaleString('uz-UZ')} UZS
 												</div>
 											</div>

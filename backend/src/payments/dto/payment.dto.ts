@@ -122,7 +122,7 @@ export class PaymentStatsDto {
 export class BillingLedgerQueryDto {
   @IsOptional()
   @IsString()
-  // Format: YYYY-MM
+  // Format: YYYY-MM-DD
   month?: string;
 
   @IsOptional()

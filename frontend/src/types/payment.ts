@@ -148,7 +148,7 @@ export interface BillingLedgerItem {
 }
 
 export interface BillingLedgerQuery {
-	month?: string; // YYYY-MM
+	month?: string; // YYYY-MM-DD
 	page?: number;
 	pageSize?: number;
 	search?: string;
@@ -175,7 +175,7 @@ export interface UpdateStudentBillingProfileDto {
 export interface CollectMonthlyPaymentDto {
 	studentId: number;
 	groupId: number;
-	month?: string; // YYYY-MM
+	month?: string; // YYYY-MM-DD
 	amount: number;
 	note?: string;
 	amountDueOverride?: number;

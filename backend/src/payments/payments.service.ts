@@ -53,26 +53,34 @@ export class PaymentsService {
   ) {}
 
   private parseMonthOrThrow(month?: string): Date {
-    // month format: YYYY-MM
+    // month format: YYYY-MM or YYYY-MM-DD
     const m = (month || '').trim();
     if (!m) {
       const now = new Date();
       return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
     }
-    const match = /^(\d{4})-(\d{2})$/.exec(m);
-    if (!match)
-      throw new BadRequestException('month formati noto‘g‘ri (YYYY-MM)');
-    const year = Number(match[1]);
-    const monthIndex = Number(match[2]) - 1;
-    if (
-      !Number.isInteger(year) ||
-      !Number.isInteger(monthIndex) ||
-      monthIndex < 0 ||
-      monthIndex > 11
-    ) {
-      throw new BadRequestException('month formati noto‘g‘ri (YYYY-MM)');
+    const monthOnlyMatch = /^(\d{4})-(\d{2})$/.exec(m);
+    if (monthOnlyMatch) {
+      const year = Number(monthOnlyMatch[1]);
+      const monthIndex = Number(monthOnlyMatch[2]) - 1;
+      if (
+        Number.isInteger(year) &&
+        Number.isInteger(monthIndex) &&
+        monthIndex >= 0 &&
+        monthIndex <= 11
+      ) {
+        return new Date(Date.UTC(year, monthIndex, 1));
+      }
     }
-    return new Date(Date.UTC(year, monthIndex, 1));
+
+    const fullDateMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(m);
+    if (!fullDateMatch) {
+      throw new BadRequestException(
+        'month formati noto‘g‘ri (YYYY-MM yoki YYYY-MM-DD)',
+      );
+    }
+    const parsed = this.toUtcDateOnly(m);
+    return new Date(Date.UTC(parsed.getUTCFullYear(), parsed.getUTCMonth(), 1));
   }
 
   private clampDayToMonth(
@@ -118,6 +126,20 @@ export class PaymentsService {
 
   private monthStartUtc(d: Date): Date {
     return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1));
+  }
+
+  private shouldShowStudentGroupForBillingMonth(params: {
+    billingMonth: Date;
+    leaveDate?: Date | string | null;
+  }): boolean {
+    if (!params.leaveDate) return true;
+    const leaveMonth = this.monthStartUtc(this.toUtcDateOnly(params.leaveDate));
+    return leaveMonth.getTime() > params.billingMonth.getTime();
+  }
+
+  private isCurrentOrFutureBillingMonth(billingMonth: Date): boolean {
+    const currentMonth = this.monthStartUtc(this.toUtcDateOnly(new Date()));
+    return billingMonth.getTime() >= currentMonth.getTime();
   }
 
   private addMonthsUtc(monthStart: Date, delta: number): Date {
@@ -302,84 +324,86 @@ export class PaymentsService {
     }
 
     // Guruh bo'yicha filter (admin/superadmin uchun)
-    if (
-      query?.groupId &&
-      (user.role === UserRole.ADMIN || user.role === UserRole.SUPERADMIN)
-    ) {
+    if (query?.groupId) {
       paymentQuery.andWhere('p.groupId = :groupId', {
         groupId: Number(query.groupId),
       });
     }
 
     const paymentRows = await paymentQuery.getRawMany();
-    const studentIdsFromPayments = paymentRows
-      .map((r: any) => Number(r.studentId))
-      .filter((id: number) => Number.isFinite(id) && id > 0);
 
-    // Create a map of studentId -> groupIds that have payments
-    const studentGroupMap = new Map<number, Set<number>>();
-    for (const row of paymentRows) {
+    const profileQuery = this.studentGroupBillingProfileRepository
+      .createQueryBuilder('sgbp')
+      .select('sgbp.studentId', 'studentId')
+      .addSelect('sgbp.groupId', 'groupId')
+      .where('sgbp.studentId IS NOT NULL')
+      .andWhere('sgbp.groupId IS NOT NULL')
+      .distinct(true);
+
+    if (user.role !== UserRole.SUPERADMIN) {
+      profileQuery
+        .leftJoin('sgbp.student', 'student')
+        .leftJoin('student.center', 'center')
+        .andWhere('center.id = :centerId', { centerId: Number(centerId) });
+    }
+
+    if (user.role === UserRole.TEACHER) {
+      profileQuery
+        .leftJoin('sgbp.group', 'group')
+        .andWhere('group.teacherId = :teacherId', { teacherId: user.id });
+    }
+
+    if (query?.groupId) {
+      profileQuery.andWhere('sgbp.groupId = :groupId', {
+        groupId: Number(query.groupId),
+      });
+    }
+
+    const profileRows = await profileQuery.getRawMany();
+    const pairKey = (studentId: number, groupId: number) =>
+      `${studentId}:${groupId}`;
+    const pairMap = new Map<
+      string,
+      { studentId: number; groupId: number }
+    >();
+
+    for (const row of [...paymentRows, ...profileRows]) {
       const studentId = Number(row.studentId);
       const groupId = Number(row.groupId);
       if (
-        Number.isFinite(studentId) &&
-        studentId > 0 &&
-        Number.isFinite(groupId) &&
-        groupId > 0
+        !Number.isFinite(studentId) ||
+        studentId <= 0 ||
+        !Number.isFinite(groupId) ||
+        groupId <= 0
       ) {
-        if (!studentGroupMap.has(studentId)) {
-          studentGroupMap.set(studentId, new Set());
-        }
-        studentGroupMap.get(studentId)!.add(groupId);
+        continue;
       }
+      pairMap.set(pairKey(studentId, groupId), { studentId, groupId });
     }
 
-    // Agar payment jadvalida studentlar bo'lmasa, bo'sh qaytarish
-    if (studentIdsFromPayments.length === 0) {
+    const candidatePairs = Array.from(pairMap.values());
+    if (candidatePairs.length === 0) {
       return { items: [], total: 0, page, pageSize };
     }
 
-    // Endi faqat payment jadvalida mavjud bo'lgan studentlarni yuklash
+    const candidateStudentIds = Array.from(
+      new Set(candidatePairs.map((pair) => pair.studentId)),
+    );
+    const candidateGroupIds = Array.from(
+      new Set(candidatePairs.map((pair) => pair.groupId)),
+    );
+
     const qb = this.userRepository
       .createQueryBuilder('u')
       .leftJoinAndSelect('u.center', 'center')
       .where('u.role = :role', { role: UserRole.STUDENT })
       .andWhere('u.id IN (:...studentIds)', {
-        studentIds: studentIdsFromPayments,
+        studentIds: candidateStudentIds,
       })
       .orderBy('u.createdAt', 'DESC');
 
     if (user.role !== UserRole.SUPERADMIN) {
       qb.andWhere('center.id = :centerId', { centerId: Number(centerId) });
-    }
-
-    // Load groups based on filter
-    // Note: We need to load groups separately to avoid TypeORM's duplicate row issue
-    if (
-      query?.groupId &&
-      (user.role === UserRole.ADMIN || user.role === UserRole.SUPERADMIN)
-    ) {
-      // If groupId filter is applied, only load that specific group
-      qb.leftJoinAndSelect('u.groups', 'g', 'g.id = :groupId', {
-        groupId: Number(query.groupId),
-      });
-      qb.leftJoinAndSelect('g.subject', 'subject');
-      qb.leftJoinAndSelect('g.teacher', 'teacher');
-      qb.andWhere('g.id IS NOT NULL'); // Only students in this group
-    } else if (user.role === UserRole.TEACHER) {
-      // Teacher: only load groups they teach
-      qb.leftJoinAndSelect('u.groups', 'g');
-      qb.leftJoinAndSelect('g.subject', 'subject');
-      qb.leftJoinAndSelect('g.teacher', 'teacher');
-      qb.andWhere('g.id IS NOT NULL');
-      qb.andWhere('g.teacherId = :teacherId', { teacherId: user.id });
-    } else {
-      // Admin/Superadmin: load all groups (without filter to get all groups per student)
-      qb.leftJoinAndSelect('u.groups', 'g');
-      qb.leftJoinAndSelect('g.subject', 'subject');
-      qb.leftJoinAndSelect('g.teacher', 'teacher');
-      // Don't filter by g.id IS NOT NULL here, as we want all students with payments
-      // We'll filter out students without groups in the loop below
     }
 
     if (search) {
@@ -389,37 +413,34 @@ export class PaymentsService {
       );
     }
 
-    // We paginate AFTER applying computed filters (status/debt). To keep totals correct, we load
-    // candidates here (already center+search filtered), then compute + filter in memory.
-    // Use getRawAndEntities to avoid duplicate students when they have multiple groups
-    const result = await qb.getRawAndEntities();
-    const students = result.entities;
-
-    // Deduplicate students (TypeORM may return duplicates when using leftJoinAndSelect with multiple groups)
-    const uniqueStudents = new Map<number, any>();
-    for (const student of students) {
-      if (!uniqueStudents.has(student.id)) {
-        uniqueStudents.set(student.id, student);
-      } else {
-        // Merge groups if student already exists
-        const existing = uniqueStudents.get(student.id);
-        const existingGroups = existing.groups || [];
-        const newGroups = student.groups || [];
-        const allGroups = [...existingGroups];
-        for (const newGroup of newGroups) {
-          if (!allGroups.some((g: any) => g.id === newGroup.id)) {
-            allGroups.push(newGroup);
-          }
-        }
-        existing.groups = allGroups;
-      }
-    }
-    const deduplicatedStudents = Array.from(uniqueStudents.values());
-
+    const deduplicatedStudents = await qb.getMany();
     const studentIds = deduplicatedStudents.map((s) => s.id);
     if (studentIds.length === 0) {
       return { items: [], total: 0, page, pageSize };
     }
+
+    const groupsQb = this.groupRepository
+      .createQueryBuilder('g')
+      .leftJoinAndSelect('g.subject', 'subject')
+      .leftJoinAndSelect('g.teacher', 'teacher')
+      .leftJoinAndSelect('g.center', 'center')
+      .where('g.id IN (:...groupIds)', { groupIds: candidateGroupIds });
+
+    if (user.role !== UserRole.SUPERADMIN) {
+      groupsQb.andWhere('center.id = :centerId', { centerId: Number(centerId) });
+    }
+    if (user.role === UserRole.TEACHER) {
+      groupsQb.andWhere('teacher.id = :teacherId', { teacherId: user.id });
+    }
+    if (query?.groupId) {
+      groupsQb.andWhere('g.id = :groupId', { groupId: Number(query.groupId) });
+    }
+
+    const groups = await groupsQb.getMany();
+    const studentById = new Map(
+      deduplicatedStudents.map((student) => [student.id, student]),
+    );
+    const groupById = new Map(groups.map((group) => [group.id, group]));
 
     // Build student-group pairs we will render (and compute billing for)
     const pairs: Array<{
@@ -428,38 +449,16 @@ export class PaymentsService {
       studentId: number;
       groupId: number;
     }> = [];
-    const pairKey = (studentId: number, groupId: number) =>
-      `${studentId}:${groupId}`;
-
-    for (const s of deduplicatedStudents) {
-      const groups = ((s as any).groups || []) as Array<{
-        id: number;
-        name: string;
-        subject?: any;
-        teacher?: any;
-      }>;
-      if (!groups || groups.length === 0) continue;
-
-      const groupsWithPayments = studentGroupMap.get(s.id) || new Set<number>();
-
-      let filteredGroups: typeof groups;
-      if (query?.groupId) {
-        filteredGroups = groups.filter(
-          (g) => Number(g.id) === Number(query.groupId),
-        );
-        if (filteredGroups.length === 0) continue;
-      } else {
-        filteredGroups = groups.filter((g) =>
-          groupsWithPayments.has(Number(g.id)),
-        );
-        if (filteredGroups.length === 0) continue;
-      }
-
-      for (const g of filteredGroups) {
-        const gid = Number(g.id);
-        if (!Number.isFinite(gid) || gid <= 0) continue;
-        pairs.push({ student: s, group: g, studentId: s.id, groupId: gid });
-      }
+    for (const pair of candidatePairs) {
+      const student = studentById.get(pair.studentId);
+      const group = groupById.get(pair.groupId);
+      if (!student || !group) continue;
+      pairs.push({
+        student,
+        group,
+        studentId: pair.studentId,
+        groupId: pair.groupId,
+      });
     }
 
     if (pairs.length === 0) {
@@ -530,12 +529,68 @@ export class PaymentsService {
       }
     }
 
+    const membershipRows = await this.groupRepository
+      .createQueryBuilder('g')
+      .leftJoin('g.students', 's')
+      .select('g.id', 'groupId')
+      .addSelect('s.id', 'studentId')
+      .where('g.id IN (:...groupIds)', { groupIds: uniqueGroupIds })
+      .andWhere('s.id IN (:...studentIds)', { studentIds })
+      .getRawMany();
+    const currentMembershipKeys = new Set(
+      membershipRows.flatMap((row: any) => {
+        const studentId = Number(row.studentId);
+        const groupId = Number(row.groupId);
+        if (
+          !Number.isFinite(studentId) ||
+          studentId <= 0 ||
+          !Number.isFinite(groupId) ||
+          groupId <= 0
+        ) {
+          return [];
+        }
+        return [pairKey(studentId, groupId)];
+      }),
+    );
+    const hideNonMembersForMonth = this.isCurrentOrFutureBillingMonth(
+      billingMonth,
+    );
+
+    const visiblePairs = pairs.filter((pr) => {
+      const key = pairKey(pr.studentId, pr.groupId);
+      const profile = profileByPair.get(key);
+      if (!profile) return false;
+      if (
+        !this.shouldShowStudentGroupForBillingMonth({
+          billingMonth,
+          leaveDate: (profile as any).leaveDate || null,
+        })
+      ) {
+        return false;
+      }
+      if (hideNonMembersForMonth && !currentMembershipKeys.has(key)) {
+        return false;
+      }
+      return true;
+    });
+
+    if (visiblePairs.length === 0) {
+      return { items: [], total: 0, page, pageSize };
+    }
+
+    const visibleGroupIds = Array.from(
+      new Set(visiblePairs.map((p) => p.groupId)),
+    );
+    const visiblePairKeys = new Set(
+      visiblePairs.map((p) => pairKey(p.studentId, p.groupId)),
+    );
+
     // Load monthly payments for this month per (studentId, groupId)
     const monthlyRows = await this.monthlyPaymentRepository
       .createQueryBuilder('mp')
       .where('mp.billingMonth = :billingMonth', { billingMonth })
       .andWhere('mp.studentId IN (:...studentIds)', { studentIds })
-      .andWhere('mp.groupId IN (:...groupIds)', { groupIds: uniqueGroupIds })
+      .andWhere('mp.groupId IN (:...groupIds)', { groupIds: visibleGroupIds })
       .orderBy('mp.updatedAt', 'DESC')
       .getMany();
     const monthlyByPair = new Map<string, MonthlyPayment>();
@@ -543,13 +598,13 @@ export class PaymentsService {
       const gid = Number((mp as any).groupId);
       if (!gid) continue;
       const key = pairKey(mp.studentId, gid);
-      if (!pairKeys.has(key)) continue;
+      if (!visiblePairKeys.has(key)) continue;
       if (!monthlyByPair.has(key)) monthlyByPair.set(key, mp);
     }
 
     // Auto-create monthly rows for the selected month when possible (batch)
     const toCreate: MonthlyPayment[] = [];
-    for (const pr of pairs) {
+    for (const pr of visiblePairs) {
       const key = pairKey(pr.studentId, pr.groupId);
       if (monthlyByPair.has(key)) continue;
 
@@ -591,7 +646,7 @@ export class PaymentsService {
         const gid = Number((mp as any).groupId);
         if (!gid) continue;
         const key = pairKey(mp.studentId, gid);
-        if (pairKeys.has(key)) monthlyByPair.set(key, mp);
+        if (visiblePairKeys.has(key)) monthlyByPair.set(key, mp);
       }
     }
 
@@ -599,7 +654,7 @@ export class PaymentsService {
 
     // Create items: one row per student-group combination (with group-specific profile & monthly payment)
     const allItems: any[] = [];
-    for (const pr of pairs) {
+    for (const pr of visiblePairs) {
       const key = pairKey(pr.studentId, pr.groupId);
       const profile = profileByPair.get(key);
       const mp = monthlyByPair.get(key) || null;
@@ -963,80 +1018,158 @@ export class PaymentsService {
       dto.dueDay !== undefined && profile.dueDay !== prevDueDay;
 
     if (needsRecalcAmountDue || needsRecalcDueDate) {
-      const months = await this.monthlyPaymentRepository.find({
-        where: { studentId, groupId: gid } as any,
-        order: { billingMonth: 'ASC' } as any,
+      await this.recalculateMonthlyPaymentsForStudentGroup(profile, {
+        recalculateAmountDue: needsRecalcAmountDue,
+        recalculateDueDate: needsRecalcDueDate,
       });
-
-      const toUpdate: MonthlyPayment[] = [];
-      const today = this.toUtcDateOnly(new Date());
-
-      for (const mp of months) {
-        if (mp.status === MonthlyPaymentStatus.CANCELLED) continue;
-
-        const paid = Number(mp.amountPaid) || 0;
-        let due = Number(mp.amountDue) || 0;
-
-        if (needsRecalcAmountDue) {
-          const monthlyAmount = Number((profile as any).monthlyAmount || 0);
-          let nextDue = 0;
-          if (Number.isFinite(monthlyAmount) && monthlyAmount > 0) {
-            nextDue = this.computeProratedAmountDue({
-              billingMonth: this.toUtcDateOnly(mp.billingMonth as any),
-              monthlyAmount,
-              joinDate: (profile as any).joinDate,
-              leaveDate: (profile as any).leaveDate || null,
-            });
-          }
-
-          if (paid > 0 && nextDue < paid) nextDue = paid;
-          due = nextDue;
-          mp.amountDue = (Number.isFinite(nextDue) ? nextDue : 0) as any;
-
-          // Keep status in sync with updated due.
-          if (due > 0 && paid >= due) {
-            mp.status = MonthlyPaymentStatus.PAID;
-            mp.paidAt = mp.paidAt || new Date();
-          } else {
-            // If previously marked paid but now due increased, revert.
-            if (mp.status === MonthlyPaymentStatus.PAID) {
-              mp.status = MonthlyPaymentStatus.PENDING;
-              mp.paidAt = null;
-            }
-          }
-        }
-
-        const remaining = Math.max(0, due - paid);
-
-        if (needsRecalcDueDate && remaining > 0) {
-          mp.dueDate = this.computeDueDateForMonth(
-            this.toUtcDateOnly(mp.billingMonth as any),
-            profile.dueDay,
-          ) as any;
-        }
-
-        // Re-evaluate overdue/pending when still unpaid.
-        if (remaining <= 0 && due > 0) {
-          mp.status = MonthlyPaymentStatus.PAID;
-          mp.paidAt = mp.paidAt || new Date();
-        } else {
-          const dd = mp.dueDate ? this.toUtcDateOnly(mp.dueDate as any) : null;
-          if (dd && remaining > 0 && dd < today) {
-            mp.status = MonthlyPaymentStatus.OVERDUE;
-          } else {
-            mp.status = MonthlyPaymentStatus.PENDING;
-          }
-        }
-
-        toUpdate.push(mp);
-      }
-
-      if (toUpdate.length > 0) {
-        await this.monthlyPaymentRepository.save(toUpdate);
-      }
     }
 
     return profile;
+  }
+
+  async markStudentLeftGroup(
+    studentId: number,
+    groupId: number,
+    leaveDate?: Date | string,
+  ) {
+    const gid = Number(groupId);
+    if (!Number.isFinite(gid) || gid <= 0) {
+      throw new BadRequestException('groupId noto‘g‘ri');
+    }
+
+    const student = await this.userRepository.findOne({
+      where: { id: studentId, role: UserRole.STUDENT } as any,
+      relations: ['center'],
+    });
+    if (!student) throw new NotFoundException('Student topilmadi');
+
+    const profile = await this.ensureStudentGroupBillingProfile({
+      student,
+      groupId: gid,
+    });
+    const nextLeaveDate = this.toUtcDateOnly(leaveDate || new Date());
+
+    if (
+      profile.leaveDate &&
+      this.toUtcDateOnly(profile.leaveDate).getTime() === nextLeaveDate.getTime()
+    ) {
+      return profile;
+    }
+
+    profile.leaveDate = nextLeaveDate;
+    await this.studentGroupBillingProfileRepository.save(profile);
+    await this.recalculateMonthlyPaymentsForStudentGroup(profile, {
+      recalculateAmountDue: true,
+      recalculateDueDate: false,
+    });
+    return profile;
+  }
+
+  async markStudentJoinedGroup(
+    studentId: number,
+    groupId: number,
+  ): Promise<StudentGroupBillingProfile> {
+    const gid = Number(groupId);
+    if (!Number.isFinite(gid) || gid <= 0) {
+      throw new BadRequestException('groupId noto‘g‘ri');
+    }
+
+    const student = await this.userRepository.findOne({
+      where: { id: studentId, role: UserRole.STUDENT } as any,
+      relations: ['center'],
+    });
+    if (!student) throw new NotFoundException('Student topilmadi');
+
+    const profile = await this.ensureStudentGroupBillingProfile({
+      student,
+      groupId: gid,
+    });
+
+    if (!profile.leaveDate) return profile;
+
+    profile.leaveDate = null;
+    await this.studentGroupBillingProfileRepository.save(profile);
+    await this.recalculateMonthlyPaymentsForStudentGroup(profile, {
+      recalculateAmountDue: true,
+      recalculateDueDate: false,
+    });
+    return profile;
+  }
+
+  private async recalculateMonthlyPaymentsForStudentGroup(
+    profile: StudentGroupBillingProfile,
+    options: { recalculateAmountDue: boolean; recalculateDueDate: boolean },
+  ) {
+    if (!options.recalculateAmountDue && !options.recalculateDueDate) return;
+
+    const months = await this.monthlyPaymentRepository.find({
+      where: { studentId: profile.studentId, groupId: profile.groupId } as any,
+      order: { billingMonth: 'ASC' } as any,
+    });
+
+    if (months.length === 0) return;
+
+    const toUpdate: MonthlyPayment[] = [];
+    const today = this.toUtcDateOnly(new Date());
+
+    for (const mp of months) {
+      if (mp.status === MonthlyPaymentStatus.CANCELLED) continue;
+
+      const paid = Number(mp.amountPaid) || 0;
+      let due = Number(mp.amountDue) || 0;
+
+      if (options.recalculateAmountDue) {
+        const monthlyAmount = Number((profile as any).monthlyAmount || 0);
+        let nextDue = 0;
+        if (Number.isFinite(monthlyAmount) && monthlyAmount > 0) {
+          nextDue = this.computeProratedAmountDue({
+            billingMonth: this.toUtcDateOnly(mp.billingMonth as any),
+            monthlyAmount,
+            joinDate: (profile as any).joinDate,
+            leaveDate: (profile as any).leaveDate || null,
+          });
+        }
+
+        if (paid > 0 && nextDue < paid) nextDue = paid;
+        due = nextDue;
+        mp.amountDue = (Number.isFinite(nextDue) ? nextDue : 0) as any;
+
+        if (due > 0 && paid >= due) {
+          mp.status = MonthlyPaymentStatus.PAID;
+          mp.paidAt = mp.paidAt || new Date();
+        } else if (mp.status === MonthlyPaymentStatus.PAID) {
+          mp.status = MonthlyPaymentStatus.PENDING;
+          mp.paidAt = null;
+        }
+      }
+
+      const remaining = Math.max(0, due - paid);
+
+      if (options.recalculateDueDate && remaining > 0) {
+        mp.dueDate = this.computeDueDateForMonth(
+          this.toUtcDateOnly(mp.billingMonth as any),
+          profile.dueDay,
+        ) as any;
+      }
+
+      if (remaining <= 0 && due > 0) {
+        mp.status = MonthlyPaymentStatus.PAID;
+        mp.paidAt = mp.paidAt || new Date();
+      } else {
+        const dd = mp.dueDate ? this.toUtcDateOnly(mp.dueDate as any) : null;
+        if (dd && remaining > 0 && dd < today) {
+          mp.status = MonthlyPaymentStatus.OVERDUE;
+        } else {
+          mp.status = MonthlyPaymentStatus.PENDING;
+        }
+      }
+
+      toUpdate.push(mp);
+    }
+
+    if (toUpdate.length > 0) {
+      await this.monthlyPaymentRepository.save(toUpdate);
+    }
   }
 
   async previewStudentSettlement(
@@ -2369,6 +2502,12 @@ export class PaymentsService {
 
       const savedPayments = await this.paymentRepository.save(paymentsToSave);
 
+      await Promise.all(
+        savedPayments.map((payment) =>
+          this.markStudentJoinedGroup(payment.studentId, payment.groupId),
+        ),
+      );
+
       for (const p of savedPayments) {
         await this.notificationsService.createForUsers(
           [p.studentId],
@@ -2424,6 +2563,7 @@ export class PaymentsService {
     } as Payment);
 
     const savedPayment = await this.paymentRepository.save(payment);
+    await this.markStudentJoinedGroup(savedPayment.studentId, savedPayment.groupId);
 
     // Create notification for student
     const notificationMessage = createPaymentDto.description
