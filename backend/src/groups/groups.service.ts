@@ -4,9 +4,9 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
+import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import type { Repository } from 'typeorm';
-import { In, QueryFailedError } from 'typeorm';
+import { DataSource, In, QueryFailedError } from 'typeorm';
 import { randomBytes } from 'crypto';
 import { Group } from './entities/group.entity';
 import { CreateGroupDto } from './dto/create-group.dto';
@@ -23,6 +23,7 @@ export class GroupsService {
     @InjectRepository(Center) private readonly centerRepo: Repository<Center>,
     @InjectRepository(Subject)
     private readonly subjectRepo: Repository<Subject>,
+    @InjectDataSource() private readonly dataSource: DataSource,
   ) {}
 
   async create(dto: CreateGroupDto, userId: number): Promise<GroupResponseDto> {
@@ -363,7 +364,41 @@ export class GroupsService {
     }
 
     try {
-      await this.groupRepo.remove(group);
+      await this.dataSource.transaction(async (manager) => {
+        // Clear dependent rows that may still reference the group with
+        // restrictive foreign keys in existing databases.
+        await manager.query(
+          'DELETE FROM "group_students" WHERE "groupId" = $1',
+          [id],
+        );
+        await manager.query('DELETE FROM "exam_groups" WHERE "groupId" = $1', [
+          id,
+        ]);
+        await manager.query('DELETE FROM "attendance" WHERE "groupId" = $1', [
+          id,
+        ]);
+        await manager.query('DELETE FROM "task_not_done" WHERE "groupId" = $1', [
+          id,
+        ]);
+        await manager.query(
+          'DELETE FROM "student_group_billing_profiles" WHERE "groupId" = $1',
+          [id],
+        );
+        await manager.query(
+          'UPDATE "monthly_payments" SET "groupId" = NULL WHERE "groupId" = $1',
+          [id],
+        );
+        await manager.query('DELETE FROM "payments" WHERE "groupId" = $1', [id]);
+        await manager.query(
+          'DELETE FROM "telegram_chats" WHERE "groupId" = $1',
+          [id],
+        );
+        await manager.query(
+          'DELETE FROM "assigned_tests" WHERE "groupId" = $1',
+          [id],
+        );
+        await manager.delete(Group, { id });
+      });
     } catch (err: unknown) {
       const driverCode =
         err instanceof QueryFailedError
