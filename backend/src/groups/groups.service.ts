@@ -14,7 +14,6 @@ import { GroupResponseDto, StudentDto } from './dto/group-response.dto';
 import { User, UserRole } from '../users/entities/user.entity';
 import { Center } from '../centers/entities/center.entity';
 import { Subject } from '../subjects/entities/subject.entity';
-import { PaymentsService } from '../payments/payments.service';
 
 @Injectable()
 export class GroupsService {
@@ -24,7 +23,6 @@ export class GroupsService {
     @InjectRepository(Center) private readonly centerRepo: Repository<Center>,
     @InjectRepository(Subject)
     private readonly subjectRepo: Repository<Subject>,
-    private readonly paymentsService: PaymentsService,
   ) {}
 
   async create(dto: CreateGroupDto, userId: number): Promise<GroupResponseDto> {
@@ -178,18 +176,9 @@ export class GroupsService {
     const allowed = students.filter(
       (s) => s.role === UserRole.STUDENT && s.center?.id === group.center.id,
     );
-    const existingIds = new Set((group.students || []).map((s) => s.id));
-    const addedStudents = allowed.filter((student) => !existingIds.has(student.id));
-
-    await Promise.all(
-      addedStudents.map((student) =>
-        this.paymentsService.markStudentJoinedGroup(student.id, groupId),
-      ),
-    );
-
     group.students = [
       ...(group.students || []),
-      ...addedStudents,
+      ...allowed.filter((a) => !group.students.some((s) => s.id === a.id)),
     ];
     const saved = await this.groupRepo.save(group);
     return this.map(saved);
@@ -221,17 +210,6 @@ export class GroupsService {
     if (!canEdit) {
       throw new ForbiddenException("Siz bu guruhni o'zgartira olmaysiz");
     }
-
-    const isMember = (group.students || []).some((s) => s.id === studentId);
-    if (!isMember) {
-      throw new NotFoundException("O'quvchi guruhda topilmadi");
-    }
-
-    await this.paymentsService.markStudentLeftGroup(
-      studentId,
-      groupId,
-      new Date(),
-    );
 
     group.students = (group.students || []).filter((s) => s.id !== studentId);
     const saved = await this.groupRepo.save(group);
@@ -348,39 +326,13 @@ export class GroupsService {
     if (dto.endTime !== undefined) group.endTime = dto.endTime;
 
     if (dto.studentIds) {
-      const previousStudentIds = new Set((group.students || []).map((s) => s.id));
       const students = await this.userRepo.find({
         where: { id: In(dto.studentIds) },
         relations: ['center'],
       });
-      const nextStudents = students.filter(
+      group.students = students.filter(
         (s) => s.role === UserRole.STUDENT && s.center?.id === group.center.id,
       );
-      const nextStudentIds = new Set(nextStudents.map((s) => s.id));
-      const removedStudentIds = Array.from(previousStudentIds).filter(
-        (studentId) => !nextStudentIds.has(studentId),
-      );
-      const addedStudentIds = Array.from(nextStudentIds).filter(
-        (studentId) => !previousStudentIds.has(studentId),
-      );
-
-      if (removedStudentIds.length > 0) {
-        await Promise.all(
-          removedStudentIds.map((studentId) =>
-            this.paymentsService.markStudentLeftGroup(studentId, id, new Date()),
-          ),
-        );
-      }
-
-      if (addedStudentIds.length > 0) {
-        await Promise.all(
-          addedStudentIds.map((studentId) =>
-            this.paymentsService.markStudentJoinedGroup(studentId, id),
-          ),
-        );
-      }
-
-      group.students = nextStudents;
     }
 
     const saved = await this.groupRepo.save(group);
